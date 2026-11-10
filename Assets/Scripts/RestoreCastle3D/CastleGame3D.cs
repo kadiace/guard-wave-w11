@@ -56,7 +56,8 @@ namespace RestoreCastle3D
         private GameObject _defenseFlag;
         private Rigidbody _flagBody;
         private BoxCollider _flagCollider;
-        private Material _flagMaterial;
+        private Vector3 _initialFlagPosition;
+        private Quaternion _initialFlagRotation;
         private Coroutine _stageFloodRoutine;
         private Camera _camera;
         private CastlePiece3D _outlinedPiece;
@@ -107,7 +108,7 @@ namespace RestoreCastle3D
         private void Update()
         {
             if (_catalog == null) return;
-            if (_defenseFlag != null && _defenseFlag.transform.position.z <= DestructionBoundaryZ)
+            if (_defenseFlag.activeSelf && _defenseFlag.transform.position.z <= DestructionBoundaryZ)
                 DestroyDefenseFlag();
             Mouse mouse = Mouse.current;
             // Track releases even while the fifth drop is finishing or a popup is open.
@@ -243,8 +244,7 @@ namespace RestoreCastle3D
             SetOutlineTargets(null);
             _dropPreview?.Dispose();
             _floodEffect?.Dispose();
-            if (_defenseFlag != null) Destroy(_defenseFlag);
-            if (_flagMaterial != null) Destroy(_flagMaterial);
+
         }
 
         /// <summary>3D 물리 충돌체를 마우스 레이로 탐색해 원본 자재 상세 UI에 전달한다.</summary>
@@ -313,6 +313,11 @@ namespace RestoreCastle3D
             _camera.transform.rotation = Quaternion.Euler(60f, 45f, 0f);
             _cameraTarget = Vector3.zero;
             UpdateCameraPosition();
+            _defenseFlag = GameObject.Find("Defense Flag");
+            _flagBody = _defenseFlag.GetComponent<Rigidbody>();
+            _flagCollider = _defenseFlag.GetComponent<BoxCollider>();
+            _initialFlagPosition = _defenseFlag.transform.position;
+            _initialFlagRotation = _defenseFlag.transform.rotation;
             _placementBounds = GameObject.Find("Flat Muddy Creek Bed")
                 .GetComponent<BoxCollider>().bounds;
         }
@@ -511,7 +516,6 @@ namespace RestoreCastle3D
 
             foreach (CastlePiece3D piece in _pieces)
                 if (piece != null) Destroy(piece.gameObject);
-            if (_defenseFlag != null) Destroy(_defenseFlag);
             _pieces.Clear();
             _pieceSet.Clear();
             _consumedContacts.Clear();
@@ -535,48 +539,20 @@ namespace RestoreCastle3D
             _cameraTarget = Vector3.zero;
             _rightGestureActive = false;
             UpdateCameraPosition();
-            CreateDefenseFlag();
+            ResetDefenseFlag();
             DealOffers();
             _status = "재료를 떨어뜨려 깃발을 지키세요. Q/E: 재료 회전";
         }
 
-        /// <summary>월드 원점에 깃대와 붉은 깃발을 만들어 이번 게임의 보호 대상으로 둔다.</summary>
-        private void CreateDefenseFlag()
+        /// <summary>씬에 저장된 깃발을 초기 위치와 회전으로 복귀시켜 새 게임에서 재사용한다.</summary>
+        private void ResetDefenseFlag()
         {
-            if (_flagMaterial == null)
-                _flagMaterial = new Material(Shader.Find("Universal Render Pipeline/Lit"));
-            _defenseFlag = new GameObject("Defense Flag");
-            _defenseFlag.transform.position = Vector3.zero;
-            CreateFlagPart("Pole", PrimitiveType.Cylinder, new Vector3(0f, -0.7f, 0f),
-                new Vector3(0.1f, 1.4f, 0.1f), new Color(0.72f, 0.53f, 0.25f));
-            CreateFlagPart("Banner", PrimitiveType.Cube, new Vector3(0.55f, 0.35f, 0f),
-                new Vector3(1f, 0.6f, 0.08f), new Color(0.9f, 0.15f, 0.12f));
-            CreateFlagPart("Base", PrimitiveType.Cube, new Vector3(0f, -2.08f, 0f),
-                new Vector3(0.55f, 0.12f, 0.55f), new Color(0.24f, 0.2f, 0.15f));
-            _flagCollider = _defenseFlag.AddComponent<BoxCollider>();
-            _flagCollider.center = new Vector3(0.25f, -0.65f, 0f);
-            _flagCollider.size = new Vector3(1.4f, 2.7f, 0.4f);
-            _flagBody = _defenseFlag.AddComponent<Rigidbody>();
-            _flagBody.mass = 1f;
-            _flagBody.linearDamping = 0.15f;
-            _flagBody.angularDamping = 0.5f;
-        }
-
-        /// <summary>깃발의 한 부분을 지정한 모양, 위치, 크기, 색상으로 만든다.</summary>
-        private void CreateFlagPart(string name, PrimitiveType shape, Vector3 position,
-            Vector3 scale, Color color)
-        {
-            GameObject part = GameObject.CreatePrimitive(shape);
-            part.name = name;
-            part.transform.SetParent(_defenseFlag.transform, false);
-            part.transform.localPosition = position;
-            part.transform.localScale = scale;
-            Renderer renderer = part.GetComponent<Renderer>();
-            part.GetComponent<Collider>().enabled = false;
-            renderer.sharedMaterial = _flagMaterial;
-            MaterialPropertyBlock colors = new MaterialPropertyBlock();
-            colors.SetColor("_BaseColor", color);
-            renderer.SetPropertyBlock(colors);
+            _defenseFlag.SetActive(true);
+            _flagBody.position = _initialFlagPosition;
+            _flagBody.rotation = _initialFlagRotation;
+            _flagBody.linearVelocity = Vector3.zero;
+            _flagBody.angularVelocity = Vector3.zero;
+            Physics.SyncTransforms();
         }
 
         /// <summary>Resources/Prefabs에서 3D 기물을 로드하고 Rigidbody를 통한 중력 낙하를 준비한다.</summary>
@@ -927,10 +903,6 @@ namespace RestoreCastle3D
                 _stageFloodRoutine = null;
             }
             _defenseFlag.SetActive(false);
-            Destroy(_defenseFlag);
-            _defenseFlag = null;
-            _flagBody = null;
-            _flagCollider = null;
             _floodEffect.Hide();
             _stageTransitioning = false;
             _resolving = false;
