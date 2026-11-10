@@ -833,6 +833,21 @@ namespace RestoreCastle3D
                 stagnantTime = flow.MovingWaterVolume <= residualVolume
                     ? stagnantTime + Time.fixedDeltaTime : 0f;
             }
+            // Allow the last wave impulses to resolve before treating the defense as successful.
+            float settleElapsed = 0f;
+            while (settleElapsed < 1f)
+            {
+                yield return new WaitForFixedUpdate();
+                settleElapsed += Time.fixedDeltaTime;
+                if (_defenseFlag != null &&
+                    _defenseFlag.transform.position.z <= DestructionBoundaryZ)
+                {
+                    _stageFloodRoutine = null;
+                    DestroyDefenseFlag();
+                    yield break;
+                }
+            }
+
             _floodEffect.Hide();
             CommitWaveSnapshot();
             _stageTransitioning = false;
