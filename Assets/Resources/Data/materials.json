@@ -1,0 +1,310 @@
+{
+  "schemaVersion": 1,
+  "materials": [
+    {
+      "id": "foundation",
+      "name": "기반",
+      "category": "목재",
+      "startOnly": true,
+      "baseReinforcement": 1,
+      "abilities": [],
+      "abilityAlternatives": []
+    },
+    {
+      "id": "branch",
+      "name": "나뭇가지",
+      "category": "목재",
+      "baseReinforcement": 1,
+      "abilities": [
+        "3턴마다 인접한 [목재]만큼 내구도 상승"
+      ],
+      "abilityAlternatives": []
+    },
+    {
+      "id": "leafy_branch",
+      "name": "나뭇잎 붙은 나뭇가지",
+      "category": "목재",
+      "baseReinforcement": 1,
+      "abilities": [
+        "2턴마다 인접한 [목재]만큼 내구도 상승"
+      ],
+      "abilityAlternatives": []
+    },
+    {
+      "id": "log",
+      "name": "통나무",
+      "category": "목재",
+      "baseReinforcement": 5,
+      "abilities": [
+        "인접한 모든 [목재]의 내구도 합만큼 상승"
+      ],
+      "abilityAlternatives": []
+    },
+    {
+      "id": "pebble",
+      "name": "조약돌",
+      "category": "석재",
+      "baseReinforcement": 2,
+      "abilities": [],
+      "abilityAlternatives": []
+    },
+    {
+      "id": "large_stone",
+      "name": "큰 돌",
+      "category": "석재",
+      "baseReinforcement": 2,
+      "abilities": [
+        "인접한 [석재]가 2개 이상이면, 내구도 +2"
+      ],
+      "abilityAlternatives": []
+    },
+    {
+      "id": "fossil",
+      "name": "화석",
+      "category": "석재",
+      "baseReinforcement": 0,
+      "abilities": [
+        "인접한 \"화석\"이 3개 이상이면, 내구도 +10"
+      ],
+      "abilityAlternatives": []
+    },
+    {
+      "id": "growing_vine",
+      "name": "성장 덩쿨",
+      "category": "식물",
+      "baseReinforcement": 1,
+      "abilities": [
+        "처음 닿은 자재와 영구 부착해 상대의 특수능력을 제거하고 기본 내구도만큼 자신의 내구도를 얻는다. 원래 자재의 기본 내구도는 유지된다. 3턴마다 인접 위치에 덩쿨을 만든다. 홍수 때 함께 소멸한다."
+      ],
+      "abilityAlternatives": []
+    },
+    {
+      "id": "vine",
+      "name": "덩쿨",
+      "category": "식물",
+      "spawnOnly": true,
+      "baseReinforcement": 1,
+      "abilities": [
+        "처음 닿은 자재와 영구 부착해 상대 특수능력을 제거하고 기본 내구도를 흡수한다. 홍수 때 함께 소멸한다."
+      ],
+      "abilityAlternatives": []
+    },
+    {
+      "id": "living_tree",
+      "name": "살아있는 나무",
+      "category": "식물",
+      "baseReinforcement": 1,
+      "abilities": [
+        "2턴마다 커지고, 내구도가 1 증가한다."
+      ],
+      "abilityAlternatives": []
+    },
+    {
+      "id": "bamboo",
+      "name": "대나무",
+      "category": "식물",
+      "baseReinforcement": 1,
+      "abilities": [
+        "1라운드마다 길어지고, 길어진 경로에 있던 오브젝트는 파괴된다. 내구도가 1 증가한다."
+      ],
+      "abilityAlternatives": []
+    },
+    {
+      "id": "sunflower",
+      "name": "해바라기",
+      "category": "식물",
+      "baseReinforcement": 1,
+      "abilities": [
+        "그저 당신만 바라보고 있다."
+      ],
+      "abilityAlternatives": []
+    },
+    {
+      "id": "shoe",
+      "name": "신발",
+      "category": "쓰레기",
+      "baseReinforcement": 3,
+      "abilities": [],
+      "abilityAlternatives": []
+    },
+    {
+      "id": "tire",
+      "name": "타이어",
+      "category": "쓰레기",
+      "baseReinforcement": 4,
+      "abilities": [
+        "인접한 [쓰레기]마다 내구도 -1"
+      ],
+      "abilityAlternatives": []
+    },
+    {
+      "id": "traffic_cone",
+      "name": "라바콘",
+      "category": "쓰레기",
+      "baseReinforcement": 2,
+      "abilities": [
+        "콘 꼭대기와 닿고 있는 자재의 특수효과 비활성화"
+      ],
+      "abilityAlternatives": []
+    },
+    {
+      "id": "bucket",
+      "name": "양동이",
+      "category": "쓰레기",
+      "baseReinforcement": 3,
+      "abilities": [
+        "배치 시 자신의 내구도 +6"
+      ],
+      "abilityAlternatives": []
+    },
+    {
+      "id": "watering_can",
+      "name": "물뿌리개",
+      "category": "쓰레기",
+      "baseReinforcement": 1,
+      "abilities": [
+        "인접한 [식물]에게 내구도 +1"
+      ],
+      "abilityAlternatives": []
+    },
+    {
+      "id": "umbrella",
+      "name": "우산",
+      "category": "쓰레기",
+      "baseReinforcement": 3,
+      "abilities": [
+        "배치 후 3턴동안 내구도 +3 (이후 되돌아옴)"
+      ],
+      "abilityAlternatives": []
+    },
+    {
+      "id": "life_jacket",
+      "name": "구명조끼",
+      "category": "쓰레기",
+      "baseReinforcement": 5,
+      "abilities": [],
+      "abilityAlternatives": []
+    },
+    {
+      "id": "life_ring",
+      "name": "구명튜브",
+      "category": "쓰레기",
+      "baseReinforcement": 3,
+      "abilities": [
+        "인접한 [쓰레기] 하나마다 내구도 +1 (최대 +2)"
+      ],
+      "abilityAlternatives": []
+    },
+    {
+      "id": "barrel",
+      "name": "오크통",
+      "category": "쓰레기",
+      "baseReinforcement": 2,
+      "abilities": [
+        "첫 물리 충돌 후 1초 뒤 폭발해 주변 기물을 밀어 날림 (오크통 포함 기물 소멸 없음)"
+      ],
+      "abilityAlternatives": []
+    },
+    {
+      "id": "rubber_duck",
+      "name": "고무오리",
+      "category": "쓰레기",
+      "baseReinforcement": 1,
+      "abilities": [
+        "\"구명 튜브\"와 인접해 있다면 내구도 +4"
+      ],
+      "abilityAlternatives": []
+    },
+    {
+      "id": "dented_can",
+      "name": "찌그러진 캔",
+      "category": "쓰레기",
+      "baseReinforcement": 1,
+      "abilities": [
+        "인접한 [식물]마다 내구도 +1"
+      ],
+      "abilityAlternatives": []
+    },
+    {
+      "id": "loose_work_glove",
+      "name": "헐거운 노가다 목장갑",
+      "category": "쓰레기",
+      "baseReinforcement": 1,
+      "abilities": [
+        "인접한 [목재]에게 내구도 +1"
+      ],
+      "abilityAlternatives": []
+    },
+    {
+      "id": "broken_game_controller",
+      "name": "고장난 게임 컨트롤러",
+      "category": "쓰레기",
+      "baseReinforcement": 0,
+      "abilities": [
+        "인접한 [쓰레기] 종류마다 내구도 +1"
+      ],
+      "abilityAlternatives": []
+    },
+    {
+      "id": "all_purpose_glue",
+      "name": "만능 접착제",
+      "category": "쓰레기",
+      "baseReinforcement": -1,
+      "abilities": [
+        "인접한 자재 종류마다 내구도 +1",
+        "자신과 닿은 모든 기물을 부착한다"
+      ],
+      "abilityAlternatives": []
+    },
+    {
+      "id": "empty_bottle",
+      "name": "빈 병",
+      "category": "쓰레기",
+      "baseReinforcement": 1,
+      "abilities": [
+        "리롤권 1개 획득"
+      ],
+      "abilityAlternatives": []
+    },
+    {
+      "id": "waste_bag_small",
+      "name": "폐기물 봉지(소)",
+      "category": "폐기물",
+      "baseReinforcement": 4,
+      "abilities": [
+        "인접한 [쓰레기], [폐기물]이 아닌 오브젝트의 내구도를 -1"
+      ],
+      "abilityAlternatives": []
+    },
+    {
+      "id": "waste_bag_medium",
+      "name": "쓰레기 봉투",
+      "category": "폐기물",
+      "baseReinforcement": 6,
+      "abilities": [
+        "인접한 [쓰레기], [폐기물]이 아닌 오브젝트의 내구도를 -2"
+      ],
+      "abilityAlternatives": []
+    },
+    {
+      "id": "waste_bag_large",
+      "name": "폐기물 봉지(대)",
+      "category": "폐기물",
+      "baseReinforcement": 10,
+      "abilities": [
+        "인접한 [쓰레기], [폐기물]이 아닌 오브젝트의 내구도를 -3"
+      ],
+      "abilityAlternatives": []
+    },
+    {
+      "id": "foul_smelling_lump",
+      "name": "고약한 냄새가 나는 덩어리",
+      "category": "폐기물",
+      "baseReinforcement": 20,
+      "abilities": [
+        "인접 자재를 모두 파괴한다."
+      ],
+      "abilityAlternatives": []
+    }
+  ]
+}
