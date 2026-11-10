@@ -11,8 +11,6 @@ namespace RestoreCastle3D
 {
     public sealed class CastleGame3D : MonoBehaviour
     {
-        private const int ROUNDS_PER_STAGE = 5;
-        private const int PLACEMENTS_PER_ROUND = 5;
         private const int STAGE_COUNT = 5;
         private const float FLOOD_DURATION_INCREASE_PER_STAGE = 0.2f;
         private const float FLOOD_DEPTH_INCREASE_PER_STAGE = 0.5f;
@@ -58,13 +56,12 @@ namespace RestoreCastle3D
         private BoxCollider _flagCollider;
         private Material _flagMaterial;
         private Coroutine _stageFloodRoutine;
+        private WaveSnapshot _waveSnapshot;
         private Camera _camera;
         private CastlePiece3D _outlinedPiece;
         private System.Random _random;
         private Vector3 _cameraTarget;
         private int _selected = -1;
-        private int _turn;
-        private int _placementsInRound;
         private int _pendingDrops;
         private float _lastDropTime = float.NegativeInfinity;
         private bool _dropMouseReleased = true;
@@ -78,7 +75,6 @@ namespace RestoreCastle3D
         private bool _resolving;
         private bool _awaitingStage;
         private bool _finished;
-        private bool _stagePassed;
         private string _status;
 
         [Header("Camera input")]
@@ -107,15 +103,16 @@ namespace RestoreCastle3D
         private void Update()
         {
             if (_catalog == null) return;
-            if (_defenseFlag != null && _defenseFlag.transform.position.z <= DestructionBoundaryZ)
+            if (_defenseFlag != null && _defenseFlag.activeSelf &&
+                _defenseFlag.transform.position.z <= DestructionBoundaryZ)
                 DestroyDefenseFlag();
             Mouse mouse = Mouse.current;
-            // Track releases even while the fifth drop is finishing or a popup is open.
+            // Track releases while pieces are falling or a popup is open.
             if (mouse != null && mouse.leftButton.wasReleasedThisFrame)
                 _dropMouseReleased = true;
 
             UpdateCameraInput();
-            if (!_stageTransitioning)
+            if (!_stageTransitioning && !_awaitingStage && !_finished)
             {
                 ApplyContactGlue();
                 UpdateHoveredPiece();
@@ -140,7 +137,6 @@ namespace RestoreCastle3D
             if (mouse == null || !mouse.leftButton.wasPressedThisFrame ||
                 mouse.rightButton.isPressed || mouse.rightButton.wasReleasedThisFrame ||
                 !_dropMouseReleased || _selected < 0 ||
-                _placementsInRound >= PLACEMENTS_PER_ROUND ||
                 Time.unscaledTime - _lastDropTime < dropClickCooldown)
                 return;
 
@@ -157,16 +153,14 @@ namespace RestoreCastle3D
                 new Vector3(placement.x, dropHeight, placement.z)));
         }
 
-        /// <summary>Esc 또는 우클릭으로 현재 라운드의 고정 후보를 다시 연다.</summary>
+        /// <summary>Esc 또는 우클릭으로 자재 후보 선택창을 다시 연다.</summary>
         private void OpenCandidatePalette()
         {
             if (_resolving || _awaitingStage || _finished || _rulesOpen) return;
             _paletteOpen = true;
             _selected = -1;
             HideDropPreview();
-            if (_placementsInRound > 0)
-                _status = "후보를 다시 선택하세요. 남은 배치 "
-                    + (PLACEMENTS_PER_ROUND - _placementsInRound) + "회 (리롤 불가)";
+            _status = "후보를 다시 선택하세요.";
         }
 
         /// <summary>화면 커서가 배치 가능한 월드 XZ에 있으면 그 위치를 반환한다.</summary>
@@ -340,19 +334,18 @@ namespace RestoreCastle3D
 
         public int StageNumber => Mathf.Min(_stage + 1, STAGE_COUNT);
         public int StageCount => STAGE_COUNT;
-        public int RoundsPerStage => ROUNDS_PER_STAGE;
-        public int CurrentStageRound => _awaitingStage ? ROUNDS_PER_STAGE : _turn % ROUNDS_PER_STAGE + 1;
-        public int PlacementsPerRound => PLACEMENTS_PER_ROUND;
         public float RotationSpeed { get; set; } = 90f;
         public float CameraYawPerScrollStep { get; set; } = 5f;
-        public int PlacementsThisRound => _placementsInRound;
-        // The palette hides after each real drop; Esc/right-click reopens it.
-        public bool IsRoundPlacing => _resolving || !_paletteOpen;
+        public bool IsPaletteHidden => !_paletteOpen || _stageTransitioning || _awaitingStage || _finished;
+        public bool CanReady => !_stageTransitioning && !_resolving && !_awaitingStage
+            && !_finished && !_rulesOpen && _pendingDrops == 0 && _defenseFlag != null
+            && _defenseFlag.activeInHierarchy && !_pieces.Any(x => x != null && x.FusePending);
         public int RerollCount => _rerolls + _extraRerolls;
         public bool CanSelect => !_resolving && !_awaitingStage && !_finished && !_rulesOpen
-            && _paletteOpen && _placementsInRound < PLACEMENTS_PER_ROUND;
-        public bool CanReroll => CanSelect && _placementsInRound == 0;
-        public bool CanShowItemInfo => !_awaitingStage && !_finished && !_rulesOpen;
+            && _paletteOpen && !_stageTransitioning;
+        public bool CanReroll => CanSelect;
+        public bool CanShowItemInfo => !_awaitingStage && !_finished && !_rulesOpen
+            && !_stageTransitioning;
         public event Action<CastleChange3D> ChangeCommitted;
 
         /// <summary>게임 규칙이 확정한 변화를 위치와 원인을 보존한 채 표시 시스템에 전달한다.</summary>
@@ -365,9 +358,8 @@ namespace RestoreCastle3D
         public CastleMaterial3D GetPieceMaterial(CastlePiece3D piece) => _catalog.Get(piece.MaterialId);
         /// <summary>현재 충돌 상태에 따라 해당 기물에 닿는 기물 목록을 제공한다.</summary>
         public CastlePiece3D[] GetTouchingPieces(CastlePiece3D piece) => Adjacent(piece).ToArray();
-        public bool AwaitingStage => _awaitingStage;
+        public bool AwaitingFailure => _awaitingStage;
         public bool IsFinished => _finished;
-        public bool StagePassed => _stagePassed;
         public string StatusMessage => _status;
         public int PieceCount => _pieces.Count;
         public int SelectedOffer => _selected;
@@ -378,8 +370,7 @@ namespace RestoreCastle3D
         {
             if (!CanSelect || index < 0 || index >= _offers.Length) return;
             _selected = index;
-            _status = _offers[index].name + " 선택 (남은 배치 "
-                + (PLACEMENTS_PER_ROUND - _placementsInRound) + "회)";
+            _status = _offers[index].name + " 선택";
         }
 
         /// <summary>규칙 창이 열려 있는 동안 게임의 배치 입력을 잠근다.</summary>
@@ -388,7 +379,7 @@ namespace RestoreCastle3D
             _rulesOpen = isOpen;
         }
 
-        /// <summary>스테이지 또는 전체 게임 종료 팝업에서 재시작한다.</summary>
+        /// <summary>전체 게임 종료 팝업에서 처음부터 다시 시작한다.</summary>
         public void Restart()
         {
             ResetGame();
@@ -508,6 +499,7 @@ namespace RestoreCastle3D
             }
             _floodEffect?.Hide();
             _stageTransitioning = false;
+            CommitWaveSnapshot();
 
             foreach (CastlePiece3D piece in _pieces)
                 if (piece != null) Destroy(piece.gameObject);
@@ -516,13 +508,11 @@ namespace RestoreCastle3D
             _pieceSet.Clear();
             _consumedContacts.Clear();
             _random = new System.Random(Environment.TickCount);
-            _turn = 0;
             _stage = 0;
             _rerolls = 3;
             _extraRerolls = 0;
             _selected = -1;
             _paletteOpen = true;
-            _placementsInRound = 0;
             _pendingDrops = 0;
             _lastDropTime = float.NegativeInfinity;
             _dropMouseReleased = true;
@@ -587,7 +577,7 @@ namespace RestoreCastle3D
             GameObject instance = Instantiate(prefab, position, Quaternion.Euler(0f, _objectYaw, 0f));
             instance.name = material.name;
             CastlePiece3D piece = instance.GetComponent<CastlePiece3D>();
-            piece.Initialize(this, _turn);
+            piece.Initialize(this, 0);
             piece.Body.isKinematic = anchored;
             piece.Body.useGravity = !anchored;
             _pieces.Add(piece);
@@ -622,7 +612,6 @@ namespace RestoreCastle3D
                 }
             }
             _selected = -1;
-            _placementsInRound = 0;
             _paletteOpen = true;
             HideDropPreview();
         }
@@ -637,27 +626,19 @@ namespace RestoreCastle3D
             DealOffers();
         }
 
-        /// <summary>각 기물의 낙하는 병렬 진행하고 5개가 모두 안정화되면 라운드를 정산한다.</summary>
+        /// <summary>기물 배치 후 후보를 즉시 갱신하고 떨어지는 기물 수를 추적한다.</summary>
         private IEnumerator DropAndResolve(CastleMaterial3D material, Vector3 position)
         {
-            // StartCoroutine executes this section immediately, before its first
-            // yield. Therefore subsequent clicks may spawn while earlier drops
-            // are still falling, without unlocking the chosen material.
             CastlePiece3D dropped = Spawn(material, position);
-            _placementsInRound++;
             _pendingDrops++;
-            bool finalDrop = _placementsInRound == PLACEMENTS_PER_ROUND;
-            if (finalDrop) _resolving = true;
-
             if (material.id == "empty_bottle")
             {
                 _extraRerolls++;
                 PublishChange(new CastleChange3D(dropped, dropped, CastleChangeKind.Resource,
                     1, dropped.transform.position, "리롤권 +1"));
             }
-            _status = material.name + " 배치 " + _placementsInRound + " / "
-                + PLACEMENTS_PER_ROUND
-                + (finalDrop ? " — 낙하 정산 대기 중" : " (계속 드랍 가능)");
+            _status = material.name + " 배치 중. 준비가 끝나면 준비완료를 누르세요.";
+            DealOffers();
 
             float elapsed = 0f;
             while (elapsed < 7f)
@@ -669,68 +650,8 @@ namespace RestoreCastle3D
             }
 
             _pendingDrops--;
-
-            // Only the fifth placement owns round completion. Earlier coroutines
-            // finish independently even if all five were spawned in the meantime.
-            if (!finalDrop)
-                yield break;
-
-            // Wait for every previously spawned piece, not just the fifth one.
-            while (_pendingDrops > 0)
-                yield return null;
-
-            // Barrel fuses and effects must finish before the round is scored.
-            float fuseElapsed = 0f;
-            while (_pieces.Any(x => x != null && x.MaterialId == "barrel" && x.FusePending)
-                && fuseElapsed < 3.5f)
-            {
-                yield return null;
-                fuseElapsed += Time.deltaTime;
-            }
-
-            yield return new WaitForSeconds(0.3f);
-            _turn++;
-            TickPeriodic();
-            if (_turn % ROUNDS_PER_STAGE == 0)
-                FinishStage();
-            else
-            {
-                _resolving = false;
-                DealOffers();
-            }
-            if (!_awaitingStage) _status = "라운드 정산 완료";
-        }
-
-        /// <summary>원본 턴 기반 식물 성장 및 덩굴 번식을 물리 기물에 적용한다.</summary>
-        private void TickPeriodic()
-        {
-            foreach (CastlePiece3D piece in _pieces.ToArray())
-            {
-                if (piece == null || IsAbilityDisabled(piece)) continue;
-                int age = _turn - piece.PlacedTurn;
-                if (age <= 0) continue;
-                if (piece.MaterialId == "living_tree" && age % 2 == 0)
-                {
-                    piece.transform.localScale *= 1.1f;
-                    PublishChange(new CastleChange3D(piece, piece, CastleChangeKind.Growth,
-                        0, piece.transform.position));
-                }
-                if (piece.MaterialId == "bamboo")
-                {
-                    BoxCollider collider = piece.GetComponent<BoxCollider>();
-                    collider.center += Vector3.up * 0.5f;
-                    collider.size += Vector3.up;
-                    foreach (Transform child in piece.transform)
-                    {
-                        child.localPosition += Vector3.up * 0.5f;
-                        Vector3 scale = child.localScale;
-                        scale.y += 1f;
-                        child.localScale = scale;
-                    }
-                    PublishChange(new CastleChange3D(piece, piece, CastleChangeKind.Growth,
-                        0, piece.transform.position));
-                }
-            }
+            if (_pendingDrops == 0 && !_stageTransitioning && !_awaitingStage)
+                _status = "배치 완료. 준비완료를 누르면 파도가 시작됩니다.";
         }
 
         /// <summary>접촉한 모든 기물을 접착제에 결합하고, 기물 제거 시에는 결합을 해제한다.</summary>
@@ -816,7 +737,10 @@ namespace RestoreCastle3D
                 _pieces.Remove(current);
                 PublishChange(new CastleChange3D(current, piece, reason, 0,
                     current.transform.position));
-                Destroy(current.gameObject, destructionDelay);
+                if (_waveSnapshot != null)
+                    current.gameObject.SetActive(false);
+                else
+                    Destroy(current.gameObject, destructionDelay);
             }
             return connected.Count;
         }
@@ -855,15 +779,17 @@ namespace RestoreCastle3D
             _status = "오크통 폭발: " + targets.Count + "개 주변 기물을 날렸습니다.";
         }
 
-        /// <summary>스테이지 완료 팝업을 표시한다.</summary>
-        private void FinishStage()
+        /// <summary>준비완료 시 깃발과 기물의 물리 상태를 저장하고 파도를 시작한다.</summary>
+        public void Ready()
         {
+            if (!CanReady) return;
             SetOutlineTargets(null);
             HideDropPreview();
-            _stagePassed = true;
-            _status = "닫기 버튼을 누르면 홍수가 시작됩니다.";
-            _awaitingStage = true;
-            _resolving = false;
+            _waveSnapshot = CaptureWaveSnapshot();
+            _stageTransitioning = true;
+            _resolving = true;
+            _status = "홍수 발생: 기물과 깃발을 지키세요.";
+            _stageFloodRoutine = StartCoroutine(ResolveStageFlood());
         }
 
         /// <summary>
@@ -908,6 +834,7 @@ namespace RestoreCastle3D
                     ? stagnantTime + Time.fixedDeltaTime : 0f;
             }
             _floodEffect.Hide();
+            CommitWaveSnapshot();
             _stageTransitioning = false;
             _stageFloodRoutine = null;
             _resolving = false;
@@ -918,7 +845,7 @@ namespace RestoreCastle3D
             _status = "홍수가 지나갔습니다. 다음 스테이지를 시작하세요.";
         }
 
-        /// <summary>깃발이 절벽 뒤 파괴 경계를 넘으면 홍수를 멈추고 실패 팝업을 표시한다.</summary>
+        /// <summary>깃발이 파괴 경계를 넘으면 파도를 멈추고 실패 팝업을 표시한다.</summary>
         private void DestroyDefenseFlag()
         {
             if (_stageFloodRoutine != null)
@@ -927,17 +854,123 @@ namespace RestoreCastle3D
                 _stageFloodRoutine = null;
             }
             _defenseFlag.SetActive(false);
-            Destroy(_defenseFlag);
-            _defenseFlag = null;
-            _flagBody = null;
-            _flagCollider = null;
             _floodEffect.Hide();
             _stageTransitioning = false;
             _resolving = false;
-            _stagePassed = false;
             _awaitingStage = true;
             _finished = false;
-            _status = "깃발이 절벽에 휘말려 파괴되었습니다. 닫기 버튼을 누르면 처음부터 다시 시작합니다.";
+            _status = _waveSnapshot != null
+                ? "깃발이 파괴되었습니다. 확인을 누르면 준비완료 직전으로 돌아갑니다."
+                : "깃발이 파괴되었습니다. 확인을 누르면 처음부터 다시 시작합니다.";
+        }
+
+        /// <summary>준비완료 직전의 깃발과 기물의 물리 상태를 저장한다.</summary>
+        private WaveSnapshot CaptureWaveSnapshot()
+        {
+            WaveSnapshot snapshot = new WaveSnapshot { Flag = new RigidbodyState(_flagBody) };
+            foreach (CastlePiece3D piece in _pieces)
+                if (piece != null) snapshot.Pieces.Add(new PieceState(piece));
+            return snapshot;
+        }
+
+        /// <summary>파도 중 제거된 기물까지 준비완료 직전의 위치와 속도로 되돌린다.</summary>
+        private void RestoreWaveSnapshot()
+        {
+            SetOutlineTargets(null);
+            HideDropPreview();
+            foreach (CastlePiece3D piece in _pieces)
+                if (piece != null) piece.gameObject.SetActive(false);
+            _pieces.Clear();
+            _pieceSet.Clear();
+            foreach (PieceState state in _waveSnapshot.Pieces)
+            {
+                CastlePiece3D piece = state.Piece;
+                if (piece == null) continue;
+                piece.ClearContacts();
+                piece.gameObject.SetActive(true);
+                state.Body.Restore(piece.Body);
+                _pieces.Add(piece);
+                _pieceSet.Add(piece);
+            }
+            _defenseFlag.SetActive(true);
+            _waveSnapshot.Flag.Restore(_flagBody);
+            Physics.SyncTransforms();
+            _waveSnapshot = null;
+            _awaitingStage = false;
+            _stageTransitioning = false;
+            _resolving = false;
+            _status = "파도 직전 상태로 복원했습니다. 배치를 바꾸고 다시 준비완료를 누르세요.";
+        }
+
+        /// <summary>성공한 파도에서 제거된 기물을 실제로 파괴하고 스냅샷을 해제한다.</summary>
+        private void CommitWaveSnapshot()
+        {
+            if (_waveSnapshot == null) return;
+            foreach (PieceState state in _waveSnapshot.Pieces)
+                if (state.Piece != null && !_pieceSet.Contains(state.Piece))
+                    Destroy(state.Piece.gameObject);
+            _waveSnapshot = null;
+        }
+
+        private sealed class WaveSnapshot
+        {
+            public readonly List<PieceState> Pieces = new List<PieceState>();
+            public RigidbodyState Flag;
+        }
+
+        private readonly struct PieceState
+        {
+            public readonly CastlePiece3D Piece;
+            public readonly RigidbodyState Body;
+
+            /// <summary>기물과 해당 시점의 물리 상태를 저장한다.</summary>
+            public PieceState(CastlePiece3D piece)
+            {
+                Piece = piece;
+                Body = new RigidbodyState(piece.Body);
+            }
+        }
+
+        private readonly struct RigidbodyState
+        {
+            private readonly Vector3 _position;
+            private readonly Quaternion _rotation;
+            private readonly Vector3 _scale;
+            private readonly Vector3 _velocity;
+            private readonly Vector3 _angularVelocity;
+            private readonly bool _sleeping;
+            private readonly bool _kinematic;
+            private readonly bool _useGravity;
+
+            /// <summary>리지드바디의 위치, 속도 및 물리 속성을 기록한다.</summary>
+            public RigidbodyState(Rigidbody body)
+            {
+                _position = body.position;
+                _rotation = body.rotation;
+                _scale = body.transform.localScale;
+                _velocity = body.linearVelocity;
+                _angularVelocity = body.angularVelocity;
+                _sleeping = body.IsSleeping();
+                _kinematic = body.isKinematic;
+                _useGravity = body.useGravity;
+            }
+
+            /// <summary>리지드바디의 위치, 속도 및 물리 속성을 복원한다.</summary>
+            public void Restore(Rigidbody body)
+            {
+                body.isKinematic = _kinematic;
+                body.useGravity = _useGravity;
+                body.transform.localScale = _scale;
+                body.position = _position;
+                body.rotation = _rotation;
+                if (!body.isKinematic)
+                {
+                    body.linearVelocity = _velocity;
+                    body.angularVelocity = _angularVelocity;
+                }
+                if (_sleeping) body.Sleep();
+                else body.WakeUp();
+            }
         }
 
         /// <summary>파도가 풀밭으로 번지지 않도록 위쪽 강바닥의 실제 경계만 캡처한다.</summary>
@@ -964,16 +997,16 @@ namespace RestoreCastle3D
             }
         }
 
-        /// <summary>실패 시 재시작하고 통과 시 팝업을 닫아 홍수와 다음 스테이지를 진행한다.</summary>
-        public void ContinueStage()
+        /// <summary>실패 팝업 확인 시 준비완료 직전 상태를 복원한다.</summary>
+        public void ConfirmFailure()
         {
-            if (!_awaitingStage || _stageTransitioning) return;
-            if (!_stagePassed || _finished) { ResetGame(); return; }
-            _awaitingStage = false;
-            _stageTransitioning = true;
-            _resolving = true;
-            _status = "홍수 발생: 물건들이 휩쓸려 갑니다...";
-            _stageFloodRoutine = StartCoroutine(ResolveStageFlood());
+            if (!_awaitingStage) return;
+            if (_waveSnapshot == null)
+            {
+                ResetGame();
+                return;
+            }
+            RestoreWaveSnapshot();
         }
 
     }

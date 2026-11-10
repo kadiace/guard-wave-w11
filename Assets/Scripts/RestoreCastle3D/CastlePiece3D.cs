@@ -92,6 +92,14 @@ namespace RestoreCastle3D
             _contacts.Clear();
         }
 
+        /// <summary>파도 재시도 시 이전 충돌 접촉만 정리하고 기존 결합 조인트는 유지한다.</summary>
+        public void ClearContacts()
+        {
+            foreach (CastlePiece3D other in _contacts)
+                if (other != null) other._contacts.Remove(this);
+            _contacts.Clear();
+        }
+
         /// <summary>충돌한 두 기물을 양방향 접촉 그래프에 기록한다. 바닥 충돌은 제외한다.</summary>
         private void Register(Collision collision)
         {

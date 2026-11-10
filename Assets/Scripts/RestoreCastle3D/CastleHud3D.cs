@@ -20,7 +20,6 @@ namespace RestoreCastle3D
 
         private CastleGame3D _game;
         private Text _stage;
-        private Text _round;
         private Text _durability;
         private Text _target;
         private Text _rerollAction;
@@ -35,6 +34,7 @@ namespace RestoreCastle3D
         private GameObject _completePopup;
         private GameObject _rulesPopup;
         private Button _rerollButton;
+        private Button _readyButton;
         private CastlePiece3D _hoveredPiece;
         private int _hoveredCard = -1;
         private const float TooltipMargin = 14f;
@@ -55,7 +55,7 @@ namespace RestoreCastle3D
         {
             _game = game;
             _stage = FindText("TopBar/StageStat/Value");
-            _round = FindText("TopBar/RoundStat/Value");
+            transform.Find("TopBar/RoundStat").gameObject.SetActive(false);
             _durability = FindText("TopBar/DurabilityStat/Value");
             _target = FindText("TopBar/TargetStat/Value");
             _detail = FindText("PlacementDetailPanel/DetailText");
@@ -128,18 +128,27 @@ namespace RestoreCastle3D
             // The 2D manual removal action was replaced by the barrel explosion in 3D.
             transform.Find("TopBar/BombStat").gameObject.SetActive(false);
             transform.Find("CandidateSelectionRow/CandidateActions/BombActionButton").gameObject.SetActive(false);
-            transform.Find("TopBar/RulesButton").GetComponent<Button>().onClick.AddListener(ShowRules);
+            Button rulesButton = transform.Find("TopBar/RulesButton").GetComponent<Button>();
+            rulesButton.onClick.AddListener(ShowRules);
+            _readyButton = Instantiate(rulesButton, rulesButton.transform.parent);
+            _readyButton.name = "ReadyButton";
+            _readyButton.transform.SetAsLastSibling();
+            _readyButton.onClick.RemoveAllListeners();
+            _readyButton.onClick.AddListener(_game.Ready);
+            _readyButton.GetComponentInChildren<Text>().text = "준비완료";
             transform.Find("RulesPopup/CloseButton").GetComponent<Button>().onClick.AddListener(HideRules);
-            transform.Find("StageResultPopup/CloseButton").GetComponent<Button>().onClick.AddListener(_game.ContinueStage);
+            Button confirmButton = transform.Find("StageResultPopup/CloseButton").GetComponent<Button>();
+            confirmButton.onClick.AddListener(_game.ConfirmFailure);
+            confirmButton.GetComponentInChildren<Text>().text = "확인";
             transform.Find("RunCompletePopup/CloseButton").GetComponent<Button>().onClick.AddListener(_game.Restart);
 
             _stagePopup.SetActive(false);
             _completePopup.SetActive(false);
             _rulesPopup.SetActive(false);
             _tooltip.SetActive(false);
-            _rulesBody.text = @"매 스테이지마다 강 상류에서 홍수가 밀려옵니다.
-기물을 쌓아 원점의 깃발을 지키세요!
-깃발이 물살에 밀려 절벽 뒤 파괴 경계를 넘으면 처음부터 다시 시작합니다.
+            _rulesBody.text = @"기물을 원하는 만큼 배치하고 우측 상단의 준비완료를 누르면 홍수가 밀려옵니다.
+깃발을 지키세요! 파도에 깃발이 밀려 절벽 뒤 파괴 경계를 넘으면 방어에 실패합니다.
+실패 팝업의 확인을 누르면 준비완료를 누르기 직전의 배치로 돌아갑니다.
 
 우클릭 드래그: 카메라 이동
 스크롤: 확대
@@ -158,11 +167,11 @@ Q/E: 기물 회전 / Esc: 선택 취소
             Refresh();
         }
 
-        /// <summary>첫 실제 드랍을 시작할 때 아래로 숨기고 다음 라운드에 다시 올린다.</summary>
+        /// <summary>후보가 닫혀 있거나 파도 진행 중에는 선택 패널을 아래로 숨긴다.</summary>
         private void AnimateCandidatePanel()
         {
             if (_candidatePanel == null) return;
-            float target = _game.IsRoundPlacing ? 1f : 0f;
+            float target = _game.IsPaletteHidden ? 1f : 0f;
             _candidateSlide = Mathf.MoveTowards(_candidateSlide, target,
                 Time.unscaledDeltaTime / Mathf.Max(0.05f, candidateSlideDuration));
             float eased = candidateSlideCurve == null
@@ -205,18 +214,16 @@ Q/E: 기물 회전 / Esc: 선택 취소
         private void Refresh()
         {
             _stage.text = "STAGE " + _game.StageNumber + " / " + _game.StageCount;
-            _round.text = "ROUND " + _game.CurrentStageRound + " / " + _game.RoundsPerStage
-                + (_game.PlacementsThisRound > 0 ? "   배치 " + _game.PlacementsThisRound
-                    + " / " + _game.PlacementsPerRound : "");
             _durability.transform.parent.gameObject.SetActive(false);
             _target.transform.parent.gameObject.SetActive(false);
             _rerollAction.text = "리롤\n" + _game.RerollCount;
-            if (_game.IsRoundPlacing && _hoveredCard >= 0)
+            if (_game.IsPaletteHidden && _hoveredCard >= 0)
             {
                 _hoveredCard = -1;
                 _tooltip.SetActive(false);
             }
             _rerollButton.interactable = _game.CanReroll && _game.RerollCount > 0;
+            _readyButton.interactable = _game.CanReady;
             _detail.text = _game.StatusMessage ?? "";
             if (_hoveredPiece != null && !_game.IsPlacedPiece(_hoveredPiece))
             {
@@ -257,11 +264,11 @@ Q/E: 기물 회전 / Esc: 선택 취소
                 _hoveredCard = -1;
                 _tooltip.SetActive(false);
             }
-            _stagePopup.SetActive(_game.AwaitingStage && !_game.IsFinished);
+            _stagePopup.SetActive(_game.AwaitingFailure && !_game.IsFinished);
             _completePopup.SetActive(_game.IsFinished);
-            if (_game.AwaitingStage)
+            if (_game.AwaitingFailure)
             {
-                _stageTitle.text = _game.StagePassed ? "스테이지 완료" : "방어 실패";
+                _stageTitle.text = "방어 실패";
                 _stageBody.text = _game.StatusMessage ?? "";
             }
             if (_game.IsFinished)
