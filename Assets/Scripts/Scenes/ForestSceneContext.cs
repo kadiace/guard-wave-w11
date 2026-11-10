@@ -1,6 +1,6 @@
 using UnityEngine;
 
-public class GameSceneContext : MonoBehaviour
+public class ForestSceneContext : MonoBehaviour
 {
     [Header("Object rotation")]
     [SerializeField, Min(0f)] private float _rotationSpeed = 90f;
@@ -21,6 +21,6 @@ public class GameSceneContext : MonoBehaviour
         RestoreCastle3D.CastleGame3D game = gameObject.AddComponent<RestoreCastle3D.CastleGame3D>();
         game.RotationSpeed = _rotationSpeed;
         game.CameraYawPerScrollStep = _cameraYawPerScrollStep;
-        Debug.Log("[GameSceneContext] Game scene initialized.");
+        Debug.Log("[ForestSceneContext] Game scene initialized.");
     }
 }

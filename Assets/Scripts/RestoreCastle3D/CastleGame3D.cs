@@ -46,7 +46,7 @@ namespace RestoreCastle3D
         private readonly HashSet<CastlePiece3D> _outlinedNeighbors = new HashSet<CastlePiece3D>();
         private readonly HashSet<string> _consumedContacts = new HashSet<string>();
         private readonly CastleMaterial3D[] _offers = new CastleMaterial3D[3];
-        private GameSceneContext _sceneContext;
+        private ForestSceneContext _sceneContext;
         private CastleCatalog3D _catalog;
         private CastleHud3D _hud;
         private CastleDropPreview3D _dropPreview;
@@ -91,7 +91,7 @@ namespace RestoreCastle3D
 
         private void Start()
         {
-            _sceneContext = GetComponent<GameSceneContext>();
+            _sceneContext = GetComponent<ForestSceneContext>();
             _catalog = new CastleCatalog3D();
             ConfigureScene();
             CreateHud();
