@@ -133,7 +133,8 @@ namespace RestoreCastle3D
             _readyButton = Instantiate(rulesButton, rulesButton.transform.parent);
             _readyButton.name = "ReadyButton";
             _readyButton.transform.SetAsLastSibling();
-            _readyButton.onClick.RemoveAllListeners();
+            // Remove the prefab's serialized RulesPopup.SetActive listener as well as runtime listeners.
+            _readyButton.onClick = new Button.ButtonClickedEvent();
             _readyButton.onClick.AddListener(_game.Ready);
             _readyButton.GetComponentInChildren<Text>().text = "준비완료";
             transform.Find("RulesPopup/CloseButton").GetComponent<Button>().onClick.AddListener(HideRules);
