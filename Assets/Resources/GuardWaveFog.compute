@@ -1,0 +1,194 @@
+// Self-contained GPU Eulerian fog. Liquid FLIP compute shaders remain unchanged.
+#pragma kernel ClearFog
+#pragma kernel BuildObstacleSdf
+#pragma kernel AdvectFogVelocity
+#pragma kernel FogDivergence
+#pragma kernel JacobiFogPressure
+#pragma kernel ProjectFogVelocity
+#pragma kernel AdvectFogDensity
+#pragma target 5.0
+
+struct ObstacleBox
+{
+    float4 center;
+    float4 halfExtent;
+    float4 rotation;
+};
+StructuredBuffer<ObstacleBox> _ObstacleBoxes;
+int _ObstacleCount;
+int3 _GridSize;
+float3 _WorldMin;
+float _CellSize;
+float _Dt, _WindSpeed, _SimulationTime, _FogBaseY, _InletStrength, _InletZ;
+
+Texture3D<float4> _VelocityRead, _DensityRead, _PressureRead, _DivergenceRead, _ObstacleRead;
+RWTexture3D<float4> _VelocityWrite, _DensityWrite, _PressureWrite, _DivergenceWrite, _ObstacleOut;
+RWTexture3D<float4> _VelocityOut, _VelocityAlt, _DensityOut, _DensityAlt, _PressureOut, _PressureAlt;
+SamplerState sampler_linear_clamp;
+
+bool Valid(int3 p) { return all(p >= 0) && all(p < _GridSize); }
+float3 World(int3 p) { return _WorldMin + (float3(p) + 0.5) * _CellSize; }
+float3 UV(float3 p) { return saturate((p - _WorldMin) / (float3(_GridSize) * _CellSize)); }
+float Solid(int3 p) { return Valid(p) ? _ObstacleRead.Load(int4(p, 0)).x : 1000.0; }
+float3 Velocity(int3 p)
+{
+    return _VelocityRead.Load(int4(clamp(p, int3(0,0,0), _GridSize - 1), 0)).xyz;
+}
+float Pressure(int3 p, float center)
+{
+    if (!Valid(p)) return 0.0; // Atmospheric/open boundary.
+    if (Solid(p) < 0.0) return center; // Neumann on solids.
+    return _PressureRead.Load(int4(p,0)).x;
+}
+float DensityAt(int3 p)
+{
+    return _DensityRead.Load(int4(clamp(p, 0, _GridSize - 1),0)).x;
+}
+float3 RotateInverse(float3 v, float4 q)
+{
+    float3 a = -q.xyz;
+    return v + 2.0 * cross(a, cross(a, v) + q.w * v);
+}
+float BoxDistance(float3 p, ObstacleBox box)
+{
+    float3 q = abs(RotateInverse(p - box.center.xyz, box.rotation))
+        - box.halfExtent.xyz;
+    return length(max(q, 0.0)) + min(max(q.x, max(q.y,q.z)), 0.0);
+}
+float Hash(float3 p)
+{
+    return frac(sin(dot(p, float3(127.1,311.7,74.7))) * 43758.5453);
+}
+
+[numthreads(8,4,8)]
+void ClearFog(uint3 id : SV_DispatchThreadID)
+{
+    if (any(id >= uint3(_GridSize))) return;
+    _VelocityOut[id] = 0; _VelocityAlt[id] = 0;
+    _DensityOut[id] = 0; _DensityAlt[id] = 0;
+    _PressureOut[id] = 0; _PressureAlt[id] = 0;
+    _DivergenceOut[id] = 0;
+    _ObstacleOut[id] = float4(1000,0,0,0);
+}
+
+[numthreads(8,4,8)]
+void BuildObstacleSdf(uint3 id : SV_DispatchThreadID)
+{
+    if (any(id >= uint3(_GridSize))) return;
+    float3 p = World(int3(id));
+    float distance = 1000.0;
+    for (int i = 0; i < _ObstacleCount; i++)
+        distance = min(distance, BoxDistance(p, _ObstacleBoxes[i]));
+    _ObstacleOut[id] = float4(distance,0,0,0);
+}
+
+[numthreads(8,4,8)]
+void AdvectFogVelocity(uint3 id : SV_DispatchThreadID)
+{
+    if (any(id >= uint3(_GridSize))) return;
+    int3 c = int3(id);
+    if (Solid(c) < 0.0) { _VelocityWrite[id] = 0; return; }
+    float3 p = World(c);
+    float3 old = _VelocityRead.Load(int4(c,0)).xyz;
+    float3 back = p - _Dt * old;
+    float3 v = _VelocityRead.SampleLevel(sampler_linear_clamp, UV(back), 0).xyz;
+
+    // Widen the initial 24m plume sideways as it travels downwind.
+    float progress = saturate((_InletZ - p.z) / 25.0);
+    float3 wind = float3(0.10 * p.x * progress, 0, -_WindSpeed);
+    float3 eddy = float3(
+        sin(p.z*0.47 + _SimulationTime*0.67)*cos(p.y*1.2),
+        0.30*sin(p.x*0.52 + _SimulationTime*0.9)*cos(p.z*0.24),
+        sin(p.x*0.48 - _SimulationTime*0.55)*cos(p.y*0.7)) * 0.46;
+    v = lerp(v, wind + eddy, saturate(_Dt * 1.5));
+    // SDF normal constraint prevents directly advecting gas into obstacles.
+    if (Solid(c) < _CellSize * 1.6)
+    {
+        float3 n = float3(
+            Solid(c + int3(1,0,0)) - Solid(c - int3(1,0,0)),
+            Solid(c + int3(0,1,0)) - Solid(c - int3(0,1,0)),
+            Solid(c + int3(0,0,1)) - Solid(c - int3(0,0,1)));
+        n = normalize(n + float3(1e-5,1e-5,1e-5));
+        v -= n * min(dot(v,n), 0.0);
+    }
+    _VelocityWrite[id] = float4(v,0);
+}
+
+[numthreads(8,4,8)]
+void FogDivergence(uint3 id : SV_DispatchThreadID)
+{
+    if (any(id >= uint3(_GridSize))) return;
+    int3 c = int3(id);
+    if (Solid(c) < 0.0) { _DivergenceWrite[id] = 0; return; }
+    float3 v = Velocity(c);
+    float vx1 = Solid(c+int3(1,0,0)) < 0 ? 0 : Velocity(c+int3(1,0,0)).x;
+    float vx0 = Solid(c-int3(1,0,0)) < 0 ? 0 : Velocity(c-int3(1,0,0)).x;
+    float vy1 = Solid(c+int3(0,1,0)) < 0 ? 0 : Velocity(c+int3(0,1,0)).y;
+    float vy0 = Solid(c-int3(0,1,0)) < 0 ? 0 : Velocity(c-int3(0,1,0)).y;
+    float vz1 = Solid(c+int3(0,0,1)) < 0 ? 0 : Velocity(c+int3(0,0,1)).z;
+    float vz0 = Solid(c-int3(0,0,1)) < 0 ? 0 : Velocity(c-int3(0,0,1)).z;
+    _DivergenceWrite[id] = float4((vx1-vx0+vy1-vy0+vz1-vz0)/(2*_CellSize),0,0,0);
+}
+
+[numthreads(8,4,8)]
+void JacobiFogPressure(uint3 id : SV_DispatchThreadID)
+{
+    if (any(id >= uint3(_GridSize))) return;
+    int3 c = int3(id);
+    if (Solid(c) < 0.0) { _PressureWrite[id] = 0; return; }
+    float p = _PressureRead.Load(int4(c,0)).x;
+    float sum = Pressure(c+int3(1,0,0),p) + Pressure(c-int3(1,0,0),p)
+        + Pressure(c+int3(0,1,0),p) + Pressure(c-int3(0,1,0),p)
+        + Pressure(c+int3(0,0,1),p) + Pressure(c-int3(0,0,1),p);
+    float div = _DivergenceRead.Load(int4(c,0)).x;
+    _PressureWrite[id] = float4((sum - div*_CellSize*_CellSize)/6.0,0,0,0);
+}
+
+[numthreads(8,4,8)]
+void ProjectFogVelocity(uint3 id : SV_DispatchThreadID)
+{
+    if (any(id >= uint3(_GridSize))) return;
+    int3 c = int3(id);
+    if (Solid(c) < 0.0) { _VelocityWrite[id] = 0; return; }
+    float p = _PressureRead.Load(int4(c,0)).x;
+    float3 gradient = float3(
+        Pressure(c+int3(1,0,0),p)-Pressure(c-int3(1,0,0),p),
+        Pressure(c+int3(0,1,0),p)-Pressure(c-int3(0,1,0),p),
+        Pressure(c+int3(0,0,1),p)-Pressure(c-int3(0,0,1),p))/(2*_CellSize);
+    float3 v = _VelocityRead.Load(int4(c,0)).xyz - gradient;
+    // No-through-flow across every solid face; open side boundaries remain free.
+    if (Solid(c+int3(1,0,0)) < 0) v.x = min(v.x, 0);
+    if (Solid(c-int3(1,0,0)) < 0) v.x = max(v.x, 0);
+    if (Solid(c+int3(0,1,0)) < 0) v.y = min(v.y, 0);
+    if (Solid(c-int3(0,1,0)) < 0) v.y = max(v.y, 0);
+    if (Solid(c+int3(0,0,1)) < 0) v.z = min(v.z, 0);
+    if (Solid(c-int3(0,0,1)) < 0) v.z = max(v.z, 0);
+    _VelocityWrite[id] = float4(v,0);
+}
+
+[numthreads(8,4,8)]
+void AdvectFogDensity(uint3 id : SV_DispatchThreadID)
+{
+    if (any(id >= uint3(_GridSize))) return;
+    int3 c = int3(id);
+    if (Solid(c) < 0.0) { _DensityWrite[id] = 0; return; }
+    float3 p = World(c);
+    float3 v = _VelocityRead.Load(int4(c,0)).xyz;
+    float3 back = p - _Dt*v;
+    if (back.z > _WorldMin.z && Solid(int3(floor((back-_WorldMin)/_CellSize))) < 0)
+        back = p;
+    float d = _DensityRead.SampleLevel(sampler_linear_clamp, UV(back), 0).x;
+    float neighbor = (DensityAt(c+int3(1,0,0))+DensityAt(c-int3(1,0,0))
+        +DensityAt(c+int3(0,1,0))+DensityAt(c-int3(0,1,0))
+        +DensityAt(c+int3(0,0,1))+DensityAt(c-int3(0,0,1)))/6.0;
+    d = max(0.0, d + _Dt*0.23*(neighbor-d));
+    d *= exp(-_Dt*0.032);
+    if (p.z > _InletZ - 1.8 && p.z < _InletZ + 0.5 && abs(p.x) < 12.0)
+    {
+        float edge = saturate((12.0 - abs(p.x))*2.0);
+        float vertical = exp(-pow((p.y - (_FogBaseY+1.65))/2.2, 2.0));
+        float wisps = 0.73 + 0.27 * sin(p.x*1.1 + p.y*1.7 + _SimulationTime*1.5);
+        d = max(d, _InletStrength * edge * vertical * wisps);
+    }
+    _DensityWrite[id] = float4(saturate(d),0,0,0);
+}

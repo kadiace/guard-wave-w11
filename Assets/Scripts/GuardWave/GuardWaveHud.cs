@@ -19,6 +19,7 @@ namespace GuardWave
         private readonly Dictionary<string, Sprite> _generatedIcons = new Dictionary<string, Sprite>();
 
         private GuardWaveGame _game;
+        private FogSceneController _fogMode;
         private Text _detail;
         private Text _stageTitle;
         private Text _stageBody;
@@ -50,6 +51,7 @@ namespace GuardWave
         public void Initialize(GuardWaveGame game)
         {
             _game = game;
+            _fogMode = game.GetComponent<FogSceneController>();
             _detail = FindText("PlacementDetailPanel/DetailText");
             _stagePopup = transform.Find("StageResultPopup").gameObject;
             _stageTitle = FindText("StageResultPopup/Heading/TitleText");
@@ -104,7 +106,8 @@ namespace GuardWave
             rulesButton.onClick.AddListener(ShowRules);
             _readyButton = transform.Find("CandidateSelectionRow/CandidateActions/ReadyButton").GetComponent<Button>();
             _readyLabel = _readyButton.transform.Find("Label").GetComponent<Text>();
-            _readyButton.onClick.AddListener(_game.Ready);
+            if (_fogMode == null) _readyButton.onClick.AddListener(_game.Ready);
+            else _readyButton.onClick.AddListener(_fogMode.Ready);
             transform.Find("RulesPopup/CloseButton").GetComponent<Button>().onClick.AddListener(HideRules);
             Button confirmButton = transform.Find("StageResultPopup/CloseButton").GetComponent<Button>();
             confirmButton.onClick.AddListener(_game.ConfirmFailure);
@@ -128,6 +131,11 @@ Q/E: 기물 회전 / 우클릭 또는 Esc: 선택 취소
 
 홍수에 밀려 절벽 뒤로 넘어간 기물은 파괴됩니다.
 ";
+            if (_fogMode != null)
+                _rulesBody.text = "기물을 배치한 후 준비 완료를 누르면 안개가 상류에서 몰려옵니다.\n"
+                    + "안개는 건물과 기물을 돌아 -Z 방향으로 흐르며 옆으로 확산됩니다.\n"
+                    + "안개가 지나가면 다시 준비 완료를 누를 수 있습니다.\n\n"
+                    + "우클릭 드래그: 카메라 이동 / 스크롤: 확대 / Q/E: 기물 회전";
             Refresh();
         }
 
@@ -189,12 +197,13 @@ Q/E: 기물 회전 / 우클릭 또는 Esc: 선택 취소
                 _hoveredCard = -1;
                 _tooltip.SetActive(false);
             }
-            bool canReady = _game.CanReady;
+            bool canReady = _fogMode == null ? _game.CanReady : _fogMode.CanReady;
             _readyButton.interactable = canReady;
-            string readyText = !canReady && _game.WaveHasStarted ? "오는 중..." : "준비 완료";
+            bool incoming = _fogMode == null ? _game.WaveHasStarted : _fogMode.IsComing;
+            string readyText = !canReady && incoming ? "오는 중..." : "준비 완료";
             if (_readyLabel.text != readyText)
                 _readyLabel.text = readyText;
-            _detail.text = _game.StatusMessage ?? "";
+            _detail.text = (_fogMode == null ? _game.StatusMessage : _fogMode.StatusMessage) ?? "";
             if (_hoveredPiece != null && !_game.IsPlacedPiece(_hoveredPiece))
             {
                 _hoveredPiece = null;
@@ -310,7 +319,7 @@ Q/E: 기물 회전 / 우클릭 또는 Esc: 선택 취소
             _hoveredPiece = null;
             _hoveredCard = -1;
             _tooltip.SetActive(false);
-            _game.SetRulesOpen(false);
+            _game.SetRulesOpen(_fogMode != null && _fogMode.IsComing);
         }
 
         /// <summary>원본의 후보 자재 설명 형식을 사용해 커서 옆 툴팁을 표시한다.</summary>
