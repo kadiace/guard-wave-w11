@@ -342,7 +342,7 @@ namespace GuardWave
                 int widthCells = Mathf.FloorToInt(24f/(CELL_SIZE*0.85f));
                 int heightCells = Mathf.Max(1,Mathf.FloorToInt(_waveHeight/(CELL_SIZE*0.85f)));
                 int count = Mathf.Min(MAX_PARTICLES-_particleCount,
-                    Mathf.RoundToInt(widthCells*heightCells*2f*inletFraction));
+                    Mathf.RoundToInt(widthCells*heightCells*3f*inletFraction));
                 if (count > 0)
                 {
                     _compute.SetInt("_SpawnStart", _particleCount);
