@@ -29,11 +29,11 @@ namespace GuardWave
 
         [Header("One-shot wave crest above ambient water")]
         [SerializeField, Min(0.1f)] private float _waveCrestAmplitude = 3f;
-        [SerializeField, Min(0.1f)] private float _waveCrestSpeed = 80f;
-        [SerializeField, Min(0.5f)] private float _waveCrestWidth = 2.5f;
+         [SerializeField, Min(0.5f)] private float _waveCrestWidth = 2.5f;
         [SerializeField, Min(2f)] private float _waveCrestLength = 14f;
         public float WaveCrestAmplitude => _waveCrestAmplitude;
-        public float WaveCrestSpeed => _waveCrestSpeed;
+        // The crest always travels at the temporary 2x ambient-flow speed.
+        public float WaveCrestSpeed => _ambientFlowSpeed * 2f;
         public float WaveCrestWidth => _waveCrestWidth;
         public float WaveCrestLength => _waveCrestLength;
 
@@ -45,6 +45,20 @@ namespace GuardWave
         [SerializeField, Min(0.1f)] private float _maxParticleSpeed = 24f;
         [SerializeField, Range(0f, 1f)] private float _flipFraction = 0.92f;
 
+        [Header("FLIP stability")]
+        [SerializeField, Range(1, 8)] private int _maxFluidSubsteps = 6;
+        [SerializeField, Min(0.2f)] private float _wakePreserveRadius = 1.5f;
+        [SerializeField, Min(0.2f)] private float _wakeFadeDistance = 3f;
+        [SerializeField, Min(0f)] private float _wakeReverseDamping = 2.5f;
+        [SerializeField, Min(2f)] private float _wakeMaxLength = 16f;
+        [SerializeField, Min(0.2f)] private float _wakeLateralRadius = 3f;
+        public int MaxFluidSubsteps => _maxFluidSubsteps;
+        public float WakePreserveRadius => _wakePreserveRadius;
+        public float WakeFadeDistance => _wakeFadeDistance;
+        public float WakeReverseDamping => _wakeReverseDamping;
+        public float WakeMaxLength => _wakeMaxLength;
+        public float WakeLateralRadius => _wakeLateralRadius;
+
         [Header("Collisions")]
         [SerializeField, Range(0f, 2f)] private float _collisionResponse = 1.15f;
         [SerializeField, Min(0.001f)] private float _collisionSkin = 0.06f;
@@ -54,7 +68,7 @@ namespace GuardWave
         [SerializeField, Range(1000, 100000)] private int _maxParticles = 48000;
         [SerializeField, Range(1, 384)] private int _maxBodies = 384;
         [SerializeField, Range(1, 256)] private int _maxColliders = 256;
-        [SerializeField, Range(1, 96)] private int _pressureIterations = 22;
+        [SerializeField, Range(1, 96)] private int _pressureIterations = 36;
         [SerializeField, Min(0.02f)] private float _spawnInterval = 0.12f;
         [SerializeField, Range(0.1f, 8f)] private float _spawnRateMultiplier = 3f;
 

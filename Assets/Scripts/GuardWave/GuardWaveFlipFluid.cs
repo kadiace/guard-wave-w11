@@ -60,6 +60,8 @@ namespace GuardWave
         private readonly ComputeBuffer _accum;
         private readonly ComputeBuffer _velocity;
         private readonly ComputeBuffer _before;
+        private readonly ComputeBuffer _faceVelocity;
+        private readonly ComputeBuffer _divergenceStats;
         private readonly ComputeBuffer _pressureA;
         private readonly ComputeBuffer _pressureB;
         private readonly ComputeBuffer _solid;
@@ -77,6 +79,7 @@ namespace GuardWave
         private readonly int _initializeAmbientKernel;
         private readonly int _recycleAmbientKernel;
         private readonly int _driveInletKernel;
+        private readonly int _shiftAmbientSpeedKernel;
         private readonly int _emitCrestKernel;
         private readonly ComputeBuffer _crestCounter;
         private int _ambientInitialCount;
@@ -87,8 +90,11 @@ namespace GuardWave
         private readonly int _spawnKernel;
         private readonly int _p2gKernel;
         private readonly int _normalizeKernel;
+        private readonly int _buildFaceKernel;
+        private readonly int _measureDivergenceKernel;
         private readonly int _pressureKernel;
-        private readonly int _projectKernel;
+        private readonly int _projectFacesKernel;
+        private readonly int _reconstructGridKernel;
         private readonly int _g2pKernel;
         private readonly int _pressureBodyKernel;
         private readonly int _waterfallKernel;
@@ -96,17 +102,23 @@ namespace GuardWave
         private float _elapsed;
         // Fractional refill credits prevent rounding drift at low flow speeds.
         private double _ambientRefillFraction;
+        private float _currentAmbientSpeed;
         private int _particleCount;
         private int _seed;
         private bool _pendingReadback;
         private bool _flowReadbackPending;
         private float _flowReadbackClock;
+        private bool _divergenceReadbackPending;
+        private float _divergenceReadbackClock;
         private bool _disposed;
 
         public ComputeBuffer Particles => _particles;
         public int ParticleCount => _particleCount;
         public float InletSpeed { get; }
+        public float CurrentAmbientSpeed => _currentAmbientSpeed;
         public Bounds RenderBounds { get; }
+        public float DivergenceBeforeProjection { get; private set; }
+        public float DivergenceAfterProjection { get; private set; }
         // GPU flow measurements; refreshed at most once per second without logs.
         public uint TotalCliffExits { get; private set; }
         public uint TotalAmbientRefills { get; private set; }
@@ -137,6 +149,7 @@ namespace GuardWave
                 Mathf.Clamp((_startZ - _endZ) /
                     Mathf.Max(4f, travelDuration * _settings.TravelDurationMultiplier),
                     _settings.MinInletSpeed, _settings.MaxInletSpeed);
+            _currentAmbientSpeed = InletSpeed;
             _grid = new Vector3Int(
                 Mathf.CeilToInt((24f + _cellSize * 2f) / _cellSize),
                 Mathf.CeilToInt((9f + _cellSize) / _cellSize),
@@ -157,6 +170,8 @@ namespace GuardWave
             _accum = new ComputeBuffer(_gridCount, sizeof(int) * 4);
             _velocity = new ComputeBuffer(_gridCount, sizeof(float) * 3);
             _before = new ComputeBuffer(_gridCount, sizeof(float) * 3);
+            _faceVelocity = new ComputeBuffer(_gridCount, sizeof(float) * 3);
+            _divergenceStats = new ComputeBuffer(4, sizeof(uint));
             _pressureA = new ComputeBuffer(_gridCount, sizeof(float));
             _pressureB = new ComputeBuffer(_gridCount, sizeof(float));
             _solid = new ComputeBuffer(_gridCount, sizeof(uint));
@@ -172,11 +187,15 @@ namespace GuardWave
             _initializeAmbientKernel = _compute.FindKernel("InitializeAmbient");
             _recycleAmbientKernel = _compute.FindKernel("RecycleAmbient");
             _driveInletKernel = _compute.FindKernel("DriveInlet");
+            _shiftAmbientSpeedKernel = _compute.FindKernel("ShiftAmbientSpeed");
             _emitCrestKernel = _compute.FindKernel("EmitCrest");
             _p2gKernel = _compute.FindKernel("ParticleToGrid");
             _normalizeKernel = _compute.FindKernel("NormalizeGrid");
+            _buildFaceKernel = _compute.FindKernel("BuildFaceVelocities");
+            _measureDivergenceKernel = _compute.FindKernel("MeasureDivergence");
             _pressureKernel = _compute.FindKernel("JacobiPressure");
-            _projectKernel = _compute.FindKernel("ProjectGrid");
+            _projectFacesKernel = _compute.FindKernel("ProjectFaces");
+            _reconstructGridKernel = _compute.FindKernel("ReconstructGridVelocity");
             _g2pKernel = _compute.FindKernel("GridToParticle");
             _pressureBodyKernel = _compute.FindKernel("PressureToBodies");
             _waterfallKernel = _compute.FindKernel("Waterfall");
@@ -204,6 +223,11 @@ namespace GuardWave
             _compute.SetFloat("_CollisionResponse", _settings.CollisionResponse);
             _compute.SetFloat("_CollisionSkin", _settings.CollisionSkin);
             _compute.SetFloat("_MaxFluidVelocity", _settings.MaxParticleSpeed);
+            _compute.SetFloat("_WakePreserveRadius", _settings.WakePreserveRadius);
+            _compute.SetFloat("_WakeFadeDistance", _settings.WakeFadeDistance);
+            _compute.SetFloat("_WakeReverseDamping", _settings.WakeReverseDamping);
+            _compute.SetFloat("_WakeMaxLength", _settings.WakeMaxLength);
+            _compute.SetFloat("_WakeLateralRadius", _settings.WakeLateralRadius);
             _compute.SetInt("_BodyCount", 0);
             _compute.SetInt("_ColliderCount", 0);
             // Bind only the resources actually used by each kernel; Unity strips
@@ -215,6 +239,7 @@ namespace GuardWave
             Bind(_clearKernel, "_PressureDst", _pressureB);
             Bind(_clearKernel, "_BodyImpulses", _impulses);
             Bind(_clearKernel, "_FlowCounters", _flowCounters);
+            Bind(_clearKernel, "_DivergenceStats", _divergenceStats);
             Bind(_classifyKernel, "_Solid", _solid);
             Bind(_classifyKernel, "_Colliders", _colliderBuffer);
             Bind(_spawnKernel, "_Particles", _particles);
@@ -222,6 +247,7 @@ namespace GuardWave
             Bind(_recycleAmbientKernel, "_Particles", _particles);
             Bind(_recycleAmbientKernel, "_FlowCounters", _flowCounters);
             Bind(_driveInletKernel, "_Particles", _particles);
+            Bind(_shiftAmbientSpeedKernel, "_Particles", _particles);
             Bind(_emitCrestKernel, "_Particles", _particles);
             Bind(_emitCrestKernel, "_CrestCounter", _crestCounter);
             Bind(_p2gKernel, "_Particles", _particles);
@@ -231,12 +257,24 @@ namespace GuardWave
             Bind(_normalizeKernel, "_GridBefore", _before);
             Bind(_normalizeKernel, "_GridVelocity", _velocity);
             Bind(_normalizeKernel, "_Solid", _solid);
+            Bind(_buildFaceKernel, "_Solid", _solid);
+            Bind(_buildFaceKernel, "_Accum", _accum);
+            Bind(_buildFaceKernel, "_GridVelocity", _velocity);
+            Bind(_buildFaceKernel, "_FaceVelocity", _faceVelocity);
+            Bind(_measureDivergenceKernel, "_Solid", _solid);
+            Bind(_measureDivergenceKernel, "_Accum", _accum);
+            Bind(_measureDivergenceKernel, "_FaceVelocity", _faceVelocity);
+            Bind(_measureDivergenceKernel, "_DivergenceStats", _divergenceStats);
+            Bind(_pressureKernel, "_FaceVelocity", _faceVelocity);
             Bind(_pressureKernel, "_Accum", _accum);
             Bind(_pressureKernel, "_Solid", _solid);
-            Bind(_pressureKernel, "_GridVelocity", _velocity);
-            Bind(_projectKernel, "_Accum", _accum);
-            Bind(_projectKernel, "_Solid", _solid);
-            Bind(_projectKernel, "_GridVelocity", _velocity);
+            Bind(_projectFacesKernel, "_Accum", _accum);
+            Bind(_projectFacesKernel, "_Solid", _solid);
+            Bind(_projectFacesKernel, "_FaceVelocity", _faceVelocity);
+            Bind(_reconstructGridKernel, "_Accum", _accum);
+            Bind(_reconstructGridKernel, "_Solid", _solid);
+            Bind(_reconstructGridKernel, "_FaceVelocity", _faceVelocity);
+            Bind(_reconstructGridKernel, "_GridVelocity", _velocity);
             Bind(_g2pKernel, "_Particles", _particles);
             Bind(_g2pKernel, "_Accum", _accum);
             Bind(_g2pKernel, "_Solid", _solid);
@@ -295,7 +333,11 @@ namespace GuardWave
             float spacing = _cellSize * 0.85f;
             int columns = _ambientColumns;
             int layers = Mathf.Max(1, Mathf.CeilToInt(amplitude / spacing));
-            int rows = Mathf.Max(1, Mathf.CeilToInt(_settings.WaveCrestLength / spacing));
+            // Match the doubled baseline particle density along Z so the
+            // crest is one continuous, densely filled volume (not dotted spray).
+            int rows = Mathf.Max(1, Mathf.RoundToInt(
+                _settings.WaveCrestLength / spacing *
+                _settings.AmbientFlowVolumeMultiplier));
             long candidateCount = (long)columns * layers * rows;
             if (candidateCount > _settings.MaxParticles - _ambientInitialCount)
                 throw new InvalidOperationException(
@@ -304,12 +346,32 @@ namespace GuardWave
             _crestCounter.SetData(new uint[1]);
             _compute.SetInts("_CrestGrid", columns, layers, rows);
             _compute.SetFloat("_CrestAmplitude", amplitude);
-            _compute.SetFloat("_CrestSpeed", _settings.WaveCrestSpeed);
+            // The entire creek was boosted immediately before this call.
+            // Crest and ambient flow therefore share exactly the same speed.
+            _compute.SetFloat("_CrestSpeed", _currentAmbientSpeed);
             _compute.SetFloat("_CrestWidth", _settings.WaveCrestWidth);
             _compute.SetFloat("_CrestLength", _settings.WaveCrestLength);
             _compute.SetFloat("_CrestCenterZ",
                 _startZ - _cellSize - _settings.WaveCrestLength * 0.5f);
             Dispatch(_emitCrestKernel, _particleCount);
+        }
+
+        /// <summary>
+        /// Changes the velocity of the entire currently flowing creek once,
+        /// preserving eddies and local differences. New inlet particles use
+        /// the new speed until it is reset after the stage.
+        /// </summary>
+        public void SetAmbientSpeed(float speed)
+        {
+            if (_disposed || !_ambientFlow)
+                throw new InvalidOperationException("Ambient speed can change only for an active creek.");
+            speed = Mathf.Max(0.01f, speed);
+            float delta = speed - _currentAmbientSpeed;
+            if (Mathf.Abs(delta) < 0.0001f) return;
+            _compute.SetFloat("_FlowSpeedDelta", delta);
+            Dispatch(_shiftAmbientSpeedKernel, _particleCount);
+            _currentAmbientSpeed = speed;
+            _compute.SetFloat("_InletVelocity", speed);
         }
 
         /// <summary>Assigns GPU resources to a kernel without binding resources it never uses.</summary>
@@ -433,13 +495,52 @@ namespace GuardWave
             _compute.SetInt("_BodyCount", _bodies.Count);
         }
 
-        /// <summary>Advances 3D GPU water through a PIC/FLIP + affine P2G/G2P pressure substep.</summary>
+        /// <summary>
+        /// Use enough fluid-only substeps to keep motion under half a cell
+        /// per step. This stabilizes a connected 3m crest at 20m/s.
+        /// </summary>
         public void Step(float dt, float inletFraction)
         {
-            if (_disposed) return;
+            if (_disposed || dt <= 0f) return;
+            float fastest = _ambientFlow
+                ? Mathf.Max(_currentAmbientSpeed, _settings.AmbientFlowSpeed * 2f)
+                : InletSpeed;
+            int steps = Mathf.Clamp(Mathf.CeilToInt(
+                fastest * dt / (_cellSize * 0.5f)), 1, _settings.MaxFluidSubsteps);
+            float subDt = dt / steps;
+            UpdateColliders();
+            for (int i = 0; i < steps; i++)
+                SimulateSubstep(subDt, inletFraction, i == 0);
+
+            if (_ambientFlow)
+            {
+                _flowReadbackClock += dt;
+                if (_flowReadbackClock >= 1f && !_flowReadbackPending)
+                {
+                    _flowReadbackClock = 0f;
+                    _flowReadbackPending = true;
+                    AsyncGPUReadback.Request(_flowCounters, OnFlowCountersReady);
+                }
+                _divergenceReadbackClock += dt;
+                if (_divergenceReadbackClock >= 1f && !_divergenceReadbackPending)
+                {
+                    _divergenceReadbackClock = 0f;
+                    _divergenceReadbackPending = true;
+                    AsyncGPUReadback.Request(_divergenceStats, OnDivergenceStatsReady);
+                }
+            }
+            if (!_pendingReadback && _bodies.Count > 0)
+            {
+                _pendingReadback = true;
+                AsyncGPUReadback.Request(_impulses, OnImpulsesReady);
+            }
+        }
+
+        private void SimulateSubstep(float dt, float inletFraction, bool firstSubstep)
+        {
             _elapsed += dt;
             _compute.SetFloat("_Dt", dt);
-            UpdateColliders();
+            _compute.SetInt("_ClearBodyImpulses", firstSubstep ? 1 : 0);
             Dispatch(_clearKernel, Mathf.Max(_gridCount, _bodies.Count * 2));
             Dispatch(_classifyKernel, _gridCount);
             if (_ambientFlow) Dispatch(_driveInletKernel, _particleCount);
@@ -466,6 +567,9 @@ namespace GuardWave
             _compute.SetInt("_ParticleCount", _particleCount);
             Dispatch(_p2gKernel, _particleCount);
             Dispatch(_normalizeKernel, _gridCount);
+            Dispatch(_buildFaceKernel, _gridCount);
+            _compute.SetInt("_DivergencePhase", 0);
+            Dispatch(_measureDivergenceKernel, _gridCount);
 
             ComputeBuffer src = _pressureA;
             ComputeBuffer dst = _pressureB;
@@ -476,51 +580,45 @@ namespace GuardWave
                 Dispatch(_pressureKernel, _gridCount);
                 (src, dst) = (dst, src);
             }
-            _compute.SetBuffer(_projectKernel, "_PressureSrc", src);
-            Dispatch(_projectKernel, _gridCount);
+            _compute.SetBuffer(_projectFacesKernel, "_PressureSrc", src);
+            Dispatch(_projectFacesKernel, _gridCount);
+            _compute.SetInt("_DivergencePhase", 1);
+            Dispatch(_measureDivergenceKernel, _gridCount);
+            Dispatch(_reconstructGridKernel, _gridCount);
             _compute.SetBuffer(_pressureBodyKernel, "_PressureSrc", src);
             Dispatch(_pressureBodyKernel, _gridCount);
-            // Continue pre-existing spray first; newly exited fluid starts falling next tick.
+            // Existing spray continues; newly exited particles begin falling
+            // on their transition tick in GridToParticle.
             Dispatch(_waterfallKernel, _particleCount);
             Dispatch(_g2pKernel, _particleCount);
+
             if (_ambientFlow)
             {
-                // Q = cross-sectional area * velocity. With fixed particle
-                // density, baseline particles per second are proportional
-                // to the configured inlet speed. The original 1m lattice
-                // provides the particle density per meter of creek length.
                 double riverLength = Math.Max(0.1, _startZ - _endZ);
-                // _ambientInitialCount already includes the ambient volume
-                // multiplier, so do not multiply the refill rate a second time.
-                double particlesPerSecond = _ambientInitialCount * InletSpeed / riverLength;
+                double particlesPerSecond = _ambientInitialCount *
+                    _currentAmbientSpeed / riverLength;
                 _ambientRefillFraction += particlesPerSecond * dt;
                 int supplyBudget = (int)Math.Min(_settings.MaxParticles,
                     Math.Floor(_ambientRefillFraction));
                 _ambientRefillFraction -= supplyBudget;
                 if (supplyBudget > 0)
                 {
-                    // GPU also requires outstanding cliff exits: the inlet
-                    // never adds more baseline water than was lost.
                     _compute.SetInt("_AmbientRefillBudget", supplyBudget);
                     _compute.SetInt("_SpawnSeed", ++_seed);
                     Dispatch(_recycleAmbientKernel, _particleCount);
                 }
             }
-            if (_ambientFlow)
-            {
-                _flowReadbackClock += dt;
-                if (_flowReadbackClock >= 1f && !_flowReadbackPending)
-                {
-                    _flowReadbackClock = 0f;
-                    _flowReadbackPending = true;
-                    AsyncGPUReadback.Request(_flowCounters, OnFlowCountersReady);
-                }
-            }
-            if (!_pendingReadback && _bodies.Count > 0)
-            {
-                _pendingReadback = true;
-                AsyncGPUReadback.Request(_impulses, OnImpulsesReady);
-            }
+        }
+
+        private void OnDivergenceStatsReady(AsyncGPUReadbackRequest request)
+        {
+            _divergenceReadbackPending = false;
+            if (_disposed || request.hasError) return;
+            NativeArray<uint> data = request.GetData<uint>();
+            DivergenceBeforeProjection = data[1] == 0 ? 0f
+                : (float)data[0] / (64f * data[1]);
+            DivergenceAfterProjection = data[3] == 0 ? 0f
+                : (float)data[2] / (64f * data[3]);
         }
 
         /// <summary>Samples actual exit/refill totals for inspecting flow in the debugger.</summary>
@@ -571,6 +669,8 @@ namespace GuardWave
             _accum.Release();
             _velocity.Release();
             _before.Release();
+            _faceVelocity.Release();
+            _divergenceStats.Release();
             _pressureA.Release();
             _pressureB.Release();
             _solid.Release();

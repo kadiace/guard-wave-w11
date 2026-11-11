@@ -727,13 +727,16 @@ namespace GuardWave
             {
                 try
                 {
-                    // Keep the existing flowing 1m river. Generate one additional
-                    // 3m crest at the upstream end without resetting the fluid.
+                    // Ready doubles the ENTIRE 10m/s river to 20m/s.
+                    // The connected 3m crest gets exactly that speed as well.
+                    _fluid.SetAmbientSpeed(_fluidSettings.AmbientFlowSpeed * 2f);
                     _fluid.EmitSingleCrest();
                 }
                 catch (Exception error)
                 {
                     Debug.LogError("Unable to emit the 3m wave crest: " + error);
+                    if (_fluid != null)
+                        _fluid.SetAmbientSpeed(_fluidSettings.AmbientFlowSpeed);
                     _waveHasStarted = false;
                     _stageTransitioning = false;
                     _resolving = false;
@@ -741,7 +744,7 @@ namespace GuardWave
                     _status = "파봉 생성 실패: 입자 예산과 설정을 확인하세요.";
                     return;
                 }
-                _status = "기본 수심 1m 위로 추가 파고 3m의 파봉이 다가옵니다.";
+                _status = "강물 유속 2배: 기본 10m/s → 20m/s, 추가 파고 3m의 물덩어리";
                 _stageFloodRoutine = StartCoroutine(ResolveAmbientWave());
                 return;
             }
@@ -777,6 +780,9 @@ namespace GuardWave
                 yield break;
             }
 
+            // After the one-shot crest passes, normal 10m/s flow resumes.
+            if (_fluid != null)
+                _fluid.SetAmbientSpeed(_fluidSettings.AmbientFlowSpeed);
             CommitWaveSnapshot();
             _stageTransitioning = false;
             _resolving = false;
@@ -787,7 +793,7 @@ namespace GuardWave
                 _finished = true;
                 yield break;
             }
-            _status = "파봉이 지나갔습니다. 기본 강물은 계속 흐릅니다.";
+            _status = "파봉 통과 완료. 강물 유속이 기본 10m/s로 복구되었습니다.";
         }
 
         /// <summary>

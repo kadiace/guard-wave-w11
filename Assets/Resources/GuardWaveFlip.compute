@@ -5,11 +5,15 @@
 #pragma kernel InitializeAmbient
 #pragma kernel RecycleAmbient
 #pragma kernel DriveInlet
+#pragma kernel ShiftAmbientSpeed
 #pragma kernel EmitCrest
 #pragma kernel ParticleToGrid
 #pragma kernel NormalizeGrid
+#pragma kernel BuildFaceVelocities
+#pragma kernel MeasureDivergence
 #pragma kernel JacobiPressure
-#pragma kernel ProjectGrid
+#pragma kernel ProjectFaces
+#pragma kernel ReconstructGridVelocity
 #pragma kernel GridToParticle
 #pragma kernel PressureToBodies
 #pragma kernel Waterfall
@@ -41,6 +45,8 @@ RWStructuredBuffer<int4> _Accum;
 RWStructuredBuffer<int4> _BodyImpulses; // force impulse in xyz, torque in next xyz
 RWStructuredBuffer<float3> _GridVelocity;
 RWStructuredBuffer<float3> _GridBefore;
+RWStructuredBuffer<float3> _FaceVelocity;
+RWStructuredBuffer<uint> _DivergenceStats; // beforeSum,beforeCount,afterSum,afterCount
 RWStructuredBuffer<float> _PressureSrc;
 RWStructuredBuffer<float> _PressureDst;
 RWStructuredBuffer<uint> _Solid;
@@ -66,6 +72,14 @@ float _InletZ;
 float _WaveHeight;
 float _InletVelocity;
 float _AmbientDepth;
+float _FlowSpeedDelta;
+float _WakePreserveRadius;
+float _WakeFadeDistance;
+float _WakeReverseDamping;
+float _WakeMaxLength;
+float _WakeLateralRadius;
+uint _DivergencePhase;
+uint _ClearBodyImpulses;
 int3 _AmbientGrid;
 uint _AmbientInitialCount;
 uint _AmbientEnabled;
@@ -143,13 +157,29 @@ float3 VelocityAt(int3 c)
 {
     return IsFluid(c) ? _GridVelocity[Flatten(c)] : 0;
 }
-float PressureAt(int3 c, float own)
+float FluidPressure(int3 c)
 {
-    // Zero-gauge pressure at the free downstream outlet allows pressure
-    // projection to push liquid over the cliff rather than reflect it.
-    if (IsOpenOutflow(c)) return 0.0;
-    if (IsSolid(c)) return own;
+    // Open outlet and free surface: Dirichlet p=0; solids are excluded
+    // from the Laplacian diagonal, enforcing a zero normal gradient.
     return IsFluid(c) ? _PressureSrc[Flatten(c)] : 0.0;
+}
+float FaceX(int3 c)
+{
+    return Inside(c) ? _FaceVelocity[Flatten(c)].x : 0.0;
+}
+float FaceY(int3 c)
+{
+    return Inside(c) ? _FaceVelocity[Flatten(c)].y : 0.0;
+}
+float FaceZ(int3 c)
+{
+    return Inside(c) ? _FaceVelocity[Flatten(c)].z : 0.0;
+}
+float FaceDivergence(int3 c)
+{
+    int3 ex = int3(1,0,0), ey = int3(0,1,0), ez = int3(0,0,1);
+    return (FaceX(c)-FaceX(c-ex) + FaceY(c)-FaceY(c-ey) +
+        FaceZ(c+ez)-FaceZ(c)) / _CellSize;
 }
 [numthreads(128,1,1)]
 void ClearGrid(uint id : SV_DispatchThreadID)
@@ -163,8 +193,10 @@ void ClearGrid(uint id : SV_DispatchThreadID)
         _PressureSrc[id] = 0;
         _PressureDst[id] = 0;
     }
-    if (id < _BodyCount * 2)
+    if (id < _BodyCount * 2 && _ClearBodyImpulses != 0)
         _BodyImpulses[id] = int4(0,0,0,0);
+    if (id < 4)
+        _DivergenceStats[id] = 0u;
     // Keep pending refill debt and its global sequence across physics ticks.
     if (id == 0 && _AmbientEnabled != 0)
         _FlowCounters[2] = 0u;
@@ -282,8 +314,20 @@ void RecycleAmbient(uint id : SV_DispatchThreadID)
     }
 }
 
+// Adjust the existing entire river by the same speed delta once on Ready
+// (and once when the wave ends), preserving local velocity differences.
+[numthreads(128,1,1)]
+void ShiftAmbientSpeed(uint id : SV_DispatchThreadID)
+{
+    if (id >= _ParticleCount) return;
+    FluidParticle p = _Particles[id];
+    if (p.position.w != 1.0) return;
+    p.velocity.z -= _FlowSpeedDelta;
+    _Particles[id] = p;
+}
+
 // A steady inlet keeps the background creek moving even when its P2G/pressure
-// projection slows the flow. The stronger wave particles are not affected.
+// projection slows the flow; the one-shot wave is not repeatedly accelerated.
 [numthreads(128,1,1)]
 void DriveInlet(uint id : SV_DispatchThreadID)
 {
@@ -299,9 +343,9 @@ void DriveInlet(uint id : SV_DispatchThreadID)
     _Particles[id] = p;
 }
 
-// One dispatch per Ready click creates one sech^2-shaped 3m crest above the
-// 1m ambient surface, using only inactive particle slots. It never spawns
-// another crest on subsequent simulation frames.
+// One solid connected volume of added water per Ready press: the crest is
+// flat-topped through most of its 14m length with smooth front/back ramps.
+// All particles move at the SAME 2x ambient speed. No leading-edge jet.
 [numthreads(128,1,1)]
 void EmitCrest(uint id : SV_DispatchThreadID)
 {
@@ -318,22 +362,20 @@ void EmitCrest(uint id : SV_DispatchThreadID)
     uint x = ticket % width;
     uint y = (ticket / width) % layers;
     uint z = ticket / (width * layers);
+    float fraction = (z + 0.5) / rows;
     float worldZ = _InletZ - (z + 0.5) * (_CrestLength / rows);
-    float s = (worldZ - _CrestCenterZ) / _CrestWidth;
-    float t = cosh(s);
-    float profile = 1.0 / (t * t);
+    float taper = clamp(_CrestWidth / _CrestLength, 0.05, 0.45);
+    float front = smoothstep(0.0, taper, fraction);
+    float back = smoothstep(0.0, taper, 1.0 - fraction);
     float excess = (y + 0.5) * (_CrestAmplitude / layers);
-    if (excess > _CrestAmplitude * profile) return;
+    if (excess > _CrestAmplitude * min(front, back)) return;
 
     p = (FluidParticle)0;
     p.position = float4(
         -_HalfWidth + (x + 0.5) * (2.0 * _HalfWidth / width),
         _FloorY + _AmbientDepth + excess,
         worldZ, 1.0);
-    // Velocity.w marks transient wave material, so its departure does not
-    // refill the baseline creek with additional water.
-    p.velocity = float4(0, 0,
-        -lerp(_InletVelocity, _CrestSpeed, profile), 1.0);
+    p.velocity = float4(0, 0, -_CrestSpeed, 1.0); // w=1 temporary extra water
     _Particles[id] = p;
 }
 
@@ -378,6 +420,55 @@ void NormalizeGrid(uint id : SV_DispatchThreadID)
     _GridVelocity[id] = _Solid[id] == 0 && sum.w > 0
         ? v + float3(0, -_Gravity * _Dt, 0) : 0;
 }
+// Face-centered flux representation with the SAME stencil for divergence,
+// pressure Poisson solve, and velocity projection. Unlike the original
+// centered-gradient approximation this avoids mismatched constraints.
+[numthreads(128,1,1)]
+void BuildFaceVelocities(uint id : SV_DispatchThreadID)
+{
+    uint cells = _GridSize.x * _GridSize.y * _GridSize.z;
+    if (id >= cells) return;
+    int3 c = int3(id % _GridSize.x,
+        (id / _GridSize.x) % _GridSize.y,
+        id / (_GridSize.x * _GridSize.y));
+    if (IsSolid(c)) { _FaceVelocity[id] = 0; return; }
+    int3 ex = int3(1,0,0), ey = int3(0,1,0), ez = int3(0,0,1);
+    bool wet = IsFluid(c);
+    float3 v = VelocityAt(c);
+    float3 faces = 0;
+    int3 nx = c + ex;
+    if (!IsSolid(nx) && (wet || IsFluid(nx)))
+        faces.x = wet && IsFluid(nx) ? 0.5*(v.x+VelocityAt(nx).x)
+            : (wet ? v.x : VelocityAt(nx).x);
+    int3 ny = c + ey;
+    if (!IsSolid(ny) && (wet || IsFluid(ny)))
+        faces.y = wet && IsFluid(ny) ? 0.5*(v.y+VelocityAt(ny).y)
+            : (wet ? v.y : VelocityAt(ny).y);
+    int3 nz = c - ez;
+    if (!IsSolid(nz) && (wet || IsFluid(nz)))
+    {
+        faces.z = wet && IsFluid(nz) ? 0.5*(v.z+VelocityAt(nz).z)
+            : (wet ? v.z : VelocityAt(nz).z);
+        if (IsOpenOutflow(nz)) faces.z = min(faces.z, 0.0);
+    }
+    _FaceVelocity[id] = faces;
+}
+
+[numthreads(128,1,1)]
+void MeasureDivergence(uint id : SV_DispatchThreadID)
+{
+    uint cells = _GridSize.x * _GridSize.y * _GridSize.z;
+    if (id >= cells) return;
+    int3 c = int3(id % _GridSize.x,
+        (id / _GridSize.x) % _GridSize.y,
+        id / (_GridSize.x * _GridSize.y));
+    if (!IsFluid(c)) return;
+    uint target = 2u * _DivergencePhase;
+    uint magnitude = (uint)min(65535.0, abs(FaceDivergence(c))*64.0);
+    InterlockedAdd(_DivergenceStats[target], magnitude);
+    InterlockedAdd(_DivergenceStats[target+1u], 1u);
+}
+
 [numthreads(128,1,1)]
 void JacobiPressure(uint id : SV_DispatchThreadID)
 {
@@ -388,42 +479,61 @@ void JacobiPressure(uint id : SV_DispatchThreadID)
         id / (_GridSize.x * _GridSize.y));
     if (!IsFluid(c)) { _PressureDst[id] = 0; return; }
     int3 ex = int3(1,0,0), ey = int3(0,1,0), ez = int3(0,0,1);
-    float div = (VelocityAt(c+ex).x-VelocityAt(c-ex).x +
-        VelocityAt(c+ey).y-VelocityAt(c-ey).y +
-        VelocityAt(c+ez).z-VelocityAt(c-ez).z) / (2*_CellSize);
-    float own = _PressureSrc[id];
-    float sum = PressureAt(c+ex,own)+PressureAt(c-ex,own)+
-        PressureAt(c+ey,own)+PressureAt(c-ey,own)+
-        PressureAt(c+ez,own)+PressureAt(c-ez,own);
-    // Solid neighbors contribute the current pressure (Neumann boundary).
-    // Therefore the Jacobi denominator remains six rather than six-minus-solids.
-    float n = 6.0;
-    // Unit density in the grid; pressure is a velocity potential.
-    _PressureDst[id] = (sum - div*_CellSize*_CellSize/max(_Dt,0.0001)) / max(n,1);
+    float sum = 0.0, diagonal = 0.0;
+    if (!IsSolid(c+ex)) { diagonal++; sum += FluidPressure(c+ex); }
+    if (!IsSolid(c-ex)) { diagonal++; sum += FluidPressure(c-ex); }
+    if (!IsSolid(c+ey)) { diagonal++; sum += FluidPressure(c+ey); }
+    if (!IsSolid(c-ey)) { diagonal++; sum += FluidPressure(c-ey); }
+    if (!IsSolid(c+ez)) { diagonal++; sum += FluidPressure(c+ez); }
+    if (!IsSolid(c-ez)) { diagonal++; sum += FluidPressure(c-ez); }
+    float div = FaceDivergence(c);
+    _PressureDst[id] = diagonal > 0.0 ?
+        (sum - div*_CellSize*_CellSize/max(_Dt,0.00001)) / diagonal : 0.0;
 }
+
+// Correct the exact faces used in the pressure divergence calculation.
 [numthreads(128,1,1)]
-void ProjectGrid(uint id : SV_DispatchThreadID)
+void ProjectFaces(uint id : SV_DispatchThreadID)
 {
     uint cells = _GridSize.x * _GridSize.y * _GridSize.z;
     if (id >= cells) return;
     int3 c = int3(id % _GridSize.x,
         (id / _GridSize.x) % _GridSize.y,
         id / (_GridSize.x * _GridSize.y));
-    if (!IsFluid(c)) return;
+    if (IsSolid(c)) return;
     int3 ex = int3(1,0,0), ey = int3(0,1,0), ez = int3(0,0,1);
-    float p = _PressureSrc[id];
-    float3 grad = float3(
-        PressureAt(c+ex,p)-PressureAt(c-ex,p),
-        PressureAt(c+ey,p)-PressureAt(c-ey,p),
-        PressureAt(c+ez,p)-PressureAt(c-ez,p)) / (2*_CellSize);
-    float3 v = _GridVelocity[id] - _Dt*grad;
-    if (IsSolid(c+ex) && v.x>0 || IsSolid(c-ex) && v.x<0) v.x=0;
-    if (IsSolid(c+ey) && v.y>0 || IsSolid(c-ey) && v.y<0) v.y=0;
-    // The negative-Z open outlet must not zero the exiting velocity.
-    // IsSolid(c-ez) is false outside the outlet; upper inlet stays closed.
-    if ((IsSolid(c+ez) && v.z>0) || (IsSolid(c-ez) && v.z<0)) v.z=0;
-    _GridVelocity[id] = v;
+    float p = FluidPressure(c);
+    float3 face = _FaceVelocity[id];
+    if (!IsSolid(c+ex))
+        face.x -= _Dt*(FluidPressure(c+ex)-p)/_CellSize;
+    if (!IsSolid(c+ey))
+        face.y -= _Dt*(FluidPressure(c+ey)-p)/_CellSize;
+    if (!IsSolid(c-ez))
+    {
+        face.z -= _Dt*(p-FluidPressure(c-ez))/_CellSize;
+        if (IsOpenOutflow(c-ez)) face.z = min(face.z, 0.0);
+    }
+    _FaceVelocity[id] = face;
 }
+
+// APIC/G2P still consumes cell-centered velocities: reconstruct from corrected
+// adjacent faces, while solid-wall face velocities remain exactly zero.
+[numthreads(128,1,1)]
+void ReconstructGridVelocity(uint id : SV_DispatchThreadID)
+{
+    uint cells = _GridSize.x * _GridSize.y * _GridSize.z;
+    if (id >= cells) return;
+    int3 c = int3(id % _GridSize.x,
+        (id / _GridSize.x) % _GridSize.y,
+        id / (_GridSize.x * _GridSize.y));
+    if (!IsFluid(c)) { _GridVelocity[id] = 0; return; }
+    int3 ex = int3(1,0,0), ey = int3(0,1,0), ez = int3(0,0,1);
+    _GridVelocity[id] = float3(
+        0.5*(FaceX(c)+FaceX(c-ex)),
+        0.5*(FaceY(c)+FaceY(c-ey)),
+        0.5*(FaceZ(c)+FaceZ(c+ez)));
+}
+
 [numthreads(128,1,1)]
 void GridToParticle(uint id : SV_DispatchThreadID)
 {
@@ -484,12 +594,19 @@ void GridToParticle(uint id : SV_DispatchThreadID)
         p.position.y = _FloorY + 0.05;
         p.velocity.y = max(p.velocity.y, 0);
     }
+    // Track nearby downstream wakes. The immediate obstacle wake is
+    // preserved, while distant, broad upstream drift is damped gently.
+    float wakeDistance = 100000.0;
     [loop]
     for (uint i=0; i<_ColliderCount; i++)
     {
         FluidCollider b = _Colliders[i];
         float3 dr = p.position.xyz - b.centerBody.xyz;
-        if (dot(dr, dr) > b.velocity.w * b.velocity.w) continue;
+        float distanceSquared = dot(dr, dr);
+        if (dr.z < 0.0 && dr.z > -_WakeMaxLength &&
+            abs(dr.x) < b.extentType.x + _WakeLateralRadius)
+            wakeDistance = min(wakeDistance, max(0.0, -dr.z-b.velocity.w));
+        if (distanceSquared > b.velocity.w * b.velocity.w) continue;
         float d = SignedDistance(b, p.position.xyz);
         if (d >= _CollisionSkin) continue;
         float3 n = ColliderNormal(b, p.position.xyz);
@@ -513,6 +630,13 @@ void GridToParticle(uint id : SV_DispatchThreadID)
             InterlockedAdd(_BodyImpulses[dst+1].y, (int)round(torque.y*SCALE));
             InterlockedAdd(_BodyImpulses[dst+1].z, (int)round(torque.z*SCALE));
         }
+    }
+    if (_AmbientEnabled != 0 && p.velocity.z > 0.0 &&
+        wakeDistance < _WakeMaxLength)
+    {
+        float mask = smoothstep(_WakePreserveRadius,
+            _WakePreserveRadius+_WakeFadeDistance, wakeDistance);
+        p.velocity.z *= exp(-_WakeReverseDamping*_Dt*mask);
     }
     if (p.position.z < _ExitZ)
     {

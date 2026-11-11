@@ -24,7 +24,6 @@ MonoBehaviour:
   _ambientFlowVolumeMultiplier: 2
   _ambientImpactScale: 0.01
   _waveCrestAmplitude: 3
-  _waveCrestSpeed: 80
   _waveCrestWidth: 2.5
   _waveCrestLength: 14
   _minInletSpeed: 30
@@ -32,6 +31,12 @@ MonoBehaviour:
   _travelDurationMultiplier: 2
   _gravityMultiplier: 1
   _maxParticleSpeed: 120
+  _maxFluidSubsteps: 6
+  _wakePreserveRadius: 1.5
+  _wakeFadeDistance: 3
+  _wakeReverseDamping: 2.5
+  _wakeMaxLength: 16
+  _wakeLateralRadius: 3
   _flipFraction: 0.92
   _collisionResponse: 2
   _collisionSkin: 0.06
@@ -39,7 +44,7 @@ MonoBehaviour:
   _maxParticles: 48000
   _maxBodies: 384
   _maxColliders: 256
-  _pressureIterations: 22
+  _pressureIterations: 36
   _spawnInterval: 0.12
   _spawnRateMultiplier: 3
   _particleRenderRadius: 0.45
