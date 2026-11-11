@@ -21,6 +21,7 @@ MonoBehaviour:
   _pressureThreshold: 0.05
   _ambientWaterDepth: 1
   _ambientFlowSpeed: 2
+  _ambientImpactScale: 0.01
   _minInletSpeed: 30
   _maxInletSpeed: 60
   _travelDurationMultiplier: 2

@@ -173,8 +173,10 @@ namespace GuardWave
             _compute.SetFloat("_AmbientDepth", _settings.AmbientWaterDepth);
             _compute.SetFloat("_Gravity", Mathf.Abs(Physics.gravity.y) * _settings.GravityMultiplier);
             _compute.SetFloat("_FlipFraction", _settings.FlipFraction);
-            _compute.SetFloat("_ParticleMass", _settings.ParticleEffectiveMass);
-            _compute.SetFloat("_HydroDensity", _settings.HydroDensity);
+            // Preview uses calm flow even if the saved wave profile has 100x impact tuning.
+            float forceScale = ambientFlow ? _settings.AmbientImpactScale : 1f;
+            _compute.SetFloat("_ParticleMass", _settings.ParticleEffectiveMass * forceScale);
+            _compute.SetFloat("_HydroDensity", _settings.HydroDensity * forceScale);
             _compute.SetFloat("_PressureClamp", _settings.PressureClamp);
             _compute.SetFloat("_PressureThreshold", _settings.PressureThreshold);
             _compute.SetFloat("_CollisionResponse", _settings.CollisionResponse);

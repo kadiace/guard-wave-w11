@@ -215,6 +215,8 @@ void InitializeAmbient(uint id : SV_DispatchThreadID)
 
 // Every particle that crosses the cliff requests exactly one refill particle.
 // Dead waterfall slots are recycled; live falling spray remains visible.
+// New particles begin just upstream of the filled river, not inside already
+// occupied cells. This avoids artificially stacking water at the inlet.
 [numthreads(128,1,1)]
 void RecycleAmbient(uint id : SV_DispatchThreadID)
 {
@@ -226,7 +228,7 @@ void RecycleAmbient(uint id : SV_DispatchThreadID)
     if (ticket >= _FlowCounters[0]) return;
     uint width = (uint)_AmbientGrid.x;
     uint layers = (uint)_AmbientGrid.y;
-    uint chosen = (ticket * 7919u + _SpawnSeed * 1543u) % (width * layers * 3u);
+    uint chosen = (ticket * 7919u + _SpawnSeed * 1543u) % (width * layers * 2u);
     uint x = chosen % width;
     uint y = (chosen / width) % layers;
     uint z = chosen / (width * layers);
@@ -234,7 +236,7 @@ void RecycleAmbient(uint id : SV_DispatchThreadID)
     p.position = float4(
         -_HalfWidth + (x + 0.5) * (2.0 * _HalfWidth / width),
         _FloorY + (y + 0.5) * (_AmbientDepth / layers),
-        _InletZ - (z + 0.5) * (_CellSize * 0.85), 1.0);
+        _InletZ + _CellSize + (z + 0.5) * (_CellSize * 0.85), 1.0);
     p.velocity = float4(0, 0, -_InletVelocity, 0);
     _Particles[id] = p;
 }

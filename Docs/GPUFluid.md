@@ -85,6 +85,10 @@ cliff into ballistic spray increments an exit counter. A GPU recycling kernel
 replaces one inactive upstream particle per exit, preserving the flowing water
 rather than indefinitely allocating particles. A separate `Ambient Flow Speed`
 (default 2m/s) is used instead of the flood inlet speed (currently 30–60m/s).
+The ambient-only impact multiplier defaults to 0.01, so the stored 100x
+wave-force tuning does not violently eject sticks during calm-flow testing.
+Fresh particles enter in the upstream ghost cells outside the filled river,
+rather than overlapping existing water in the last populated row.
 The static Upper River Water is shown in the editor but its renderer is
 disabled at runtime so SSFR can show the actual fluid.
 
