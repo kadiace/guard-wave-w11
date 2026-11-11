@@ -23672,8 +23672,15 @@ MonoBehaviour:
   _pressureIterations: 24
   _windSpeed: 5.5
   _inletDuration: 7
-  _extinction: 0.95
-  _fogTint: {r: 0.81, g: 0.87, b: 0.89, a: 1}
+  _vorticityStrength: 2.2
+  _turbulenceStrength: 1.15
+  _expansionStrength: 4.2
+  _buoyancy: 1.05
+  _settling: 0.54
+  _extinction: 1.3
+  _shadowStrength: 2.1
+  _detailStrength: 0.65
+  _fogTint: {r: 0.69, g: 0.81, b: 0.60, a: 1}
 --- !u!1 &4700000001
 GameObject:
   m_ObjectHideFlags: 0

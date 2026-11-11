@@ -21,8 +21,18 @@ namespace GuardWave
         [SerializeField, Range(8, 64)] private int _pressureIterations = 24;
         [SerializeField, Range(0.5f, 12f)] private float _windSpeed = 5.5f;
         [SerializeField, Range(1f, 16f)] private float _inletDuration = 7f;
-        [SerializeField, Range(0.1f, 3f)] private float _extinction = 0.95f;
-        [SerializeField] private Color _fogTint = new Color(0.81f, 0.87f, 0.89f, 1f);
+        [Header("Billowing smoke motion")]
+        [SerializeField, Range(0f, 5f)] private float _vorticityStrength = 2.2f;
+        [SerializeField, Range(0f, 4f)] private float _turbulenceStrength = 1.15f;
+        [SerializeField, Range(0f, 8f)] private float _expansionStrength = 4.2f;
+        [SerializeField, Range(0f, 4f)] private float _buoyancy = 1.05f;
+        [SerializeField, Range(0f, 4f)] private float _settling = 0.54f;
+
+        [Header("Volumetric smoke shading")]
+        [SerializeField, Range(0.1f, 3f)] private float _extinction = 1.3f;
+        [SerializeField, Range(0f, 6f)] private float _shadowStrength = 2.1f;
+        [SerializeField, Range(0f, 1f)] private float _detailStrength = 0.65f;
+        [SerializeField] private Color _fogTint = new Color(0.69f, 0.81f, 0.60f, 1f);
 
         private GuardWaveGame _game;
         private FogFluidSolver _fluid;
@@ -65,7 +75,7 @@ namespace GuardWave
         {
             _running = true;
             _game.SetRulesOpen(true); // Existing placement UI and input become read-only.
-            _status = "안개가 상류에서 몰려오고 있습니다.";
+            _status = "짙은 연막이 상류에서 부풀어 오르고 있습니다.";
             float ground = -2.25f;
             GameObject bed = GameObject.Find("Flat Muddy Creek Bed");
             if (bed != null)
@@ -82,6 +92,8 @@ namespace GuardWave
             {
                 _fluid = new FogFluidSolver(gameObject.scene, origin, extent,
                     _cellSize, _pressureIterations);
+                _fluid.ConfigureMotion(_vorticityStrength, _turbulenceStrength,
+                    _expansionStrength, _buoyancy, _settling);
                 Bounds bounds = _fluid.WorldBounds;
                 _fogVolumeRenderer.transform.position = bounds.center;
                 _fogVolumeRenderer.transform.localScale = bounds.size;
@@ -111,9 +123,10 @@ namespace GuardWave
                     // Bounded 20 Hz simulation decoupled from renderer frame rate.
                     float step = Mathf.Min(accumulator, 0.07f);
                     accumulator -= step;
-                    float ramp = Mathf.SmoothStep(0f, 1f, Mathf.Clamp01(elapsed / 1.5f));
+                    // Fast source ignition followed by a brief, tapered smoke tail.
+                    float ramp = Mathf.SmoothStep(0f, 1f, Mathf.Clamp01(elapsed / 0.75f));
                     float tail = Mathf.SmoothStep(0f, 1f,
-                        Mathf.Clamp01((_inletDuration - elapsed) / 1.5f));
+                        Mathf.Clamp01((_inletDuration - elapsed) / 1.2f));
                     float inlet = elapsed < _inletDuration ? ramp * tail : 0f;
                     _fluid.Step(step, inlet, _windSpeed, ground);
                 }
@@ -137,6 +150,8 @@ namespace GuardWave
             _block.SetVector("_FogVolumeMax", bounds.max);
             _block.SetColor("_FogTint", _fogTint);
             _block.SetFloat("_FogExtinction", _extinction);
+            _block.SetFloat("_FogShadowStrength", _shadowStrength);
+            _block.SetFloat("_FogDetailStrength", _detailStrength);
             _block.SetFloat("_FogOpacity", _opacity);
             _fogVolumeRenderer.SetPropertyBlock(_block);
         }

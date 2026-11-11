@@ -25,9 +25,11 @@ Material:
     m_TexEnvs: []
     m_Ints: []
     m_Floats:
-    - _FogExtinction: 0.95
+    - _FogExtinction: 1.3
     - _FogOpacity: 1
+    - _FogShadowStrength: 2.1
+    - _FogDetailStrength: 0.65
     m_Colors:
-    - _FogTint: {r: 0.81, g: 0.87, b: 0.89, a: 1}
+    - _FogTint: {r: 0.69, g: 0.81, b: 0.60, a: 1}
   m_BuildTextureStacks: []
   m_AllowLocking: 1
