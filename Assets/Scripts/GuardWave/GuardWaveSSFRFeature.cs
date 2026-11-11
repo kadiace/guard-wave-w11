@@ -21,7 +21,7 @@ namespace GuardWave
         {
             CoreUtils.Destroy(_material);
             _pass = null;
-            Shader shader = Resources.Load<Shader>("GuardWaveSSFR");
+            Shader shader = Resources.Load<Shader>("Textures/GuardWaveSSFR");
             if (shader == null) return;
             _material = CoreUtils.CreateEngineMaterial(shader);
             _pass = new FluidPass(_material);

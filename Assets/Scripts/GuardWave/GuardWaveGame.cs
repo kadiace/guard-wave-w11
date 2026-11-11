@@ -91,7 +91,7 @@ namespace GuardWave
         {
             _sceneContext = GetComponent<ForestSceneContext>();
             _catalog = new GuardWaveCatalog();
-            _fluidSettings = Resources.Load<GuardWaveFluidSettings>("GuardWaveFluidSettings");
+            _fluidSettings = Resources.Load<GuardWaveFluidSettings>("Datas/GuardWaveFluidSettings");
             if (_fluidSettings == null) throw new InvalidOperationException("Missing Resources/GuardWaveFluidSettings.asset");
             ConfigureScene();
             CreateHud();
