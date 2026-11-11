@@ -979,7 +979,8 @@ GameObject:
   - component: {fileID: 3300000003}
   - component: {fileID: 3300000004}
   - component: {fileID: 3300000005}
-  m_Layer: 2
+  - component: {fileID: 3300000006}
+  m_Layer: 0
   m_Name: Stick_01_01
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -1061,7 +1062,8 @@ GameObject:
   - component: {fileID: 3300000013}
   - component: {fileID: 3300000014}
   - component: {fileID: 3300000015}
-  m_Layer: 2
+  - component: {fileID: 3300000016}
+  m_Layer: 0
   m_Name: Stick_01_02
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -1143,7 +1145,8 @@ GameObject:
   - component: {fileID: 3300000023}
   - component: {fileID: 3300000024}
   - component: {fileID: 3300000025}
-  m_Layer: 2
+  - component: {fileID: 3300000026}
+  m_Layer: 0
   m_Name: Stick_01_03
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -1225,7 +1228,8 @@ GameObject:
   - component: {fileID: 3300000033}
   - component: {fileID: 3300000034}
   - component: {fileID: 3300000035}
-  m_Layer: 2
+  - component: {fileID: 3300000036}
+  m_Layer: 0
   m_Name: Stick_01_04
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -1307,7 +1311,8 @@ GameObject:
   - component: {fileID: 3300000043}
   - component: {fileID: 3300000044}
   - component: {fileID: 3300000045}
-  m_Layer: 2
+  - component: {fileID: 3300000046}
+  m_Layer: 0
   m_Name: Stick_01_05
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -1389,7 +1394,8 @@ GameObject:
   - component: {fileID: 3300000053}
   - component: {fileID: 3300000054}
   - component: {fileID: 3300000055}
-  m_Layer: 2
+  - component: {fileID: 3300000056}
+  m_Layer: 0
   m_Name: Stick_01_06
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -1471,7 +1477,8 @@ GameObject:
   - component: {fileID: 3300000063}
   - component: {fileID: 3300000064}
   - component: {fileID: 3300000065}
-  m_Layer: 2
+  - component: {fileID: 3300000066}
+  m_Layer: 0
   m_Name: Stick_01_07
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -1553,7 +1560,8 @@ GameObject:
   - component: {fileID: 3300000073}
   - component: {fileID: 3300000074}
   - component: {fileID: 3300000075}
-  m_Layer: 2
+  - component: {fileID: 3300000076}
+  m_Layer: 0
   m_Name: Stick_01_08
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -1635,7 +1643,8 @@ GameObject:
   - component: {fileID: 3300000083}
   - component: {fileID: 3300000084}
   - component: {fileID: 3300000085}
-  m_Layer: 2
+  - component: {fileID: 3300000086}
+  m_Layer: 0
   m_Name: Stick_01_09
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -1717,7 +1726,8 @@ GameObject:
   - component: {fileID: 3300000093}
   - component: {fileID: 3300000094}
   - component: {fileID: 3300000095}
-  m_Layer: 2
+  - component: {fileID: 3300000096}
+  m_Layer: 0
   m_Name: Stick_01_10
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -1799,7 +1809,8 @@ GameObject:
   - component: {fileID: 3300000103}
   - component: {fileID: 3300000104}
   - component: {fileID: 3300000105}
-  m_Layer: 2
+  - component: {fileID: 3300000106}
+  m_Layer: 0
   m_Name: Stick_01_11
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -1881,7 +1892,8 @@ GameObject:
   - component: {fileID: 3300000113}
   - component: {fileID: 3300000114}
   - component: {fileID: 3300000115}
-  m_Layer: 2
+  - component: {fileID: 3300000116}
+  m_Layer: 0
   m_Name: Stick_01_12
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -1963,7 +1975,8 @@ GameObject:
   - component: {fileID: 3300000123}
   - component: {fileID: 3300000124}
   - component: {fileID: 3300000125}
-  m_Layer: 2
+  - component: {fileID: 3300000126}
+  m_Layer: 0
   m_Name: Stick_01_13
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -2045,7 +2058,8 @@ GameObject:
   - component: {fileID: 3300000133}
   - component: {fileID: 3300000134}
   - component: {fileID: 3300000135}
-  m_Layer: 2
+  - component: {fileID: 3300000136}
+  m_Layer: 0
   m_Name: Stick_01_14
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -2127,7 +2141,8 @@ GameObject:
   - component: {fileID: 3300000143}
   - component: {fileID: 3300000144}
   - component: {fileID: 3300000145}
-  m_Layer: 2
+  - component: {fileID: 3300000146}
+  m_Layer: 0
   m_Name: Stick_01_15
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -2209,7 +2224,8 @@ GameObject:
   - component: {fileID: 3300000153}
   - component: {fileID: 3300000154}
   - component: {fileID: 3300000155}
-  m_Layer: 2
+  - component: {fileID: 3300000156}
+  m_Layer: 0
   m_Name: Stick_01_16
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -2291,7 +2307,8 @@ GameObject:
   - component: {fileID: 3300000163}
   - component: {fileID: 3300000164}
   - component: {fileID: 3300000165}
-  m_Layer: 2
+  - component: {fileID: 3300000166}
+  m_Layer: 0
   m_Name: Stick_01_17
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -2373,7 +2390,8 @@ GameObject:
   - component: {fileID: 3300000173}
   - component: {fileID: 3300000174}
   - component: {fileID: 3300000175}
-  m_Layer: 2
+  - component: {fileID: 3300000176}
+  m_Layer: 0
   m_Name: Stick_01_18
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -2455,7 +2473,8 @@ GameObject:
   - component: {fileID: 3300000183}
   - component: {fileID: 3300000184}
   - component: {fileID: 3300000185}
-  m_Layer: 2
+  - component: {fileID: 3300000186}
+  m_Layer: 0
   m_Name: Stick_01_19
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -2537,7 +2556,8 @@ GameObject:
   - component: {fileID: 3300000193}
   - component: {fileID: 3300000194}
   - component: {fileID: 3300000195}
-  m_Layer: 2
+  - component: {fileID: 3300000196}
+  m_Layer: 0
   m_Name: Stick_01_20
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -2619,7 +2639,8 @@ GameObject:
   - component: {fileID: 3300000203}
   - component: {fileID: 3300000204}
   - component: {fileID: 3300000205}
-  m_Layer: 2
+  - component: {fileID: 3300000206}
+  m_Layer: 0
   m_Name: Stick_01_21
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -2701,7 +2722,8 @@ GameObject:
   - component: {fileID: 3300000213}
   - component: {fileID: 3300000214}
   - component: {fileID: 3300000215}
-  m_Layer: 2
+  - component: {fileID: 3300000216}
+  m_Layer: 0
   m_Name: Stick_01_22
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -2783,7 +2805,8 @@ GameObject:
   - component: {fileID: 3300000223}
   - component: {fileID: 3300000224}
   - component: {fileID: 3300000225}
-  m_Layer: 2
+  - component: {fileID: 3300000226}
+  m_Layer: 0
   m_Name: Stick_01_23
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -2865,7 +2888,8 @@ GameObject:
   - component: {fileID: 3300000233}
   - component: {fileID: 3300000234}
   - component: {fileID: 3300000235}
-  m_Layer: 2
+  - component: {fileID: 3300000236}
+  m_Layer: 0
   m_Name: Stick_01_24
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -2947,7 +2971,8 @@ GameObject:
   - component: {fileID: 3300000243}
   - component: {fileID: 3300000244}
   - component: {fileID: 3300000245}
-  m_Layer: 2
+  - component: {fileID: 3300000246}
+  m_Layer: 0
   m_Name: Stick_01_25
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -3029,7 +3054,8 @@ GameObject:
   - component: {fileID: 3300000253}
   - component: {fileID: 3300000254}
   - component: {fileID: 3300000255}
-  m_Layer: 2
+  - component: {fileID: 3300000256}
+  m_Layer: 0
   m_Name: Stick_01_26
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -3111,7 +3137,8 @@ GameObject:
   - component: {fileID: 3300000263}
   - component: {fileID: 3300000264}
   - component: {fileID: 3300000265}
-  m_Layer: 2
+  - component: {fileID: 3300000266}
+  m_Layer: 0
   m_Name: Stick_01_27
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -3193,7 +3220,8 @@ GameObject:
   - component: {fileID: 3300000273}
   - component: {fileID: 3300000274}
   - component: {fileID: 3300000275}
-  m_Layer: 2
+  - component: {fileID: 3300000276}
+  m_Layer: 0
   m_Name: Stick_02_01
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -3275,7 +3303,8 @@ GameObject:
   - component: {fileID: 3300000283}
   - component: {fileID: 3300000284}
   - component: {fileID: 3300000285}
-  m_Layer: 2
+  - component: {fileID: 3300000286}
+  m_Layer: 0
   m_Name: Stick_02_02
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -3357,7 +3386,8 @@ GameObject:
   - component: {fileID: 3300000293}
   - component: {fileID: 3300000294}
   - component: {fileID: 3300000295}
-  m_Layer: 2
+  - component: {fileID: 3300000296}
+  m_Layer: 0
   m_Name: Stick_02_03
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -3439,7 +3469,8 @@ GameObject:
   - component: {fileID: 3300000303}
   - component: {fileID: 3300000304}
   - component: {fileID: 3300000305}
-  m_Layer: 2
+  - component: {fileID: 3300000306}
+  m_Layer: 0
   m_Name: Stick_02_04
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -3521,7 +3552,8 @@ GameObject:
   - component: {fileID: 3300000313}
   - component: {fileID: 3300000314}
   - component: {fileID: 3300000315}
-  m_Layer: 2
+  - component: {fileID: 3300000316}
+  m_Layer: 0
   m_Name: Stick_02_05
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -3603,7 +3635,8 @@ GameObject:
   - component: {fileID: 3300000323}
   - component: {fileID: 3300000324}
   - component: {fileID: 3300000325}
-  m_Layer: 2
+  - component: {fileID: 3300000326}
+  m_Layer: 0
   m_Name: Stick_02_06
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -3685,7 +3718,8 @@ GameObject:
   - component: {fileID: 3300000333}
   - component: {fileID: 3300000334}
   - component: {fileID: 3300000335}
-  m_Layer: 2
+  - component: {fileID: 3300000336}
+  m_Layer: 0
   m_Name: Stick_02_07
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -3767,7 +3801,8 @@ GameObject:
   - component: {fileID: 3300000343}
   - component: {fileID: 3300000344}
   - component: {fileID: 3300000345}
-  m_Layer: 2
+  - component: {fileID: 3300000346}
+  m_Layer: 0
   m_Name: Stick_02_08
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -3849,7 +3884,8 @@ GameObject:
   - component: {fileID: 3300000353}
   - component: {fileID: 3300000354}
   - component: {fileID: 3300000355}
-  m_Layer: 2
+  - component: {fileID: 3300000356}
+  m_Layer: 0
   m_Name: Stick_02_09
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -3931,7 +3967,8 @@ GameObject:
   - component: {fileID: 3300000363}
   - component: {fileID: 3300000364}
   - component: {fileID: 3300000365}
-  m_Layer: 2
+  - component: {fileID: 3300000366}
+  m_Layer: 0
   m_Name: Stick_02_10
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -4013,7 +4050,8 @@ GameObject:
   - component: {fileID: 3300000373}
   - component: {fileID: 3300000374}
   - component: {fileID: 3300000375}
-  m_Layer: 2
+  - component: {fileID: 3300000376}
+  m_Layer: 0
   m_Name: Stick_02_11
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -4095,7 +4133,8 @@ GameObject:
   - component: {fileID: 3300000383}
   - component: {fileID: 3300000384}
   - component: {fileID: 3300000385}
-  m_Layer: 2
+  - component: {fileID: 3300000386}
+  m_Layer: 0
   m_Name: Stick_02_12
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -4177,7 +4216,8 @@ GameObject:
   - component: {fileID: 3300000393}
   - component: {fileID: 3300000394}
   - component: {fileID: 3300000395}
-  m_Layer: 2
+  - component: {fileID: 3300000396}
+  m_Layer: 0
   m_Name: Stick_02_13
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -4259,7 +4299,8 @@ GameObject:
   - component: {fileID: 3300000403}
   - component: {fileID: 3300000404}
   - component: {fileID: 3300000405}
-  m_Layer: 2
+  - component: {fileID: 3300000406}
+  m_Layer: 0
   m_Name: Stick_02_14
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -4341,7 +4382,8 @@ GameObject:
   - component: {fileID: 3300000413}
   - component: {fileID: 3300000414}
   - component: {fileID: 3300000415}
-  m_Layer: 2
+  - component: {fileID: 3300000416}
+  m_Layer: 0
   m_Name: Stick_02_15
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -4423,7 +4465,8 @@ GameObject:
   - component: {fileID: 3300000423}
   - component: {fileID: 3300000424}
   - component: {fileID: 3300000425}
-  m_Layer: 2
+  - component: {fileID: 3300000426}
+  m_Layer: 0
   m_Name: Stick_02_16
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -4505,7 +4548,8 @@ GameObject:
   - component: {fileID: 3300000433}
   - component: {fileID: 3300000434}
   - component: {fileID: 3300000435}
-  m_Layer: 2
+  - component: {fileID: 3300000436}
+  m_Layer: 0
   m_Name: Stick_02_17
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -4587,7 +4631,8 @@ GameObject:
   - component: {fileID: 3300000443}
   - component: {fileID: 3300000444}
   - component: {fileID: 3300000445}
-  m_Layer: 2
+  - component: {fileID: 3300000446}
+  m_Layer: 0
   m_Name: Stick_02_18
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -4669,7 +4714,8 @@ GameObject:
   - component: {fileID: 3300000453}
   - component: {fileID: 3300000454}
   - component: {fileID: 3300000455}
-  m_Layer: 2
+  - component: {fileID: 3300000456}
+  m_Layer: 0
   m_Name: Stick_02_19
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -4751,7 +4797,8 @@ GameObject:
   - component: {fileID: 3300000463}
   - component: {fileID: 3300000464}
   - component: {fileID: 3300000465}
-  m_Layer: 2
+  - component: {fileID: 3300000466}
+  m_Layer: 0
   m_Name: Stick_02_20
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -4833,7 +4880,8 @@ GameObject:
   - component: {fileID: 3300000473}
   - component: {fileID: 3300000474}
   - component: {fileID: 3300000475}
-  m_Layer: 2
+  - component: {fileID: 3300000476}
+  m_Layer: 0
   m_Name: Stick_02_21
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -4915,7 +4963,8 @@ GameObject:
   - component: {fileID: 3300000483}
   - component: {fileID: 3300000484}
   - component: {fileID: 3300000485}
-  m_Layer: 2
+  - component: {fileID: 3300000486}
+  m_Layer: 0
   m_Name: Stick_02_22
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -4997,7 +5046,8 @@ GameObject:
   - component: {fileID: 3300000493}
   - component: {fileID: 3300000494}
   - component: {fileID: 3300000495}
-  m_Layer: 2
+  - component: {fileID: 3300000496}
+  m_Layer: 0
   m_Name: Stick_02_23
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -5079,7 +5129,8 @@ GameObject:
   - component: {fileID: 3300000503}
   - component: {fileID: 3300000504}
   - component: {fileID: 3300000505}
-  m_Layer: 2
+  - component: {fileID: 3300000506}
+  m_Layer: 0
   m_Name: Stick_02_24
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -5161,7 +5212,8 @@ GameObject:
   - component: {fileID: 3300000513}
   - component: {fileID: 3300000514}
   - component: {fileID: 3300000515}
-  m_Layer: 2
+  - component: {fileID: 3300000516}
+  m_Layer: 0
   m_Name: Stick_02_25
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -5243,7 +5295,8 @@ GameObject:
   - component: {fileID: 3300000523}
   - component: {fileID: 3300000524}
   - component: {fileID: 3300000525}
-  m_Layer: 2
+  - component: {fileID: 3300000526}
+  m_Layer: 0
   m_Name: Stick_02_26
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -5325,7 +5378,8 @@ GameObject:
   - component: {fileID: 3300000533}
   - component: {fileID: 3300000534}
   - component: {fileID: 3300000535}
-  m_Layer: 2
+  - component: {fileID: 3300000536}
+  m_Layer: 0
   m_Name: Stick_02_27
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -5407,7 +5461,8 @@ GameObject:
   - component: {fileID: 3300000543}
   - component: {fileID: 3300000544}
   - component: {fileID: 3300000545}
-  m_Layer: 2
+  - component: {fileID: 3300000546}
+  m_Layer: 0
   m_Name: Stick_03_01
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -5489,7 +5544,8 @@ GameObject:
   - component: {fileID: 3300000553}
   - component: {fileID: 3300000554}
   - component: {fileID: 3300000555}
-  m_Layer: 2
+  - component: {fileID: 3300000556}
+  m_Layer: 0
   m_Name: Stick_03_02
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -5571,7 +5627,8 @@ GameObject:
   - component: {fileID: 3300000563}
   - component: {fileID: 3300000564}
   - component: {fileID: 3300000565}
-  m_Layer: 2
+  - component: {fileID: 3300000566}
+  m_Layer: 0
   m_Name: Stick_03_03
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -5653,7 +5710,8 @@ GameObject:
   - component: {fileID: 3300000573}
   - component: {fileID: 3300000574}
   - component: {fileID: 3300000575}
-  m_Layer: 2
+  - component: {fileID: 3300000576}
+  m_Layer: 0
   m_Name: Stick_03_04
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -5735,7 +5793,8 @@ GameObject:
   - component: {fileID: 3300000583}
   - component: {fileID: 3300000584}
   - component: {fileID: 3300000585}
-  m_Layer: 2
+  - component: {fileID: 3300000586}
+  m_Layer: 0
   m_Name: Stick_03_05
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -5817,7 +5876,8 @@ GameObject:
   - component: {fileID: 3300000593}
   - component: {fileID: 3300000594}
   - component: {fileID: 3300000595}
-  m_Layer: 2
+  - component: {fileID: 3300000596}
+  m_Layer: 0
   m_Name: Stick_03_06
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -5899,7 +5959,8 @@ GameObject:
   - component: {fileID: 3300000603}
   - component: {fileID: 3300000604}
   - component: {fileID: 3300000605}
-  m_Layer: 2
+  - component: {fileID: 3300000606}
+  m_Layer: 0
   m_Name: Stick_03_07
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -5981,7 +6042,8 @@ GameObject:
   - component: {fileID: 3300000613}
   - component: {fileID: 3300000614}
   - component: {fileID: 3300000615}
-  m_Layer: 2
+  - component: {fileID: 3300000616}
+  m_Layer: 0
   m_Name: Stick_03_08
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -6063,7 +6125,8 @@ GameObject:
   - component: {fileID: 3300000623}
   - component: {fileID: 3300000624}
   - component: {fileID: 3300000625}
-  m_Layer: 2
+  - component: {fileID: 3300000626}
+  m_Layer: 0
   m_Name: Stick_03_09
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -6145,7 +6208,8 @@ GameObject:
   - component: {fileID: 3300000633}
   - component: {fileID: 3300000634}
   - component: {fileID: 3300000635}
-  m_Layer: 2
+  - component: {fileID: 3300000636}
+  m_Layer: 0
   m_Name: Stick_03_10
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -6227,7 +6291,8 @@ GameObject:
   - component: {fileID: 3300000643}
   - component: {fileID: 3300000644}
   - component: {fileID: 3300000645}
-  m_Layer: 2
+  - component: {fileID: 3300000646}
+  m_Layer: 0
   m_Name: Stick_03_11
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -6309,7 +6374,8 @@ GameObject:
   - component: {fileID: 3300000653}
   - component: {fileID: 3300000654}
   - component: {fileID: 3300000655}
-  m_Layer: 2
+  - component: {fileID: 3300000656}
+  m_Layer: 0
   m_Name: Stick_03_12
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -6391,7 +6457,8 @@ GameObject:
   - component: {fileID: 3300000663}
   - component: {fileID: 3300000664}
   - component: {fileID: 3300000665}
-  m_Layer: 2
+  - component: {fileID: 3300000666}
+  m_Layer: 0
   m_Name: Stick_03_13
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -6473,7 +6540,8 @@ GameObject:
   - component: {fileID: 3300000673}
   - component: {fileID: 3300000674}
   - component: {fileID: 3300000675}
-  m_Layer: 2
+  - component: {fileID: 3300000676}
+  m_Layer: 0
   m_Name: Stick_03_14
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -6555,7 +6623,8 @@ GameObject:
   - component: {fileID: 3300000683}
   - component: {fileID: 3300000684}
   - component: {fileID: 3300000685}
-  m_Layer: 2
+  - component: {fileID: 3300000686}
+  m_Layer: 0
   m_Name: Stick_03_15
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -6637,7 +6706,8 @@ GameObject:
   - component: {fileID: 3300000693}
   - component: {fileID: 3300000694}
   - component: {fileID: 3300000695}
-  m_Layer: 2
+  - component: {fileID: 3300000696}
+  m_Layer: 0
   m_Name: Stick_03_16
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -6719,7 +6789,8 @@ GameObject:
   - component: {fileID: 3300000703}
   - component: {fileID: 3300000704}
   - component: {fileID: 3300000705}
-  m_Layer: 2
+  - component: {fileID: 3300000706}
+  m_Layer: 0
   m_Name: Stick_03_17
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -6801,7 +6872,8 @@ GameObject:
   - component: {fileID: 3300000713}
   - component: {fileID: 3300000714}
   - component: {fileID: 3300000715}
-  m_Layer: 2
+  - component: {fileID: 3300000716}
+  m_Layer: 0
   m_Name: Stick_03_18
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -6883,7 +6955,8 @@ GameObject:
   - component: {fileID: 3300000723}
   - component: {fileID: 3300000724}
   - component: {fileID: 3300000725}
-  m_Layer: 2
+  - component: {fileID: 3300000726}
+  m_Layer: 0
   m_Name: Stick_03_19
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -6965,7 +7038,8 @@ GameObject:
   - component: {fileID: 3300000733}
   - component: {fileID: 3300000734}
   - component: {fileID: 3300000735}
-  m_Layer: 2
+  - component: {fileID: 3300000736}
+  m_Layer: 0
   m_Name: Stick_03_20
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -7047,7 +7121,8 @@ GameObject:
   - component: {fileID: 3300000743}
   - component: {fileID: 3300000744}
   - component: {fileID: 3300000745}
-  m_Layer: 2
+  - component: {fileID: 3300000746}
+  m_Layer: 0
   m_Name: Stick_03_21
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -7129,7 +7204,8 @@ GameObject:
   - component: {fileID: 3300000753}
   - component: {fileID: 3300000754}
   - component: {fileID: 3300000755}
-  m_Layer: 2
+  - component: {fileID: 3300000756}
+  m_Layer: 0
   m_Name: Stick_03_22
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -7211,7 +7287,8 @@ GameObject:
   - component: {fileID: 3300000763}
   - component: {fileID: 3300000764}
   - component: {fileID: 3300000765}
-  m_Layer: 2
+  - component: {fileID: 3300000766}
+  m_Layer: 0
   m_Name: Stick_03_23
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -7293,7 +7370,8 @@ GameObject:
   - component: {fileID: 3300000773}
   - component: {fileID: 3300000774}
   - component: {fileID: 3300000775}
-  m_Layer: 2
+  - component: {fileID: 3300000776}
+  m_Layer: 0
   m_Name: Stick_03_24
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -7375,7 +7453,8 @@ GameObject:
   - component: {fileID: 3300000783}
   - component: {fileID: 3300000784}
   - component: {fileID: 3300000785}
-  m_Layer: 2
+  - component: {fileID: 3300000786}
+  m_Layer: 0
   m_Name: Stick_03_25
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -7457,7 +7536,8 @@ GameObject:
   - component: {fileID: 3300000793}
   - component: {fileID: 3300000794}
   - component: {fileID: 3300000795}
-  m_Layer: 2
+  - component: {fileID: 3300000796}
+  m_Layer: 0
   m_Name: Stick_03_26
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -7539,7 +7619,8 @@ GameObject:
   - component: {fileID: 3300000803}
   - component: {fileID: 3300000804}
   - component: {fileID: 3300000805}
-  m_Layer: 2
+  - component: {fileID: 3300000806}
+  m_Layer: 0
   m_Name: Stick_04_01
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -7621,7 +7702,8 @@ GameObject:
   - component: {fileID: 3300000813}
   - component: {fileID: 3300000814}
   - component: {fileID: 3300000815}
-  m_Layer: 2
+  - component: {fileID: 3300000816}
+  m_Layer: 0
   m_Name: Stick_04_02
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -7703,7 +7785,8 @@ GameObject:
   - component: {fileID: 3300000823}
   - component: {fileID: 3300000824}
   - component: {fileID: 3300000825}
-  m_Layer: 2
+  - component: {fileID: 3300000826}
+  m_Layer: 0
   m_Name: Stick_04_03
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -7785,7 +7868,8 @@ GameObject:
   - component: {fileID: 3300000833}
   - component: {fileID: 3300000834}
   - component: {fileID: 3300000835}
-  m_Layer: 2
+  - component: {fileID: 3300000836}
+  m_Layer: 0
   m_Name: Stick_04_04
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -7867,7 +7951,8 @@ GameObject:
   - component: {fileID: 3300000843}
   - component: {fileID: 3300000844}
   - component: {fileID: 3300000845}
-  m_Layer: 2
+  - component: {fileID: 3300000846}
+  m_Layer: 0
   m_Name: Stick_04_05
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -7949,7 +8034,8 @@ GameObject:
   - component: {fileID: 3300000853}
   - component: {fileID: 3300000854}
   - component: {fileID: 3300000855}
-  m_Layer: 2
+  - component: {fileID: 3300000856}
+  m_Layer: 0
   m_Name: Stick_04_06
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -8031,7 +8117,8 @@ GameObject:
   - component: {fileID: 3300000863}
   - component: {fileID: 3300000864}
   - component: {fileID: 3300000865}
-  m_Layer: 2
+  - component: {fileID: 3300000866}
+  m_Layer: 0
   m_Name: Stick_04_07
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -8113,7 +8200,8 @@ GameObject:
   - component: {fileID: 3300000873}
   - component: {fileID: 3300000874}
   - component: {fileID: 3300000875}
-  m_Layer: 2
+  - component: {fileID: 3300000876}
+  m_Layer: 0
   m_Name: Stick_04_08
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -8195,7 +8283,8 @@ GameObject:
   - component: {fileID: 3300000883}
   - component: {fileID: 3300000884}
   - component: {fileID: 3300000885}
-  m_Layer: 2
+  - component: {fileID: 3300000886}
+  m_Layer: 0
   m_Name: Stick_04_09
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -8277,7 +8366,8 @@ GameObject:
   - component: {fileID: 3300000893}
   - component: {fileID: 3300000894}
   - component: {fileID: 3300000895}
-  m_Layer: 2
+  - component: {fileID: 3300000896}
+  m_Layer: 0
   m_Name: Stick_04_10
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -8359,7 +8449,8 @@ GameObject:
   - component: {fileID: 3300000903}
   - component: {fileID: 3300000904}
   - component: {fileID: 3300000905}
-  m_Layer: 2
+  - component: {fileID: 3300000906}
+  m_Layer: 0
   m_Name: Stick_04_11
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -8441,7 +8532,8 @@ GameObject:
   - component: {fileID: 3300000913}
   - component: {fileID: 3300000914}
   - component: {fileID: 3300000915}
-  m_Layer: 2
+  - component: {fileID: 3300000916}
+  m_Layer: 0
   m_Name: Stick_04_12
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -8523,7 +8615,8 @@ GameObject:
   - component: {fileID: 3300000923}
   - component: {fileID: 3300000924}
   - component: {fileID: 3300000925}
-  m_Layer: 2
+  - component: {fileID: 3300000926}
+  m_Layer: 0
   m_Name: Stick_04_13
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -8605,7 +8698,8 @@ GameObject:
   - component: {fileID: 3300000933}
   - component: {fileID: 3300000934}
   - component: {fileID: 3300000935}
-  m_Layer: 2
+  - component: {fileID: 3300000936}
+  m_Layer: 0
   m_Name: Stick_04_14
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -8687,7 +8781,8 @@ GameObject:
   - component: {fileID: 3300000943}
   - component: {fileID: 3300000944}
   - component: {fileID: 3300000945}
-  m_Layer: 2
+  - component: {fileID: 3300000946}
+  m_Layer: 0
   m_Name: Stick_04_15
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -8769,7 +8864,8 @@ GameObject:
   - component: {fileID: 3300000953}
   - component: {fileID: 3300000954}
   - component: {fileID: 3300000955}
-  m_Layer: 2
+  - component: {fileID: 3300000956}
+  m_Layer: 0
   m_Name: Stick_04_16
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -8851,7 +8947,8 @@ GameObject:
   - component: {fileID: 3300000963}
   - component: {fileID: 3300000964}
   - component: {fileID: 3300000965}
-  m_Layer: 2
+  - component: {fileID: 3300000966}
+  m_Layer: 0
   m_Name: Stick_04_17
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -8933,7 +9030,8 @@ GameObject:
   - component: {fileID: 3300000973}
   - component: {fileID: 3300000974}
   - component: {fileID: 3300000975}
-  m_Layer: 2
+  - component: {fileID: 3300000976}
+  m_Layer: 0
   m_Name: Stick_04_18
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -9015,7 +9113,8 @@ GameObject:
   - component: {fileID: 3300000983}
   - component: {fileID: 3300000984}
   - component: {fileID: 3300000985}
-  m_Layer: 2
+  - component: {fileID: 3300000986}
+  m_Layer: 0
   m_Name: Stick_04_19
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -9097,7 +9196,8 @@ GameObject:
   - component: {fileID: 3300000993}
   - component: {fileID: 3300000994}
   - component: {fileID: 3300000995}
-  m_Layer: 2
+  - component: {fileID: 3300000996}
+  m_Layer: 0
   m_Name: Stick_04_20
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -9179,7 +9279,8 @@ GameObject:
   - component: {fileID: 3300001003}
   - component: {fileID: 3300001004}
   - component: {fileID: 3300001005}
-  m_Layer: 2
+  - component: {fileID: 3300001006}
+  m_Layer: 0
   m_Name: Stick_04_21
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -9261,7 +9362,8 @@ GameObject:
   - component: {fileID: 3300001013}
   - component: {fileID: 3300001014}
   - component: {fileID: 3300001015}
-  m_Layer: 2
+  - component: {fileID: 3300001016}
+  m_Layer: 0
   m_Name: Stick_04_22
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -9343,7 +9445,8 @@ GameObject:
   - component: {fileID: 3300001023}
   - component: {fileID: 3300001024}
   - component: {fileID: 3300001025}
-  m_Layer: 2
+  - component: {fileID: 3300001026}
+  m_Layer: 0
   m_Name: Stick_04_23
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -9425,7 +9528,8 @@ GameObject:
   - component: {fileID: 3300001033}
   - component: {fileID: 3300001034}
   - component: {fileID: 3300001035}
-  m_Layer: 2
+  - component: {fileID: 3300001036}
+  m_Layer: 0
   m_Name: Stick_04_24
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -9507,7 +9611,8 @@ GameObject:
   - component: {fileID: 3300001043}
   - component: {fileID: 3300001044}
   - component: {fileID: 3300001045}
-  m_Layer: 2
+  - component: {fileID: 3300001046}
+  m_Layer: 0
   m_Name: Stick_04_25
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -9589,7 +9694,8 @@ GameObject:
   - component: {fileID: 3300001053}
   - component: {fileID: 3300001054}
   - component: {fileID: 3300001055}
-  m_Layer: 2
+  - component: {fileID: 3300001056}
+  m_Layer: 0
   m_Name: Stick_05_01
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -9671,7 +9777,8 @@ GameObject:
   - component: {fileID: 3300001063}
   - component: {fileID: 3300001064}
   - component: {fileID: 3300001065}
-  m_Layer: 2
+  - component: {fileID: 3300001066}
+  m_Layer: 0
   m_Name: Stick_05_02
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -9753,7 +9860,8 @@ GameObject:
   - component: {fileID: 3300001073}
   - component: {fileID: 3300001074}
   - component: {fileID: 3300001075}
-  m_Layer: 2
+  - component: {fileID: 3300001076}
+  m_Layer: 0
   m_Name: Stick_05_03
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -9835,7 +9943,8 @@ GameObject:
   - component: {fileID: 3300001083}
   - component: {fileID: 3300001084}
   - component: {fileID: 3300001085}
-  m_Layer: 2
+  - component: {fileID: 3300001086}
+  m_Layer: 0
   m_Name: Stick_05_04
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -9917,7 +10026,8 @@ GameObject:
   - component: {fileID: 3300001093}
   - component: {fileID: 3300001094}
   - component: {fileID: 3300001095}
-  m_Layer: 2
+  - component: {fileID: 3300001096}
+  m_Layer: 0
   m_Name: Stick_05_05
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -9999,7 +10109,8 @@ GameObject:
   - component: {fileID: 3300001103}
   - component: {fileID: 3300001104}
   - component: {fileID: 3300001105}
-  m_Layer: 2
+  - component: {fileID: 3300001106}
+  m_Layer: 0
   m_Name: Stick_05_06
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -10081,7 +10192,8 @@ GameObject:
   - component: {fileID: 3300001113}
   - component: {fileID: 3300001114}
   - component: {fileID: 3300001115}
-  m_Layer: 2
+  - component: {fileID: 3300001116}
+  m_Layer: 0
   m_Name: Stick_05_07
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -10163,7 +10275,8 @@ GameObject:
   - component: {fileID: 3300001123}
   - component: {fileID: 3300001124}
   - component: {fileID: 3300001125}
-  m_Layer: 2
+  - component: {fileID: 3300001126}
+  m_Layer: 0
   m_Name: Stick_05_08
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -10245,7 +10358,8 @@ GameObject:
   - component: {fileID: 3300001133}
   - component: {fileID: 3300001134}
   - component: {fileID: 3300001135}
-  m_Layer: 2
+  - component: {fileID: 3300001136}
+  m_Layer: 0
   m_Name: Stick_05_09
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -10327,7 +10441,8 @@ GameObject:
   - component: {fileID: 3300001143}
   - component: {fileID: 3300001144}
   - component: {fileID: 3300001145}
-  m_Layer: 2
+  - component: {fileID: 3300001146}
+  m_Layer: 0
   m_Name: Stick_05_10
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -10409,7 +10524,8 @@ GameObject:
   - component: {fileID: 3300001153}
   - component: {fileID: 3300001154}
   - component: {fileID: 3300001155}
-  m_Layer: 2
+  - component: {fileID: 3300001156}
+  m_Layer: 0
   m_Name: Stick_05_11
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -10491,7 +10607,8 @@ GameObject:
   - component: {fileID: 3300001163}
   - component: {fileID: 3300001164}
   - component: {fileID: 3300001165}
-  m_Layer: 2
+  - component: {fileID: 3300001166}
+  m_Layer: 0
   m_Name: Stick_05_12
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -10573,7 +10690,8 @@ GameObject:
   - component: {fileID: 3300001173}
   - component: {fileID: 3300001174}
   - component: {fileID: 3300001175}
-  m_Layer: 2
+  - component: {fileID: 3300001176}
+  m_Layer: 0
   m_Name: Stick_05_13
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -10655,7 +10773,8 @@ GameObject:
   - component: {fileID: 3300001183}
   - component: {fileID: 3300001184}
   - component: {fileID: 3300001185}
-  m_Layer: 2
+  - component: {fileID: 3300001186}
+  m_Layer: 0
   m_Name: Stick_05_14
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -10737,7 +10856,8 @@ GameObject:
   - component: {fileID: 3300001193}
   - component: {fileID: 3300001194}
   - component: {fileID: 3300001195}
-  m_Layer: 2
+  - component: {fileID: 3300001196}
+  m_Layer: 0
   m_Name: Stick_05_15
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -10819,7 +10939,8 @@ GameObject:
   - component: {fileID: 3300001203}
   - component: {fileID: 3300001204}
   - component: {fileID: 3300001205}
-  m_Layer: 2
+  - component: {fileID: 3300001206}
+  m_Layer: 0
   m_Name: Stick_05_16
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -10901,7 +11022,8 @@ GameObject:
   - component: {fileID: 3300001213}
   - component: {fileID: 3300001214}
   - component: {fileID: 3300001215}
-  m_Layer: 2
+  - component: {fileID: 3300001216}
+  m_Layer: 0
   m_Name: Stick_05_17
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -10983,7 +11105,8 @@ GameObject:
   - component: {fileID: 3300001223}
   - component: {fileID: 3300001224}
   - component: {fileID: 3300001225}
-  m_Layer: 2
+  - component: {fileID: 3300001226}
+  m_Layer: 0
   m_Name: Stick_05_18
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -11065,7 +11188,8 @@ GameObject:
   - component: {fileID: 3300001233}
   - component: {fileID: 3300001234}
   - component: {fileID: 3300001235}
-  m_Layer: 2
+  - component: {fileID: 3300001236}
+  m_Layer: 0
   m_Name: Stick_05_19
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -11147,7 +11271,8 @@ GameObject:
   - component: {fileID: 3300001243}
   - component: {fileID: 3300001244}
   - component: {fileID: 3300001245}
-  m_Layer: 2
+  - component: {fileID: 3300001246}
+  m_Layer: 0
   m_Name: Stick_05_20
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -11229,7 +11354,8 @@ GameObject:
   - component: {fileID: 3300001253}
   - component: {fileID: 3300001254}
   - component: {fileID: 3300001255}
-  m_Layer: 2
+  - component: {fileID: 3300001256}
+  m_Layer: 0
   m_Name: Stick_05_21
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -11311,7 +11437,8 @@ GameObject:
   - component: {fileID: 3300001263}
   - component: {fileID: 3300001264}
   - component: {fileID: 3300001265}
-  m_Layer: 2
+  - component: {fileID: 3300001266}
+  m_Layer: 0
   m_Name: Stick_05_22
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -11393,7 +11520,8 @@ GameObject:
   - component: {fileID: 3300001273}
   - component: {fileID: 3300001274}
   - component: {fileID: 3300001275}
-  m_Layer: 2
+  - component: {fileID: 3300001276}
+  m_Layer: 0
   m_Name: Stick_05_23
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -11475,7 +11603,8 @@ GameObject:
   - component: {fileID: 3300001283}
   - component: {fileID: 3300001284}
   - component: {fileID: 3300001285}
-  m_Layer: 2
+  - component: {fileID: 3300001286}
+  m_Layer: 0
   m_Name: Stick_06_01
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -11557,7 +11686,8 @@ GameObject:
   - component: {fileID: 3300001293}
   - component: {fileID: 3300001294}
   - component: {fileID: 3300001295}
-  m_Layer: 2
+  - component: {fileID: 3300001296}
+  m_Layer: 0
   m_Name: Stick_06_02
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -11639,7 +11769,8 @@ GameObject:
   - component: {fileID: 3300001303}
   - component: {fileID: 3300001304}
   - component: {fileID: 3300001305}
-  m_Layer: 2
+  - component: {fileID: 3300001306}
+  m_Layer: 0
   m_Name: Stick_06_03
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -11721,7 +11852,8 @@ GameObject:
   - component: {fileID: 3300001313}
   - component: {fileID: 3300001314}
   - component: {fileID: 3300001315}
-  m_Layer: 2
+  - component: {fileID: 3300001316}
+  m_Layer: 0
   m_Name: Stick_06_04
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -11803,7 +11935,8 @@ GameObject:
   - component: {fileID: 3300001323}
   - component: {fileID: 3300001324}
   - component: {fileID: 3300001325}
-  m_Layer: 2
+  - component: {fileID: 3300001326}
+  m_Layer: 0
   m_Name: Stick_06_05
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -11885,7 +12018,8 @@ GameObject:
   - component: {fileID: 3300001333}
   - component: {fileID: 3300001334}
   - component: {fileID: 3300001335}
-  m_Layer: 2
+  - component: {fileID: 3300001336}
+  m_Layer: 0
   m_Name: Stick_06_06
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -11967,7 +12101,8 @@ GameObject:
   - component: {fileID: 3300001343}
   - component: {fileID: 3300001344}
   - component: {fileID: 3300001345}
-  m_Layer: 2
+  - component: {fileID: 3300001346}
+  m_Layer: 0
   m_Name: Stick_06_07
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -12049,7 +12184,8 @@ GameObject:
   - component: {fileID: 3300001353}
   - component: {fileID: 3300001354}
   - component: {fileID: 3300001355}
-  m_Layer: 2
+  - component: {fileID: 3300001356}
+  m_Layer: 0
   m_Name: Stick_06_08
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -12131,7 +12267,8 @@ GameObject:
   - component: {fileID: 3300001363}
   - component: {fileID: 3300001364}
   - component: {fileID: 3300001365}
-  m_Layer: 2
+  - component: {fileID: 3300001366}
+  m_Layer: 0
   m_Name: Stick_06_09
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -12213,7 +12350,8 @@ GameObject:
   - component: {fileID: 3300001373}
   - component: {fileID: 3300001374}
   - component: {fileID: 3300001375}
-  m_Layer: 2
+  - component: {fileID: 3300001376}
+  m_Layer: 0
   m_Name: Stick_06_10
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -12295,7 +12433,8 @@ GameObject:
   - component: {fileID: 3300001383}
   - component: {fileID: 3300001384}
   - component: {fileID: 3300001385}
-  m_Layer: 2
+  - component: {fileID: 3300001386}
+  m_Layer: 0
   m_Name: Stick_06_11
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -12377,7 +12516,8 @@ GameObject:
   - component: {fileID: 3300001393}
   - component: {fileID: 3300001394}
   - component: {fileID: 3300001395}
-  m_Layer: 2
+  - component: {fileID: 3300001396}
+  m_Layer: 0
   m_Name: Stick_06_12
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -12459,7 +12599,8 @@ GameObject:
   - component: {fileID: 3300001403}
   - component: {fileID: 3300001404}
   - component: {fileID: 3300001405}
-  m_Layer: 2
+  - component: {fileID: 3300001406}
+  m_Layer: 0
   m_Name: Stick_06_13
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -12541,7 +12682,8 @@ GameObject:
   - component: {fileID: 3300001413}
   - component: {fileID: 3300001414}
   - component: {fileID: 3300001415}
-  m_Layer: 2
+  - component: {fileID: 3300001416}
+  m_Layer: 0
   m_Name: Stick_06_14
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -12623,7 +12765,8 @@ GameObject:
   - component: {fileID: 3300001423}
   - component: {fileID: 3300001424}
   - component: {fileID: 3300001425}
-  m_Layer: 2
+  - component: {fileID: 3300001426}
+  m_Layer: 0
   m_Name: Stick_06_15
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -12705,7 +12848,8 @@ GameObject:
   - component: {fileID: 3300001433}
   - component: {fileID: 3300001434}
   - component: {fileID: 3300001435}
-  m_Layer: 2
+  - component: {fileID: 3300001436}
+  m_Layer: 0
   m_Name: Stick_06_16
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -12787,7 +12931,8 @@ GameObject:
   - component: {fileID: 3300001443}
   - component: {fileID: 3300001444}
   - component: {fileID: 3300001445}
-  m_Layer: 2
+  - component: {fileID: 3300001446}
+  m_Layer: 0
   m_Name: Stick_06_17
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -12869,7 +13014,8 @@ GameObject:
   - component: {fileID: 3300001453}
   - component: {fileID: 3300001454}
   - component: {fileID: 3300001455}
-  m_Layer: 2
+  - component: {fileID: 3300001456}
+  m_Layer: 0
   m_Name: Stick_06_18
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -12951,7 +13097,8 @@ GameObject:
   - component: {fileID: 3300001463}
   - component: {fileID: 3300001464}
   - component: {fileID: 3300001465}
-  m_Layer: 2
+  - component: {fileID: 3300001466}
+  m_Layer: 0
   m_Name: Stick_06_19
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -23521,3 +23668,2062 @@ SceneRoots:
   - {fileID: 4600000012}
   - {fileID: 4600000022}
   - {fileID: 4600000032}
+
+--- !u!114 &3300000006
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3300000000}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
+  materialId: beaver_stick
+  removeOutsideBoundary: 1
+--- !u!114 &3300000016
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3300000010}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
+  materialId: beaver_stick
+  removeOutsideBoundary: 1
+--- !u!114 &3300000026
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3300000020}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
+  materialId: beaver_stick
+  removeOutsideBoundary: 1
+--- !u!114 &3300000036
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3300000030}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
+  materialId: beaver_stick
+  removeOutsideBoundary: 1
+--- !u!114 &3300000046
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3300000040}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
+  materialId: beaver_stick
+  removeOutsideBoundary: 1
+--- !u!114 &3300000056
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3300000050}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
+  materialId: beaver_stick
+  removeOutsideBoundary: 1
+--- !u!114 &3300000066
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3300000060}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
+  materialId: beaver_stick
+  removeOutsideBoundary: 1
+--- !u!114 &3300000076
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3300000070}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
+  materialId: beaver_stick
+  removeOutsideBoundary: 1
+--- !u!114 &3300000086
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3300000080}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
+  materialId: beaver_stick
+  removeOutsideBoundary: 1
+--- !u!114 &3300000096
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3300000090}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
+  materialId: beaver_stick
+  removeOutsideBoundary: 1
+--- !u!114 &3300000106
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3300000100}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
+  materialId: beaver_stick
+  removeOutsideBoundary: 1
+--- !u!114 &3300000116
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3300000110}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
+  materialId: beaver_stick
+  removeOutsideBoundary: 1
+--- !u!114 &3300000126
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3300000120}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
+  materialId: beaver_stick
+  removeOutsideBoundary: 1
+--- !u!114 &3300000136
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3300000130}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
+  materialId: beaver_stick
+  removeOutsideBoundary: 1
+--- !u!114 &3300000146
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3300000140}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
+  materialId: beaver_stick
+  removeOutsideBoundary: 1
+--- !u!114 &3300000156
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3300000150}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
+  materialId: beaver_stick
+  removeOutsideBoundary: 1
+--- !u!114 &3300000166
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3300000160}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
+  materialId: beaver_stick
+  removeOutsideBoundary: 1
+--- !u!114 &3300000176
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3300000170}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
+  materialId: beaver_stick
+  removeOutsideBoundary: 1
+--- !u!114 &3300000186
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3300000180}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
+  materialId: beaver_stick
+  removeOutsideBoundary: 1
+--- !u!114 &3300000196
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3300000190}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
+  materialId: beaver_stick
+  removeOutsideBoundary: 1
+--- !u!114 &3300000206
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3300000200}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
+  materialId: beaver_stick
+  removeOutsideBoundary: 1
+--- !u!114 &3300000216
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3300000210}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
+  materialId: beaver_stick
+  removeOutsideBoundary: 1
+--- !u!114 &3300000226
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3300000220}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
+  materialId: beaver_stick
+  removeOutsideBoundary: 1
+--- !u!114 &3300000236
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3300000230}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
+  materialId: beaver_stick
+  removeOutsideBoundary: 1
+--- !u!114 &3300000246
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3300000240}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
+  materialId: beaver_stick
+  removeOutsideBoundary: 1
+--- !u!114 &3300000256
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3300000250}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
+  materialId: beaver_stick
+  removeOutsideBoundary: 1
+--- !u!114 &3300000266
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3300000260}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
+  materialId: beaver_stick
+  removeOutsideBoundary: 1
+--- !u!114 &3300000276
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3300000270}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
+  materialId: beaver_stick
+  removeOutsideBoundary: 1
+--- !u!114 &3300000286
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3300000280}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
+  materialId: beaver_stick
+  removeOutsideBoundary: 1
+--- !u!114 &3300000296
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3300000290}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
+  materialId: beaver_stick
+  removeOutsideBoundary: 1
+--- !u!114 &3300000306
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3300000300}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
+  materialId: beaver_stick
+  removeOutsideBoundary: 1
+--- !u!114 &3300000316
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3300000310}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
+  materialId: beaver_stick
+  removeOutsideBoundary: 1
+--- !u!114 &3300000326
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3300000320}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
+  materialId: beaver_stick
+  removeOutsideBoundary: 1
+--- !u!114 &3300000336
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3300000330}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
+  materialId: beaver_stick
+  removeOutsideBoundary: 1
+--- !u!114 &3300000346
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3300000340}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
+  materialId: beaver_stick
+  removeOutsideBoundary: 1
+--- !u!114 &3300000356
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3300000350}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
+  materialId: beaver_stick
+  removeOutsideBoundary: 1
+--- !u!114 &3300000366
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3300000360}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
+  materialId: beaver_stick
+  removeOutsideBoundary: 1
+--- !u!114 &3300000376
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3300000370}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
+  materialId: beaver_stick
+  removeOutsideBoundary: 1
+--- !u!114 &3300000386
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3300000380}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
+  materialId: beaver_stick
+  removeOutsideBoundary: 1
+--- !u!114 &3300000396
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3300000390}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
+  materialId: beaver_stick
+  removeOutsideBoundary: 1
+--- !u!114 &3300000406
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3300000400}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
+  materialId: beaver_stick
+  removeOutsideBoundary: 1
+--- !u!114 &3300000416
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3300000410}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
+  materialId: beaver_stick
+  removeOutsideBoundary: 1
+--- !u!114 &3300000426
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3300000420}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
+  materialId: beaver_stick
+  removeOutsideBoundary: 1
+--- !u!114 &3300000436
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3300000430}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
+  materialId: beaver_stick
+  removeOutsideBoundary: 1
+--- !u!114 &3300000446
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3300000440}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
+  materialId: beaver_stick
+  removeOutsideBoundary: 1
+--- !u!114 &3300000456
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3300000450}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
+  materialId: beaver_stick
+  removeOutsideBoundary: 1
+--- !u!114 &3300000466
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3300000460}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
+  materialId: beaver_stick
+  removeOutsideBoundary: 1
+--- !u!114 &3300000476
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3300000470}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
+  materialId: beaver_stick
+  removeOutsideBoundary: 1
+--- !u!114 &3300000486
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3300000480}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
+  materialId: beaver_stick
+  removeOutsideBoundary: 1
+--- !u!114 &3300000496
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3300000490}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
+  materialId: beaver_stick
+  removeOutsideBoundary: 1
+--- !u!114 &3300000506
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3300000500}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
+  materialId: beaver_stick
+  removeOutsideBoundary: 1
+--- !u!114 &3300000516
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3300000510}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
+  materialId: beaver_stick
+  removeOutsideBoundary: 1
+--- !u!114 &3300000526
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3300000520}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
+  materialId: beaver_stick
+  removeOutsideBoundary: 1
+--- !u!114 &3300000536
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3300000530}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
+  materialId: beaver_stick
+  removeOutsideBoundary: 1
+--- !u!114 &3300000546
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3300000540}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
+  materialId: beaver_stick
+  removeOutsideBoundary: 1
+--- !u!114 &3300000556
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3300000550}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
+  materialId: beaver_stick
+  removeOutsideBoundary: 1
+--- !u!114 &3300000566
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3300000560}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
+  materialId: beaver_stick
+  removeOutsideBoundary: 1
+--- !u!114 &3300000576
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3300000570}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
+  materialId: beaver_stick
+  removeOutsideBoundary: 1
+--- !u!114 &3300000586
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3300000580}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
+  materialId: beaver_stick
+  removeOutsideBoundary: 1
+--- !u!114 &3300000596
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3300000590}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
+  materialId: beaver_stick
+  removeOutsideBoundary: 1
+--- !u!114 &3300000606
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3300000600}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
+  materialId: beaver_stick
+  removeOutsideBoundary: 1
+--- !u!114 &3300000616
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3300000610}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
+  materialId: beaver_stick
+  removeOutsideBoundary: 1
+--- !u!114 &3300000626
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3300000620}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
+  materialId: beaver_stick
+  removeOutsideBoundary: 1
+--- !u!114 &3300000636
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3300000630}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
+  materialId: beaver_stick
+  removeOutsideBoundary: 1
+--- !u!114 &3300000646
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3300000640}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
+  materialId: beaver_stick
+  removeOutsideBoundary: 1
+--- !u!114 &3300000656
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3300000650}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
+  materialId: beaver_stick
+  removeOutsideBoundary: 1
+--- !u!114 &3300000666
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3300000660}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
+  materialId: beaver_stick
+  removeOutsideBoundary: 1
+--- !u!114 &3300000676
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3300000670}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
+  materialId: beaver_stick
+  removeOutsideBoundary: 1
+--- !u!114 &3300000686
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3300000680}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
+  materialId: beaver_stick
+  removeOutsideBoundary: 1
+--- !u!114 &3300000696
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3300000690}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
+  materialId: beaver_stick
+  removeOutsideBoundary: 1
+--- !u!114 &3300000706
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3300000700}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
+  materialId: beaver_stick
+  removeOutsideBoundary: 1
+--- !u!114 &3300000716
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3300000710}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
+  materialId: beaver_stick
+  removeOutsideBoundary: 1
+--- !u!114 &3300000726
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3300000720}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
+  materialId: beaver_stick
+  removeOutsideBoundary: 1
+--- !u!114 &3300000736
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3300000730}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
+  materialId: beaver_stick
+  removeOutsideBoundary: 1
+--- !u!114 &3300000746
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3300000740}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
+  materialId: beaver_stick
+  removeOutsideBoundary: 1
+--- !u!114 &3300000756
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3300000750}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
+  materialId: beaver_stick
+  removeOutsideBoundary: 1
+--- !u!114 &3300000766
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3300000760}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
+  materialId: beaver_stick
+  removeOutsideBoundary: 1
+--- !u!114 &3300000776
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3300000770}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
+  materialId: beaver_stick
+  removeOutsideBoundary: 1
+--- !u!114 &3300000786
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3300000780}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
+  materialId: beaver_stick
+  removeOutsideBoundary: 1
+--- !u!114 &3300000796
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3300000790}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
+  materialId: beaver_stick
+  removeOutsideBoundary: 1
+--- !u!114 &3300000806
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3300000800}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
+  materialId: beaver_stick
+  removeOutsideBoundary: 1
+--- !u!114 &3300000816
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3300000810}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
+  materialId: beaver_stick
+  removeOutsideBoundary: 1
+--- !u!114 &3300000826
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3300000820}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
+  materialId: beaver_stick
+  removeOutsideBoundary: 1
+--- !u!114 &3300000836
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3300000830}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
+  materialId: beaver_stick
+  removeOutsideBoundary: 1
+--- !u!114 &3300000846
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3300000840}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
+  materialId: beaver_stick
+  removeOutsideBoundary: 1
+--- !u!114 &3300000856
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3300000850}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
+  materialId: beaver_stick
+  removeOutsideBoundary: 1
+--- !u!114 &3300000866
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3300000860}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
+  materialId: beaver_stick
+  removeOutsideBoundary: 1
+--- !u!114 &3300000876
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3300000870}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
+  materialId: beaver_stick
+  removeOutsideBoundary: 1
+--- !u!114 &3300000886
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3300000880}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
+  materialId: beaver_stick
+  removeOutsideBoundary: 1
+--- !u!114 &3300000896
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3300000890}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
+  materialId: beaver_stick
+  removeOutsideBoundary: 1
+--- !u!114 &3300000906
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3300000900}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
+  materialId: beaver_stick
+  removeOutsideBoundary: 1
+--- !u!114 &3300000916
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3300000910}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
+  materialId: beaver_stick
+  removeOutsideBoundary: 1
+--- !u!114 &3300000926
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3300000920}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
+  materialId: beaver_stick
+  removeOutsideBoundary: 1
+--- !u!114 &3300000936
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3300000930}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
+  materialId: beaver_stick
+  removeOutsideBoundary: 1
+--- !u!114 &3300000946
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3300000940}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
+  materialId: beaver_stick
+  removeOutsideBoundary: 1
+--- !u!114 &3300000956
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3300000950}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
+  materialId: beaver_stick
+  removeOutsideBoundary: 1
+--- !u!114 &3300000966
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3300000960}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
+  materialId: beaver_stick
+  removeOutsideBoundary: 1
+--- !u!114 &3300000976
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3300000970}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
+  materialId: beaver_stick
+  removeOutsideBoundary: 1
+--- !u!114 &3300000986
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3300000980}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
+  materialId: beaver_stick
+  removeOutsideBoundary: 1
+--- !u!114 &3300000996
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3300000990}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
+  materialId: beaver_stick
+  removeOutsideBoundary: 1
+--- !u!114 &3300001006
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3300001000}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
+  materialId: beaver_stick
+  removeOutsideBoundary: 1
+--- !u!114 &3300001016
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3300001010}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
+  materialId: beaver_stick
+  removeOutsideBoundary: 1
+--- !u!114 &3300001026
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3300001020}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
+  materialId: beaver_stick
+  removeOutsideBoundary: 1
+--- !u!114 &3300001036
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3300001030}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
+  materialId: beaver_stick
+  removeOutsideBoundary: 1
+--- !u!114 &3300001046
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3300001040}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
+  materialId: beaver_stick
+  removeOutsideBoundary: 1
+--- !u!114 &3300001056
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3300001050}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
+  materialId: beaver_stick
+  removeOutsideBoundary: 1
+--- !u!114 &3300001066
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3300001060}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
+  materialId: beaver_stick
+  removeOutsideBoundary: 1
+--- !u!114 &3300001076
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3300001070}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
+  materialId: beaver_stick
+  removeOutsideBoundary: 1
+--- !u!114 &3300001086
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3300001080}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
+  materialId: beaver_stick
+  removeOutsideBoundary: 1
+--- !u!114 &3300001096
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3300001090}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
+  materialId: beaver_stick
+  removeOutsideBoundary: 1
+--- !u!114 &3300001106
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3300001100}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
+  materialId: beaver_stick
+  removeOutsideBoundary: 1
+--- !u!114 &3300001116
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3300001110}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
+  materialId: beaver_stick
+  removeOutsideBoundary: 1
+--- !u!114 &3300001126
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3300001120}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
+  materialId: beaver_stick
+  removeOutsideBoundary: 1
+--- !u!114 &3300001136
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3300001130}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
+  materialId: beaver_stick
+  removeOutsideBoundary: 1
+--- !u!114 &3300001146
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3300001140}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
+  materialId: beaver_stick
+  removeOutsideBoundary: 1
+--- !u!114 &3300001156
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3300001150}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
+  materialId: beaver_stick
+  removeOutsideBoundary: 1
+--- !u!114 &3300001166
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3300001160}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
+  materialId: beaver_stick
+  removeOutsideBoundary: 1
+--- !u!114 &3300001176
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3300001170}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
+  materialId: beaver_stick
+  removeOutsideBoundary: 1
+--- !u!114 &3300001186
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3300001180}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
+  materialId: beaver_stick
+  removeOutsideBoundary: 1
+--- !u!114 &3300001196
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3300001190}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
+  materialId: beaver_stick
+  removeOutsideBoundary: 1
+--- !u!114 &3300001206
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3300001200}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
+  materialId: beaver_stick
+  removeOutsideBoundary: 1
+--- !u!114 &3300001216
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3300001210}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
+  materialId: beaver_stick
+  removeOutsideBoundary: 1
+--- !u!114 &3300001226
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3300001220}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
+  materialId: beaver_stick
+  removeOutsideBoundary: 1
+--- !u!114 &3300001236
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3300001230}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
+  materialId: beaver_stick
+  removeOutsideBoundary: 1
+--- !u!114 &3300001246
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3300001240}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
+  materialId: beaver_stick
+  removeOutsideBoundary: 1
+--- !u!114 &3300001256
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3300001250}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
+  materialId: beaver_stick
+  removeOutsideBoundary: 1
+--- !u!114 &3300001266
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3300001260}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
+  materialId: beaver_stick
+  removeOutsideBoundary: 1
+--- !u!114 &3300001276
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3300001270}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
+  materialId: beaver_stick
+  removeOutsideBoundary: 1
+--- !u!114 &3300001286
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3300001280}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
+  materialId: beaver_stick
+  removeOutsideBoundary: 1
+--- !u!114 &3300001296
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3300001290}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
+  materialId: beaver_stick
+  removeOutsideBoundary: 1
+--- !u!114 &3300001306
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3300001300}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
+  materialId: beaver_stick
+  removeOutsideBoundary: 1
+--- !u!114 &3300001316
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3300001310}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
+  materialId: beaver_stick
+  removeOutsideBoundary: 1
+--- !u!114 &3300001326
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3300001320}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
+  materialId: beaver_stick
+  removeOutsideBoundary: 1
+--- !u!114 &3300001336
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3300001330}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
+  materialId: beaver_stick
+  removeOutsideBoundary: 1
+--- !u!114 &3300001346
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3300001340}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
+  materialId: beaver_stick
+  removeOutsideBoundary: 1
+--- !u!114 &3300001356
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3300001350}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
+  materialId: beaver_stick
+  removeOutsideBoundary: 1
+--- !u!114 &3300001366
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3300001360}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
+  materialId: beaver_stick
+  removeOutsideBoundary: 1
+--- !u!114 &3300001376
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3300001370}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
+  materialId: beaver_stick
+  removeOutsideBoundary: 1
+--- !u!114 &3300001386
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3300001380}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
+  materialId: beaver_stick
+  removeOutsideBoundary: 1
+--- !u!114 &3300001396
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3300001390}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
+  materialId: beaver_stick
+  removeOutsideBoundary: 1
+--- !u!114 &3300001406
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3300001400}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
+  materialId: beaver_stick
+  removeOutsideBoundary: 1
+--- !u!114 &3300001416
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3300001410}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
+  materialId: beaver_stick
+  removeOutsideBoundary: 1
+--- !u!114 &3300001426
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3300001420}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
+  materialId: beaver_stick
+  removeOutsideBoundary: 1
+--- !u!114 &3300001436
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3300001430}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
+  materialId: beaver_stick
+  removeOutsideBoundary: 1
+--- !u!114 &3300001446
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3300001440}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
+  materialId: beaver_stick
+  removeOutsideBoundary: 1
+--- !u!114 &3300001456
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3300001450}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
+  materialId: beaver_stick
+  removeOutsideBoundary: 1
+--- !u!114 &3300001466
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3300001460}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
+  materialId: beaver_stick
+  removeOutsideBoundary: 1

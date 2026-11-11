@@ -10,7 +10,9 @@ Shader "GuardWave/Outline"
         Tags { "RenderPipeline" = "UniversalPipeline" "Queue" = "Geometry" }
         Pass
         {
-            Cull Off
+            Cull Front
+            ZWrite Off
+            ZTest LEqual
             HLSLPROGRAM
             #pragma vertex Vert
             #pragma fragment Frag
