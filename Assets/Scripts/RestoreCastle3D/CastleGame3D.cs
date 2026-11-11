@@ -80,6 +80,7 @@ namespace RestoreCastle3D
         private bool _awaitingStage;
         private bool _finished;
         private bool _stagePassed;
+        private bool _initialized;
         private string _status;
 
         [Header("Camera input")]
@@ -93,8 +94,8 @@ namespace RestoreCastle3D
         private void Start()
         {
             _sceneContext = GetComponent<ForestSceneContext>();
-            _catalog = new CastleCatalog3D();
             ConfigureScene();
+            _catalog = new CastleCatalog3D();
             CreateHud();
             _dropPreview = new CastleDropPreview3D();
             _floodEffect = new CastleFloodEffect3D();
@@ -103,11 +104,12 @@ namespace RestoreCastle3D
                 .GetComponent<BoxCollider>().bounds;
             _floodEffect.ShowShallow(_placementBounds, lowerCreek,
                 groundY + shallowWaterDepth, lowerCreek.center.y + shallowWaterDepth);
+            _initialized = true;
         }
 
         private void Update()
         {
-            if (_catalog == null) return;
+            if (!_initialized) return;
             if (_defenseFlag.activeSelf && _defenseFlag.transform.position.z <= DestructionBoundaryZ)
                 DestroyDefenseFlag();
             Mouse mouse = Mouse.current;
@@ -313,7 +315,10 @@ namespace RestoreCastle3D
             _camera.transform.rotation = Quaternion.Euler(60f, 45f, 0f);
             _cameraTarget = Vector3.zero;
             UpdateCameraPosition();
-            _defenseFlag = GameObject.Find("Defense Flag");
+            _defenseFlag = _sceneContext.DefenseFlag;
+            if (_defenseFlag == null)
+                throw new InvalidOperationException(
+                    "Forest scene is missing its serialized Defense Flag reference on @SceneContext.");
             _flagBody = _defenseFlag.GetComponent<Rigidbody>();
             _flagCollider = _defenseFlag.GetComponent<BoxCollider>();
             _initialFlagPosition = _defenseFlag.transform.position;

@@ -398,6 +398,7 @@ MonoBehaviour:
   _rotationSpeed: 90
   _cameraYawPerScrollStep: 5
   _destructionBoundaryZ: -15
+  _defenseFlag: {fileID: 3100000001}
 --- !u!1001 &1762329492425469008
 PrefabInstance:
   m_ObjectHideFlags: 0

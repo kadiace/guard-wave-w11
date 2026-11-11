@@ -11,7 +11,11 @@ public class ForestSceneContext : MonoBehaviour
     [Header("Destruction boundary")]
     [SerializeField] private float _destructionBoundaryZ = -28.2f;
 
+    [Header("Scene objects")]
+    [SerializeField] private GameObject _defenseFlag;
+
     public float DestructionBoundaryZ => _destructionBoundaryZ;
+    public GameObject DefenseFlag => _defenseFlag;
 
     private void Start()
     {
