@@ -8,6 +8,7 @@
 #pragma kernel ProjectGrid
 #pragma kernel GridToParticle
 #pragma kernel PressureToBodies
+#pragma kernel Waterfall
 
 #define SCALE 2048.0
 #define MAX_COLLIDERS 256
@@ -48,6 +49,7 @@ float _ParticleMass;
 float _HydroDensity;
 float _FloorY;
 float _ExitZ;
+float _WaterfallEndY;
 float _HalfWidth;
 float _InletZ;
 float _WaveHeight;
@@ -179,7 +181,7 @@ void ParticleToGrid(uint id : SV_DispatchThreadID)
 {
     if (id >= _ParticleCount) return;
     FluidParticle p = _Particles[id];
-    if (p.position.w < 0.5) return;
+    if (p.position.w != 1.0) return;
     float3 g = (p.position.xyz - _GridOrigin) / _CellSize - 0.5;
     int3 baseCell = (int3)floor(g);
     float3 f = frac(g);
@@ -232,9 +234,9 @@ void JacobiPressure(uint id : SV_DispatchThreadID)
     float sum = PressureAt(c+ex,own)+PressureAt(c-ex,own)+
         PressureAt(c+ey,own)+PressureAt(c-ey,own)+
         PressureAt(c+ez,own)+PressureAt(c-ez,own);
-    float n = 6.0 - (IsSolid(c+ex)?1:0) - (IsSolid(c-ex)?1:0) -
-        (IsSolid(c+ey)?1:0) - (IsSolid(c-ey)?1:0) -
-        (IsSolid(c+ez)?1:0) - (IsSolid(c-ez)?1:0);
+    // Solid neighbors contribute the current pressure (Neumann boundary).
+    // Therefore the Jacobi denominator remains six rather than six-minus-solids.
+    float n = 6.0;
     // Unit density in the grid; pressure is a velocity potential.
     _PressureDst[id] = (sum - div*_CellSize*_CellSize/max(_Dt,0.0001)) / max(n,1);
 }
@@ -264,7 +266,7 @@ void GridToParticle(uint id : SV_DispatchThreadID)
 {
     if (id >= _ParticleCount) return;
     FluidParticle p = _Particles[id];
-    if (p.position.w < 0.5) return;
+    if (p.position.w != 1.0) return;
     float3 g = (p.position.xyz - _GridOrigin) / _CellSize - 0.5;
     int3 baseCell = (int3)floor(g);
     float3 f = frac(g);
@@ -314,7 +316,7 @@ void GridToParticle(uint id : SV_DispatchThreadID)
         p.position.x = _HalfWidth - 0.05;
         p.velocity.x = min(p.velocity.x, 0);
     }
-    if (p.position.y < _FloorY + 0.05)
+    if (p.position.y < _FloorY + 0.05 && p.position.z >= _ExitZ)
     {
         p.position.y = _FloorY + 0.05;
         p.velocity.y = max(p.velocity.y, 0);
@@ -349,7 +351,9 @@ void GridToParticle(uint id : SV_DispatchThreadID)
             InterlockedAdd(_BodyImpulses[dst+1].z, (int)round(torque.z*SCALE));
         }
     }
-    if (p.position.z < _ExitZ || p.position.y > _GridOrigin.y+_GridSize.y*_CellSize-0.1)
+    if (p.position.z < _ExitZ)
+        p.position.w = 2; // Beyond the cliff: ballistic spray, no longer grid fluid.
+    else if (p.position.y > _GridOrigin.y + _GridSize.y*_CellSize - 0.1)
         p.position.w = 0;
     _Particles[id] = p;
 }
@@ -390,4 +394,19 @@ void PressureToBodies(uint id : SV_DispatchThreadID)
         InterlockedAdd(_BodyImpulses[index+1].y, (int)round(torque.y * SCALE));
         InterlockedAdd(_BodyImpulses[index+1].z, (int)round(torque.z * SCALE));
     }
+}
+
+[numthreads(128,1,1)]
+void Waterfall(uint id : SV_DispatchThreadID)
+{
+    if (id >= _ParticleCount) return;
+    FluidParticle p = _Particles[id];
+    if (p.position.w < 1.5) return;
+    // Water beyond the -Z cliff is free-falling spray. The 3D pressure domain
+    // stays small; inactive falling particles are excluded from P2G/G2P.
+    p.velocity.y -= _Gravity * _Dt;
+    p.position.xyz += p.velocity.xyz * _Dt;
+    if (p.position.y < _WaterfallEndY || p.position.z < _ExitZ - 80)
+        p.position.w = 0;
+    _Particles[id] = p;
 }
