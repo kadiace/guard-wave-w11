@@ -121,7 +121,7 @@ namespace RestoreCastle3D
 
             _rerollButton = transform.Find("CandidateSelectionRow/CandidateActions/RerollActionButton").GetComponent<Button>();
             _rerollAction = _rerollButton.GetComponentInChildren<Text>();
-            _rerollButton.onClick.AddListener(_game.Reroll);
+            transform.Find("CandidateSelectionRow/CandidateActions").gameObject.SetActive(false);
             transform.Find("TopBar/RerollStat").gameObject.SetActive(false);
             transform.Find("ActiveEffectsPanel").gameObject.SetActive(false);
 
@@ -147,14 +147,16 @@ namespace RestoreCastle3D
             _completePopup.SetActive(false);
             _rulesPopup.SetActive(false);
             _tooltip.SetActive(false);
-            _rulesBody.text = @"기물을 원하는 만큼 배치하고 우측 상단의 준비완료를 누르면 홍수가 밀려옵니다.
+            _rulesBody.text = @"고무오리, 쓰레기 봉투, 큰 돌 중 원하는 기물을 선택해 무제한 배치하세요.
+선택한 기물은 우클릭 또는 Esc로 해제하기 전까지 계속 배치할 수 있습니다.
+우측 상단의 준비완료를 누르면 홍수가 밀려옵니다.
 깃발을 지키세요! 파도에 깃발이 밀려 절벽 뒤 파괴 경계를 넘으면 방어에 실패합니다.
 실패 팝업의 확인을 누르면 준비완료를 누르기 직전의 배치로 돌아갑니다.
 
 우클릭 드래그: 카메라 이동
 스크롤: 확대
 우클릭 중 스크롤: 카메라 회전
-Q/E: 기물 회전 / Esc: 선택 취소
+Q/E: 기물 회전 / 우클릭 또는 Esc: 선택 취소
 
 홍수에 밀려 절벽 뒤로 넘어간 기물은 파괴됩니다.
 ";
