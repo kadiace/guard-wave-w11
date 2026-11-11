@@ -16,13 +16,20 @@ public class ForestSceneContext : MonoBehaviour
 
     [Header("Scene objects")]
     [SerializeField] private GameObject _defenseFlag;
-    [SerializeField] private GuardWaveHud _hud;
     [SerializeField] private MeshFilter _floodMesh;
 
     public float DestructionBoundaryZ => _destructionBoundaryZ;
     public GameObject DefenseFlag => _defenseFlag;
-    public GuardWaveHud Hud => _hud;
+    public GuardWaveHud Hud { get; private set; }
     public MeshFilter FloodMesh => _floodMesh;
+
+    private void Awake()
+    {
+        GuardWaveHud hudPrefab = Resources.Load<GuardWaveHud>("Prefabs/UIs/GuardWaveHud");
+        if (hudPrefab == null)
+            throw new System.InvalidOperationException("Missing Resources/Prefabs/UIs/GuardWaveHud prefab.");
+        Hud = Instantiate(hudPrefab);
+    }
 
     private void Start()
     {

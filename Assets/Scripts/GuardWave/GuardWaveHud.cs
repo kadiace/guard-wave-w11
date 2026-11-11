@@ -19,9 +19,6 @@ namespace GuardWave
         private readonly Dictionary<string, Sprite> _generatedIcons = new Dictionary<string, Sprite>();
 
         private GuardWaveGame _game;
-        private Text _stage;
-        private Text _durability;
-        private Text _target;
         private Text _rerollAction;
         private Text _detail;
         private Text _stageTitle;
@@ -54,10 +51,6 @@ namespace GuardWave
         public void Initialize(GuardWaveGame game)
         {
             _game = game;
-            _stage = FindText("TopBar/StageStat/Value");
-            transform.Find("TopBar/RoundStat").gameObject.SetActive(false);
-            _durability = FindText("TopBar/DurabilityStat/Value");
-            _target = FindText("TopBar/TargetStat/Value");
             _detail = FindText("PlacementDetailPanel/DetailText");
             _stagePopup = transform.Find("StageResultPopup").gameObject;
             _stageTitle = FindText("StageResultPopup/Heading/TitleText");
@@ -109,16 +102,10 @@ namespace GuardWave
 
             _rerollButton = transform.Find("CandidateSelectionRow/CandidateActions/RerollActionButton").GetComponent<Button>();
             _rerollAction = _rerollButton.GetComponentInChildren<Text>();
-            transform.Find("CandidateSelectionRow/CandidateActions").gameObject.SetActive(false);
-            transform.Find("TopBar/RerollStat").gameObject.SetActive(false);
             transform.Find("ActiveEffectsPanel").gameObject.SetActive(false);
-
-            // The 2D manual removal action was replaced by the barrel explosion in 3D.
-            transform.Find("TopBar/BombStat").gameObject.SetActive(false);
-            transform.Find("CandidateSelectionRow/CandidateActions/BombActionButton").gameObject.SetActive(false);
-            Button rulesButton = transform.Find("TopBar/RulesButton").GetComponent<Button>();
+            Button rulesButton = transform.Find("CandidateSelectionRow/CandidateActions/RulesButton").GetComponent<Button>();
             rulesButton.onClick.AddListener(ShowRules);
-            _readyButton = transform.Find("TopBar/ReadyButton").GetComponent<Button>();
+            _readyButton = transform.Find("CandidateSelectionRow/CandidateActions/ReadyButton").GetComponent<Button>();
             _readyButton.onClick.AddListener(_game.Ready);
             transform.Find("RulesPopup/CloseButton").GetComponent<Button>().onClick.AddListener(HideRules);
             Button confirmButton = transform.Find("StageResultPopup/CloseButton").GetComponent<Button>();
@@ -132,7 +119,7 @@ namespace GuardWave
             _tooltip.SetActive(false);
             _rulesBody.text = @"고무오리, 쓰레기 봉투, 큰 돌 중 원하는 기물을 선택해 무제한 배치하세요.
 선택한 기물은 우클릭 또는 Esc로 해제하기 전까지 계속 배치할 수 있습니다.
-우측 상단의 준비완료를 누르면 홍수가 밀려옵니다.
+하단의 준비완료를 누르면 홍수가 밀려옵니다.
 깃발을 지키세요! 파도에 깃발이 밀려 절벽 뒤 파괴 경계를 넘으면 방어에 실패합니다.
 실패 팝업의 확인을 누르면 준비완료를 누르기 직전의 배치로 돌아갑니다.
 
@@ -199,9 +186,6 @@ Q/E: 기물 회전 / 우클릭 또는 Esc: 선택 취소
         /// <summary>상단 스테이지 정보, 하단 카드, 버튼, 팝업을 현재 게임 상태로 갱신한다.</summary>
         private void Refresh()
         {
-            _stage.text = "STAGE " + _game.StageNumber + " / " + _game.StageCount;
-            _durability.transform.parent.gameObject.SetActive(false);
-            _target.transform.parent.gameObject.SetActive(false);
             _rerollAction.text = "리롤\n" + _game.RerollCount;
             if (_game.IsPaletteHidden && _hoveredCard >= 0)
             {
