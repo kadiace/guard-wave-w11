@@ -102,41 +102,41 @@ namespace GuardWave
             if (!SystemInfo.supportsComputeShaders)
                 throw new NotSupportedException("GPU FLIP water requires compute shader support.");
 
-            ComputeShader asset = Resources.Load<ComputeShader>("GuardWaveFlip");
+            ComputeShader asset = Resources.Load<ComputeShader>("Textures/GuardWaveFlip");
             if (asset == null)
-                throw new InvalidOperationException("Missing Resources/GuardWaveFlip.compute");
+                throw new InvalidOperationException("Missing Resources/Textures/GuardWaveFlip.compute");
             _compute = UnityEngine.Object.Instantiate(asset);
             _floorY = groundY;
             _waveHeight = Mathf.Clamp(waveHeight, 1f, 6f);
             _startZ = Mathf.Max(startZ, endZ + 8f);
             _endZ = endZ;
-            InletSpeed = Mathf.Clamp((_startZ-_endZ) /
+            InletSpeed = Mathf.Clamp((_startZ - _endZ) /
                 Mathf.Max(4f, travelDuration * _settings.TravelDurationMultiplier),
                 _settings.MinInletSpeed, _settings.MaxInletSpeed);
             _grid = new Vector3Int(
-                Mathf.CeilToInt((24f + _cellSize*2f) / _cellSize),
+                Mathf.CeilToInt((24f + _cellSize * 2f) / _cellSize),
                 Mathf.CeilToInt((9f + _cellSize) / _cellSize),
-                Mathf.CeilToInt((_startZ - _endZ + _cellSize*3f) / _cellSize));
-            _origin = new Vector3(-12f-_cellSize, groundY-_cellSize,
-                _endZ-_cellSize);
+                Mathf.CeilToInt((_startZ - _endZ + _cellSize * 3f) / _cellSize));
+            _origin = new Vector3(-12f - _cellSize, groundY - _cellSize,
+                _endZ - _cellSize);
             _gridCount = _grid.x * _grid.y * _grid.z;
             // Include lower-cliff free-fall particles in procedural renderer culling.
             RenderBounds = new Bounds(
-                new Vector3(0, (groundY+9f+waterfallEndY)*0.5f,
-                    (_startZ+_endZ-80f)*0.5f),
-                new Vector3(27f, groundY+13f-waterfallEndY,
-                    _startZ-_endZ+86f));
+                new Vector3(0, (groundY + 9f + waterfallEndY) * 0.5f,
+                    (_startZ + _endZ - 80f) * 0.5f),
+                new Vector3(27f, groundY + 13f - waterfallEndY,
+                    _startZ - _endZ + 86f));
 
             _particles = new ComputeBuffer(_settings.MaxParticles, Marshal.SizeOf<Particle>());
             _particles.SetData(new Particle[_settings.MaxParticles]);
-            _accum = new ComputeBuffer(_gridCount, sizeof(int)*4);
-            _velocity = new ComputeBuffer(_gridCount, sizeof(float)*3);
-            _before = new ComputeBuffer(_gridCount, sizeof(float)*3);
+            _accum = new ComputeBuffer(_gridCount, sizeof(int) * 4);
+            _velocity = new ComputeBuffer(_gridCount, sizeof(float) * 3);
+            _before = new ComputeBuffer(_gridCount, sizeof(float) * 3);
             _pressureA = new ComputeBuffer(_gridCount, sizeof(float));
             _pressureB = new ComputeBuffer(_gridCount, sizeof(float));
             _solid = new ComputeBuffer(_gridCount, sizeof(uint));
             _colliderBuffer = new ComputeBuffer(_settings.MaxColliders, Marshal.SizeOf<ColliderData>());
-            _impulses = new ComputeBuffer(_settings.MaxBodies * 2, sizeof(int)*4);
+            _impulses = new ComputeBuffer(_settings.MaxBodies * 2, sizeof(int) * 4);
 
             _clearKernel = _compute.FindKernel("ClearGrid");
             _classifyKernel = _compute.FindKernel("ClassifyGrid");
@@ -156,7 +156,7 @@ namespace GuardWave
             _compute.SetFloat("_ExitZ", endZ);
             _compute.SetFloat("_WaterfallEndY", waterfallEndY);
             _compute.SetFloat("_HalfWidth", 12f);
-            _compute.SetFloat("_InletZ", _startZ-_cellSize);
+            _compute.SetFloat("_InletZ", _startZ - _cellSize);
             _compute.SetFloat("_WaveHeight", _waveHeight);
             _compute.SetFloat("_InletVelocity", InletSpeed);
             _compute.SetFloat("_Gravity", Mathf.Abs(Physics.gravity.y) * _settings.GravityMultiplier);
@@ -308,15 +308,15 @@ namespace GuardWave
                 {
                     rotation = Quaternion.identity;
                 }
-                data.CenterBody = new Vector4(center.x,center.y,center.z,index);
-                data.ExtentType = new Vector4(half.x,half.y,half.z,type);
-                data.Rotation = new Vector4(rotation.x,rotation.y,rotation.z,rotation.w);
+                data.CenterBody = new Vector4(center.x, center.y, center.z, index);
+                data.ExtentType = new Vector4(half.x, half.y, half.z, type);
+                data.Rotation = new Vector4(rotation.x, rotation.y, rotation.z, rotation.w);
                 if (body != null && !body.isKinematic)
                 {
                     Vector3 v = body.linearVelocity;
                     Vector3 w = body.angularVelocity;
-                    data.Velocity = new Vector4(v.x,v.y,v.z,bounds.extents.magnitude+_cellSize);
-                    data.Angular = new Vector4(w.x,w.y,w.z,0);
+                    data.Velocity = new Vector4(v.x, v.y, v.z, bounds.extents.magnitude + _cellSize);
+                    data.Angular = new Vector4(w.x, w.y, w.z, 0);
                 }
                 if (body == null || body.isKinematic)
                     data.Velocity.w = bounds.extents.magnitude + _cellSize;
@@ -336,17 +336,17 @@ namespace GuardWave
             _elapsed += dt;
             _compute.SetFloat("_Dt", dt);
             UpdateColliders();
-            Dispatch(_clearKernel, Mathf.Max(_gridCount, _bodies.Count*2));
+            Dispatch(_clearKernel, Mathf.Max(_gridCount, _bodies.Count * 2));
             Dispatch(_classifyKernel, _gridCount);
 
             _spawnClock += dt;
             if (inletFraction > 0.05f && _spawnClock >= _settings.SpawnInterval)
             {
                 _spawnClock -= _settings.SpawnInterval;
-                int widthCells = Mathf.FloorToInt(24f/(_cellSize*0.85f));
-                int heightCells = Mathf.Max(1,Mathf.FloorToInt(_waveHeight/(_cellSize*0.85f)));
-                int count = Mathf.Min(_settings.MaxParticles-_particleCount,
-                    Mathf.RoundToInt(widthCells*heightCells*_settings.SpawnRateMultiplier*inletFraction));
+                int widthCells = Mathf.FloorToInt(24f / (_cellSize * 0.85f));
+                int heightCells = Mathf.Max(1, Mathf.FloorToInt(_waveHeight / (_cellSize * 0.85f)));
+                int count = Mathf.Min(_settings.MaxParticles - _particleCount,
+                    Mathf.RoundToInt(widthCells * heightCells * _settings.SpawnRateMultiplier * inletFraction));
                 if (count > 0)
                 {
                     _compute.SetInt("_SpawnStart", _particleCount);
@@ -368,7 +368,7 @@ namespace GuardWave
                 _compute.SetBuffer(_pressureKernel, "_PressureSrc", src);
                 _compute.SetBuffer(_pressureKernel, "_PressureDst", dst);
                 Dispatch(_pressureKernel, _gridCount);
-                (src,dst) = (dst,src);
+                (src, dst) = (dst, src);
             }
             _compute.SetBuffer(_projectKernel, "_PressureSrc", src);
             Dispatch(_projectKernel, _gridCount);
@@ -387,7 +387,7 @@ namespace GuardWave
         /// <summary>Runs the selected compute kernel with 128 threads per workgroup.</summary>
         private void Dispatch(int kernel, int count)
         {
-            _compute.Dispatch(kernel, Mathf.Max(1, (count+THREADS-1)/THREADS), 1, 1);
+            _compute.Dispatch(kernel, Mathf.Max(1, (count + THREADS - 1) / THREADS), 1, 1);
         }
 
         /// <summary>Applies bounded fluid reaction impulses to scene Rigidbodies on the main thread.</summary>
@@ -401,14 +401,14 @@ namespace GuardWave
                 Rigidbody body = _bodies[i];
                 if (body == null || body.isKinematic || !body.gameObject.activeInHierarchy)
                     continue;
-                Int4 force = values[i*2];
-                Int4 torque = values[i*2+1];
-                Vector3 linear = new Vector3(force.X,force.Y,force.Z) / IMPULSE_SCALE;
-                Vector3 angular = new Vector3(torque.X,torque.Y,torque.Z) / IMPULSE_SCALE;
+                Int4 force = values[i * 2];
+                Int4 torque = values[i * 2 + 1];
+                Vector3 linear = new Vector3(force.X, force.Y, force.Z) / IMPULSE_SCALE;
+                Vector3 angular = new Vector3(torque.X, torque.Y, torque.Z) / IMPULSE_SCALE;
                 float limit = Mathf.Max(_settings.MinImpulseLimit,
                     body.mass * _settings.MaxImpulsePerBodyMass);
-                body.AddForce(Vector3.ClampMagnitude(linear,limit), ForceMode.Impulse);
-                body.AddTorque(Vector3.ClampMagnitude(angular,limit*_settings.AngularImpulseMultiplier), ForceMode.Impulse);
+                body.AddForce(Vector3.ClampMagnitude(linear, limit), ForceMode.Impulse);
+                body.AddTorque(Vector3.ClampMagnitude(angular, limit * _settings.AngularImpulseMultiplier), ForceMode.Impulse);
             }
         }
 
