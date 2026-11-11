@@ -161,7 +161,7 @@ void Spawn(uint id : SV_DispatchThreadID)
     // Mix the candidate lattice coordinates instead of filling the river from one side.
     uint widthCells = max(1u, (uint)floor(_HalfWidth * 2.0 / (_CellSize * 0.85)));
     uint heightCells = max(1u, (uint)floor(_WaveHeight / (_CellSize * 0.85)));
-    uint layerCells = 2;
+    uint layerCells = 3;
     uint span = widthCells * heightCells * layerCells;
     uint chosen = (id * 7919u + _SpawnSeed * 1543u) % span;
     uint ix = chosen % widthCells;
