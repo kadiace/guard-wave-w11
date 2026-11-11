@@ -14,16 +14,11 @@ namespace GuardWave
         private const int STAGE_COUNT = 5;
         private const float FLOOD_DURATION_INCREASE_PER_STAGE = 0.2f;
         private const float FLOOD_DEPTH_INCREASE_PER_STAGE = 0.5f;
-        private const float BARREL_EXPLOSION_RADIUS = 2.5f;
         private const float CAMERA_DRAG_THRESHOLD_PIXELS = 6f;
         private const float CAMERA_MIN_TARGET_Z = -15f;
         private const float CAMERA_MAX_TARGET_Z = 15f;
         private const float WINDOWS_SCROLL_UNITS_PER_TICK = 120f;
         private const float BOUNDARY_DESTRUCTION_DELAY = 1f;
-
-        [Header("Barrel explosion")]
-        [SerializeField, Min(0f)] private float barrelExplosionImpulse = 18f;
-        [SerializeField, Min(0f)] private float barrelExplosionUpwardsModifier = 0.6f;
 
         [Header("3D drop")]
         [SerializeField, Min(2f)] private float dropHeight = 7f;
@@ -41,8 +36,8 @@ namespace GuardWave
 
         private readonly List<GuardWavePiece> _pieces = new List<GuardWavePiece>();
         private readonly HashSet<GuardWavePiece> _pieceSet = new HashSet<GuardWavePiece>();
-        private readonly HashSet<GuardWavePiece> _outlinedNeighbors = new HashSet<GuardWavePiece>();
-        private readonly HashSet<string> _consumedContacts = new HashSet<string>();
+        private readonly HashSet<GuardWavePiece> _scenePieces = new HashSet<GuardWavePiece>();
+        private readonly List<SceneBodyState> _initialScenePieceStates = new List<SceneBodyState>();
         private readonly GuardWaveMaterial[] _offers = new GuardWaveMaterial[3];
         private ForestSceneContext _sceneContext;
         private GuardWaveCatalog _catalog;
@@ -83,6 +78,7 @@ namespace GuardWave
         private Vector2 _rightDragDisplacement;
         private bool _rightGestureActive;
         private bool _rightGestureMoved;
+        private GuardWavePiece _rightPressedPiece;
 
         internal float DestructionBoundaryZ => _sceneContext.DestructionBoundaryZ;
 
@@ -93,6 +89,7 @@ namespace GuardWave
             _fluidSettings = Resources.Load<GuardWaveFluidSettings>("Datas/GuardWaveFluidSettings");
             if (_fluidSettings == null) throw new InvalidOperationException("Missing Resources/Datas/GuardWaveFluidSettings.asset");
             ConfigureScene();
+            RegisterScenePieces();
             CreateHud();
             _dropPreview = new GuardWaveDropPreview();
             _flipRenderer = new GuardWaveFlipRenderer(_fluidSettings);
@@ -126,10 +123,9 @@ namespace GuardWave
 
             UpdateCameraInput();
             if (!_stageTransitioning && !_awaitingStage && !_finished)
-            {
-                ApplyContactGlue();
                 UpdateHoveredPiece();
-            }
+            else
+                SetOutlineTargets(null);
             if (_resolving || _awaitingStage || _finished || _rulesOpen)
             {
                 HideDropPreview();
@@ -258,55 +254,36 @@ namespace GuardWave
         {
             if (_hud == null) return;
             Mouse mouse = Mouse.current;
-            if (mouse == null) { SetOutlineTargets(null); _hud.SetHoveredPiece(null, Vector2.zero); return; }
-
-            Vector2 position = mouse.position.ReadValue();
-            if (!CanShowItemInfo || mouse.rightButton.isPressed ||
-                (EventSystem.current != null && EventSystem.current.IsPointerOverGameObject()))
-            {
-                SetOutlineTargets(null);
-                _hud.SetHoveredPiece(null, position);
-                return;
-            }
-
-            GuardWavePiece piece = null;
-            Ray ray = _camera.ScreenPointToRay(position);
-            if (Physics.Raycast(ray, out RaycastHit hit, 300f, Physics.DefaultRaycastLayers,
-                    QueryTriggerInteraction.Ignore))
-            {
-                GuardWavePiece candidate = hit.collider.GetComponentInParent<GuardWavePiece>();
-                if (candidate != null && _pieceSet.Contains(candidate)) piece = candidate;
-            }
+            Vector2 position = mouse == null ? Vector2.zero : mouse.position.ReadValue();
+            GuardWavePiece piece = mouse != null && CanShowItemInfo &&
+                !mouse.rightButton.isPressed ? FindPointedPiece(position) : null;
             SetOutlineTargets(piece);
             _hud.SetHoveredPiece(piece, position);
         }
 
-        /// <summary>호버 대상은 노란색, 해당 대상과 현재 접촉 중인 기물은 cyan 레이어로 갱신한다.</summary>
+        /// <summary>Finds the nearest selectable collider under the cursor, excluding UI.</summary>
+        private GuardWavePiece FindPointedPiece(Vector2 position)
+        {
+            if (_camera == null || position.x < 0 || position.y < 0 ||
+                position.x >= Screen.width || position.y >= Screen.height ||
+                (EventSystem.current != null && EventSystem.current.IsPointerOverGameObject()))
+                return null;
+
+            Ray ray = _camera.ScreenPointToRay(position);
+            if (!Physics.Raycast(ray, out RaycastHit hit, 300f,
+                    Physics.DefaultRaycastLayers, QueryTriggerInteraction.Ignore))
+                return null;
+            GuardWavePiece piece = hit.collider.GetComponentInParent<GuardWavePiece>();
+            return piece != null && _pieceSet.Contains(piece) ? piece : null;
+        }
+
+        /// <summary>Highlights one hovered object; scene sticks and placed pieces use the same render layer.</summary>
         private void SetOutlineTargets(GuardWavePiece hovered)
         {
-            if (_outlinedPiece != hovered)
-            {
-                if (_outlinedPiece != null) _outlinedPiece.SetOutlineLayer(0);
-                _outlinedPiece = hovered;
-            }
-
-            foreach (GuardWavePiece neighbor in _outlinedNeighbors)
-                if (neighbor != null) neighbor.SetOutlineLayer(0);
-            _outlinedNeighbors.Clear();
-
-            if (_outlinedPiece == null || !_pieceSet.Contains(_outlinedPiece))
-            {
-                _outlinedPiece = null;
-                return;
-            }
-
-            foreach (GuardWavePiece neighbor in Adjacent(_outlinedPiece))
-            {
-                if (neighbor == _outlinedPiece) continue;
-                neighbor.SetOutlineLayer(4u);
-                _outlinedNeighbors.Add(neighbor);
-            }
-            _outlinedPiece.SetOutlineLayer(2u);
+            if (_outlinedPiece == hovered) return;
+            if (_outlinedPiece != null) _outlinedPiece.SetOutlineLayer(0);
+            _outlinedPiece = hovered != null && _pieceSet.Contains(hovered) ? hovered : null;
+            if (_outlinedPiece != null) _outlinedPiece.SetOutlineLayer(2u);
         }
 
         /// <summary>ISO 카메라를 설정하고 씬에 배치된 평평한 진흙 냇가의 배치 범위를 읽는다.</summary>
@@ -354,7 +331,7 @@ namespace GuardWave
         public bool IsPaletteHidden => false;
         public bool CanReady => !_stageTransitioning && !_resolving && !_awaitingStage
             && !_finished && !_rulesOpen && _defenseFlag != null
-            && _defenseFlag.activeInHierarchy && !_pieces.Any(x => x != null && x.FusePending);
+            && _defenseFlag.activeInHierarchy;
         public bool WaveHasStarted => _waveHasStarted;
         public bool CanSelect => !_resolving && !_awaitingStage && !_finished && !_rulesOpen
             && _paletteOpen && !_stageTransitioning;
@@ -370,8 +347,6 @@ namespace GuardWave
 
         /// <summary>배치한 기물의 카탈로그 정보를 제공한다.</summary>
         public GuardWaveMaterial GetPieceMaterial(GuardWavePiece piece) => _catalog.Get(piece.MaterialId);
-        /// <summary>현재 충돌 상태에 따라 해당 기물에 닿는 기물 목록을 제공한다.</summary>
-        public GuardWavePiece[] GetTouchingPieces(GuardWavePiece piece) => Adjacent(piece).ToArray();
         public bool AwaitingFailure => _awaitingStage;
         public bool IsFinished => _finished;
         public string StatusMessage => _status;
@@ -417,8 +392,10 @@ namespace GuardWave
                 EventSystem.current.IsPointerOverGameObject();
             if (rightButton.wasPressedThisFrame)
             {
-                OpenCandidatePalette();
                 _rightGestureActive = !pointerOverUi;
+                _rightPressedPiece = _rightGestureActive && !_stageTransitioning &&
+                    !_resolving && !_awaitingStage && !_finished && !_rulesOpen
+                    ? FindPointedPiece(mouse.position.ReadValue()) : null;
                 _rightGestureMoved = false;
                 _rightDragDisplacement = Vector2.zero;
             }
@@ -470,7 +447,17 @@ namespace GuardWave
             }
 
             if (rightButton.wasReleasedThisFrame)
+            {
+                if (_rightGestureActive && !_rightGestureMoved && !pointerOverUi)
+                {
+                    if (_rightPressedPiece != null)
+                        _rightPressedPiece.RemoveByRightClick();
+                    else
+                        OpenCandidatePalette();
+                }
+                _rightPressedPiece = null;
                 _rightGestureActive = false;
+            }
 
             UpdateCameraPosition();
         }
@@ -514,7 +501,7 @@ namespace GuardWave
                 if (piece != null) Destroy(piece.gameObject);
             _pieces.Clear();
             _pieceSet.Clear();
-            _consumedContacts.Clear();
+            RestoreInitialScenePieces();
             _stage = 0;
             _selected = -1;
             _paletteOpen = true;
@@ -529,10 +516,47 @@ namespace GuardWave
             _finished = false;
             _cameraTarget = Vector3.zero;
             _rightGestureActive = false;
+            _rightPressedPiece = null;
             UpdateCameraPosition();
             ResetDefenseFlag();
             DealOffers();
-            _status = "고무오리·쓰레기 봉투·큰 돌을 선택해 배치하세요. 우클릭: 선택 해제";
+            _status = "고무오리·쓰레기 봉투·큰 돌을 배치하세요. 기물 우클릭: 제거, 빈 공간 우클릭: 선택 해제";
+        }
+
+        /// <summary>Registers authored Forest objects as selectable without creating runtime scene objects.</summary>
+        private void RegisterScenePieces()
+        {
+            foreach (GuardWavePiece piece in FindObjectsByType<GuardWavePiece>(
+                FindObjectsInactive.Include, FindObjectsSortMode.None))
+            {
+                if (piece == null || piece.gameObject.scene.handle != gameObject.scene.handle)
+                    continue;
+                piece.Initialize(this);
+                _scenePieces.Add(piece);
+                _initialScenePieceStates.Add(new SceneBodyState(piece.Body));
+            }
+        }
+
+        /// <summary>Restores all authored sticks on a full game restart.</summary>
+        private void RestoreInitialScenePieces()
+        {
+            foreach (SceneBodyState state in _initialScenePieceStates)
+            {
+                if (state.Body == null) continue;
+                state.Body.gameObject.SetActive(true);
+                state.State.RestorePose(state.Body);
+                GuardWavePiece restoredScenePiece = state.Body.GetComponent<GuardWavePiece>();
+                if (restoredScenePiece != null && _scenePieces.Contains(restoredScenePiece))
+                    _pieceSet.Add(restoredScenePiece);
+            }
+            Physics.SyncTransforms();
+            foreach (SceneBodyState state in _initialScenePieceStates)
+            {
+                if (state.Body == null) continue;
+                state.State.RestoreMotion(state.Body);
+                GuardWavePiece piece = state.Body.GetComponent<GuardWavePiece>();
+                if (piece != null) _pieceSet.Add(piece);
+            }
         }
 
         /// <summary>씬에 배치된 깃발을 최초의 자세와 운동 상태로 되돌린다.</summary>
@@ -552,7 +576,7 @@ namespace GuardWave
             GameObject instance = Instantiate(prefab, position, Quaternion.Euler(0f, _objectYaw, 0f));
             instance.name = material.name;
             GuardWavePiece piece = instance.GetComponent<GuardWavePiece>();
-            piece.Initialize(this, 0);
+            piece.Initialize(this);
             piece.Body.isKinematic = anchored;
             piece.Body.useGravity = !anchored;
             _pieces.Add(piece);
@@ -595,129 +619,37 @@ namespace GuardWave
                 _status = "배치 완료. 준비완료를 누르면 파도가 시작됩니다.";
         }
 
-        /// <summary>접촉한 모든 기물을 접착제에 결합하고, 기물 제거 시에는 결합을 해제한다.</summary>
-        public void TryAttachGlue(GuardWavePiece a, GuardWavePiece b)
-        {
-            if (_stageTransitioning || a == null || b == null ||
-                !_pieceSet.Contains(a) || !_pieceSet.Contains(b))
-                return;
-
-            bool canA = a.MaterialId == "all_purpose_glue" && !IsAbilityDisabled(a);
-            bool canB = b.MaterialId == "all_purpose_glue" && !IsAbilityDisabled(b);
-            if (!canA && !canB) return;
-
-            GuardWavePiece glue = canA && canB
-                ? (a.GetInstanceID() > b.GetInstanceID() ? a : b)
-                : (canA ? a : b);
-            GuardWavePiece target = glue == a ? b : a;
-            glue.TryGlueTo(target);
-        }
-
-        /// <summary>이전 물리 프레임부터 닿아 있는 기물에도 접착 효과를 적용한다.</summary>
-        private void ApplyContactGlue()
-        {
-            // Retry existing contacts if their initial collision callback was missed.
-            foreach (GuardWavePiece glue in _pieces.ToArray())
-            {
-                if (glue == null || glue.MaterialId != "all_purpose_glue" ||
-                    IsAbilityDisabled(glue))
-                    continue;
-                foreach (GuardWavePiece neighbor in Adjacent(glue).ToArray())
-                    TryAttachGlue(glue, neighbor);
-            }
-
-        }
-
-        /// <summary>접촉 그래프에서 소멸된 기물을 제외한 실제 인접 기물만 반환한다.</summary>
-        private IEnumerable<GuardWavePiece> Adjacent(GuardWavePiece piece)
-        {
-            return piece.Contacts.Where(n => n != null && _pieceSet.Contains(n));
-        }
-
-        /// <summary>덩쿨 봉인 또는 활성 라바콘 꼭대기의 접촉으로 특수능력이 막혔는지 확인한다.</summary>
-        public bool IsAbilityDisabled(GuardWavePiece piece)
-        {
-            return piece.AbilitySuppressed || Adjacent(piece).Any(n =>
-                n.MaterialId == "traffic_cone" && !n.AbilitySuppressed &&
-                piece.transform.position.y > n.transform.position.y + 0.15f);
-        }
-
         /// <summary>
         /// Z 경계를 넘은 기물만 제거한다.
         /// piece는 경계를 넘은 기물이다.
         /// </summary>
         internal void RemoveOutsideBoundary(GuardWavePiece piece)
         {
-            RemovePiece(piece, GuardWaveChangeKind.Destroyed, BOUNDARY_DESTRUCTION_DELAY, false);
+            RemovePiece(piece, GuardWaveChangeKind.Destroyed, BOUNDARY_DESTRUCTION_DELAY);
         }
 
-        /// <summary>기물을 제거하고 요청된 경우에만 연결 기물까지 연쇄 제거한다.</summary>
+        /// <summary>A completed right-click removes the selected object only, never its neighbors.</summary>
+        internal void RemovePieceByRightClick(GuardWavePiece piece)
+        {
+            if (_stageTransitioning || _resolving || _awaitingStage || _finished ||
+                _rulesOpen || piece == null || piece.MaterialId == "foundation")
+                return;
+            RemovePiece(piece);
+        }
+
+        /// <summary>Removes one object while retaining scene-authored sticks for reload or rollback.</summary>
         private int RemovePiece(GuardWavePiece piece, GuardWaveChangeKind reason = GuardWaveChangeKind.Destroyed,
-            float destructionDelay = 0f, bool removeAttached = true)
+            float destructionDelay = 0f)
         {
-            if (piece == null || !_pieceSet.Contains(piece)) return 0;
-
-            HashSet<GuardWavePiece> connected = new HashSet<GuardWavePiece>();
-            Stack<GuardWavePiece> pending = new Stack<GuardWavePiece>();
-            pending.Push(piece);
-            while (pending.Count > 0)
-            {
-                GuardWavePiece current = pending.Pop();
-                if (current == null || !_pieceSet.Contains(current) || !connected.Add(current))
-                    continue;
-                if (removeAttached)
-                    foreach (GuardWavePiece attached in current.AttachedPieces)
-                        if (attached != null && !connected.Contains(attached))
-                            pending.Push(attached);
-            }
-
-            foreach (GuardWavePiece current in connected)
-            {
-                if (current == _outlinedPiece) SetOutlineTargets(null);
-                _pieceSet.Remove(current);
-                _pieces.Remove(current);
-                PublishChange(new GuardWaveChange(current, piece, reason, 0,
-                    current.transform.position));
-                if (_waveSnapshot != null)
-                    current.gameObject.SetActive(false);
-                else
-                    Destroy(current.gameObject, destructionDelay);
-            }
-            return connected.Count;
-        }
-
-        /// <summary>폭발 시 오크통은 유지하고 주변 기물에 거리 감쇠가 있는 물리 충격을 준다.</summary>
-        public void Explode(GuardWavePiece barrel)
-        {
-            if (barrel == null || !_pieceSet.Contains(barrel)) return;
-
-            Vector3 origin = barrel.Body.worldCenterOfMass;
-            HashSet<GuardWavePiece> targets = new HashSet<GuardWavePiece>();
-            foreach (Collider collider in Physics.OverlapSphere(origin,
-                BARREL_EXPLOSION_RADIUS, Physics.DefaultRaycastLayers,
-                QueryTriggerInteraction.Ignore))
-            {
-                GuardWavePiece target = collider.GetComponentInParent<GuardWavePiece>();
-                if (target == null || target == barrel || target.MaterialId == "foundation"
-                    || !_pieceSet.Contains(target))
-                    continue;
-
-                Rigidbody body = target.Body;
-                if (body == null || body.isKinematic) continue;
-                targets.Add(target);
-            }
-
-            foreach (GuardWavePiece target in targets)
-            {
-                // Move the actual Rigidbody instead of destroying its GameObject.
-                // One impulse per piece, even when a prefab has multiple colliders.
-                target.Body.AddExplosionForce(barrelExplosionImpulse, origin,
-                    BARREL_EXPLOSION_RADIUS, barrelExplosionUpwardsModifier,
-                    ForceMode.Impulse);
-            }
-
-            // The barrel itself also remains in the game world.
-            _status = "오크통 폭발: " + targets.Count + "개 주변 기물을 날렸습니다.";
+            if (piece == null || !_pieceSet.Remove(piece)) return 0;
+            if (piece == _outlinedPiece) SetOutlineTargets(null);
+            _pieces.Remove(piece);
+            PublishChange(new GuardWaveChange(piece, piece, reason, 0, piece.transform.position));
+            if (_scenePieces.Contains(piece) || _waveSnapshot != null)
+                piece.gameObject.SetActive(false);
+            else
+                Destroy(piece.gameObject, destructionDelay);
+            return 1;
         }
 
         /// <summary>준비완료 시 깃발과 기물의 물리 상태를 저장하고 파도를 시작한다.</summary>
@@ -856,7 +788,9 @@ namespace GuardWave
 
             foreach (Rigidbody body in FindObjectsByType<Rigidbody>(FindObjectsSortMode.None))
             {
-                if (body == _flagBody || body.GetComponent<GuardWavePiece>() != null)
+                if (body == _flagBody) continue;
+                GuardWavePiece bodyPiece = body.GetComponent<GuardWavePiece>();
+                if (bodyPiece != null && !_scenePieces.Contains(bodyPiece))
                     continue;
                 if (body.gameObject.scene.handle != gameObject.scene.handle)
                     continue;
@@ -880,7 +814,6 @@ namespace GuardWave
             {
                 GuardWavePiece piece = state.Piece;
                 if (piece == null) continue;
-                piece.ClearContacts();
                 piece.gameObject.SetActive(true);
                 state.Body.RestorePose(piece.Body);
                 _pieces.Add(piece);
