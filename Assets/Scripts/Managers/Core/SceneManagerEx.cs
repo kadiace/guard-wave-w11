@@ -12,6 +12,7 @@ public class SceneManagerEx
 
     public void ReloadCurrentScene()
     {
+        Managers.Clear();
         Load(CurrentScene);
     }
 
