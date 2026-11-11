@@ -29,8 +29,8 @@ namespace GuardWave
 
         [Header("One-shot wave crest above ambient water")]
         [SerializeField, Min(0.1f)] private float _waveCrestAmplitude = 3f;
-        [SerializeField, Min(0.5f)] private float _waveCrestWidth = 2.5f;
-        [SerializeField, Min(2f)] private float _waveCrestLength = 14f;
+        [SerializeField, Min(0.5f)] private float _waveCrestWidth = 1.4f;
+        [SerializeField, Min(2f)] private float _waveCrestLength = 8f;
         public float WaveCrestAmplitude => _waveCrestAmplitude;
         // The crest travels at the current ambient flow speed without acceleration.
         public float WaveCrestSpeed => _ambientFlowSpeed;

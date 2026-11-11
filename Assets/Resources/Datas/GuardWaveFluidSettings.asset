@@ -24,8 +24,8 @@ MonoBehaviour:
   _ambientFlowVolumeMultiplier: 2
   _ambientImpactScale: 0.01
   _waveCrestAmplitude: 3
-  _waveCrestWidth: 2.5
-  _waveCrestLength: 14
+  _waveCrestWidth: 1.4
+  _waveCrestLength: 8
   _crestHeightStiffness: 36
   _crestHeightDamping: 12
   _crestForwardDamping: 5

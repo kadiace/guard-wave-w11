@@ -324,3 +324,16 @@ including empty channel vs. blocked channel, and confirm the
 crest particle diagnostics do not suddenly drop at creation.
 
 **No Unity Editor compilation or GPU execution testing was possible here.**
+
+## Narrower one-shot crest (current values)
+
+The crest remains full width across the **24m river**. Its thickness
+along the direction of flow is reduced from **14m to 8m**, and its
+front/back ramp width is reduced proportionally from **2.5m to 1.4m**.
+This keeps a similarly tapered profile rather than making the central
+plateau wider through a ramp-width-only change. The crest slot reserve
+is recalculated from the configured length when the fluid initializes;
+at 0.6m cell size and 2x longitudinal density it now reserves
+**8,742 candidate slots** instead of 15,510. The one-time **3m extra
+height**, **1m ambient depth**, **10m/s constant speed**, collision
+release, and existing pressure solver are unchanged.
