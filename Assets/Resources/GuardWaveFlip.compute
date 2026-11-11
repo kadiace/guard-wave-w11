@@ -2,6 +2,8 @@
 #pragma kernel ClearGrid
 #pragma kernel ClassifyGrid
 #pragma kernel Spawn
+#pragma kernel InitializeAmbient
+#pragma kernel RecycleAmbient
 #pragma kernel ParticleToGrid
 #pragma kernel NormalizeGrid
 #pragma kernel JacobiPressure
@@ -31,6 +33,7 @@ struct FluidCollider
     float4 bodyCenter;
 };
 RWStructuredBuffer<FluidParticle> _Particles;
+RWStructuredBuffer<uint> _FlowCounters; // 0 cliff exits; 1 refill reservations
 RWStructuredBuffer<int4> _Accum;
 RWStructuredBuffer<int4> _BodyImpulses; // force impulse in xyz, torque in next xyz
 RWStructuredBuffer<float3> _GridVelocity;
@@ -59,6 +62,10 @@ float _HalfWidth;
 float _InletZ;
 float _WaveHeight;
 float _InletVelocity;
+float _AmbientDepth;
+int3 _AmbientGrid;
+uint _AmbientInitialCount;
+uint _AmbientEnabled;
 uint _ParticleCount;
 uint _SpawnStart;
 uint _SpawnCount;
@@ -137,6 +144,11 @@ void ClearGrid(uint id : SV_DispatchThreadID)
     }
     if (id < _BodyCount * 2)
         _BodyImpulses[id] = int4(0,0,0,0);
+    if (id == 0 && _AmbientEnabled != 0)
+    {
+        _FlowCounters[0] = 0;
+        _FlowCounters[1] = 0;
+    }
 }
 [numthreads(128,1,1)]
 void ClassifyGrid(uint id : SV_DispatchThreadID)
@@ -181,6 +193,52 @@ void Spawn(uint id : SV_DispatchThreadID)
     p.velocity = float4(0, 0, -_InletVelocity, 0);
     _Particles[index] = p;
 }
+// The initial 1m river is present before any Ready click.
+[numthreads(128,1,1)]
+void InitializeAmbient(uint id : SV_DispatchThreadID)
+{
+    if (id >= _ParticleCount) return;
+    FluidParticle p = (FluidParticle)0;
+    if (id < _AmbientInitialCount)
+    {
+        uint x = id % (uint)_AmbientGrid.x;
+        uint y = (id / (uint)_AmbientGrid.x) % (uint)_AmbientGrid.y;
+        uint z = id / (uint)(_AmbientGrid.x * _AmbientGrid.y);
+        p.position = float4(
+            -_HalfWidth + (x + 0.5) * (2.0 * _HalfWidth / _AmbientGrid.x),
+            _FloorY + (y + 0.5) * (_AmbientDepth / _AmbientGrid.y),
+            _ExitZ + (z + 0.5) * ((_InletZ + _CellSize - _ExitZ) / _AmbientGrid.z), 1.0);
+        p.velocity = float4(0, 0, -_InletVelocity, 0);
+    }
+    _Particles[id] = p;
+}
+
+// Every particle that crosses the cliff requests exactly one refill particle.
+// Dead waterfall slots are recycled; live falling spray remains visible.
+[numthreads(128,1,1)]
+void RecycleAmbient(uint id : SV_DispatchThreadID)
+{
+    if (id >= _ParticleCount) return;
+    FluidParticle p = _Particles[id];
+    if (p.position.w != 0.0) return;
+    uint ticket;
+    InterlockedAdd(_FlowCounters[1], 1, ticket);
+    if (ticket >= _FlowCounters[0]) return;
+    uint width = (uint)_AmbientGrid.x;
+    uint layers = (uint)_AmbientGrid.y;
+    uint chosen = (ticket * 7919u + _SpawnSeed * 1543u) % (width * layers * 3u);
+    uint x = chosen % width;
+    uint y = (chosen / width) % layers;
+    uint z = chosen / (width * layers);
+    p = (FluidParticle)0;
+    p.position = float4(
+        -_HalfWidth + (x + 0.5) * (2.0 * _HalfWidth / width),
+        _FloorY + (y + 0.5) * (_AmbientDepth / layers),
+        _InletZ - (z + 0.5) * (_CellSize * 0.85), 1.0);
+    p.velocity = float4(0, 0, -_InletVelocity, 0);
+    _Particles[id] = p;
+}
+
 [numthreads(128,1,1)]
 void ParticleToGrid(uint id : SV_DispatchThreadID)
 {
@@ -357,7 +415,10 @@ void GridToParticle(uint id : SV_DispatchThreadID)
         }
     }
     if (p.position.z < _ExitZ)
+    {
         p.position.w = 2; // Beyond the cliff: ballistic spray, no longer grid fluid.
+        if (_AmbientEnabled != 0) InterlockedAdd(_FlowCounters[0], 1);
+    }
     else if (p.position.y > _GridOrigin.y + _GridSize.y*_CellSize - 0.1)
         p.position.w = 0;
     _Particles[id] = p;

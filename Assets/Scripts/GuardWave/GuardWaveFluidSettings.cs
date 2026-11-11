@@ -15,6 +15,12 @@ namespace GuardWave
         [SerializeField, Min(0.1f)] private float _pressureClamp = 50f;
         [SerializeField, Min(0f)] private float _pressureThreshold = 0.05f;
 
+        [Header("Ambient creek (no wave)")]
+        [SerializeField, Min(0.2f)] private float _ambientWaterDepth = 1f;
+        [SerializeField, Min(0.01f)] private float _ambientFlowSpeed = 2f;
+        public float AmbientWaterDepth => _ambientWaterDepth;
+        public float AmbientFlowSpeed => _ambientFlowSpeed;
+
         [Header("Wave movement")]
         [SerializeField, Min(0.1f)] private float _minInletSpeed = 6f;
         [SerializeField, Min(0.1f)] private float _maxInletSpeed = 13f;
