@@ -735,6 +735,15 @@ namespace GuardWave
                 }
             }
 
+            // A failed attempt retains its GPU particles for the entire popup.
+            // Once the wave finishes moving, leave its final frame visible
+            // until the player explicitly restores the pre-wave snapshot.
+            if (_awaitingStage)
+            {
+                _stageFloodRoutine = null;
+                yield break;
+            }
+
             DisposeFluid();
             CommitWaveSnapshot();
             _stageTransitioning = false;
@@ -757,13 +766,9 @@ namespace GuardWave
         {
             if (!_stageTransitioning || _waveSnapshot == null || _awaitingStage)
                 return;
-            if (_stageFloodRoutine != null)
-            {
-                StopCoroutine(_stageFloodRoutine);
-                _stageFloodRoutine = null;
-            }
+            // Keep the flood coroutine and GPU particle buffers alive so
+            // the wave continues flowing behind the failure popup.
             _defenseFlag.SetActive(false);
-            DisposeFluid();
             _stageTransitioning = false;
             _resolving = false;
             _awaitingStage = true;
@@ -954,6 +959,13 @@ namespace GuardWave
         {
             if (!_awaitingStage) return;
             if (_waveSnapshot == null) return;
+            // Cleanup belongs to the user's confirmation, not to the failure popup.
+            if (_stageFloodRoutine != null)
+            {
+                StopCoroutine(_stageFloodRoutine);
+                _stageFloodRoutine = null;
+            }
+            DisposeFluid();
             RestoreWaveSnapshot();
         }
 
