@@ -1,5 +1,8 @@
 using UnityEngine;
 
+using GuardWave;
+
+[DefaultExecutionOrder(-100)]
 public class ForestSceneContext : MonoBehaviour
 {
     [Header("Object rotation")]
@@ -13,16 +16,20 @@ public class ForestSceneContext : MonoBehaviour
 
     [Header("Scene objects")]
     [SerializeField] private GameObject _defenseFlag;
+    [SerializeField] private GuardWaveHud _hud;
+    [SerializeField] private MeshFilter _floodMesh;
 
     public float DestructionBoundaryZ => _destructionBoundaryZ;
     public GameObject DefenseFlag => _defenseFlag;
+    public GuardWaveHud Hud => _hud;
+    public MeshFilter FloodMesh => _floodMesh;
 
     private void Start()
     {
         Managers.Input.SetInputMode(InputMode.Player);
         Cursor.lockState = CursorLockMode.None;
         Cursor.visible = true;
-        GuardWave.GuardWaveGame game = gameObject.AddComponent<GuardWave.GuardWaveGame>();
+        GuardWaveGame game = GetComponent<GuardWaveGame>();
         game.RotationSpeed = _rotationSpeed;
         game.CameraYawPerScrollStep = _cameraYawPerScrollStep;
         Debug.Log("[ForestSceneContext] Game scene initialized.");
