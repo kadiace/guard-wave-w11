@@ -831,7 +831,7 @@ namespace GuardWave
             _fluid = null;
         }
 
-        /// <summary>깃발이 파괴 경계를 넘으면 파도를 멈추고 실패 팝업을 표시한다.</summary>
+        /// <summary>깃발이 파괴되면 팝업을 열되 기물의 속도와 Rigidbody 물리는 유지한다.</summary>
         private void DestroyDefenseFlag()
         {
             if (!_stageTransitioning || _waveSnapshot == null || _awaitingStage)
@@ -843,19 +843,6 @@ namespace GuardWave
             }
             _defenseFlag.SetActive(false);
             DisposeFluid();
-            if (_waveSnapshot != null)
-            {
-                // Stop the wave's remaining momentum while the failure popup is open.
-                foreach (Rigidbody body in FindObjectsByType<Rigidbody>(FindObjectsSortMode.None))
-                {
-                    if (body.gameObject.scene.handle != gameObject.scene.handle ||
-                        body.isKinematic)
-                        continue;
-                    body.linearVelocity = Vector3.zero;
-                    body.angularVelocity = Vector3.zero;
-                    body.isKinematic = true;
-                }
-            }
             _stageTransitioning = false;
             _resolving = false;
             _awaitingStage = true;
