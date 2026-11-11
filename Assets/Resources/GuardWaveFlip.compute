@@ -7,9 +7,10 @@
 #pragma kernel JacobiPressure
 #pragma kernel ProjectGrid
 #pragma kernel GridToParticle
+#pragma kernel PressureToBodies
 
 #define SCALE 2048.0
-#define MAX_COLLIDERS 96
+#define MAX_COLLIDERS 256
 
 struct FluidParticle
 {
@@ -26,6 +27,7 @@ struct FluidCollider
     float4 rotation;
     float4 velocity;
     float4 angular;
+    float4 bodyCenter;
 };
 RWStructuredBuffer<FluidParticle> _Particles;
 RWStructuredBuffer<int4> _Accum;
@@ -43,6 +45,7 @@ float _Dt;
 float _Gravity;
 float _FlipFraction;
 float _ParticleMass;
+float _HydroDensity;
 float _FloorY;
 float _ExitZ;
 float _HalfWidth;
@@ -140,7 +143,12 @@ void ClassifyGrid(uint id : SV_DispatchThreadID)
     bool solid = pos.y <= _FloorY || abs(pos.x) >= _HalfWidth;
     [loop]
     for (uint i = 0; i < _ColliderCount && !solid; ++i)
-        solid = SignedDistance(_Colliders[i], pos) <= 0;
+    {
+        FluidCollider b = _Colliders[i];
+        float3 dr = pos - b.centerBody.xyz;
+        if (dot(dr, dr) > b.velocity.w * b.velocity.w) continue;
+        solid = SignedDistance(b, pos) <= 0;
+    }
     _Solid[id] = solid ? 1 : 0;
 }
 [numthreads(128,1,1)]
@@ -315,10 +323,12 @@ void GridToParticle(uint id : SV_DispatchThreadID)
     for (uint i=0; i<_ColliderCount; i++)
     {
         FluidCollider b = _Colliders[i];
+        float3 dr = p.position.xyz - b.centerBody.xyz;
+        if (dot(dr, dr) > b.velocity.w * b.velocity.w) continue;
         float d = SignedDistance(b, p.position.xyz);
         if (d >= 0.06) continue;
         float3 n = ColliderNormal(b, p.position.xyz);
-        float3 r = p.position.xyz - b.centerBody.xyz;
+        float3 r = p.position.xyz - b.bodyCenter.xyz;
         float3 bv = b.velocity.xyz + cross(b.angular.xyz, r);
         float3 before = p.velocity.xyz;
         float3 relative = before - bv;
@@ -342,4 +352,42 @@ void GridToParticle(uint id : SV_DispatchThreadID)
     if (p.position.z < _ExitZ || p.position.y > _GridOrigin.y+_GridSize.y*_CellSize-0.1)
         p.position.w = 0;
     _Particles[id] = p;
+}
+
+[numthreads(128,1,1)]
+void PressureToBodies(uint id : SV_DispatchThreadID)
+{
+    uint cells = _GridSize.x * _GridSize.y * _GridSize.z;
+    if (id >= cells) return;
+    int3 c = int3(id % _GridSize.x,
+        (id / _GridSize.x) % _GridSize.y,
+        id / (_GridSize.x * _GridSize.y));
+    if (!IsFluid(c)) return;
+    float pressure = clamp(_PressureSrc[id], 0.0, 50.0);
+    if (pressure < 0.05) return;
+    float3 pos = Center(c);
+    [loop]
+    for (uint i = 0; i < _ColliderCount; ++i)
+    {
+        FluidCollider body = _Colliders[i];
+        int bi = (int)body.centerBody.w;
+        if (bi < 0 || bi >= (int)_BodyCount) continue;
+        float3 dr = pos - body.centerBody.xyz;
+        float radius = body.velocity.w + _CellSize;
+        if (dot(dr, dr) > radius * radius) continue;
+        float distance = SignedDistance(body, pos);
+        if (distance < 0 || distance > _CellSize) continue;
+        float3 normal = ColliderNormal(body, pos);
+        // Reaction of the pressure gradient on the solid surface.
+        float3 impulse = -normal * pressure * _HydroDensity * _Dt *
+            _CellSize * _CellSize;
+        float3 torque = cross(pos - body.bodyCenter.xyz, impulse);
+        uint index = (uint)bi * 2;
+        InterlockedAdd(_BodyImpulses[index].x, (int)round(impulse.x * SCALE));
+        InterlockedAdd(_BodyImpulses[index].y, (int)round(impulse.y * SCALE));
+        InterlockedAdd(_BodyImpulses[index].z, (int)round(impulse.z * SCALE));
+        InterlockedAdd(_BodyImpulses[index+1].x, (int)round(torque.x * SCALE));
+        InterlockedAdd(_BodyImpulses[index+1].y, (int)round(torque.y * SCALE));
+        InterlockedAdd(_BodyImpulses[index+1].z, (int)round(torque.z * SCALE));
+    }
 }
