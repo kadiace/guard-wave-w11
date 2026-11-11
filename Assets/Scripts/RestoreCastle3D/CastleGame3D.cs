@@ -59,7 +59,6 @@ namespace RestoreCastle3D
         private WaveSnapshot _waveSnapshot;
         private Camera _camera;
         private CastlePiece3D _outlinedPiece;
-        private System.Random _random;
         private Vector3 _cameraTarget;
         private int _selected = -1;
         private int _pendingDrops;
@@ -81,7 +80,6 @@ namespace RestoreCastle3D
         private Vector2 _rightDragDisplacement;
         private bool _rightGestureActive;
         private bool _rightGestureMoved;
-        private bool _rightGestureScrolled;
 
         internal float DestructionBoundaryZ => _sceneContext.DestructionBoundaryZ;
 
@@ -147,13 +145,12 @@ namespace RestoreCastle3D
             // at least 0.1 seconds since the previous accepted placement.
             _dropMouseReleased = false;
             _lastDropTime = Time.unscaledTime;
-            _paletteOpen = false;
             HideDropPreview();
             StartCoroutine(DropAndResolve(_offers[_selected],
                 new Vector3(placement.x, dropHeight, placement.z)));
         }
 
-        /// <summary>Esc 또는 우클릭으로 자재 후보 선택창을 다시 연다.</summary>
+        /// <summary>Esc 또는 우클릭으로 현재 기물 선택을 해제한다.</summary>
         private void OpenCandidatePalette()
         {
             if (_resolving || _awaitingStage || _finished || _rulesOpen) return;
@@ -336,14 +333,14 @@ namespace RestoreCastle3D
         public int StageCount => STAGE_COUNT;
         public float RotationSpeed { get; set; } = 90f;
         public float CameraYawPerScrollStep { get; set; } = 5f;
-        public bool IsPaletteHidden => !_paletteOpen || _stageTransitioning || _awaitingStage || _finished;
+        public bool IsPaletteHidden => false;
         public bool CanReady => !_stageTransitioning && !_resolving && !_awaitingStage
             && !_finished && !_rulesOpen && _pendingDrops == 0 && _defenseFlag != null
             && _defenseFlag.activeInHierarchy && !_pieces.Any(x => x != null && x.FusePending);
         public int RerollCount => _rerolls + _extraRerolls;
         public bool CanSelect => !_resolving && !_awaitingStage && !_finished && !_rulesOpen
             && _paletteOpen && !_stageTransitioning;
-        public bool CanReroll => CanSelect;
+        public bool CanReroll => false;
         public bool CanShowItemInfo => !_awaitingStage && !_finished && !_rulesOpen
             && !_stageTransitioning;
         public event Action<CastleChange3D> ChangeCommitted;
@@ -387,7 +384,7 @@ namespace RestoreCastle3D
 
         /// <summary>
         /// 우클릭 드래그로 카메라 주시점을 강의 Z축을 따라 이동하고 휠로 회전 또는 줌을 처리한다.
-        /// UI 밖에서 시작한 짧은 우클릭은 버튼을 놓을 때 자재 후보를 연다.
+        /// 우클릭을 누르는 순간 현재 선택을 해제한다.
         /// </summary>
         private void UpdateCameraInput()
         {
@@ -403,9 +400,9 @@ namespace RestoreCastle3D
                 EventSystem.current.IsPointerOverGameObject();
             if (rightButton.wasPressedThisFrame)
             {
+                OpenCandidatePalette();
                 _rightGestureActive = !pointerOverUi;
                 _rightGestureMoved = false;
-                _rightGestureScrolled = false;
                 _rightDragDisplacement = Vector2.zero;
             }
 
@@ -444,7 +441,6 @@ namespace RestoreCastle3D
             {
                 if (gestureInProgress)
                 {
-                    _rightGestureScrolled = true;
                     if (!pointerOverUi)
                         _camera.transform.Rotate(Vector3.up,
                             NormalizeScrollSteps(scroll) * CameraYawPerScrollStep, Space.World);
@@ -457,12 +453,7 @@ namespace RestoreCastle3D
             }
 
             if (rightButton.wasReleasedThisFrame)
-            {
-                if (_rightGestureActive && !_rightGestureMoved &&
-                    !_rightGestureScrolled && !pointerOverUi)
-                    OpenCandidatePalette();
                 _rightGestureActive = false;
-            }
 
             UpdateCameraPosition();
         }
@@ -507,7 +498,6 @@ namespace RestoreCastle3D
             _pieces.Clear();
             _pieceSet.Clear();
             _consumedContacts.Clear();
-            _random = new System.Random(Environment.TickCount);
             _stage = 0;
             _rerolls = 3;
             _extraRerolls = 0;
@@ -527,7 +517,7 @@ namespace RestoreCastle3D
             UpdateCameraPosition();
             CreateDefenseFlag();
             DealOffers();
-            _status = "재료를 떨어뜨려 깃발을 지키세요. Q/E: 재료 회전";
+            _status = "고무오리·쓰레기 봉투·큰 돌을 선택해 배치하세요. 우클릭: 선택 해제";
         }
 
         /// <summary>월드 원점에 깃대와 붉은 깃발을 만들어 이번 게임의 보호 대상으로 둔다.</summary>
@@ -588,29 +578,12 @@ namespace RestoreCastle3D
             return piece;
         }
 
-        /// <summary>제외 대상이 아닌 자재 3종을 선택하고 살아있는 나무의 등장 확률을 절반으로 낮춘다.
-        /// 카탈로그와 난수 상태를 사용해 _offers와 선택 상태를 갱신한다.</summary>
+        /// <summary>팔레트 재료를 고무오리, 쓰레기 봉투, 큰 돌로 고정한다.</summary>
         private void DealOffers()
         {
-            List<CastleMaterial3D> available = _catalog.All
-                .Where(x => !x.startOnly && !x.spawnOnly
-                    && x.id != "growing_vine" && x.id != "vine"
-                    && x.id != "sunflower" && x.id != "empty_bottle"
-                    && x.id != "barrel" && x.id != "foul_smelling_lump"
-                    && x.id != "waste_bag_small" && x.id != "waste_bag_large")
-                .ToList();
-            for (int i = 0; i < _offers.Length; i++)
-            {
-                int index = _random.Next(available.Count);
-                _offers[i] = available[index];
-                available.RemoveAt(index);
-                if (_offers[i].id == "living_tree" && _random.Next(2) == 0)
-                {
-                    index = _random.Next(available.Count);
-                    _offers[i] = available[index];
-                    available.RemoveAt(index);
-                }
-            }
+            _offers[0] = _catalog.Get("rubber_duck");
+            _offers[1] = _catalog.Get("waste_bag_medium");
+            _offers[2] = _catalog.Get("large_stone");
             _selected = -1;
             _paletteOpen = true;
             HideDropPreview();
@@ -637,8 +610,7 @@ namespace RestoreCastle3D
                 PublishChange(new CastleChange3D(dropped, dropped, CastleChangeKind.Resource,
                     1, dropped.transform.position, "리롤권 +1"));
             }
-            _status = material.name + " 배치 중. 준비가 끝나면 준비완료를 누르세요.";
-            DealOffers();
+            _status = material.name + " 배치 중. 같은 기물을 계속 배치하거나 준비완료를 누르세요.";
 
             float elapsed = 0f;
             while (elapsed < 7f)
@@ -855,9 +827,7 @@ namespace RestoreCastle3D
             _resolving = false;
             _stage++;
             if (_stage == STAGE_COUNT) { _finished = true; yield break; }
-            _rerolls = 3;
-            DealOffers();
-            _status = "홍수가 지나갔습니다. 다음 스테이지를 시작하세요.";
+            _status = "홍수가 지나갔습니다. 계속 배치하거나 준비완료를 누르세요.";
         }
 
         /// <summary>깃발이 파괴 경계를 넘으면 파도를 멈추고 실패 팝업을 표시한다.</summary>
