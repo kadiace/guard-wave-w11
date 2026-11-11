@@ -2,18 +2,18 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
-namespace RestoreCastle3D
+namespace GuardWave
 {
     [RequireComponent(typeof(Rigidbody), typeof(BoxCollider))]
-    public sealed class CastlePiece3D : MonoBehaviour
+    public sealed class GuardWavePiece : MonoBehaviour
     {
         [SerializeField] private string materialId;
 
-        private readonly HashSet<CastlePiece3D> _contacts = new HashSet<CastlePiece3D>();
-        private readonly HashSet<CastlePiece3D> _attachedPieces = new HashSet<CastlePiece3D>();
-        private readonly Dictionary<CastlePiece3D, FixedJoint> _glueJoints = new Dictionary<CastlePiece3D, FixedJoint>();
-        private CastlePiece3D _attachmentTarget;
-        private CastleGame3D _game;
+        private readonly HashSet<GuardWavePiece> _contacts = new HashSet<GuardWavePiece>();
+        private readonly HashSet<GuardWavePiece> _attachedPieces = new HashSet<GuardWavePiece>();
+        private readonly Dictionary<GuardWavePiece, FixedJoint> _glueJoints = new Dictionary<GuardWavePiece, FixedJoint>();
+        private GuardWavePiece _attachmentTarget;
+        private GuardWaveGame _game;
         private Rigidbody _body;
         private Renderer[] _renderers;
         private bool _fuseStarted;
@@ -21,8 +21,8 @@ namespace RestoreCastle3D
 
         public string MaterialId => materialId;
         public Rigidbody Body => _body;
-        public IEnumerable<CastlePiece3D> Contacts => _contacts;
-        public IEnumerable<CastlePiece3D> AttachedPieces => _attachedPieces;
+        public IEnumerable<GuardWavePiece> Contacts => _contacts;
+        public IEnumerable<GuardWavePiece> AttachedPieces => _attachedPieces;
         public bool HasAttachmentTarget => _attachmentTarget != null;
         public bool IsVine => materialId == "growing_vine" || materialId == "vine";
         public bool AbilitySuppressed { get; private set; }
@@ -45,7 +45,7 @@ namespace RestoreCastle3D
         }
 
         /// <summary>생성된 기물에 게임 소유자 및 설치된 턴을 연결한다.</summary>
-        public void Initialize(CastleGame3D game, int turn)
+        public void Initialize(GuardWaveGame game, int turn)
         {
             _game = game;
             PlacedTurn = turn;
@@ -70,7 +70,7 @@ namespace RestoreCastle3D
 
         private void OnCollisionExit(Collision collision)
         {
-            CastlePiece3D other = collision.collider.GetComponentInParent<CastlePiece3D>();
+            GuardWavePiece other = collision.collider.GetComponentInParent<GuardWavePiece>();
             if (other == null || other == this) return;
             _contacts.Remove(other);
             other._contacts.Remove(this);
@@ -78,16 +78,16 @@ namespace RestoreCastle3D
 
         private void OnDestroy()
         {
-            foreach (CastlePiece3D other in _attachedPieces)
+            foreach (GuardWavePiece other in _attachedPieces)
                 if (other != null) other._attachedPieces.Remove(this);
             _attachedPieces.Clear();
-            foreach (KeyValuePair<CastlePiece3D, FixedJoint> bond in _glueJoints)
+            foreach (KeyValuePair<GuardWavePiece, FixedJoint> bond in _glueJoints)
             {
                 if (bond.Key != null) bond.Key._glueJoints.Remove(this);
                 if (bond.Value != null) Destroy(bond.Value);
             }
             _glueJoints.Clear();
-            foreach (CastlePiece3D other in _contacts)
+            foreach (GuardWavePiece other in _contacts)
                 if (other != null) other._contacts.Remove(this);
             _contacts.Clear();
         }
@@ -95,7 +95,7 @@ namespace RestoreCastle3D
         /// <summary>파도 재시도 시 이전 충돌 접촉만 정리하고 기존 결합 조인트는 유지한다.</summary>
         public void ClearContacts()
         {
-            foreach (CastlePiece3D other in _contacts)
+            foreach (GuardWavePiece other in _contacts)
                 if (other != null) other._contacts.Remove(this);
             _contacts.Clear();
         }
@@ -103,7 +103,7 @@ namespace RestoreCastle3D
         /// <summary>충돌한 두 기물을 양방향 접촉 그래프에 기록한다. 바닥 충돌은 제외한다.</summary>
         private void Register(Collision collision)
         {
-            CastlePiece3D other = collision.collider.GetComponentInParent<CastlePiece3D>();
+            GuardWavePiece other = collision.collider.GetComponentInParent<GuardWavePiece>();
             if (other == null || other == this) return;
             _contacts.Add(other);
             other._contacts.Add(this);
@@ -111,7 +111,7 @@ namespace RestoreCastle3D
         }
 
         /// <summary>아직 같은 조인트 연결망에 속하지 않은 대상만 접착하고 결합을 양쪽에 등록한다.</summary>
-        public bool TryGlueTo(CastlePiece3D target)
+        public bool TryGlueTo(GuardWavePiece target)
         {
             if (materialId != "all_purpose_glue" || target == null || target == this ||
                 _body == null || target.Body == null || _glueJoints.ContainsKey(target) ||
@@ -130,24 +130,24 @@ namespace RestoreCastle3D
         }
 
         /// <summary>접착제와 덩굴의 기존 조인트를 따라 대상까지 이어지는 경로가 있는지 확인한다.</summary>
-        private bool IsJointConnectedTo(CastlePiece3D target)
+        private bool IsJointConnectedTo(GuardWavePiece target)
         {
-            HashSet<CastlePiece3D> visited = new HashSet<CastlePiece3D> { this };
-            Stack<CastlePiece3D> pending = new Stack<CastlePiece3D>();
+            HashSet<GuardWavePiece> visited = new HashSet<GuardWavePiece> { this };
+            Stack<GuardWavePiece> pending = new Stack<GuardWavePiece>();
             pending.Push(this);
 
             while (pending.Count > 0)
             {
-                CastlePiece3D current = pending.Pop();
-                foreach (KeyValuePair<CastlePiece3D, FixedJoint> bond in current._glueJoints)
+                GuardWavePiece current = pending.Pop();
+                foreach (KeyValuePair<GuardWavePiece, FixedJoint> bond in current._glueJoints)
                 {
-                    CastlePiece3D neighbor = bond.Key;
+                    GuardWavePiece neighbor = bond.Key;
                     if (neighbor == null || bond.Value == null) continue;
                     if (neighbor == target) return true;
                     if (visited.Add(neighbor)) pending.Push(neighbor);
                 }
 
-                foreach (CastlePiece3D neighbor in current._attachedPieces)
+                foreach (GuardWavePiece neighbor in current._attachedPieces)
                 {
                     if (neighbor == null) continue;
                     if (neighbor == target) return true;
@@ -159,7 +159,7 @@ namespace RestoreCastle3D
         }
 
         /// <summary>첫 접촉 기물과 한 번만 FixedJoint 결합하고 고유 능력을 봉인한다.</summary>
-        public bool TryAttachTo(CastlePiece3D target)
+        public bool TryAttachTo(GuardWavePiece target)
         {
             if (!IsVine || AbilitySuppressed || HasAttachmentTarget ||
                 target == null || target == this || target.MaterialId == "foundation" ||

@@ -66,8 +66,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 58cf8ea44e2ffdc46a1c276f5d3c2218, type: 3}
-  m_Name: Castle Hover and Contact Outlines
-  m_EditorClassIdentifier: Assembly-CSharp::RestoreCastle3D.CastleOutlineFeature
+  m_Name: GuardWave Hover and Contact Outlines
+  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWaveOutlineFeature
   m_Active: 1
   _yellowMaterial: {fileID: 2100000, guid: 7668ee6e11b8faa4084fa7b2795f409e, type: 2}
   _cyanMaterial: {fileID: 2100000, guid: c69a2e5db7c7644408d9f99c09514eaa, type: 2}

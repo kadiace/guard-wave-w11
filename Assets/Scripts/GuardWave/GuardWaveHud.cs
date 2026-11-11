@@ -6,10 +6,10 @@ using UnityEngine.EventSystems;
 using UnityEngine.InputSystem;
 using UnityEngine.UI;
 
-namespace RestoreCastle3D
+namespace GuardWave
 {
-    /// <summary>원본 2D RestoreCastle UI 프리팹을 3D 물리 게임의 상태와 연결한다.</summary>
-    public sealed class CastleHud3D : MonoBehaviour
+    /// <summary>원본 2D GuardWave UI 프리팹을 3D 물리 게임의 상태와 연결한다.</summary>
+    public sealed class GuardWaveHud : MonoBehaviour
     {
         private readonly Button[] _cards = new Button[3];
         private readonly Text[] _names = new Text[3];
@@ -18,7 +18,7 @@ namespace RestoreCastle3D
         private readonly string[] _shownIds = new string[3];
         private readonly Dictionary<string, Sprite> _generatedIcons = new Dictionary<string, Sprite>();
 
-        private CastleGame3D _game;
+        private GuardWaveGame _game;
         private Text _stage;
         private Text _durability;
         private Text _target;
@@ -35,7 +35,7 @@ namespace RestoreCastle3D
         private GameObject _rulesPopup;
         private Button _rerollButton;
         private Button _readyButton;
-        private CastlePiece3D _hoveredPiece;
+        private GuardWavePiece _hoveredPiece;
         private int _hoveredCard = -1;
         private const float TooltipMargin = 14f;
         private const float TooltipGap = 16f;
@@ -48,10 +48,10 @@ namespace RestoreCastle3D
         private RectTransform _candidatePanel;
         private Vector2 _candidatePanelShown;
         private float _candidateSlide;
-        private CastleDropGuideGraphic3D _dropGuide;
+        private GuardWaveDropGuideGraphic _dropGuide;
 
         /// <summary>게임 인스턴스 및 원본 HUD 프리팹의 버튼과 상태 텍스트를 연결한다.</summary>
-        public void Initialize(CastleGame3D game)
+        public void Initialize(GuardWaveGame game)
         {
             _game = game;
             _stage = FindText("TopBar/StageStat/Value");
@@ -92,7 +92,7 @@ namespace RestoreCastle3D
             // One Graphic combines all dashes into a single UI draw call.
             GameObject guide = new GameObject("Drop Prediction Dashed Line",
                 typeof(RectTransform), typeof(CanvasRenderer),
-                typeof(CastleDropGuideGraphic3D));
+                typeof(GuardWaveDropGuideGraphic));
             guide.transform.SetParent(transform, false);
             RectTransform guideRect = (RectTransform)guide.transform;
             guideRect.anchorMin = Vector2.zero;
@@ -100,7 +100,7 @@ namespace RestoreCastle3D
             guideRect.offsetMin = Vector2.zero;
             guideRect.offsetMax = Vector2.zero;
             guideRect.SetAsFirstSibling();
-            _dropGuide = guide.GetComponent<CastleDropGuideGraphic3D>();
+            _dropGuide = guide.GetComponent<GuardWaveDropGuideGraphic>();
             _dropGuide.color = new Color(0.33f, 0.96f, 0.92f, 0.86f);
             _dropGuide.raycastTarget = false;
             guide.SetActive(false);
@@ -115,7 +115,7 @@ namespace RestoreCastle3D
                 _silhouettes[i] = candidate.Find("Silhouette").GetComponent<Image>();
                 _backgrounds[i] = candidate.GetComponent<Image>();
                 _cards[i].onClick.AddListener(() => _game.SelectOffer(index));
-                CastleCandidateHover3D hover = candidate.gameObject.AddComponent<CastleCandidateHover3D>();
+                GuardWaveCandidateHover hover = candidate.gameObject.AddComponent<GuardWaveCandidateHover>();
                 hover.Initialize(this, index);
             }
 
@@ -245,7 +245,7 @@ Q/E: 기물 회전 / 우클릭 또는 Esc: 선택 취소
 
             for (int i = 0; i < _cards.Length; i++)
             {
-                CastleMaterial3D info = _game.CurrentOffers[i];
+                GuardWaveMaterial info = _game.CurrentOffers[i];
                 if (info == null) continue;
                 if (_shownIds[i] != info.id)
                 {
@@ -280,7 +280,7 @@ Q/E: 기물 회전 / 우클릭 또는 Esc: 선택 취소
         }
 
         /// <summary>원본의 후보 이미지 영역에 표시할 저해상도 픽셀 실루엣을 생성한다.</summary>
-        private Sprite Icon(CastleMaterial3D info)
+        private Sprite Icon(GuardWaveMaterial info)
         {
             if (_generatedIcons.TryGetValue(info.id, out Sprite sprite)) return sprite;
             const int size = 32;
@@ -350,7 +350,7 @@ Q/E: 기물 회전 / 우클릭 또는 Esc: 선택 취소
         public void ShowTooltip(int index, Vector2 screen)
         {
             if (!_game.CanShowItemInfo) return;
-            CastleMaterial3D material = _game.CurrentOffers[index];
+            GuardWaveMaterial material = _game.CurrentOffers[index];
             if (material == null) return;
             string description = AbilityTooltip(material.id);
             if (description == null) return;
@@ -360,7 +360,7 @@ Q/E: 기물 회전 / 우클릭 또는 Esc: 선택 취소
         }
 
         /// <summary>기물에 물리 레이캐스트가 적중하면 접촉 정보를 표시한다.</summary>
-        public void SetHoveredPiece(CastlePiece3D piece, Vector2 screen)
+        public void SetHoveredPiece(GuardWavePiece piece, Vector2 screen)
         {
             if (!_game.CanShowItemInfo || !_game.IsPlacedPiece(piece) ||
                 AbilityTooltip(piece.MaterialId) == null)
@@ -392,7 +392,7 @@ Q/E: 기물 회전 / 우클릭 또는 Esc: 선택 취소
         }
 
         /// <summary>후보 자재의 기존 상세 설명을 구성한다.</summary>
-        private static string BuildCandidateDetails(CastleMaterial3D material)
+        private static string BuildCandidateDetails(GuardWaveMaterial material)
         {
             string[] abilities = material.abilities == null
                 ? Array.Empty<string>()
@@ -470,13 +470,13 @@ Q/E: 기물 회전 / 우클릭 또는 Esc: 선택 취소
     }
 
     /// <summary>원본 후보 프리팹 버튼의 마우스 호버를 3D UI 툴팁에 전달한다.</summary>
-    public sealed class CastleCandidateHover3D : MonoBehaviour, IPointerEnterHandler, IPointerMoveHandler, IPointerExitHandler
+    public sealed class GuardWaveCandidateHover : MonoBehaviour, IPointerEnterHandler, IPointerMoveHandler, IPointerExitHandler
     {
-        private CastleHud3D _hud;
+        private GuardWaveHud _hud;
         private int _index;
 
         /// <summary>호버 대상이 가리키는 카드 인덱스를 초기화한다.</summary>
-        public void Initialize(CastleHud3D hud, int index)
+        public void Initialize(GuardWaveHud hud, int index)
         {
             _hud = hud;
             _index = index;

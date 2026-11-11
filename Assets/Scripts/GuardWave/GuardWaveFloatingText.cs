@@ -2,21 +2,21 @@ using System.Collections.Generic;
 using TMPro;
 using UnityEngine;
 
-namespace RestoreCastle3D
+namespace GuardWave
 {
-    public enum CastleChangeKind { Destroyed, Flooded, EffectEnabled, EffectDisabled, Growth, Created, Resource }
+    public enum GuardWaveChangeKind { Destroyed, Flooded, EffectEnabled, EffectDisabled, Growth, Created, Resource }
 
-    public readonly struct CastleChange3D
+    public readonly struct GuardWaveChange
     {
-        public readonly CastlePiece3D Target;
-        public readonly CastlePiece3D Source;
-        public readonly CastleChangeKind Kind;
+        public readonly GuardWavePiece Target;
+        public readonly GuardWavePiece Source;
+        public readonly GuardWaveChangeKind Kind;
         public readonly int Amount;
         public readonly Vector3 Position;
         public readonly string Label;
 
         /// <summary>확정된 변화의 대상, 원인, 변화량 및 독립적인 표시 위치를 저장한다.</summary>
-        public CastleChange3D(CastlePiece3D target, CastlePiece3D source, CastleChangeKind kind,
+        public GuardWaveChange(GuardWavePiece target, GuardWavePiece source, GuardWaveChangeKind kind,
             int amount, Vector3 position, string label = null)
         {
             Target = target;
@@ -29,7 +29,7 @@ namespace RestoreCastle3D
     }
 
     /// <summary>확정된 게임 이벤트를 카메라 투영 TMP 레이블로 표현하고 비활성 레이블을 재사용한다.</summary>
-    public sealed class CastleFloatingText3D : MonoBehaviour
+    public sealed class GuardWaveFloatingText : MonoBehaviour
     {
         [Header("Colors")]
         [SerializeField] private Color increaseColor = new Color32(255, 100, 110, 255);
@@ -57,7 +57,7 @@ namespace RestoreCastle3D
             public Vector3 Origin;
             public Vector3 Offset;
             public Color Color;
-            public CastleChangeKind Kind;
+            public GuardWaveChangeKind Kind;
             public float Started;
         }
 
@@ -71,7 +71,7 @@ namespace RestoreCastle3D
         }
 
         /// <summary>변화별 독립적인 레이블을 풀에서 꺼내 위치와 메시지를 설정한다.</summary>
-        public void Show(CastleChange3D change)
+        public void Show(GuardWaveChange change)
         {
             Entry entry;
             if (_available.Count > 0)
@@ -104,18 +104,18 @@ namespace RestoreCastle3D
             entry.Started = Time.unscaledTime;
             entry.Text.text = change.Label ?? (change.Kind switch
                 {
-                    CastleChangeKind.Destroyed => "파괴!",
-                    CastleChangeKind.Flooded => "침수!",
-                    CastleChangeKind.EffectEnabled => "효과 발동!",
-                    CastleChangeKind.EffectDisabled => "효과 해제!",
-                    CastleChangeKind.Growth => "성장!",
-                    CastleChangeKind.Created => "생성!",
+                    GuardWaveChangeKind.Destroyed => "파괴!",
+                    GuardWaveChangeKind.Flooded => "침수!",
+                    GuardWaveChangeKind.EffectEnabled => "효과 발동!",
+                    GuardWaveChangeKind.EffectDisabled => "효과 해제!",
+                    GuardWaveChangeKind.Growth => "성장!",
+                    GuardWaveChangeKind.Created => "생성!",
                     _ => "획득!"
                 });
-            entry.Color = change.Kind == CastleChangeKind.Destroyed ? destructionColor :
-                change.Kind == CastleChangeKind.Flooded ? floodColor : effectColor;
-            entry.Text.fontSize = fontSize * (change.Kind == CastleChangeKind.Destroyed ||
-                change.Kind == CastleChangeKind.Flooded ? 1.3f : 1f);
+            entry.Color = change.Kind == GuardWaveChangeKind.Destroyed ? destructionColor :
+                change.Kind == GuardWaveChangeKind.Flooded ? floodColor : effectColor;
+            entry.Text.fontSize = fontSize * (change.Kind == GuardWaveChangeKind.Destroyed ||
+                change.Kind == GuardWaveChangeKind.Flooded ? 1.3f : 1f);
             entry.Text.transform.SetAsLastSibling();
             _active.Add(entry);
             Animate(entry, 0f);
@@ -141,7 +141,7 @@ namespace RestoreCastle3D
         private void Animate(Entry entry, float progress)
         {
             Vector3 position = entry.Origin + entry.Offset + Vector3.up * riseSpeed * duration * progress;
-            if (entry.Kind == CastleChangeKind.Flooded)
+            if (entry.Kind == GuardWaveChangeKind.Flooded)
                 position += Vector3.down * 0.35f * (1f - Mathf.Clamp01(progress * 4f));
             Vector3 screen = _camera.WorldToScreenPoint(position);
             entry.Text.enabled = screen.z > 0f;
@@ -149,7 +149,7 @@ namespace RestoreCastle3D
             RectTransformUtility.ScreenPointToLocalPointInRectangle(_canvasRect, screen, null,
                 out Vector2 local);
             entry.Text.rectTransform.anchoredPosition = local;
-            float pop = entry.Kind == CastleChangeKind.Destroyed ? 0.55f : 0.22f;
+            float pop = entry.Kind == GuardWaveChangeKind.Destroyed ? 0.55f : 0.22f;
             entry.Text.rectTransform.localScale = Vector3.one * (1f + pop *
                 (1f - Mathf.Clamp01(progress * 6f)));
             Color color = entry.Color;

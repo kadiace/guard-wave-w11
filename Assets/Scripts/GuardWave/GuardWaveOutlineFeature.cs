@@ -6,10 +6,10 @@ using UnityEngine.Rendering;
 using UnityEngine.Rendering.RenderGraphModule;
 using UnityEngine.Rendering.Universal;
 
-namespace RestoreCastle3D
+namespace GuardWave
 {
     /// <summary>호버 기물과 접촉 이웃을 각각 다른 렌더링 레이어의 외곽선으로 그린다.</summary>
-    public sealed class CastleOutlineFeature : ScriptableRendererFeature
+    public sealed class GuardWaveOutlineFeature : ScriptableRendererFeature
     {
         [SerializeField] private Material _yellowMaterial;
         [SerializeField] private Material _cyanMaterial;
@@ -106,7 +106,7 @@ namespace RestoreCastle3D
                     _material, _outlineState);
 
                 using IRasterRenderGraphBuilder builder = graph.AddRasterRenderPass<PassData>(
-                    "Castle Outline", out PassData data);
+                    "GuardWave Outline", out PassData data);
                 data.Mask = mask;
                 data.Outline = outline;
                 builder.UseRendererList(mask);

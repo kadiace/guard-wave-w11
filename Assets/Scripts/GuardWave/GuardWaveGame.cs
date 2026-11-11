@@ -7,9 +7,9 @@ using UnityEngine.InputSystem;
 using UnityEngine.InputSystem.UI;
 using UnityEngine.EventSystems;
 
-namespace RestoreCastle3D
+namespace GuardWave
 {
-    public sealed class CastleGame3D : MonoBehaviour
+    public sealed class GuardWaveGame : MonoBehaviour
     {
         private const int STAGE_COUNT = 5;
         private const float FLOOD_DURATION_INCREASE_PER_STAGE = 0.2f;
@@ -39,18 +39,18 @@ namespace RestoreCastle3D
         private AnimationCurve floodFillCurve =
             AnimationCurve.EaseInOut(0f, 0f, 1f, 1f);
 
-        private readonly List<CastlePiece3D> _pieces = new List<CastlePiece3D>();
-        private readonly HashSet<CastlePiece3D> _pieceSet = new HashSet<CastlePiece3D>();
-        private readonly HashSet<CastlePiece3D> _outlinedNeighbors = new HashSet<CastlePiece3D>();
+        private readonly List<GuardWavePiece> _pieces = new List<GuardWavePiece>();
+        private readonly HashSet<GuardWavePiece> _pieceSet = new HashSet<GuardWavePiece>();
+        private readonly HashSet<GuardWavePiece> _outlinedNeighbors = new HashSet<GuardWavePiece>();
         private readonly HashSet<string> _consumedContacts = new HashSet<string>();
-        private readonly CastleMaterial3D[] _offers = new CastleMaterial3D[3];
+        private readonly GuardWaveMaterial[] _offers = new GuardWaveMaterial[3];
         private ForestSceneContext _sceneContext;
-        private CastleCatalog3D _catalog;
-        private CastleHud3D _hud;
-        private CastleDropPreview3D _dropPreview;
-        private CastleFloodEffect3D _floodEffect;
+        private GuardWaveCatalog _catalog;
+        private GuardWaveHud _hud;
+        private GuardWaveDropPreview _dropPreview;
+        private GuardWaveFloodEffect _floodEffect;
         private Bounds _placementBounds;
-        private CastleFloatingText3D _floatingText;
+        private GuardWaveFloatingText _floatingText;
         private GameObject _defenseFlag;
         private Rigidbody _flagBody;
         private BoxCollider _flagCollider;
@@ -58,7 +58,7 @@ namespace RestoreCastle3D
         private Coroutine _stageFloodRoutine;
         private WaveSnapshot _waveSnapshot;
         private Camera _camera;
-        private CastlePiece3D _outlinedPiece;
+        private GuardWavePiece _outlinedPiece;
         private Vector3 _cameraTarget;
         private int _selected = -1;
         private int _pendingDrops;
@@ -86,11 +86,11 @@ namespace RestoreCastle3D
         private void Start()
         {
             _sceneContext = GetComponent<ForestSceneContext>();
-            _catalog = new CastleCatalog3D();
+            _catalog = new GuardWaveCatalog();
             ConfigureScene();
             CreateHud();
-            _dropPreview = new CastleDropPreview3D();
-            _floodEffect = new CastleFloodEffect3D();
+            _dropPreview = new GuardWaveDropPreview();
+            _floodEffect = new GuardWaveFloodEffect();
             ResetGame();
             Bounds lowerCreek = GameObject.Find("Flat Muddy Creek Bed After Cliff")
                 .GetComponent<BoxCollider>().bounds;
@@ -256,12 +256,12 @@ namespace RestoreCastle3D
                 return;
             }
 
-            CastlePiece3D piece = null;
+            GuardWavePiece piece = null;
             Ray ray = _camera.ScreenPointToRay(position);
             if (Physics.Raycast(ray, out RaycastHit hit, 300f, Physics.DefaultRaycastLayers,
                     QueryTriggerInteraction.Ignore))
             {
-                CastlePiece3D candidate = hit.collider.GetComponentInParent<CastlePiece3D>();
+                GuardWavePiece candidate = hit.collider.GetComponentInParent<GuardWavePiece>();
                 if (candidate != null && _pieceSet.Contains(candidate)) piece = candidate;
             }
             SetOutlineTargets(piece);
@@ -269,7 +269,7 @@ namespace RestoreCastle3D
         }
 
         /// <summary>호버 대상은 노란색, 해당 대상과 현재 접촉 중인 기물은 cyan 레이어로 갱신한다.</summary>
-        private void SetOutlineTargets(CastlePiece3D hovered)
+        private void SetOutlineTargets(GuardWavePiece hovered)
         {
             if (_outlinedPiece != hovered)
             {
@@ -277,7 +277,7 @@ namespace RestoreCastle3D
                 _outlinedPiece = hovered;
             }
 
-            foreach (CastlePiece3D neighbor in _outlinedNeighbors)
+            foreach (GuardWavePiece neighbor in _outlinedNeighbors)
                 if (neighbor != null) neighbor.SetOutlineLayer(0);
             _outlinedNeighbors.Clear();
 
@@ -287,7 +287,7 @@ namespace RestoreCastle3D
                 return;
             }
 
-            foreach (CastlePiece3D neighbor in Adjacent(_outlinedPiece))
+            foreach (GuardWavePiece neighbor in Adjacent(_outlinedPiece))
             {
                 if (neighbor == _outlinedPiece) continue;
                 neighbor.SetOutlineLayer(4u);
@@ -316,17 +316,17 @@ namespace RestoreCastle3D
             // The Game scene has no EventSystem; uGUI buttons and hover handlers need one.
             if (EventSystem.current == null)
             {
-                GameObject events = new GameObject("RestoreCastle UI EventSystem");
+                GameObject events = new GameObject("GuardWave UI EventSystem");
                 events.AddComponent<EventSystem>();
                 events.AddComponent<InputSystemUIInputModule>();
             }
-            GameObject source = Resources.Load<GameObject>("Prefabs/UIs/RestoreCastleHud");
-            if (source == null) throw new InvalidOperationException("Missing original RestoreCastle HUD prefab.");
+            GameObject source = Resources.Load<GameObject>("Prefabs/UIs/GuardWaveHud");
+            if (source == null) throw new InvalidOperationException("Missing original GuardWave HUD prefab.");
             GameObject instance = Instantiate(source);
-            instance.name = "RestoreCastleHud";
-            _hud = instance.AddComponent<CastleHud3D>();
+            instance.name = "GuardWaveHud";
+            _hud = instance.AddComponent<GuardWaveHud>();
             _hud.Initialize(this);
-            _floatingText = instance.AddComponent<CastleFloatingText3D>();
+            _floatingText = instance.AddComponent<GuardWaveFloatingText>();
             _floatingText.Initialize(_camera, (RectTransform)instance.transform);
             ChangeCommitted += _floatingText.Show;
         }
@@ -345,24 +345,24 @@ namespace RestoreCastle3D
         public bool CanReroll => false;
         public bool CanShowItemInfo => !_awaitingStage && !_finished && !_rulesOpen
             && !_stageTransitioning;
-        public event Action<CastleChange3D> ChangeCommitted;
+        public event Action<GuardWaveChange> ChangeCommitted;
 
         /// <summary>게임 규칙이 확정한 변화를 위치와 원인을 보존한 채 표시 시스템에 전달한다.</summary>
-        public void PublishChange(CastleChange3D change) => ChangeCommitted?.Invoke(change);
+        public void PublishChange(GuardWaveChange change) => ChangeCommitted?.Invoke(change);
 
         /// <summary>실제로 배치되어 살아 있는 기물인지 확인한다.</summary>
-        public bool IsPlacedPiece(CastlePiece3D piece) => piece != null && _pieceSet.Contains(piece);
+        public bool IsPlacedPiece(GuardWavePiece piece) => piece != null && _pieceSet.Contains(piece);
 
         /// <summary>배치한 기물의 카탈로그 정보를 제공한다.</summary>
-        public CastleMaterial3D GetPieceMaterial(CastlePiece3D piece) => _catalog.Get(piece.MaterialId);
+        public GuardWaveMaterial GetPieceMaterial(GuardWavePiece piece) => _catalog.Get(piece.MaterialId);
         /// <summary>현재 충돌 상태에 따라 해당 기물에 닿는 기물 목록을 제공한다.</summary>
-        public CastlePiece3D[] GetTouchingPieces(CastlePiece3D piece) => Adjacent(piece).ToArray();
+        public GuardWavePiece[] GetTouchingPieces(GuardWavePiece piece) => Adjacent(piece).ToArray();
         public bool AwaitingFailure => _awaitingStage;
         public bool IsFinished => _finished;
         public string StatusMessage => _status;
         public int PieceCount => _pieces.Count;
         public int SelectedOffer => _selected;
-        public CastleMaterial3D[] CurrentOffers => _offers;
+        public GuardWaveMaterial[] CurrentOffers => _offers;
 
         /// <summary>화면 카드가 지정한 후보를 다음 낙하 재료로 선택한다.</summary>
         public void SelectOffer(int index)
@@ -494,7 +494,7 @@ namespace RestoreCastle3D
             _stageTransitioning = false;
             CommitWaveSnapshot();
 
-            foreach (CastlePiece3D piece in _pieces)
+            foreach (GuardWavePiece piece in _pieces)
                 if (piece != null) Destroy(piece.gameObject);
             if (_defenseFlag != null) Destroy(_defenseFlag);
             _pieces.Clear();
@@ -562,20 +562,20 @@ namespace RestoreCastle3D
         }
 
         /// <summary>Resources/Prefabs에서 3D 기물을 로드하고 Rigidbody를 통한 중력 낙하를 준비한다.</summary>
-        private CastlePiece3D Spawn(CastleMaterial3D material, Vector3 position, bool anchored = false)
+        private GuardWavePiece Spawn(GuardWaveMaterial material, Vector3 position, bool anchored = false)
         {
             GameObject prefab = Resources.Load<GameObject>("Prefabs/" + material.id);
             if (prefab == null) throw new InvalidOperationException("Missing 3D prefab: " + material.id);
             GameObject instance = Instantiate(prefab, position, Quaternion.Euler(0f, _objectYaw, 0f));
             instance.name = material.name;
-            CastlePiece3D piece = instance.GetComponent<CastlePiece3D>();
+            GuardWavePiece piece = instance.GetComponent<GuardWavePiece>();
             piece.Initialize(this, 0);
             piece.Body.isKinematic = anchored;
             piece.Body.useGravity = !anchored;
             _pieces.Add(piece);
             _pieceSet.Add(piece);
             if (material.id == "vine")
-                PublishChange(new CastleChange3D(piece, null, CastleChangeKind.Created, 0,
+                PublishChange(new GuardWaveChange(piece, null, GuardWaveChangeKind.Created, 0,
                     position, "덩쿨 생성!"));
             return piece;
         }
@@ -602,14 +602,14 @@ namespace RestoreCastle3D
         }
 
         /// <summary>기물 배치 후 후보를 즉시 갱신하고 떨어지는 기물 수를 추적한다.</summary>
-        private IEnumerator DropAndResolve(CastleMaterial3D material, Vector3 position)
+        private IEnumerator DropAndResolve(GuardWaveMaterial material, Vector3 position)
         {
-            CastlePiece3D dropped = Spawn(material, position);
+            GuardWavePiece dropped = Spawn(material, position);
             _pendingDrops++;
             if (material.id == "empty_bottle")
             {
                 _extraRerolls++;
-                PublishChange(new CastleChange3D(dropped, dropped, CastleChangeKind.Resource,
+                PublishChange(new GuardWaveChange(dropped, dropped, GuardWaveChangeKind.Resource,
                     1, dropped.transform.position, "리롤권 +1"));
             }
             _status = material.name + " 배치 중. 같은 기물을 계속 배치하거나 준비완료를 누르세요.";
@@ -629,7 +629,7 @@ namespace RestoreCastle3D
         }
 
         /// <summary>접촉한 모든 기물을 접착제에 결합하고, 기물 제거 시에는 결합을 해제한다.</summary>
-        public void TryAttachGlue(CastlePiece3D a, CastlePiece3D b)
+        public void TryAttachGlue(GuardWavePiece a, GuardWavePiece b)
         {
             if (_stageTransitioning || a == null || b == null ||
                 !_pieceSet.Contains(a) || !_pieceSet.Contains(b))
@@ -639,10 +639,10 @@ namespace RestoreCastle3D
             bool canB = b.MaterialId == "all_purpose_glue" && !IsAbilityDisabled(b);
             if (!canA && !canB) return;
 
-            CastlePiece3D glue = canA && canB
+            GuardWavePiece glue = canA && canB
                 ? (a.GetInstanceID() > b.GetInstanceID() ? a : b)
                 : (canA ? a : b);
-            CastlePiece3D target = glue == a ? b : a;
+            GuardWavePiece target = glue == a ? b : a;
             glue.TryGlueTo(target);
         }
 
@@ -650,25 +650,25 @@ namespace RestoreCastle3D
         private void ApplyContactGlue()
         {
             // Retry existing contacts if their initial collision callback was missed.
-            foreach (CastlePiece3D glue in _pieces.ToArray())
+            foreach (GuardWavePiece glue in _pieces.ToArray())
             {
                 if (glue == null || glue.MaterialId != "all_purpose_glue" ||
                     IsAbilityDisabled(glue))
                     continue;
-                foreach (CastlePiece3D neighbor in Adjacent(glue).ToArray())
+                foreach (GuardWavePiece neighbor in Adjacent(glue).ToArray())
                     TryAttachGlue(glue, neighbor);
             }
 
         }
 
         /// <summary>접촉 그래프에서 소멸된 기물을 제외한 실제 인접 기물만 반환한다.</summary>
-        private IEnumerable<CastlePiece3D> Adjacent(CastlePiece3D piece)
+        private IEnumerable<GuardWavePiece> Adjacent(GuardWavePiece piece)
         {
             return piece.Contacts.Where(n => n != null && _pieceSet.Contains(n));
         }
 
         /// <summary>덩쿨 봉인 또는 활성 라바콘 꼭대기의 접촉으로 특수능력이 막혔는지 확인한다.</summary>
-        public bool IsAbilityDisabled(CastlePiece3D piece)
+        public bool IsAbilityDisabled(GuardWavePiece piece)
         {
             return piece.AbilitySuppressed || Adjacent(piece).Any(n =>
                 n.MaterialId == "traffic_cone" && !n.AbilitySuppressed &&
@@ -679,37 +679,37 @@ namespace RestoreCastle3D
         /// Z 경계를 넘은 기물만 제거한다.
         /// piece는 경계를 넘은 기물이다.
         /// </summary>
-        internal void RemoveOutsideBoundary(CastlePiece3D piece)
+        internal void RemoveOutsideBoundary(GuardWavePiece piece)
         {
-            RemovePiece(piece, CastleChangeKind.Destroyed, BOUNDARY_DESTRUCTION_DELAY, false);
+            RemovePiece(piece, GuardWaveChangeKind.Destroyed, BOUNDARY_DESTRUCTION_DELAY, false);
         }
 
         /// <summary>기물을 제거하고 요청된 경우에만 연결 기물까지 연쇄 제거한다.</summary>
-        private int RemovePiece(CastlePiece3D piece, CastleChangeKind reason = CastleChangeKind.Destroyed,
+        private int RemovePiece(GuardWavePiece piece, GuardWaveChangeKind reason = GuardWaveChangeKind.Destroyed,
             float destructionDelay = 0f, bool removeAttached = true)
         {
             if (piece == null || !_pieceSet.Contains(piece)) return 0;
 
-            HashSet<CastlePiece3D> connected = new HashSet<CastlePiece3D>();
-            Stack<CastlePiece3D> pending = new Stack<CastlePiece3D>();
+            HashSet<GuardWavePiece> connected = new HashSet<GuardWavePiece>();
+            Stack<GuardWavePiece> pending = new Stack<GuardWavePiece>();
             pending.Push(piece);
             while (pending.Count > 0)
             {
-                CastlePiece3D current = pending.Pop();
+                GuardWavePiece current = pending.Pop();
                 if (current == null || !_pieceSet.Contains(current) || !connected.Add(current))
                     continue;
                 if (removeAttached)
-                    foreach (CastlePiece3D attached in current.AttachedPieces)
+                    foreach (GuardWavePiece attached in current.AttachedPieces)
                         if (attached != null && !connected.Contains(attached))
                             pending.Push(attached);
             }
 
-            foreach (CastlePiece3D current in connected)
+            foreach (GuardWavePiece current in connected)
             {
                 if (current == _outlinedPiece) SetOutlineTargets(null);
                 _pieceSet.Remove(current);
                 _pieces.Remove(current);
-                PublishChange(new CastleChange3D(current, piece, reason, 0,
+                PublishChange(new GuardWaveChange(current, piece, reason, 0,
                     current.transform.position));
                 if (_waveSnapshot != null)
                     current.gameObject.SetActive(false);
@@ -720,17 +720,17 @@ namespace RestoreCastle3D
         }
 
         /// <summary>폭발 시 오크통은 유지하고 주변 기물에 거리 감쇠가 있는 물리 충격을 준다.</summary>
-        public void Explode(CastlePiece3D barrel)
+        public void Explode(GuardWavePiece barrel)
         {
             if (barrel == null || !_pieceSet.Contains(barrel)) return;
 
             Vector3 origin = barrel.Body.worldCenterOfMass;
-            HashSet<CastlePiece3D> targets = new HashSet<CastlePiece3D>();
+            HashSet<GuardWavePiece> targets = new HashSet<GuardWavePiece>();
             foreach (Collider collider in Physics.OverlapSphere(origin,
                 BARREL_EXPLOSION_RADIUS, Physics.DefaultRaycastLayers,
                 QueryTriggerInteraction.Ignore))
             {
-                CastlePiece3D target = collider.GetComponentInParent<CastlePiece3D>();
+                GuardWavePiece target = collider.GetComponentInParent<GuardWavePiece>();
                 if (target == null || target == barrel || target.MaterialId == "foundation"
                     || !_pieceSet.Contains(target))
                     continue;
@@ -740,7 +740,7 @@ namespace RestoreCastle3D
                 targets.Add(target);
             }
 
-            foreach (CastlePiece3D target in targets)
+            foreach (GuardWavePiece target in targets)
             {
                 // Move the actual Rigidbody instead of destroying its GameObject.
                 // One impulse per piece, even when a prefab has multiple colliders.
@@ -776,7 +776,7 @@ namespace RestoreCastle3D
                 * (1f + _stage * FLOOD_DURATION_INCREASE_PER_STAGE);
             float waveDepth = floodWaterDepth
                 * (1f + _stage * FLOOD_DEPTH_INCREASE_PER_STAGE);
-            var flow = new CastleFloodFlow3D(snapshot.CenterX, snapshot.Width,
+            var flow = new GuardWaveFloodFlow(snapshot.CenterX, snapshot.Width,
                 snapshot.StartZ, snapshot.EndZ, groundY, waveDepth,
                 floodTravelDuration);
             _floodEffect.Begin(flow);
@@ -876,12 +876,12 @@ namespace RestoreCastle3D
                 CameraRotation = _camera.transform.rotation,
                 CameraZoom = _camera.orthographicSize
             };
-            foreach (CastlePiece3D piece in _pieces)
+            foreach (GuardWavePiece piece in _pieces)
                 if (piece != null) snapshot.Pieces.Add(new PieceState(piece));
 
             foreach (Rigidbody body in FindObjectsByType<Rigidbody>(FindObjectsSortMode.None))
             {
-                if (body == _flagBody || body.GetComponent<CastlePiece3D>() != null)
+                if (body == _flagBody || body.GetComponent<GuardWavePiece>() != null)
                     continue;
                 if (body.gameObject.scene.handle != gameObject.scene.handle)
                     continue;
@@ -897,13 +897,13 @@ namespace RestoreCastle3D
             SetOutlineTargets(null);
             HideDropPreview();
 
-            foreach (CastlePiece3D piece in _pieces)
+            foreach (GuardWavePiece piece in _pieces)
                 if (piece != null) piece.gameObject.SetActive(false);
             _pieces.Clear();
             _pieceSet.Clear();
             foreach (PieceState state in snapshot.Pieces)
             {
-                CastlePiece3D piece = state.Piece;
+                GuardWavePiece piece = state.Piece;
                 if (piece == null) continue;
                 piece.ClearContacts();
                 piece.gameObject.SetActive(true);
@@ -973,11 +973,11 @@ namespace RestoreCastle3D
 
         private readonly struct PieceState
         {
-            public readonly CastlePiece3D Piece;
+            public readonly GuardWavePiece Piece;
             public readonly RigidbodyState Body;
 
             /// <summary>기물과 해당 시점의 물리 상태를 저장한다.</summary>
-            public PieceState(CastlePiece3D piece)
+            public PieceState(GuardWavePiece piece)
             {
                 Piece = piece;
                 Body = new RigidbodyState(piece.Body);

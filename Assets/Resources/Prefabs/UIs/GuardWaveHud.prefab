@@ -1314,7 +1314,7 @@ GameObject:
   - component: {fileID: 738214543}
   - component: {fileID: 738214542}
   m_Layer: 0
-  m_Name: RestoreCastleHud
+  m_Name: GuardWaveHud
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0

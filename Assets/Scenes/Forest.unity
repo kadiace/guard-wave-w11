@@ -257,7 +257,6 @@ GameObject:
   - component: {fileID: 1916402864}
   - component: {fileID: 1916402863}
   - component: {fileID: 1916402862}
-  - component: {fileID: 1916402865}
   m_Layer: 0
   m_Name: Main Camera
   m_TagString: MainCamera
@@ -339,18 +338,6 @@ Transform:
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!114 &1916402865
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1916402861}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 2e4a9ada1e98455aa041ed77d9e7b81f, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::RestoreCastle3D.CastleFloodPreview3D
 --- !u!1 &2100000001
 GameObject:
   m_ObjectHideFlags: 0
@@ -408,7 +395,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 4708130476543534937, guid: 348bf5f506f90b54385b6b9e41fe6127, type: 3}
       propertyPath: m_Name
-      value: Castle Creek Environment
+      value: GuardWave Creek Environment
       objectReference: {fileID: 0}
     - target: {fileID: 8232243532057865115, guid: 348bf5f506f90b54385b6b9e41fe6127, type: 3}
       propertyPath: m_LocalPosition.x

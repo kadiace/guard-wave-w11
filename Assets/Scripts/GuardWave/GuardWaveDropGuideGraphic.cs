@@ -1,14 +1,14 @@
 using UnityEngine;
 using UnityEngine.UI;
 
-namespace RestoreCastle3D
+namespace GuardWave
 {
     /// <summary>
     /// 실제 낙하 시작점과 낙하 고스트의 스크린 좌표를 Canvas상의 점선으로 연결한다.
     /// 각각의 대시를 하나의 UGUI Graphic 메시로 배치하여 레이캐스트나 물리에 영향이 없다.
     /// </summary>
     [RequireComponent(typeof(CanvasRenderer))]
-    public sealed class CastleDropGuideGraphic3D : MaskableGraphic
+    public sealed class GuardWaveDropGuideGraphic : MaskableGraphic
     {
         private const float DashLength = 12f;
         private const float DashGap = 9f;

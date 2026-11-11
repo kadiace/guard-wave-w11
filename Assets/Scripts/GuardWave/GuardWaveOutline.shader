@@ -1,4 +1,4 @@
-Shader "RestoreCastle3D/Outline"
+Shader "GuardWave/Outline"
 {
     Properties
     {

@@ -2,13 +2,13 @@ using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.Rendering;
 
-namespace RestoreCastle3D
+namespace GuardWave
 {
     /// <summary>
     /// 후보 프리팹의 시각 메시만 남긴 반투명 복제본을 -Y Raycast 충돌 예상 높이에 표시한다.
     /// 실제 중력·회전·충돌로 인한 최종 정착은 재현하지 않는 정적 낙하 가이드이다.
     /// </summary>
-    internal sealed class CastleDropPreview3D
+    internal sealed class GuardWaveDropPreview
     {
         private const float VisualOffset = 0.025f;
         private const float MaximumRayDistance = 500f;
@@ -26,7 +26,7 @@ namespace RestoreCastle3D
         public Vector3 LandingPosition => _instance != null ? _instance.transform.position : Vector3.zero;
 
         /// <summary>배치 가능 여부에 맞춰 색을 바꾸고 예상 접촉면 위에 자재 미리보기를 표시한다.</summary>
-        public void Show(CastleMaterial3D info, Vector3 placement, Quaternion rotation,
+        public void Show(GuardWaveMaterial info, Vector3 placement, Quaternion rotation,
             float dropHeight, bool canPlace, float fallbackSurfaceY)
         {
             if (info == null) { Hide(); return; }
@@ -91,13 +91,13 @@ namespace RestoreCastle3D
         }
 
         /// <summary>그리기용 프리팹만 복제하고 물리·게임 로직은 비활성화한다.</summary>
-        private void Rebuild(CastleMaterial3D info)
+        private void Rebuild(GuardWaveMaterial info)
         {
             Dispose();
             GameObject prefab = Resources.Load<GameObject>("Prefabs/" + info.id);
             if (prefab == null)
             {
-                Debug.LogWarning("[CastleDropPreview3D] Missing prefab: " + info.id);
+                Debug.LogWarning("[GuardWaveDropPreview] Missing prefab: " + info.id);
                 return;
             }
 
@@ -122,7 +122,7 @@ namespace RestoreCastle3D
                 body.isKinematic = true;
                 body.detectCollisions = false;
             }
-            foreach (CastlePiece3D piece in _instance.GetComponentsInChildren<CastlePiece3D>(true))
+            foreach (GuardWavePiece piece in _instance.GetComponentsInChildren<GuardWavePiece>(true))
                 piece.enabled = false;
 
             foreach (Renderer renderer in _instance.GetComponentsInChildren<Renderer>(true))

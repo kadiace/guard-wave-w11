@@ -2,10 +2,10 @@ using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.Rendering;
 
-namespace RestoreCastle3D
+namespace GuardWave
 {
     /// <summary>물 격자의 현재 수심을 반투명 수면과 노출된 물의 측면 메시로 표시한다.</summary>
-    internal sealed class CastleFloodEffect3D
+    internal sealed class GuardWaveFloodEffect
     {
         private const float MINIMUM_VISIBLE_DEPTH = 0.03f;
 
@@ -64,7 +64,7 @@ namespace RestoreCastle3D
         }
 
         /// <summary>한 스테이지의 물 표시를 활성화하고 현재 격자 상태로 메시를 채운다.</summary>
-        public void Begin(CastleFloodFlow3D flow)
+        public void Begin(GuardWaveFloodFlow flow)
         {
             EnsureWater();
             _water.SetActive(true);
@@ -72,7 +72,7 @@ namespace RestoreCastle3D
         }
 
         /// <summary>젖은 격자의 수면과 이웃보다 높은 물의 경계면을 메시로 갱신한다.</summary>
-        public void UpdateSurface(CastleFloodFlow3D flow)
+        public void UpdateSurface(GuardWaveFloodFlow flow)
         {
             _vertices.Clear();
             _triangles.Clear();

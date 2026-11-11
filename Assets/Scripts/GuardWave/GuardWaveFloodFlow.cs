@@ -1,10 +1,10 @@
 using System.Collections.Generic;
 using UnityEngine;
 
-namespace RestoreCastle3D
+namespace GuardWave
 {
     /// <summary>강바닥 위의 수심과 수평 유량을 격자로 계산하고 잠긴 Rigidbody에 물의 힘을 전달한다.</summary>
-    internal sealed class CastleFloodFlow3D
+    internal sealed class GuardWaveFloodFlow
     {
         private const float CELL_SIZE = 0.5f;
         private const float WET_DEPTH = 0.03f;
@@ -47,7 +47,7 @@ namespace RestoreCastle3D
         public float CellZ => _cellZ;
 
         /// <summary>물 격자를 강의 XZ 범위에 맞춰 만들고 상류에서 하류로 흐를 목표 속도를 정한다.</summary>
-        public CastleFloodFlow3D(float centerX, float width, float startZ, float endZ,
+        public GuardWaveFloodFlow(float centerX, float width, float startZ, float endZ,
             float groundY, float targetDepth, float travelDuration)
         {
             _columns = Mathf.Clamp(Mathf.CeilToInt(width / CELL_SIZE), 4, 48);
@@ -80,7 +80,7 @@ namespace RestoreCastle3D
         }
 
         /// <summary>고정 시간 단계에서 상류 물을 공급하고 유량·수심·기물 반응을 계산한다.</summary>
-        public void Step(float deltaTime, IList<CastlePiece3D> pieces, Rigidbody flagBody,
+        public void Step(float deltaTime, IList<GuardWavePiece> pieces, Rigidbody flagBody,
             Collider flagCollider, float inletFraction)
         {
             float waveSpeed = Mathf.Sqrt(Physics.gravity.magnitude * _targetDepth * 2f);
@@ -128,10 +128,10 @@ namespace RestoreCastle3D
         }
 
         /// <summary>기물이 각 격자의 물속 면적을 차지하는 비율만큼 유량을 막는다.</summary>
-        private void UpdateBlockage(IList<CastlePiece3D> pieces, Collider flagCollider)
+        private void UpdateBlockage(IList<GuardWavePiece> pieces, Collider flagCollider)
         {
             System.Array.Clear(_blockage, 0, _blockage.Length);
-            foreach (CastlePiece3D piece in pieces)
+            foreach (GuardWavePiece piece in pieces)
             {
                 if (piece == null) continue;
                 AddBlockage(piece.GetComponent<Collider>().bounds);
@@ -295,10 +295,10 @@ namespace RestoreCastle3D
         }
 
         /// <summary>기물과 깃발에 부력, 유속 저항, 앞면에 부딪힌 물의 운동량을 전달한다.</summary>
-        private void ApplyBodyForces(float deltaTime, IList<CastlePiece3D> pieces,
+        private void ApplyBodyForces(float deltaTime, IList<GuardWavePiece> pieces,
             Rigidbody flagBody, Collider flagCollider)
         {
-            foreach (CastlePiece3D piece in pieces)
+            foreach (GuardWavePiece piece in pieces)
             {
                 if (piece == null || piece.Body.isKinematic) continue;
                 ApplyBodyForce(deltaTime, piece.Body, piece.GetComponent<Collider>().bounds,

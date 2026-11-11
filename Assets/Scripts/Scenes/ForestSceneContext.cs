@@ -18,7 +18,7 @@ public class ForestSceneContext : MonoBehaviour
         Managers.Input.SetInputMode(InputMode.Player);
         Cursor.lockState = CursorLockMode.None;
         Cursor.visible = true;
-        RestoreCastle3D.CastleGame3D game = gameObject.AddComponent<RestoreCastle3D.CastleGame3D>();
+        GuardWave.GuardWaveGame game = gameObject.AddComponent<GuardWave.GuardWaveGame>();
         game.RotationSpeed = _rotationSpeed;
         game.CameraYawPerScrollStep = _cameraYawPerScrollStep;
         Debug.Log("[ForestSceneContext] Game scene initialized.");

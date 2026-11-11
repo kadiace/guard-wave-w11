@@ -1961,7 +1961,7 @@ GameObject:
   m_Component:
   - component: {fileID: 8232243532057865115}
   m_Layer: 0
-  m_Name: CastleCreekEnvironment
+  m_Name: GuardWaveCreekEnvironment
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
