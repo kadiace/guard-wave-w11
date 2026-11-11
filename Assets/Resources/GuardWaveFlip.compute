@@ -47,6 +47,11 @@ float _Gravity;
 float _FlipFraction;
 float _ParticleMass;
 float _HydroDensity;
+float _PressureClamp;
+float _PressureThreshold;
+float _CollisionResponse;
+float _CollisionSkin;
+float _MaxFluidVelocity;
 float _FloorY;
 float _ExitZ;
 float _WaterfallEndY;
@@ -303,7 +308,7 @@ void GridToParticle(uint id : SV_DispatchThreadID)
         p.affineZ = float4(c2*scale,0);
     }
     else p.velocity.y -= _Gravity * _Dt;
-    p.velocity.xyz = clamp(p.velocity.xyz, -24.0, 24.0);
+    p.velocity.xyz = clamp(p.velocity.xyz, -_MaxFluidVelocity, _MaxFluidVelocity);
     p.position.xyz += p.velocity.xyz * _Dt;
     // Fixed banks/floor are collision boundaries, not a prescribed wave shape.
     if (p.position.x < -_HalfWidth + 0.05)
@@ -328,15 +333,15 @@ void GridToParticle(uint id : SV_DispatchThreadID)
         float3 dr = p.position.xyz - b.centerBody.xyz;
         if (dot(dr, dr) > b.velocity.w * b.velocity.w) continue;
         float d = SignedDistance(b, p.position.xyz);
-        if (d >= 0.06) continue;
+        if (d >= _CollisionSkin) continue;
         float3 n = ColliderNormal(b, p.position.xyz);
         float3 r = p.position.xyz - b.bodyCenter.xyz;
         float3 bv = b.velocity.xyz + cross(b.angular.xyz, r);
         float3 before = p.velocity.xyz;
         float3 relative = before - bv;
         float approaching = min(dot(relative, n), 0.0);
-        p.velocity.xyz -= n * approaching * 1.15;
-        p.position.xyz += n * (0.06-d);
+        p.velocity.xyz -= n * approaching * _CollisionResponse;
+        p.position.xyz += n * (_CollisionSkin-d);
         int bi = (int)b.centerBody.w;
         if (bi>=0 && bi<(int)_BodyCount)
         {
@@ -367,8 +372,8 @@ void PressureToBodies(uint id : SV_DispatchThreadID)
         (id / _GridSize.x) % _GridSize.y,
         id / (_GridSize.x * _GridSize.y));
     if (!IsFluid(c)) return;
-    float pressure = clamp(_PressureSrc[id], 0.0, 50.0);
-    if (pressure < 0.05) return;
+    float pressure = clamp(_PressureSrc[id], 0.0, _PressureClamp);
+    if (pressure < _PressureThreshold) return;
     float3 pos = Center(c);
     [loop]
     for (uint i = 0; i < _ColliderCount; ++i)

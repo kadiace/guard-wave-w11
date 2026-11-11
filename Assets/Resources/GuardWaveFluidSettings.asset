@@ -1,0 +1,37 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 2f1e45a24b63455b91055b969f66307a, type: 3}
+  m_Name: GuardWaveFluidSettings
+  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWaveFluidSettings
+  _particleEffectiveMass: 0.14
+  _hydroDensity: 0.7
+  _maxImpulsePerBodyMass: 3
+  _minImpulseLimit: 0.25
+  _angularImpulseMultiplier: 3
+  _pressureClamp: 50
+  _pressureThreshold: 0.05
+  _minInletSpeed: 6
+  _maxInletSpeed: 13
+  _travelDurationMultiplier: 2
+  _gravityMultiplier: 1
+  _maxParticleSpeed: 24
+  _flipFraction: 0.92
+  _collisionResponse: 1.15
+  _collisionSkin: 0.06
+  _cellSize: 0.6
+  _maxParticles: 24000
+  _maxBodies: 384
+  _maxColliders: 256
+  _pressureIterations: 22
+  _spawnInterval: 0.12
+  _spawnRateMultiplier: 3
+  _particleRenderRadius: 0.45

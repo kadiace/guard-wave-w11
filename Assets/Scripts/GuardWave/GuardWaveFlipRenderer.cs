@@ -14,13 +14,13 @@ namespace GuardWave
         private bool _disposed;
 
         /// <summary>Loads the project-owned procedural GPU water shader from Resources.</summary>
-        public GuardWaveFlipRenderer()
+        public GuardWaveFlipRenderer(GuardWaveFluidSettings settings)
         {
             Shader shader = Resources.Load<Shader>("GuardWaveFlipWater");
             if (shader == null)
                 throw new InvalidOperationException("Resources/GuardWaveFlipWater.shader is missing.");
             _material = new Material(shader) { name = "GuardWave FLIP/APIC Water" };
-            _material.SetFloat("_Radius", 0.45f);
+            _material.SetFloat("_Radius", settings.ParticleRenderRadius);
         }
 
         /// <summary>Submits one GPU instanced draw over live and falling fluid particles.</summary>

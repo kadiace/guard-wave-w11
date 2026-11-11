@@ -14,14 +14,9 @@ namespace GuardWave
     internal sealed class GuardWaveFlipFluid : IDisposable
     {
         private const int THREADS = 128;
-        private const int MAX_PARTICLES = 24000;
-        private const int MAX_BODIES = 384;
-        private const int MAX_COLLIDERS = 256;
-        private const int PRESSURE_ITERATIONS = 22;
-        private const float CELL_SIZE = 0.6f;
         private const float IMPULSE_SCALE = 2048f;
-        private const float PARTICLE_EFFECTIVE_MASS = 0.14f;
-        private const float SPAWN_INTERVAL = 0.12f;
+        private readonly GuardWaveFluidSettings _settings;
+        private readonly float _cellSize;
 
         [StructLayout(LayoutKind.Sequential)]
         private struct Particle
@@ -56,7 +51,7 @@ namespace GuardWave
         private readonly List<Rigidbody> _bodies = new List<Rigidbody>();
         private readonly List<Collider> _colliders = new List<Collider>();
         private readonly Dictionary<Rigidbody, int> _indices = new Dictionary<Rigidbody, int>();
-        private readonly ColliderData[] _colliderData = new ColliderData[MAX_COLLIDERS];
+        private readonly ColliderData[] _colliderData;
         private readonly ComputeBuffer _particles;
         private readonly ComputeBuffer _accum;
         private readonly ComputeBuffer _velocity;
@@ -99,8 +94,11 @@ namespace GuardWave
         /// <summary>Builds a bounded GPU fluid domain centered at x=0 and a 24m wide river.</summary>
         public GuardWaveFlipFluid(float startZ, float endZ, float groundY,
             float waterfallEndY, float waveHeight, float travelDuration, IList<GuardWavePiece> pieces,
-            Rigidbody flagBody)
+            Rigidbody flagBody, GuardWaveFluidSettings settings)
         {
+            _settings = settings ?? throw new ArgumentNullException(nameof(settings));
+            _cellSize = _settings.CellSize;
+            _colliderData = new ColliderData[_settings.MaxColliders];
             if (!SystemInfo.supportsComputeShaders)
                 throw new NotSupportedException("GPU FLIP water requires compute shader support.");
 
@@ -113,13 +111,14 @@ namespace GuardWave
             _startZ = Mathf.Max(startZ, endZ + 8f);
             _endZ = endZ;
             InletSpeed = Mathf.Clamp((_startZ-_endZ) /
-                Mathf.Max(4f, travelDuration * 2f), 6f, 13f);
+                Mathf.Max(4f, travelDuration * _settings.TravelDurationMultiplier),
+                _settings.MinInletSpeed, _settings.MaxInletSpeed);
             _grid = new Vector3Int(
-                Mathf.CeilToInt((24f + CELL_SIZE*2f) / CELL_SIZE),
-                Mathf.CeilToInt((9f + CELL_SIZE) / CELL_SIZE),
-                Mathf.CeilToInt((_startZ - _endZ + CELL_SIZE*3f) / CELL_SIZE));
-            _origin = new Vector3(-12f-CELL_SIZE, groundY-CELL_SIZE,
-                _endZ-CELL_SIZE);
+                Mathf.CeilToInt((24f + _cellSize*2f) / _cellSize),
+                Mathf.CeilToInt((9f + _cellSize) / _cellSize),
+                Mathf.CeilToInt((_startZ - _endZ + _cellSize*3f) / _cellSize));
+            _origin = new Vector3(-12f-_cellSize, groundY-_cellSize,
+                _endZ-_cellSize);
             _gridCount = _grid.x * _grid.y * _grid.z;
             // Include lower-cliff free-fall particles in procedural renderer culling.
             RenderBounds = new Bounds(
@@ -128,16 +127,16 @@ namespace GuardWave
                 new Vector3(27f, groundY+13f-waterfallEndY,
                     _startZ-_endZ+86f));
 
-            _particles = new ComputeBuffer(MAX_PARTICLES, Marshal.SizeOf<Particle>());
-            _particles.SetData(new Particle[MAX_PARTICLES]);
+            _particles = new ComputeBuffer(_settings.MaxParticles, Marshal.SizeOf<Particle>());
+            _particles.SetData(new Particle[_settings.MaxParticles]);
             _accum = new ComputeBuffer(_gridCount, sizeof(int)*4);
             _velocity = new ComputeBuffer(_gridCount, sizeof(float)*3);
             _before = new ComputeBuffer(_gridCount, sizeof(float)*3);
             _pressureA = new ComputeBuffer(_gridCount, sizeof(float));
             _pressureB = new ComputeBuffer(_gridCount, sizeof(float));
             _solid = new ComputeBuffer(_gridCount, sizeof(uint));
-            _colliderBuffer = new ComputeBuffer(MAX_COLLIDERS, Marshal.SizeOf<ColliderData>());
-            _impulses = new ComputeBuffer(MAX_BODIES * 2, sizeof(int)*4);
+            _colliderBuffer = new ComputeBuffer(_settings.MaxColliders, Marshal.SizeOf<ColliderData>());
+            _impulses = new ComputeBuffer(_settings.MaxBodies * 2, sizeof(int)*4);
 
             _clearKernel = _compute.FindKernel("ClearGrid");
             _classifyKernel = _compute.FindKernel("ClassifyGrid");
@@ -152,18 +151,23 @@ namespace GuardWave
 
             _compute.SetInts("_GridSize", _grid.x, _grid.y, _grid.z);
             _compute.SetVector("_GridOrigin", _origin);
-            _compute.SetFloat("_CellSize", CELL_SIZE);
+            _compute.SetFloat("_CellSize", _cellSize);
             _compute.SetFloat("_FloorY", groundY);
             _compute.SetFloat("_ExitZ", endZ);
             _compute.SetFloat("_WaterfallEndY", waterfallEndY);
             _compute.SetFloat("_HalfWidth", 12f);
-            _compute.SetFloat("_InletZ", _startZ-CELL_SIZE);
+            _compute.SetFloat("_InletZ", _startZ-_cellSize);
             _compute.SetFloat("_WaveHeight", _waveHeight);
             _compute.SetFloat("_InletVelocity", InletSpeed);
-            _compute.SetFloat("_Gravity", Mathf.Abs(Physics.gravity.y));
-            _compute.SetFloat("_FlipFraction", 0.92f);
-            _compute.SetFloat("_ParticleMass", PARTICLE_EFFECTIVE_MASS);
-            _compute.SetFloat("_HydroDensity", 0.7f);
+            _compute.SetFloat("_Gravity", Mathf.Abs(Physics.gravity.y) * _settings.GravityMultiplier);
+            _compute.SetFloat("_FlipFraction", _settings.FlipFraction);
+            _compute.SetFloat("_ParticleMass", _settings.ParticleEffectiveMass);
+            _compute.SetFloat("_HydroDensity", _settings.HydroDensity);
+            _compute.SetFloat("_PressureClamp", _settings.PressureClamp);
+            _compute.SetFloat("_PressureThreshold", _settings.PressureThreshold);
+            _compute.SetFloat("_CollisionResponse", _settings.CollisionResponse);
+            _compute.SetFloat("_CollisionSkin", _settings.CollisionSkin);
+            _compute.SetFloat("_MaxFluidVelocity", _settings.MaxParticleSpeed);
             _compute.SetInt("_BodyCount", 0);
             _compute.SetInt("_ColliderCount", 0);
             // Bind only the resources actually used by each kernel; Unity strips
@@ -231,7 +235,7 @@ namespace GuardWave
         /// <summary>Registers a distinct Rigidbody and its impulse-buffer index.</summary>
         private void AddBody(Rigidbody body)
         {
-            if (body == null || _indices.ContainsKey(body) || _bodies.Count >= MAX_BODIES)
+            if (body == null || _indices.ContainsKey(body) || _bodies.Count >= _settings.MaxBodies)
                 return;
             _indices.Add(body, _bodies.Count);
             _bodies.Add(body);
@@ -243,12 +247,12 @@ namespace GuardWave
             int count = 0;
             foreach (Collider collider in _colliders)
             {
-                if (count >= MAX_COLLIDERS) break;
+                if (count >= _settings.MaxColliders) break;
                 if (collider == null || !collider.enabled || !collider.gameObject.activeInHierarchy)
                     continue;
                 Bounds bounds = collider.bounds;
                 if (bounds.min.x > 12.5f || bounds.max.x < -12.5f ||
-                    bounds.max.z < _endZ - CELL_SIZE || bounds.min.z > _startZ + CELL_SIZE)
+                    bounds.max.z < _endZ - _cellSize || bounds.min.z > _startZ + _cellSize)
                     continue;
                 Rigidbody body = collider.attachedRigidbody;
                 int index = body != null && _indices.TryGetValue(body, out int found)
@@ -311,11 +315,11 @@ namespace GuardWave
                 {
                     Vector3 v = body.linearVelocity;
                     Vector3 w = body.angularVelocity;
-                    data.Velocity = new Vector4(v.x,v.y,v.z,bounds.extents.magnitude+CELL_SIZE);
+                    data.Velocity = new Vector4(v.x,v.y,v.z,bounds.extents.magnitude+_cellSize);
                     data.Angular = new Vector4(w.x,w.y,w.z,0);
                 }
                 if (body == null || body.isKinematic)
-                    data.Velocity.w = bounds.extents.magnitude + CELL_SIZE;
+                    data.Velocity.w = bounds.extents.magnitude + _cellSize;
                 Vector3 bodyCenter = body != null ? body.worldCenterOfMass : center;
                 data.BodyCenter = new Vector4(bodyCenter.x, bodyCenter.y, bodyCenter.z, 0f);
                 _colliderData[count++] = data;
@@ -336,13 +340,13 @@ namespace GuardWave
             Dispatch(_classifyKernel, _gridCount);
 
             _spawnClock += dt;
-            if (inletFraction > 0.05f && _spawnClock >= SPAWN_INTERVAL)
+            if (inletFraction > 0.05f && _spawnClock >= _settings.SpawnInterval)
             {
-                _spawnClock -= SPAWN_INTERVAL;
-                int widthCells = Mathf.FloorToInt(24f/(CELL_SIZE*0.85f));
-                int heightCells = Mathf.Max(1,Mathf.FloorToInt(_waveHeight/(CELL_SIZE*0.85f)));
-                int count = Mathf.Min(MAX_PARTICLES-_particleCount,
-                    Mathf.RoundToInt(widthCells*heightCells*3f*inletFraction));
+                _spawnClock -= _settings.SpawnInterval;
+                int widthCells = Mathf.FloorToInt(24f/(_cellSize*0.85f));
+                int heightCells = Mathf.Max(1,Mathf.FloorToInt(_waveHeight/(_cellSize*0.85f)));
+                int count = Mathf.Min(_settings.MaxParticles-_particleCount,
+                    Mathf.RoundToInt(widthCells*heightCells*_settings.SpawnRateMultiplier*inletFraction));
                 if (count > 0)
                 {
                     _compute.SetInt("_SpawnStart", _particleCount);
@@ -359,7 +363,7 @@ namespace GuardWave
 
             ComputeBuffer src = _pressureA;
             ComputeBuffer dst = _pressureB;
-            for (int i = 0; i < PRESSURE_ITERATIONS; i++)
+            for (int i = 0; i < _settings.PressureIterations; i++)
             {
                 _compute.SetBuffer(_pressureKernel, "_PressureSrc", src);
                 _compute.SetBuffer(_pressureKernel, "_PressureDst", dst);
@@ -401,9 +405,10 @@ namespace GuardWave
                 Int4 torque = values[i*2+1];
                 Vector3 linear = new Vector3(force.X,force.Y,force.Z) / IMPULSE_SCALE;
                 Vector3 angular = new Vector3(torque.X,torque.Y,torque.Z) / IMPULSE_SCALE;
-                float limit = Mathf.Max(0.25f,body.mass*3f);
+                float limit = Mathf.Max(_settings.MinImpulseLimit,
+                    body.mass * _settings.MaxImpulsePerBodyMass);
                 body.AddForce(Vector3.ClampMagnitude(linear,limit), ForceMode.Impulse);
-                body.AddTorque(Vector3.ClampMagnitude(angular,limit*3f), ForceMode.Impulse);
+                body.AddTorque(Vector3.ClampMagnitude(angular,limit*_settings.AngularImpulseMultiplier), ForceMode.Impulse);
             }
         }
 

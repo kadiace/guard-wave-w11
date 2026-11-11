@@ -49,6 +49,7 @@ namespace GuardWave
         private GuardWaveHud _hud;
         private GuardWaveDropPreview _dropPreview;
         private GuardWaveFlipRenderer _flipRenderer;
+        private GuardWaveFluidSettings _fluidSettings;
         private GuardWaveFlipFluid _fluid;
         private Bounds _placementBounds;
         private Bounds _lowerCreekBounds;
@@ -90,10 +91,12 @@ namespace GuardWave
         {
             _sceneContext = GetComponent<ForestSceneContext>();
             _catalog = new GuardWaveCatalog();
+            _fluidSettings = Resources.Load<GuardWaveFluidSettings>("GuardWaveFluidSettings");
+            if (_fluidSettings == null) throw new InvalidOperationException("Missing Resources/GuardWaveFluidSettings.asset");
             ConfigureScene();
             CreateHud();
             _dropPreview = new GuardWaveDropPreview();
-            _flipRenderer = new GuardWaveFlipRenderer();
+            _flipRenderer = new GuardWaveFlipRenderer(_fluidSettings);
             // The latest master authors all stationary river/waterfall surfaces in Forest.
             // Its old flood mesh stays disabled; the GPU particle renderer replaces it.
             _sceneContext.FloodMesh.gameObject.SetActive(false);
@@ -759,7 +762,7 @@ namespace GuardWave
             {
                 _fluid = new GuardWaveFlipFluid(_placementBounds.max.z,
                     _placementBounds.min.z, _placementBounds.max.y,
-                    _lowerCreekBounds.max.y, waveHeight, floodTravelDuration, _pieces, _flagBody);
+                    _lowerCreekBounds.max.y, waveHeight, floodTravelDuration, _pieces, _flagBody, _fluidSettings);
             }
             catch (Exception error)
             {
