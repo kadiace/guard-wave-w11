@@ -102,9 +102,9 @@ namespace GuardWave
             if (!SystemInfo.supportsComputeShaders)
                 throw new NotSupportedException("GPU FLIP water requires compute shader support.");
 
-            ComputeShader asset = Resources.Load<ComputeShader>("Textures/GuardWaveFlip");
+            ComputeShader asset = Resources.Load<ComputeShader>("GuardWaveFlip");
             if (asset == null)
-                throw new InvalidOperationException("Missing Resources/Textures/GuardWaveFlip.compute");
+                throw new InvalidOperationException("Missing Resources/GuardWaveFlip.compute");
             _compute = UnityEngine.Object.Instantiate(asset);
             _floorY = groundY;
             _waveHeight = Mathf.Clamp(waveHeight, 1f, 6f);
