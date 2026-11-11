@@ -83,6 +83,7 @@ namespace GuardWave
         private readonly int _projectKernel;
         private readonly int _g2pKernel;
         private readonly int _pressureBodyKernel;
+        private readonly int _waterfallKernel;
         private float _spawnClock;
         private float _elapsed;
         private int _particleCount;
@@ -97,7 +98,7 @@ namespace GuardWave
 
         /// <summary>Builds a bounded GPU fluid domain centered at x=0 and a 24m wide river.</summary>
         public GuardWaveFlipFluid(float startZ, float endZ, float groundY,
-            float waveHeight, float travelDuration, IList<GuardWavePiece> pieces,
+            float waterfallEndY, float waveHeight, float travelDuration, IList<GuardWavePiece> pieces,
             Rigidbody flagBody)
         {
             if (!SystemInfo.supportsComputeShaders)
@@ -120,9 +121,12 @@ namespace GuardWave
             _origin = new Vector3(-12f-CELL_SIZE, groundY-CELL_SIZE,
                 _endZ-CELL_SIZE);
             _gridCount = _grid.x * _grid.y * _grid.z;
+            // Include lower-cliff free-fall particles in procedural renderer culling.
             RenderBounds = new Bounds(
-                new Vector3(0, groundY+4f, (_startZ+_endZ)*0.5f),
-                new Vector3(27f, 12f, _startZ-_endZ+6f));
+                new Vector3(0, (groundY+9f+waterfallEndY)*0.5f,
+                    (_startZ+_endZ-80f)*0.5f),
+                new Vector3(27f, groundY+13f-waterfallEndY,
+                    _startZ-_endZ+86f));
 
             _particles = new ComputeBuffer(MAX_PARTICLES, Marshal.SizeOf<Particle>());
             _particles.SetData(new Particle[MAX_PARTICLES]);
@@ -144,12 +148,14 @@ namespace GuardWave
             _projectKernel = _compute.FindKernel("ProjectGrid");
             _g2pKernel = _compute.FindKernel("GridToParticle");
             _pressureBodyKernel = _compute.FindKernel("PressureToBodies");
+            _waterfallKernel = _compute.FindKernel("Waterfall");
 
             _compute.SetInts("_GridSize", _grid.x, _grid.y, _grid.z);
             _compute.SetVector("_GridOrigin", _origin);
             _compute.SetFloat("_CellSize", CELL_SIZE);
             _compute.SetFloat("_FloorY", groundY);
             _compute.SetFloat("_ExitZ", endZ);
+            _compute.SetFloat("_WaterfallEndY", waterfallEndY);
             _compute.SetFloat("_HalfWidth", 12f);
             _compute.SetFloat("_InletZ", _startZ-CELL_SIZE);
             _compute.SetFloat("_WaveHeight", _waveHeight);
@@ -195,6 +201,7 @@ namespace GuardWave
             Bind(_pressureBodyKernel, "_Solid", _solid);
             Bind(_pressureBodyKernel, "_Colliders", _colliderBuffer);
             Bind(_pressureBodyKernel, "_BodyImpulses", _impulses);
+            Bind(_waterfallKernel, "_Particles", _particles);
             CollectBodies(pieces, flagBody);
             UpdateColliders();
         }
@@ -364,6 +371,7 @@ namespace GuardWave
             _compute.SetBuffer(_pressureBodyKernel, "_PressureSrc", src);
             Dispatch(_pressureBodyKernel, _gridCount);
             Dispatch(_g2pKernel, _particleCount);
+            Dispatch(_waterfallKernel, _particleCount);
             if (!_pendingReadback && _bodies.Count > 0)
             {
                 _pendingReadback = true;
