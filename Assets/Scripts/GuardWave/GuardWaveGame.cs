@@ -54,7 +54,7 @@ namespace GuardWave
         private GameObject _defenseFlag;
         private Rigidbody _flagBody;
         private BoxCollider _flagCollider;
-        private Material _flagMaterial;
+        private RigidbodyState _initialFlagState;
         private Coroutine _stageFloodRoutine;
         private WaveSnapshot _waveSnapshot;
         private Camera _camera;
@@ -75,6 +75,7 @@ namespace GuardWave
         private bool _awaitingStage;
         private bool _finished;
         private string _status;
+        private bool _initialized;
 
         [Header("Camera input")]
         private Vector2 _rightDragDisplacement;
@@ -96,11 +97,12 @@ namespace GuardWave
                 .GetComponent<BoxCollider>().bounds;
             _floodEffect.ShowShallow(_placementBounds, lowerCreek,
                 groundY + shallowWaterDepth, lowerCreek.center.y + shallowWaterDepth);
+            _initialized = true;
         }
 
         private void Update()
         {
-            if (_catalog == null) return;
+            if (!_initialized) return;
             // Only a started wave can fail; restored placements must remain editable.
             if (_stageTransitioning && _waveSnapshot != null &&
                 _defenseFlag != null && _defenseFlag.activeSelf &&
@@ -236,8 +238,7 @@ namespace GuardWave
             SetOutlineTargets(null);
             _dropPreview?.Dispose();
             _floodEffect?.Dispose();
-            if (_defenseFlag != null) Destroy(_defenseFlag);
-            if (_flagMaterial != null) Destroy(_flagMaterial);
+            // The flag is owned by the Forest scene.
         }
 
         /// <summary>3D 물리 충돌체를 마우스 레이로 탐색해 원본 자재 상세 UI에 전달한다.</summary>
@@ -306,6 +307,13 @@ namespace GuardWave
             _camera.transform.rotation = Quaternion.Euler(60f, 45f, 0f);
             _cameraTarget = Vector3.zero;
             UpdateCameraPosition();
+            _defenseFlag = _sceneContext.DefenseFlag;
+            if (_defenseFlag == null)
+                throw new InvalidOperationException(
+                    "Forest scene is missing the serialized Defense Flag reference.");
+            _flagBody = _defenseFlag.GetComponent<Rigidbody>();
+            _flagCollider = _defenseFlag.GetComponent<BoxCollider>();
+            _initialFlagState = new RigidbodyState(_flagBody);
             _placementBounds = GameObject.Find("Flat Muddy Creek Bed")
                 .GetComponent<BoxCollider>().bounds;
         }
@@ -496,7 +504,6 @@ namespace GuardWave
 
             foreach (GuardWavePiece piece in _pieces)
                 if (piece != null) Destroy(piece.gameObject);
-            if (_defenseFlag != null) Destroy(_defenseFlag);
             _pieces.Clear();
             _pieceSet.Clear();
             _consumedContacts.Clear();
@@ -517,48 +524,18 @@ namespace GuardWave
             _cameraTarget = Vector3.zero;
             _rightGestureActive = false;
             UpdateCameraPosition();
-            CreateDefenseFlag();
+            ResetDefenseFlag();
             DealOffers();
             _status = "고무오리·쓰레기 봉투·큰 돌을 선택해 배치하세요. 우클릭: 선택 해제";
         }
 
-        /// <summary>월드 원점에 깃대와 붉은 깃발을 만들어 이번 게임의 보호 대상으로 둔다.</summary>
-        private void CreateDefenseFlag()
+        /// <summary>씬에 배치된 깃발을 최초의 자세와 운동 상태로 되돌린다.</summary>
+        private void ResetDefenseFlag()
         {
-            if (_flagMaterial == null)
-                _flagMaterial = new Material(Shader.Find("Universal Render Pipeline/Lit"));
-            _defenseFlag = new GameObject("Defense Flag");
-            _defenseFlag.transform.position = Vector3.zero;
-            CreateFlagPart("Pole", PrimitiveType.Cylinder, new Vector3(0f, -0.7f, 0f),
-                new Vector3(0.1f, 1.4f, 0.1f), new Color(0.72f, 0.53f, 0.25f));
-            CreateFlagPart("Banner", PrimitiveType.Cube, new Vector3(0.55f, 0.35f, 0f),
-                new Vector3(1f, 0.6f, 0.08f), new Color(0.9f, 0.15f, 0.12f));
-            CreateFlagPart("Base", PrimitiveType.Cube, new Vector3(0f, -2.08f, 0f),
-                new Vector3(0.55f, 0.12f, 0.55f), new Color(0.24f, 0.2f, 0.15f));
-            _flagCollider = _defenseFlag.AddComponent<BoxCollider>();
-            _flagCollider.center = new Vector3(0.25f, -0.65f, 0f);
-            _flagCollider.size = new Vector3(1.4f, 2.7f, 0.4f);
-            _flagBody = _defenseFlag.AddComponent<Rigidbody>();
-            _flagBody.mass = 1f;
-            _flagBody.linearDamping = 0.15f;
-            _flagBody.angularDamping = 0.5f;
-        }
-
-        /// <summary>깃발의 한 부분을 지정한 모양, 위치, 크기, 색상으로 만든다.</summary>
-        private void CreateFlagPart(string name, PrimitiveType shape, Vector3 position,
-            Vector3 scale, Color color)
-        {
-            GameObject part = GameObject.CreatePrimitive(shape);
-            part.name = name;
-            part.transform.SetParent(_defenseFlag.transform, false);
-            part.transform.localPosition = position;
-            part.transform.localScale = scale;
-            Renderer renderer = part.GetComponent<Renderer>();
-            part.GetComponent<Collider>().enabled = false;
-            renderer.sharedMaterial = _flagMaterial;
-            MaterialPropertyBlock colors = new MaterialPropertyBlock();
-            colors.SetColor("_BaseColor", color);
-            renderer.SetPropertyBlock(colors);
+            _defenseFlag.SetActive(true);
+            _initialFlagState.RestorePose(_flagBody);
+            Physics.SyncTransforms();
+            _initialFlagState.RestoreMotion(_flagBody);
         }
 
         /// <summary>Resources/Prefabs에서 3D 기물을 로드하고 Rigidbody를 통한 중력 낙하를 준비한다.</summary>
@@ -890,7 +867,7 @@ namespace GuardWave
             return snapshot;
         }
 
-        /// <summary>파괴된 기물과 깃발을 포함한 전체 배치를 준비완료 클릭 당시로 되돌린다.</summary>
+        /// <summary>기물·깃발의 자세를 일괄 복원한 뒤 물리를 재개해 준비완료 시점으로 되돌린다.</summary>
         private void RestoreWaveSnapshot()
         {
             WaveSnapshot snapshot = _waveSnapshot;
@@ -907,19 +884,27 @@ namespace GuardWave
                 if (piece == null) continue;
                 piece.ClearContacts();
                 piece.gameObject.SetActive(true);
-                state.Body.Restore(piece.Body);
+                state.Body.RestorePose(piece.Body);
                 _pieces.Add(piece);
                 _pieceSet.Add(piece);
             }
 
             _defenseFlag.SetActive(true);
-            snapshot.Flag.Restore(_flagBody);
+            snapshot.Flag.RestorePose(_flagBody);
             foreach (SceneBodyState state in snapshot.SceneBodies)
             {
                 if (state.Body == null) continue;
                 state.Body.gameObject.SetActive(true);
-                state.State.Restore(state.Body);
+                state.State.RestorePose(state.Body);
             }
+
+            // Sync all saved poses before resuming the recorded motion.
+            Physics.SyncTransforms();
+            foreach (PieceState state in snapshot.Pieces)
+                if (state.Piece != null) state.Body.RestoreMotion(state.Piece.Body);
+            snapshot.Flag.RestoreMotion(_flagBody);
+            foreach (SceneBodyState state in snapshot.SceneBodies)
+                if (state.Body != null) state.State.RestoreMotion(state.Body);
 
             _selected = snapshot.SelectedOffer;
             _objectYaw = snapshot.ObjectYaw;
@@ -927,7 +912,6 @@ namespace GuardWave
             _camera.transform.rotation = snapshot.CameraRotation;
             _camera.orthographicSize = snapshot.CameraZoom;
             UpdateCameraPosition();
-            Physics.SyncTransforms();
 
             _waveSnapshot = null;
             _awaitingStage = false;
@@ -998,8 +982,8 @@ namespace GuardWave
             /// <summary>리지드바디의 위치, 속도 및 물리 속성을 기록한다.</summary>
             public RigidbodyState(Rigidbody body)
             {
-                _position = body.position;
-                _rotation = body.rotation;
+                _position = body.transform.position;
+                _rotation = body.transform.rotation;
                 _scale = body.transform.localScale;
                 _velocity = body.linearVelocity;
                 _angularVelocity = body.angularVelocity;
@@ -1008,15 +992,23 @@ namespace GuardWave
                 _useGravity = body.useGravity;
             }
 
-            /// <summary>리지드바디의 위치, 속도 및 물리 속성을 복원한다.</summary>
-            public void Restore(Rigidbody body)
+            /// <summary>물리 시뮬레이션을 정지시키고 저장한 화면 위치를 Transform과 Rigidbody 양쪽에 설정한다.</summary>
+            public void RestorePose(Rigidbody body)
             {
-                body.isKinematic = _kinematic;
-                body.useGravity = _useGravity;
+                body.isKinematic = true;
+                body.useGravity = false;
                 body.transform.localScale = _scale;
+                body.transform.SetPositionAndRotation(_position, _rotation);
                 body.position = _position;
                 body.rotation = _rotation;
-                if (!body.isKinematic)
+            }
+
+            /// <summary>모든 위치가 동기화된 뒤 저장된 속도·중력·수면 상태를 다시 적용한다.</summary>
+            public void RestoreMotion(Rigidbody body)
+            {
+                body.useGravity = _useGravity;
+                body.isKinematic = _kinematic;
+                if (!_kinematic)
                 {
                     body.linearVelocity = _velocity;
                     body.angularVelocity = _angularVelocity;
