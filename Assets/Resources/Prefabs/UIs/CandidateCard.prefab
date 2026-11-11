@@ -13,7 +13,6 @@ GameObject:
   - component: {fileID: 6828543313806785285}
   - component: {fileID: 4171218104524508056}
   - component: {fileID: 6377377577541152088}
-  - component: {fileID: 771000000000000010}
   m_Layer: 0
   m_Name: CandidateCard
   m_TagString: Untagged
@@ -548,15 +547,3 @@ MonoBehaviour:
   m_FlexibleWidth: -1
   m_FlexibleHeight: -1
   m_LayoutPriority: 1
---- !u!114 &771000000000000010
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1033688300489871658}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 1c45991bb54c44588f74c52df384078a, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
