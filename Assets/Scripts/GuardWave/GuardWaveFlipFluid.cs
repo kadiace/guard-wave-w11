@@ -370,8 +370,9 @@ namespace GuardWave
             Dispatch(_projectKernel, _gridCount);
             _compute.SetBuffer(_pressureBodyKernel, "_PressureSrc", src);
             Dispatch(_pressureBodyKernel, _gridCount);
-            Dispatch(_g2pKernel, _particleCount);
+            // Continue pre-existing spray first; newly exited fluid starts falling next tick.
             Dispatch(_waterfallKernel, _particleCount);
+            Dispatch(_g2pKernel, _particleCount);
             if (!_pendingReadback && _bodies.Count > 0)
             {
                 _pendingReadback = true;
