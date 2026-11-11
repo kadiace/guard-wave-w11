@@ -21,6 +21,7 @@ MonoBehaviour:
   _pressureThreshold: 0.05
   _ambientWaterDepth: 1
   _ambientFlowSpeed: 20
+  _ambientFlowVolumeMultiplier: 2
   _ambientImpactScale: 0.01
   _waveCrestAmplitude: 3
   _waveCrestSpeed: 80
@@ -35,7 +36,7 @@ MonoBehaviour:
   _collisionResponse: 2
   _collisionSkin: 0.06
   _cellSize: 0.6
-  _maxParticles: 24000
+  _maxParticles: 48000
   _maxBodies: 384
   _maxColliders: 256
   _pressureIterations: 22

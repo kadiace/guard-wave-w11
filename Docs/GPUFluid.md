@@ -224,3 +224,33 @@ on/off after flow begins; press Ready with it inactive; toggle it during a
 wave; fail and confirm rollback; restart; ensure the parent activation state,
 outline selection and fluid collisions match the intended state. Unity Play
 Mode and GPU execution were not available for this change.
+ 
+## Increased background water supply (2x)
+
+The `feature/real-wave` baseline now uses
+`Ambient Flow Volume Multiplier = 2` in
+`Assets/Resources/Datas/GuardWaveFluidSettings.asset`.
+Unlike simply doubling the per-tick `supplyBudget`, which is capped by
+recorded cliff losses, this doubles the actual number of *initial*
+water particles per meter of river. The one-meter-deep initial region
+is seeded with twice the longitudinal density, so flowing water and
+the number of ordinary particles crossing the cliff both increase.
+The existing velocity-proportional refill calculation uses this
+initial population and therefore automatically scales the replenishment
+budget by 2x, without counting it twice.
+
+With the current 24m wide, 65m long river and 0.6m grid the baseline
+particle count rises from about 11,938 to about 23,876; its nominal
+20m/s replenishment rate rises from ~3,673 to ~7,347 particles/s.
+`MaxParticles` increases from 24,000 to 48,000 to leave spare slots
+for the 3m crest and falling spray. `Ambient Water Depth` remains
+**1m**, `Wave Crest Amplitude` remains **3m**, and `Wave Crest Speed`
+remains **80m/s**. This is a particle-density/volume representation
+increase; the prototype solver does not guarantee that the rendered
+water surface will be uniformly higher or that every part of the
+channel will have uninterrupted coverage.
+
+In Unity Play Mode, check that the riverbed is consistently covered,
+the `TotalCliffExits` and `TotalAmbientRefills` rise continuously,
+and FPS/VRAM usage remain acceptable with the larger GPU buffer.
+No Unity runtime tests were available from this environment.

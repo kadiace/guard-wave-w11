@@ -261,9 +261,17 @@ namespace GuardWave
             float spacing = _cellSize * 0.85f;
             int columns = Mathf.Max(1, Mathf.FloorToInt(24f / spacing));
             int layers = Mathf.Max(1, Mathf.CeilToInt(_settings.AmbientWaterDepth / spacing));
-            int rows = Mathf.Max(1, Mathf.FloorToInt((_startZ - _endZ) / spacing));
+            // Sample the same 1m-deep creek more densely along its length:
+            // doubling longitudinal particle density doubles initial liquid
+            // particles, actual cliff departures and speed-scaled replenishment.
+            // Preserve the 1m depth and 3m additional crest height.
+            int rows = Mathf.Max(1, Mathf.RoundToInt(
+                (_startZ - _endZ) / spacing * _settings.AmbientFlowVolumeMultiplier));
             long requested = (long)columns * layers * rows;
-            int initialCount = (int)Math.Min(requested, _settings.MaxParticles);
+            if (requested > _settings.MaxParticles)
+                throw new InvalidOperationException(
+                    "Ambient creek particle density exceeds MaxParticles. Increase the GPU budget.");
+            int initialCount = (int)requested;
             _ambientInitialCount = initialCount;
             _ambientColumns = columns;
             _ambientRefillFraction = 0d;
@@ -482,6 +490,8 @@ namespace GuardWave
                 // to the configured inlet speed. The original 1m lattice
                 // provides the particle density per meter of creek length.
                 double riverLength = Math.Max(0.1, _startZ - _endZ);
+                // _ambientInitialCount already includes the ambient volume
+                // multiplier, so do not multiply the refill rate a second time.
                 double particlesPerSecond = _ambientInitialCount * InletSpeed / riverLength;
                 _ambientRefillFraction += particlesPerSecond * dt;
                 int supplyBudget = (int)Math.Min(_settings.MaxParticles,

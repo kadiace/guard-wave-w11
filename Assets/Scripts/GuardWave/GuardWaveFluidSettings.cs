@@ -18,9 +18,13 @@ namespace GuardWave
         [Header("Ambient creek (no wave)")]
         [SerializeField, Min(0.2f)] private float _ambientWaterDepth = 1f;
         [SerializeField, Min(0.01f)] private float _ambientFlowSpeed = 20f;
+        // Higher count per meter of channel gives more real liquid particles
+        // and automatically scales the inlet's loss-replacement throughput.
+        [SerializeField, Range(1f, 4f)] private float _ambientFlowVolumeMultiplier = 2f;
         [SerializeField, Range(0f, 1f)] private float _ambientImpactScale = 0.01f;
         public float AmbientWaterDepth => _ambientWaterDepth;
         public float AmbientFlowSpeed => _ambientFlowSpeed;
+        public float AmbientFlowVolumeMultiplier => _ambientFlowVolumeMultiplier;
         public float AmbientImpactScale => _ambientImpactScale;
 
         [Header("One-shot wave crest above ambient water")]
@@ -47,7 +51,7 @@ namespace GuardWave
 
         [Header("GPU performance - applied on the next wave")]
         [SerializeField, Range(0.25f, 1.5f)] private float _cellSize = 0.6f;
-        [SerializeField, Range(1000, 100000)] private int _maxParticles = 24000;
+        [SerializeField, Range(1000, 100000)] private int _maxParticles = 48000;
         [SerializeField, Range(1, 384)] private int _maxBodies = 384;
         [SerializeField, Range(1, 256)] private int _maxColliders = 256;
         [SerializeField, Range(1, 96)] private int _pressureIterations = 22;
