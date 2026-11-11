@@ -75,8 +75,8 @@ namespace GuardWave
         private readonly int _driveInletKernel;
         private readonly int _emitCrestKernel;
         private readonly ComputeBuffer _crestCounter;
-        private readonly int _ambientInitialCount;
-        private readonly int _ambientColumns;
+        private int _ambientInitialCount;
+        private int _ambientColumns;
         private readonly int _gridCount;
         private readonly int _clearKernel;
         private readonly int _classifyKernel;
