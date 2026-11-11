@@ -94,12 +94,10 @@ namespace GuardWave
             CreateHud();
             _dropPreview = new GuardWaveDropPreview();
             _flipRenderer = new GuardWaveFlipRenderer();
+            // The latest master authors all stationary river/waterfall surfaces in Forest.
+            // Its old flood mesh stays disabled; the GPU particle renderer replaces it.
+            _sceneContext.FloodMesh.gameObject.SetActive(false);
             ResetGame();
-            _lowerCreekBounds = GameObject.Find("Flat Muddy Creek Bed After Cliff")
-                .GetComponent<BoxCollider>().bounds;
-            _flipRenderer.ShowShallow(_placementBounds, _lowerCreekBounds,
-                groundY + shallowWaterDepth,
-                _lowerCreekBounds.center.y + shallowWaterDepth);
             _initialized = true;
         }
 
@@ -307,11 +305,7 @@ namespace GuardWave
         {
             _camera = Camera.main;
             if (_camera == null) throw new InvalidOperationException("Game scene needs a Main Camera.");
-            _camera.orthographic = true;
-            _camera.orthographicSize = 10.5f;
-            _camera.transform.rotation = Quaternion.Euler(60f, 45f, 0f);
             _cameraTarget = Vector3.zero;
-            UpdateCameraPosition();
             _defenseFlag = _sceneContext.DefenseFlag;
             if (_defenseFlag == null)
                 throw new InvalidOperationException(
@@ -320,6 +314,8 @@ namespace GuardWave
             _flagCollider = _defenseFlag.GetComponent<BoxCollider>();
             _initialFlagState = new RigidbodyState(_flagBody);
             _placementBounds = GameObject.Find("Flat Muddy Creek Bed")
+                .GetComponent<BoxCollider>().bounds;
+            _lowerCreekBounds = GameObject.Find("Flat Muddy Creek Bed After Cliff")
                 .GetComponent<BoxCollider>().bounds;
         }
 
@@ -333,14 +329,12 @@ namespace GuardWave
                 events.AddComponent<EventSystem>();
                 events.AddComponent<InputSystemUIInputModule>();
             }
-            GameObject source = Resources.Load<GameObject>("Prefabs/UIs/GuardWaveHud");
-            if (source == null) throw new InvalidOperationException("Missing original GuardWave HUD prefab.");
-            GameObject instance = Instantiate(source);
-            instance.name = "GuardWaveHud";
-            _hud = instance.AddComponent<GuardWaveHud>();
+            _hud = _sceneContext.Hud;
+            if (_hud == null)
+                throw new InvalidOperationException("Forest scene is missing a GuardWaveHud reference.");
             _hud.Initialize(this);
-            _floatingText = instance.AddComponent<GuardWaveFloatingText>();
-            _floatingText.Initialize(_camera, (RectTransform)instance.transform);
+            _floatingText = _hud.GetComponent<GuardWaveFloatingText>();
+            _floatingText.Initialize(_camera, (RectTransform)_hud.transform);
             ChangeCommitted += _floatingText.Show;
         }
 
@@ -350,7 +344,7 @@ namespace GuardWave
         public float CameraYawPerScrollStep { get; set; } = 5f;
         public bool IsPaletteHidden => false;
         public bool CanReady => !_stageTransitioning && !_resolving && !_awaitingStage
-            && !_finished && !_rulesOpen && _pendingDrops == 0 && _defenseFlag != null
+            && !_finished && !_rulesOpen && _defenseFlag != null
             && _defenseFlag.activeInHierarchy && !_pieces.Any(x => x != null && x.FusePending);
         public int RerollCount => _rerolls + _extraRerolls;
         public bool CanSelect => !_resolving && !_awaitingStage && !_finished && !_rulesOpen
