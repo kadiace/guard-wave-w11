@@ -12,20 +12,20 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 2f1e45a24b63455b91055b969f66307a, type: 3}
   m_Name: GuardWaveFluidSettings
   m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWaveFluidSettings
-  _particleEffectiveMass: 0.14
-  _hydroDensity: 0.7
-  _maxImpulsePerBodyMass: 3
-  _minImpulseLimit: 0.25
+  _particleEffectiveMass: 14
+  _hydroDensity: 70
+  _maxImpulsePerBodyMass: 300
+  _minImpulseLimit: 25
   _angularImpulseMultiplier: 3
-  _pressureClamp: 50
+  _pressureClamp: 5000
   _pressureThreshold: 0.05
-  _minInletSpeed: 6
-  _maxInletSpeed: 13
+  _minInletSpeed: 30
+  _maxInletSpeed: 60
   _travelDurationMultiplier: 2
   _gravityMultiplier: 1
-  _maxParticleSpeed: 24
+  _maxParticleSpeed: 120
   _flipFraction: 0.92
-  _collisionResponse: 1.15
+  _collisionResponse: 2
   _collisionSkin: 0.06
   _cellSize: 0.6
   _maxParticles: 24000
