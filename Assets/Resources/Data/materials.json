@@ -261,9 +261,7 @@
       "name": "빈 병",
       "category": "쓰레기",
       "baseReinforcement": 1,
-      "abilities": [
-        "리롤권 1개 획득"
-      ],
+      "abilities": [],
       "abilityAlternatives": []
     },
     {

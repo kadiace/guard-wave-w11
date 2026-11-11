@@ -65,8 +65,6 @@ namespace GuardWave
         private float _lastDropTime = float.NegativeInfinity;
         private bool _dropMouseReleased = true;
         private int _stage;
-        private int _rerolls;
-        private int _extraRerolls;
         private float _objectYaw;
         private bool _rulesOpen;
         private bool _paletteOpen = true;
@@ -336,10 +334,8 @@ namespace GuardWave
         public bool CanReady => !_stageTransitioning && !_resolving && !_awaitingStage
             && !_finished && !_rulesOpen && _defenseFlag != null
             && _defenseFlag.activeInHierarchy && !_pieces.Any(x => x != null && x.FusePending);
-        public int RerollCount => _rerolls + _extraRerolls;
         public bool CanSelect => !_resolving && !_awaitingStage && !_finished && !_rulesOpen
             && _paletteOpen && !_stageTransitioning;
-        public bool CanReroll => false;
         public bool CanShowItemInfo => !_awaitingStage && !_finished && !_rulesOpen
             && !_stageTransitioning;
         public event Action<GuardWaveChange> ChangeCommitted;
@@ -497,8 +493,6 @@ namespace GuardWave
             _pieceSet.Clear();
             _consumedContacts.Clear();
             _stage = 0;
-            _rerolls = 3;
-            _extraRerolls = 0;
             _selected = -1;
             _paletteOpen = true;
             _pendingDrops = 0;
@@ -557,27 +551,11 @@ namespace GuardWave
             HideDropPreview();
         }
 
-        /// <summary>기본 리롤권부터 소비하고 후보 3종을 다시 제시한다.</summary>
-        public void Reroll()
-        {
-            if (!CanReroll) return;
-            if (_rerolls > 0) _rerolls--;
-            else if (_extraRerolls > 0) _extraRerolls--;
-            else return;
-            DealOffers();
-        }
-
         /// <summary>기물 배치 후 후보를 즉시 갱신하고 떨어지는 기물 수를 추적한다.</summary>
         private IEnumerator DropAndResolve(GuardWaveMaterial material, Vector3 position)
         {
             GuardWavePiece dropped = Spawn(material, position);
             _pendingDrops++;
-            if (material.id == "empty_bottle")
-            {
-                _extraRerolls++;
-                PublishChange(new GuardWaveChange(dropped, dropped, GuardWaveChangeKind.Resource,
-                    1, dropped.transform.position, "리롤권 +1"));
-            }
             _status = material.name + " 배치 중. 같은 기물을 계속 배치하거나 준비완료를 누르세요.";
 
             float elapsed = 0f;

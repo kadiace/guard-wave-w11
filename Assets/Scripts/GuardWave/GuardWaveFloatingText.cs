@@ -4,7 +4,7 @@ using UnityEngine;
 
 namespace GuardWave
 {
-    public enum GuardWaveChangeKind { Destroyed, Flooded, EffectEnabled, EffectDisabled, Growth, Created, Resource }
+    public enum GuardWaveChangeKind { Destroyed, Flooded, EffectEnabled, EffectDisabled, Growth, Created }
 
     public readonly struct GuardWaveChange
     {

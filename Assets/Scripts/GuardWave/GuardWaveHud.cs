@@ -19,7 +19,6 @@ namespace GuardWave
         private readonly Dictionary<string, Sprite> _generatedIcons = new Dictionary<string, Sprite>();
 
         private GuardWaveGame _game;
-        private Text _rerollAction;
         private Text _detail;
         private Text _stageTitle;
         private Text _stageBody;
@@ -30,7 +29,6 @@ namespace GuardWave
         private GameObject _stagePopup;
         private GameObject _completePopup;
         private GameObject _rulesPopup;
-        private Button _rerollButton;
         private Button _readyButton;
         private GuardWavePiece _hoveredPiece;
         private int _hoveredCard = -1;
@@ -100,8 +98,6 @@ namespace GuardWave
                 hover.Initialize(this, index);
             }
 
-            _rerollButton = transform.Find("CandidateSelectionRow/CandidateActions/RerollActionButton").GetComponent<Button>();
-            _rerollAction = _rerollButton.GetComponentInChildren<Text>();
             transform.Find("ActiveEffectsPanel").gameObject.SetActive(false);
             Button rulesButton = transform.Find("CandidateSelectionRow/CandidateActions/RulesButton").GetComponent<Button>();
             rulesButton.onClick.AddListener(ShowRules);
@@ -186,13 +182,11 @@ Q/E: 기물 회전 / 우클릭 또는 Esc: 선택 취소
         /// <summary>상단 스테이지 정보, 하단 카드, 버튼, 팝업을 현재 게임 상태로 갱신한다.</summary>
         private void Refresh()
         {
-            _rerollAction.text = "리롤\n" + _game.RerollCount;
             if (_game.IsPaletteHidden && _hoveredCard >= 0)
             {
                 _hoveredCard = -1;
                 _tooltip.SetActive(false);
             }
-            _rerollButton.interactable = _game.CanReroll && _game.RerollCount > 0;
             _readyButton.interactable = _game.CanReady;
             _detail.text = _game.StatusMessage ?? "";
             if (_hoveredPiece != null && !_game.IsPlacedPiece(_hoveredPiece))
