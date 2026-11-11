@@ -53,3 +53,4 @@ namespace GuardWave
             _game?.RemovePieceByRightClick(this);
         }
     }
+}
