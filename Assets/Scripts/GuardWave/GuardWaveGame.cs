@@ -69,6 +69,7 @@ namespace GuardWave
         private bool _rulesOpen;
         private bool _paletteOpen = true;
         private bool _stageTransitioning;
+        private bool _waveHasStarted;
         private bool _resolving;
         private bool _awaitingStage;
         private bool _finished;
@@ -334,6 +335,7 @@ namespace GuardWave
         public bool CanReady => !_stageTransitioning && !_resolving && !_awaitingStage
             && !_finished && !_rulesOpen && _defenseFlag != null
             && _defenseFlag.activeInHierarchy && !_pieces.Any(x => x != null && x.FusePending);
+        public bool WaveHasStarted => _waveHasStarted;
         public bool CanSelect => !_resolving && !_awaitingStage && !_finished && !_rulesOpen
             && _paletteOpen && !_stageTransitioning;
         public bool CanShowItemInfo => !_awaitingStage && !_finished && !_rulesOpen
@@ -485,6 +487,7 @@ namespace GuardWave
             }
             _floodEffect?.Hide();
             _stageTransitioning = false;
+            _waveHasStarted = false;
             CommitWaveSnapshot();
 
             foreach (GuardWavePiece piece in _pieces)
@@ -704,6 +707,7 @@ namespace GuardWave
             SetOutlineTargets(null);
             HideDropPreview();
             _waveSnapshot = CaptureWaveSnapshot();
+            _waveHasStarted = true;
             _stageTransitioning = true;
             _resolving = true;
             _status = "홍수 발생: 기물과 깃발을 지키세요.";

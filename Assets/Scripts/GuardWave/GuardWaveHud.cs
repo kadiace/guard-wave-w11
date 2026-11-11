@@ -30,6 +30,7 @@ namespace GuardWave
         private GameObject _completePopup;
         private GameObject _rulesPopup;
         private Button _readyButton;
+        private Text _readyLabel;
         private GuardWavePiece _hoveredPiece;
         private int _hoveredCard = -1;
         private const float TooltipMargin = 14f;
@@ -102,6 +103,7 @@ namespace GuardWave
             Button rulesButton = transform.Find("CandidateSelectionRow/CandidateActions/RulesButton").GetComponent<Button>();
             rulesButton.onClick.AddListener(ShowRules);
             _readyButton = transform.Find("CandidateSelectionRow/CandidateActions/ReadyButton").GetComponent<Button>();
+            _readyLabel = _readyButton.transform.Find("Label").GetComponent<Text>();
             _readyButton.onClick.AddListener(_game.Ready);
             transform.Find("RulesPopup/CloseButton").GetComponent<Button>().onClick.AddListener(HideRules);
             Button confirmButton = transform.Find("StageResultPopup/CloseButton").GetComponent<Button>();
@@ -187,7 +189,11 @@ Q/E: 기물 회전 / 우클릭 또는 Esc: 선택 취소
                 _hoveredCard = -1;
                 _tooltip.SetActive(false);
             }
-            _readyButton.interactable = _game.CanReady;
+            bool canReady = _game.CanReady;
+            _readyButton.interactable = canReady;
+            string readyText = !canReady && _game.WaveHasStarted ? "오는 중..." : "준비 완료";
+            if (_readyLabel.text != readyText)
+                _readyLabel.text = readyText;
             _detail.text = _game.StatusMessage ?? "";
             if (_hoveredPiece != null && !_game.IsPlacedPiece(_hoveredPiece))
             {
