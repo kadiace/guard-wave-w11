@@ -74,11 +74,13 @@ namespace GuardWave
         private readonly float _waveHeight;
         private readonly bool _ambientFlow;
         private readonly ComputeBuffer _flowCounters;
+        private readonly ComputeBuffer _crestMetrics;
         private readonly int _initializeAmbientKernel;
         private readonly int _recycleAmbientKernel;
         private readonly int _driveInletKernel;
         private readonly int _emitCrestKernel;
-        private readonly ComputeBuffer _crestCounter;
+        private int _crestSlotStart;
+        private int _crestCandidateCount;
         private int _ambientInitialCount;
         private int _ambientColumns;
         private readonly int _gridCount;
@@ -101,6 +103,8 @@ namespace GuardWave
         private bool _pendingReadback;
         private bool _flowReadbackPending;
         private float _flowReadbackClock;
+        private bool _crestMetricsReadbackPending;
+        private float _crestMetricsClock;
         private bool _disposed;
 
         public ComputeBuffer Particles => _particles;
@@ -111,6 +115,10 @@ namespace GuardWave
         public uint TotalCliffExits { get; private set; }
         public uint TotalAmbientRefills { get; private set; }
         public uint PendingAmbientRefills { get; private set; }
+        // Read-only live diagnostics for the GPU wave; no per-frame logs.
+        public uint ActiveCrestParticles { get; private set; }
+        public uint ReleasedCrestParticles { get; private set; }
+        public float HighestCrestDepth { get; private set; }
 
         /// <summary>Builds a bounded GPU fluid domain centered at x=0 and a 24m wide river.</summary>
         public GuardWaveFlipFluid(float startZ, float endZ, float groundY,
@@ -164,7 +172,8 @@ namespace GuardWave
             _impulses = new ComputeBuffer(_settings.MaxBodies * 2, sizeof(int) * 4);
             _flowCounters = new ComputeBuffer(4, sizeof(uint));
             _flowCounters.SetData(new uint[4]);
-            _crestCounter = new ComputeBuffer(1, sizeof(uint));
+            _crestMetrics = new ComputeBuffer(3, sizeof(uint));
+            _crestMetrics.SetData(new uint[3]);
 
             _clearKernel = _compute.FindKernel("ClearGrid");
             _classifyKernel = _compute.FindKernel("ClassifyGrid");
@@ -204,6 +213,10 @@ namespace GuardWave
             _compute.SetFloat("_CollisionResponse", _settings.CollisionResponse);
             _compute.SetFloat("_CollisionSkin", _settings.CollisionSkin);
             _compute.SetFloat("_MaxFluidVelocity", _settings.MaxParticleSpeed);
+            _compute.SetFloat("_CrestHeightStiffness", _settings.CrestHeightStiffness);
+            _compute.SetFloat("_CrestHeightDamping", _settings.CrestHeightDamping);
+            _compute.SetFloat("_CrestForwardDamping", _settings.CrestForwardDamping);
+            _compute.SetFloat("_CrestReleaseDistance", _settings.CrestReleaseDistance);
             _compute.SetInt("_BodyCount", 0);
             _compute.SetInt("_ColliderCount", 0);
             // Bind only the resources actually used by each kernel; Unity strips
@@ -215,6 +228,7 @@ namespace GuardWave
             Bind(_clearKernel, "_PressureDst", _pressureB);
             Bind(_clearKernel, "_BodyImpulses", _impulses);
             Bind(_clearKernel, "_FlowCounters", _flowCounters);
+            Bind(_clearKernel, "_CrestMetrics", _crestMetrics);
             Bind(_classifyKernel, "_Solid", _solid);
             Bind(_classifyKernel, "_Colliders", _colliderBuffer);
             Bind(_spawnKernel, "_Particles", _particles);
@@ -223,7 +237,6 @@ namespace GuardWave
             Bind(_recycleAmbientKernel, "_FlowCounters", _flowCounters);
             Bind(_driveInletKernel, "_Particles", _particles);
             Bind(_emitCrestKernel, "_Particles", _particles);
-            Bind(_emitCrestKernel, "_CrestCounter", _crestCounter);
             Bind(_p2gKernel, "_Particles", _particles);
             Bind(_p2gKernel, "_Accum", _accum);
             Bind(_p2gKernel, "_Solid", _solid);
@@ -245,6 +258,7 @@ namespace GuardWave
             Bind(_g2pKernel, "_Colliders", _colliderBuffer);
             Bind(_g2pKernel, "_BodyImpulses", _impulses);
             Bind(_g2pKernel, "_FlowCounters", _flowCounters);
+            Bind(_g2pKernel, "_CrestMetrics", _crestMetrics);
             Bind(_pressureBodyKernel, "_Accum", _accum);
             Bind(_pressureBodyKernel, "_Solid", _solid);
             Bind(_pressureBodyKernel, "_Colliders", _colliderBuffer);
@@ -272,6 +286,21 @@ namespace GuardWave
                 throw new InvalidOperationException(
                     "Ambient creek particle density exceeds MaxParticles. Increase the GPU budget.");
             int initialCount = (int)requested;
+            int crestLayers = Mathf.Max(1, Mathf.CeilToInt(
+                _settings.WaveCrestAmplitude / spacing));
+            int crestRows = Mathf.Max(1, Mathf.RoundToInt(
+                _settings.WaveCrestLength / spacing *
+                _settings.AmbientFlowVolumeMultiplier));
+            long crestCandidates = (long)columns * crestLayers * crestRows;
+            // Reserve the full wave lattice for the lifetime of this creek.
+            // Waterfall and ambient refills use only the preceding slots.
+            if (crestCandidates > int.MaxValue ||
+                initialCount + crestCandidates >= _settings.MaxParticles)
+                throw new InvalidOperationException(
+                    "GPU particle capacity cannot fit both the base river and reserved crest.");
+            _crestCandidateCount = (int)crestCandidates;
+            _crestSlotStart = _settings.MaxParticles - _crestCandidateCount;
+            _compute.SetInt("_CrestSlotStart", _crestSlotStart);
             _ambientInitialCount = initialCount;
             _ambientColumns = columns;
             _ambientRefillFraction = 0d;
@@ -301,11 +330,9 @@ namespace GuardWave
                 _settings.WaveCrestLength / spacing *
                 _settings.AmbientFlowVolumeMultiplier));
             long candidateCount = (long)columns * layers * rows;
-            if (candidateCount > _settings.MaxParticles - _ambientInitialCount)
+            if (candidateCount != _crestCandidateCount)
                 throw new InvalidOperationException(
-                    "The 3m crest exceeds the spare GPU particle budget. Increase MaxParticles or CellSize.");
-
-            _crestCounter.SetData(new uint[1]);
+                    "Reserved crest slot count does not match the wave lattice.");
             _compute.SetInts("_CrestGrid", columns, layers, rows);
             _compute.SetFloat("_CrestAmplitude", amplitude);
             _compute.SetFloat("_CrestSpeed", InletSpeed);
@@ -313,7 +340,8 @@ namespace GuardWave
             _compute.SetFloat("_CrestLength", _settings.WaveCrestLength);
             _compute.SetFloat("_CrestCenterZ",
                 _startZ - _cellSize - _settings.WaveCrestLength * 0.5f);
-            Dispatch(_emitCrestKernel, _particleCount);
+            // Dispatch only the reserved lattice indices, not random free slots.
+            Dispatch(_emitCrestKernel, _crestCandidateCount);
         }
 
         /// <summary>Assigns GPU resources to a kernel without binding resources it never uses.</summary>
@@ -513,6 +541,13 @@ namespace GuardWave
             }
             if (_ambientFlow)
             {
+                _crestMetricsClock += dt;
+                if (_crestMetricsClock >= 0.5f && !_crestMetricsReadbackPending)
+                {
+                    _crestMetricsClock = 0f;
+                    _crestMetricsReadbackPending = true;
+                    AsyncGPUReadback.Request(_crestMetrics, OnCrestMetricsReady);
+                }
                 _flowReadbackClock += dt;
                 if (_flowReadbackClock >= 1f && !_flowReadbackPending)
                 {
@@ -526,6 +561,17 @@ namespace GuardWave
                 _pendingReadback = true;
                 AsyncGPUReadback.Request(_impulses, OnImpulsesReady);
             }
+        }
+
+        /// <summary>Samples visible wave particle height to distinguish loss from collapse.</summary>
+        private void OnCrestMetricsReady(AsyncGPUReadbackRequest request)
+        {
+            _crestMetricsReadbackPending = false;
+            if (_disposed || request.hasError) return;
+            NativeArray<uint> data = request.GetData<uint>();
+            ActiveCrestParticles = data[0];
+            HighestCrestDepth = data[1] / 100f;
+            ReleasedCrestParticles = data[2];
         }
 
         /// <summary>Samples actual exit/refill totals for inspecting flow in the debugger.</summary>
@@ -582,7 +628,7 @@ namespace GuardWave
             _colliderBuffer.Release();
             _impulses.Release();
             _flowCounters.Release();
-            _crestCounter.Release();
+            _crestMetrics.Release();
             UnityEngine.Object.Destroy(_compute);
         }
     }

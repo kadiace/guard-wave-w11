@@ -273,3 +273,54 @@ ProjectGrid, fluid single-Step() and 22 pressure iterations are retained
 for comparison against the earlier river behavior. Changes in this
 branch do not guarantee that 3m height stays perfectly coherent under
 unmodified FLIP physics; visual/runtime validation is still needed.
+
+## 3m crest formation and diagnostic fix (feature/real-wave)
+
+The previous one-shot `EmitCrest` atomically claimed **whatever inactive
+particle slots happened to exist**. Spray and background refill could consume
+the available slots before Ready. The GPU dispatch checked the nominal
+48,000 capacity against the initial population but did not validate the
+real candidate spawn count at click time. As a result a crest could be
+missing large portions before any physics integration.
+
+The ambient creek now reserves a **deterministic, contiguous 3m crest
+lattice** at the end of the GPU particle buffer. The background refill
+kernel is not allowed to borrow those slots, even before Ready. With the
+currently configured 0.6m cell size / 2x longitudinal density the
+15,510 possible crest candidate slots remain protected; roughly 12,784
+of them represent the smooth-tapered 3m volume. MaxParticles rises to
+64,000 so the water below and spray can continue without starving the
+reserved crest. The one-shot emission writes the entire reserve
+deterministically (inactive for tapered-off cells), avoiding a GPU
+atomic lottery. No new water is supplied to the crest on later ticks.
+
+A separate deformable height-support term is applied **only to extra
+crest particles**, with a damped vertical spring towards each parcel's
+original height above the 1m surface and gentle downstream velocity
+alignment. This compensates for gravity and compression by the existing
+coarse FLIP solver while the wave travels across unimpeded water.
+The parcel's original relative height is carried in unused APIC
+`affineX.w` and its sticky collision-release flag in `affineY.w`.
+When a particle reaches within the configured `Crest Release Distance`
+of a Rigidbody collider it permanently loses the height support and
+returns to ordinary FLIP physics, including gravity and collision
+response. The cliff exit also disables the support and continues the
+existing falling-spray simulation. This is a **gameplay-oriented shape
+stabilizer**, not a physically derived solitary-wave solution.
+
+For diagnosis, the GPU now reports `ActiveCrestParticles`,
+`ReleasedCrestParticles` and `HighestCrestDepth` through asynchronous
+readback about every 0.5 seconds; these are inspectable on
+`GuardWaveFlipFluid` without adding logs or changing the Game camera.
+HighestCrestDepth is the maximum particle-center depth above the
+bed (not a reconstructed continuous water-surface measurement).
+
+The ambient speed remains **10m/s before, during and after Ready**,
+initial creek depth remains **1m**, added crest amplitude remains
+**3m**, the old pressure solver and single-fixed-step update are
+unchanged. The crest remains a one-time finite water volume. Tests
+in Unity Play Mode should compare high-water visibility and impacts,
+including empty channel vs. blocked channel, and confirm the
+crest particle diagnostics do not suddenly drop at creation.
+
+**No Unity Editor compilation or GPU execution testing was possible here.**

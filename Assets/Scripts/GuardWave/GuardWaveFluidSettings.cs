@@ -37,6 +37,18 @@ namespace GuardWave
         public float WaveCrestWidth => _waveCrestWidth;
         public float WaveCrestLength => _waveCrestLength;
 
+        [Header("Crest formation (release on obstacle contact)")]
+        // Soft vertical support prevents the old FLIP projection from
+        // compressing a newly formed 3m crest into the 1m background.
+        [SerializeField, Min(0f)] private float _crestHeightStiffness = 36f;
+        [SerializeField, Min(0f)] private float _crestHeightDamping = 12f;
+        [SerializeField, Min(0f)] private float _crestForwardDamping = 5f;
+        [SerializeField, Min(0f)] private float _crestReleaseDistance = 0.8f;
+        public float CrestHeightStiffness => _crestHeightStiffness;
+        public float CrestHeightDamping => _crestHeightDamping;
+        public float CrestForwardDamping => _crestForwardDamping;
+        public float CrestReleaseDistance => _crestReleaseDistance;
+
         [Header("Wave movement")]
         [SerializeField, Min(0.1f)] private float _minInletSpeed = 6f;
         [SerializeField, Min(0.1f)] private float _maxInletSpeed = 13f;
@@ -51,7 +63,7 @@ namespace GuardWave
 
         [Header("GPU performance - applied on the next wave")]
         [SerializeField, Range(0.25f, 1.5f)] private float _cellSize = 0.6f;
-        [SerializeField, Range(1000, 100000)] private int _maxParticles = 48000;
+        [SerializeField, Range(1000, 100000)] private int _maxParticles = 64000;
         [SerializeField, Range(1, 384)] private int _maxBodies = 384;
         [SerializeField, Range(1, 256)] private int _maxColliders = 256;
         [SerializeField, Range(1, 96)] private int _pressureIterations = 22;

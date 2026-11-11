@@ -26,6 +26,10 @@ MonoBehaviour:
   _waveCrestAmplitude: 3
   _waveCrestWidth: 2.5
   _waveCrestLength: 14
+  _crestHeightStiffness: 36
+  _crestHeightDamping: 12
+  _crestForwardDamping: 5
+  _crestReleaseDistance: 0.8
   _minInletSpeed: 30
   _maxInletSpeed: 60
   _travelDurationMultiplier: 2
@@ -35,7 +39,7 @@ MonoBehaviour:
   _collisionResponse: 2
   _collisionSkin: 0.06
   _cellSize: 0.6
-  _maxParticles: 48000
+  _maxParticles: 64000
   _maxBodies: 384
   _maxColliders: 256
   _pressureIterations: 22
