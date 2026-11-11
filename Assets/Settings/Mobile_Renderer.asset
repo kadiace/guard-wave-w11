@@ -28,7 +28,8 @@ MonoBehaviour:
     probeVolumeBlendStatesCS: {fileID: 0}
   m_RendererFeatures:
   - {fileID: 4599310041302481172}
-  m_RendererFeatureMap: 14b9b8471d08d43f
+  - {fileID: 4250863914469230941}
+  m_RendererFeatureMap: 14b9b8471d08d43f5d09774a351afe3a
   m_UseNativeRenderPass: 1
   postProcessData: {fileID: 11400000, guid: 41439944d30ece34e96484bdb6645b55, type: 2}
   m_AssetVersion: 2
@@ -65,3 +66,18 @@ MonoBehaviour:
   m_Name: GuardWave Screen Space Fluid
   m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWaveSSFRFeature
   m_Active: 1
+
+--- !u!114 &4250863914469230941
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 58cf8ea44e2ffdc46a1c276f5d3c2218, type: 3}
+  m_Name: GuardWave Hover Outline
+  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWaveOutlineFeature
+  m_Active: 1
+  _yellowMaterial: {fileID: 2100000, guid: 7668ee6e11b8faa4084fa7b2795f409e, type: 2}
