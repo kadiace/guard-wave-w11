@@ -30,8 +30,8 @@ namespace GuardWave
         /// <summary>2D 원본에서 이관한 자재 정의를 읽어 ID 조회 테이블을 구성한다.</summary>
         public GuardWaveCatalog()
         {
-            TextAsset text = Resources.Load<TextAsset>("Data/materials");
-            if (text == null) throw new InvalidOperationException("Missing Resources/Data/materials.json");
+            TextAsset text = Resources.Load<TextAsset>("Datas/materials");
+            if (text == null) throw new InvalidOperationException("Missing Resources/Datas/materials.json");
             GuardWaveMaterialFile file = JsonUtility.FromJson<GuardWaveMaterialFile>(text.text);
             if (file == null || file.materials == null || file.materials.Length == 0)
                 throw new InvalidOperationException("Material catalog is empty");

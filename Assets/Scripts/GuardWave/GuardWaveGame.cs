@@ -34,7 +34,7 @@ namespace GuardWave
         [SerializeField, Min(0.1f)] private float floodFillDuration = 1.2f;
         [SerializeField, Min(0.1f)] private float floodTravelDuration = 2.25f;
         [SerializeField, Min(0.05f)] private float shallowWaterDepth = 0.3f;
-        [SerializeField, Min(0.1f)] private float floodWaterDepth = 2f;
+        [SerializeField, Min(0.1f)] private float floodWaterDepth = 5f;
         [SerializeField]
         private AnimationCurve floodFillCurve =
             AnimationCurve.EaseInOut(0f, 0f, 1f, 1f);
@@ -48,8 +48,11 @@ namespace GuardWave
         private GuardWaveCatalog _catalog;
         private GuardWaveHud _hud;
         private GuardWaveDropPreview _dropPreview;
-        private GuardWaveFloodEffect _floodEffect;
+        private GuardWaveFlipRenderer _flipRenderer;
+        private GuardWaveFluidSettings _fluidSettings;
+        private GuardWaveFlipFluid _fluid;
         private Bounds _placementBounds;
+        private Bounds _lowerCreekBounds;
         private GuardWaveFloatingText _floatingText;
         private GameObject _defenseFlag;
         private Rigidbody _flagBody;
@@ -87,10 +90,15 @@ namespace GuardWave
         {
             _sceneContext = GetComponent<ForestSceneContext>();
             _catalog = new GuardWaveCatalog();
+            _fluidSettings = Resources.Load<GuardWaveFluidSettings>("Datas/GuardWaveFluidSettings");
+            if (_fluidSettings == null) throw new InvalidOperationException("Missing Resources/Datas/GuardWaveFluidSettings.asset");
             ConfigureScene();
             CreateHud();
             _dropPreview = new GuardWaveDropPreview();
-            _floodEffect = new GuardWaveFloodEffect(_sceneContext.FloodMesh);
+            _flipRenderer = new GuardWaveFlipRenderer(_fluidSettings);
+            // The latest master authors all stationary river/waterfall surfaces in Forest.
+            // Its old flood mesh stays disabled; the GPU particle renderer replaces it.
+            _sceneContext.FloodMesh.gameObject.SetActive(false);
             ResetGame();
             _initialized = true;
         }
@@ -110,6 +118,7 @@ namespace GuardWave
                 _defenseFlag != null && _defenseFlag.activeSelf &&
                 _defenseFlag.transform.position.z <= DestructionBoundaryZ)
                 DestroyDefenseFlag();
+            _flipRenderer.Render(_fluid);
             Mouse mouse = Mouse.current;
             // Track releases while pieces are falling or a popup is open.
             if (mouse != null && mouse.leftButton.wasReleasedThisFrame)
@@ -239,7 +248,8 @@ namespace GuardWave
         {
             SetOutlineTargets(null);
             _dropPreview?.Dispose();
-            _floodEffect?.Dispose();
+            DisposeFluid();
+            _flipRenderer?.Dispose();
             // The flag is owned by the Forest scene.
         }
 
@@ -314,6 +324,8 @@ namespace GuardWave
             _initialFlagState = new RigidbodyState(_flagBody);
             _placementBounds = GameObject.Find("Flat Muddy Creek Bed")
                 .GetComponent<BoxCollider>().bounds;
+            _lowerCreekBounds = GameObject.Find("Flat Muddy Creek Bed After Cliff")
+                .GetComponent<BoxCollider>().bounds;
         }
 
         /// <summary>원본 2D 게임의 상단 상태 UI와 하단 자재 카드 UI 프리팹을 연결한다.</summary>
@@ -327,7 +339,8 @@ namespace GuardWave
                 events.AddComponent<InputSystemUIInputModule>();
             }
             _hud = _sceneContext.Hud;
-            if (_hud == null) throw new InvalidOperationException("Forest scene is missing a GuardWaveHud reference.");
+            if (_hud == null)
+                throw new InvalidOperationException("Forest scene is missing a GuardWaveHud reference.");
             _hud.Initialize(this);
             _floatingText = _hud.GetComponent<GuardWaveFloatingText>();
             _floatingText.Initialize(_camera, (RectTransform)_hud.transform);
@@ -492,7 +505,7 @@ namespace GuardWave
                 StopCoroutine(_stageFloodRoutine);
                 _stageFloodRoutine = null;
             }
-            _floodEffect?.Hide();
+            DisposeFluid();
             _stageTransitioning = false;
             _waveHasStarted = false;
             CommitWaveSnapshot();
@@ -722,19 +735,35 @@ namespace GuardWave
         }
 
         /// <summary>
-        /// 한 차례의 격자 파도를 상류에서 하류로 흘려보내고 흐르는 물이 잦아들 때까지 기물에 힘을 적용한다.
+        /// Emits a finite 24m wide -Z FLIP/APIC particle wave from Forest's upstream
+        /// boundary and advances the GPU fluid with real 3D obstacle reactions.
         /// </summary>
         private IEnumerator ResolveStageFlood()
         {
-            StageCullSnapshot snapshot = CaptureStageCullSnapshot();
             float waveDuration = floodFillDuration
                 * (1f + _stage * FLOOD_DURATION_INCREASE_PER_STAGE);
-            float waveDepth = floodWaterDepth
+            float waveHeight = floodWaterDepth
                 * (1f + _stage * FLOOD_DEPTH_INCREASE_PER_STAGE);
-            var flow = new GuardWaveFloodFlow(snapshot.CenterX, snapshot.Width,
-                snapshot.StartZ, snapshot.EndZ, groundY, waveDepth,
-                floodTravelDuration);
-            _floodEffect.Begin(flow);
+
+            // The Forest creek is author-time geometry spanning x=[-12,12], z=[-15,50].
+            // Only this scene's collider bounds define the upstream/downstream extent.
+            try
+            {
+                _fluid = new GuardWaveFlipFluid(_placementBounds.max.z,
+                    _placementBounds.min.z, _placementBounds.max.y,
+                    _lowerCreekBounds.max.y, waveHeight, floodTravelDuration, _pieces, _flagBody, _fluidSettings);
+            }
+            catch (Exception error)
+            {
+                Debug.LogError("Unable to begin GPU fluid wave: " + error);
+                DisposeFluid();
+                _stageTransitioning = false;
+                _resolving = false;
+                CommitWaveSnapshot();
+                _stageFloodRoutine = null;
+                _status = "GPU 파도 시작 실패: Compute Shader와 그래픽 API를 확인하세요.";
+                yield break;
+            }
 
             float elapsed = 0f;
             while (elapsed < waveDuration)
@@ -745,24 +774,21 @@ namespace GuardWave
                 float pulse = Mathf.Sin(Mathf.PI * fraction);
                 float inlet = floodFillCurve == null ? pulse
                     : Mathf.Clamp01(floodFillCurve.Evaluate(pulse));
-                flow.Step(Time.fixedDeltaTime, _pieces, _flagBody, _flagCollider, inlet);
-                _floodEffect.UpdateSurface(flow);
+                _fluid.Step(Time.fixedDeltaTime, inlet);
             }
 
-            float residualVolume = flow.WaterVolume * 0.05f;
-            float stagnantTime = 0f;
+            // Run until the last injected particles could traverse the entire channel.
+            // No XZ heightfield, scripted object knockback, or obstacle lookahead remains.
+            float travel = (_placementBounds.max.z - _placementBounds.min.z) /
+                _fluid.InletSpeed;
             float drainElapsed = 0f;
-            while (flow.WaterVolume > residualVolume && stagnantTime < 0.5f
-                && drainElapsed < floodTravelDuration * 4f)
+            while (drainElapsed < travel + 3.0f)
             {
                 yield return new WaitForFixedUpdate();
                 drainElapsed += Time.fixedDeltaTime;
-                flow.Step(Time.fixedDeltaTime, _pieces, _flagBody, _flagCollider, 0f);
-                _floodEffect.UpdateSurface(flow);
-                stagnantTime = flow.MovingWaterVolume <= residualVolume
-                    ? stagnantTime + Time.fixedDeltaTime : 0f;
+                _fluid.Step(Time.fixedDeltaTime, 0f);
             }
-            // Allow the last wave impulses to resolve before treating the defense as successful.
+
             float settleElapsed = 0f;
             while (settleElapsed < 1f)
             {
@@ -777,7 +803,7 @@ namespace GuardWave
                 }
             }
 
-            _floodEffect.Hide();
+            DisposeFluid();
             CommitWaveSnapshot();
             _stageTransitioning = false;
             _stageFloodRoutine = null;
@@ -787,7 +813,14 @@ namespace GuardWave
             _status = "홍수가 지나갔습니다. 계속 배치하거나 준비완료를 누르세요.";
         }
 
-        /// <summary>깃발이 파괴 경계를 넘으면 파도를 멈추고 실패 팝업을 표시한다.</summary>
+        /// <summary>Releases all GPU fluid resources before reset, rollback or stage exit.</summary>
+        private void DisposeFluid()
+        {
+            _fluid?.Dispose();
+            _fluid = null;
+        }
+
+        /// <summary>깃발이 파괴되면 팝업을 열되 기물의 속도와 Rigidbody 물리는 유지한다.</summary>
         private void DestroyDefenseFlag()
         {
             if (!_stageTransitioning || _waveSnapshot == null || _awaitingStage)
@@ -798,20 +831,7 @@ namespace GuardWave
                 _stageFloodRoutine = null;
             }
             _defenseFlag.SetActive(false);
-            _floodEffect.Hide();
-            if (_waveSnapshot != null)
-            {
-                // Stop the wave's remaining momentum while the failure popup is open.
-                foreach (Rigidbody body in FindObjectsByType<Rigidbody>(FindObjectsSortMode.None))
-                {
-                    if (body.gameObject.scene.handle != gameObject.scene.handle ||
-                        body.isKinematic)
-                        continue;
-                    body.linearVelocity = Vector3.zero;
-                    body.angularVelocity = Vector3.zero;
-                    body.isKinematic = true;
-                }
-            }
+            DisposeFluid();
             _stageTransitioning = false;
             _resolving = false;
             _awaitingStage = true;
@@ -993,30 +1013,6 @@ namespace GuardWave
                 }
                 if (_sleeping) body.Sleep();
                 else body.WakeUp();
-            }
-        }
-
-        /// <summary>파도가 풀밭으로 번지지 않도록 위쪽 강바닥의 실제 경계만 캡처한다.</summary>
-        private StageCullSnapshot CaptureStageCullSnapshot()
-        {
-            return new StageCullSnapshot(_placementBounds.center.x,
-                _placementBounds.size.x, _placementBounds.max.z, _placementBounds.min.z);
-        }
-
-        private sealed class StageCullSnapshot
-        {
-            public readonly float CenterX;
-            public readonly float Width;
-            public readonly float StartZ;
-            public readonly float EndZ;
-
-            /// <summary>홍수 격자를 만들 강의 중심, 폭, 상류와 하류 경계를 저장한다.</summary>
-            public StageCullSnapshot(float centerX, float width, float startZ, float endZ)
-            {
-                CenterX = centerX;
-                Width = width;
-                StartZ = startZ;
-                EndZ = endZ;
             }
         }
 

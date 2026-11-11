@@ -25,9 +25,10 @@ MonoBehaviour:
     probeSamplingDebugTexture: {fileID: 2800000, guid: 24ec0e140fb444a44ab96ee80844e18e, type: 3}
     probeVolumeBlendStatesCS: {fileID: 7200000, guid: b9a23f869c4fd45f19c5ada54dd82176, type: 3}
   m_RendererFeatures:
+  - {fileID: 4931280764421148554}
   - {fileID: 7833122117494664109}
   - {fileID: 3477349241805483103}
-  m_RendererFeatureMap: ad6b866f10d7b46c5f2cca2db6064230
+  m_RendererFeatureMap: 8a0f0a6bba6d6f44ad6b866f10d7b46c5f2cca2db6064230
   m_UseNativeRenderPass: 1
   xrSystemData: {fileID: 0}
   postProcessData: {fileID: 11400000, guid: 41439944d30ece34e96484bdb6645b55, type: 2}
@@ -55,7 +56,7 @@ MonoBehaviour:
   m_DepthAttachmentFormat: 0
   m_DepthTextureFormat: 0
   m_AccurateGbufferNormals: 0
-  m_IntermediateTextureMode: 0
+  m_IntermediateTextureMode: 1
 --- !u!114 &3477349241805483103
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -97,3 +98,17 @@ MonoBehaviour:
     BlurQuality: 0
     Falloff: 100
     SampleCount: -1
+
+--- !u!114 &4931280764421148554
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: e86ac9317ee54d54a0471fbe825e4390, type: 3}
+  m_Name: GuardWave Screen Space Fluid
+  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWaveSSFRFeature
+  m_Active: 1

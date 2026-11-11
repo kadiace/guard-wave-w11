@@ -23186,7 +23186,7 @@ MonoBehaviour:
   floodFillDuration: 1.2
   floodTravelDuration: 2.25
   shallowWaterDepth: 0.3
-  floodWaterDepth: 2
+  floodWaterDepth: 5
 --- !u!1 &4600000001
 GameObject:
   m_ObjectHideFlags: 0
