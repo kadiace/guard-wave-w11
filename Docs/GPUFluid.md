@@ -64,3 +64,25 @@ The bounds and emission rate are deliberately limited. Thin sticks and narrow ga
 The current agent environment cannot launch the Unity Editor or test ComputeShader compilation on the target GPU. Repository-level static checks cannot substitute for Play Mode, visual inspection, or Profiler results. The physics implements a limited-grid FLIP/APIC approximation, not a production-ready high-fidelity water solver. In particular, grid pressure is collocated (not MAC), pressure coupling is approximate, the mesh collision geometry is simplified, and visual rendering consists of particle billboards.
 
 The game preserves the authored Forest scene and its ready/failure workflow. All modifications are restricted to the new wave implementation and its integration.
+
+## Screen-space surface rendering
+
+The URP renderers now include `GuardWaveSSFRFeature`, which replaces discrete
+particle discs with continuous screen-space fluid rendering. The feature draws the
+existing GPU particle buffer to half-resolution front-depth and thickness buffers,
+performs two edge-preserving bilateral depth blur passes, then reconstructs normals
+from the smoothed eye depth and composites water before transparent objects.
+Opaque scene depth prevents water from covering terrain and props in front.
+
+Adjust `Assets/Resources/GuardWaveFluidSettings.asset` in the Inspector. The
+settings contain the physical impact multipliers, inlet bounds, solver budgets
+and SSFR resolution, blur, thickness, water color, refraction and opacity.
+Solver allocation/physics changes apply to the *next* wave; appearance values
+are sampled for rendering while the current wave is visible.
+
+**Known limitations:** screen-space water does not generate a real 3D surface or
+physical collision mesh, has screen-edge and multiple overlapping liquid-layer
+artifacts, and depends on the URP camera depth and opaque color textures.
+Validate the Game camera, Scene view, transparencies and quality variants in
+Unity 6000.3.28f1. Editor shader compilation and GPU frame timing have not
+been performed in this environment.

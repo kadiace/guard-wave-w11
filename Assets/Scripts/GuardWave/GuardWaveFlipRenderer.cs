@@ -1,48 +1,37 @@
 using System;
 using UnityEngine;
-using UnityEngine.Rendering;
 
 namespace GuardWave
 {
     /// <summary>
-    /// Renders the GPU-resident FLIP/APIC water without copying particle positions to CPU.
-    /// Static river/waterfall surfaces remain authored directly in Forest.unity.
+    /// Registers the active GPU particles for URP screen-space fluid reconstruction.
+    /// Water is no longer drawn as independent billboard discs in MonoBehaviour.Update.
     /// </summary>
     internal sealed class GuardWaveFlipRenderer : IDisposable
     {
-        private readonly Material _material;
-        private bool _disposed;
+        private readonly GuardWaveFluidSettings _settings;
 
-        /// <summary>Loads the project-owned procedural GPU water shader from Resources.</summary>
+        internal static GuardWaveFlipFluid ActiveFluid { get; private set; }
+        internal static GuardWaveFluidSettings ActiveSettings { get; private set; }
+
+        /// <summary>Retains the shared fluid appearance and quality settings.</summary>
         public GuardWaveFlipRenderer(GuardWaveFluidSettings settings)
         {
-            Shader shader = Resources.Load<Shader>("GuardWaveFlipWater");
-            if (shader == null)
-                throw new InvalidOperationException("Resources/GuardWaveFlipWater.shader is missing.");
-            _material = new Material(shader) { name = "GuardWave FLIP/APIC Water" };
-            _material.SetFloat("_Radius", settings.ParticleRenderRadius);
+            _settings = settings ?? throw new ArgumentNullException(nameof(settings));
         }
 
-        /// <summary>Submits one GPU instanced draw over live and falling fluid particles.</summary>
+        /// <summary>Supplies the GPU particle buffer to the next URP RenderGraph frame.</summary>
         public void Render(GuardWaveFlipFluid fluid)
         {
-            if (_disposed || fluid == null || fluid.ParticleCount == 0) return;
-            _material.SetBuffer("_Particles", fluid.Particles);
-            RenderParams parameters = new RenderParams(_material)
-            {
-                worldBounds = fluid.RenderBounds,
-                shadowCastingMode = ShadowCastingMode.Off,
-                receiveShadows = false
-            };
-            Graphics.RenderPrimitives(parameters, MeshTopology.Triangles, 6, fluid.ParticleCount);
+            ActiveFluid = fluid;
+            ActiveSettings = fluid == null ? null : _settings;
         }
 
-        /// <summary>Releases the dynamic render material without destroying scene geometry.</summary>
+        /// <summary>Disables the registered fluid after game shutdown or scene teardown.</summary>
         public void Dispose()
         {
-            if (_disposed) return;
-            _disposed = true;
-            UnityEngine.Object.Destroy(_material);
+            ActiveFluid = null;
+            ActiveSettings = null;
         }
     }
 }

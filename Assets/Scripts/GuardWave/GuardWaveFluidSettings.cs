@@ -62,5 +62,28 @@ namespace GuardWave
         public float SpawnInterval => _spawnInterval;
         public float SpawnRateMultiplier => _spawnRateMultiplier;
         public float ParticleRenderRadius => _particleRenderRadius;
+
+        [Header("Screen-space liquid rendering")]
+        [SerializeField, Range(0.25f, 1f)] private float _ssfrResolutionScale = 0.5f;
+        [SerializeField, Range(0.5f, 1.7f)] private float _ssfrRadiusScale = 1.0f;
+        [SerializeField, Range(0.1f, 5f)] private float _ssfrThicknessScale = 1.2f;
+        [SerializeField, Range(0.2f, 4f)] private float _ssfrBlurRadius = 1.5f;
+        [SerializeField, Range(0.05f, 3f)] private float _ssfrDepthSigma = 0.7f;
+        [SerializeField, Range(0.1f, 5f)] private float _ssfrAbsorption = 0.8f;
+        [SerializeField, Range(0f, 0.1f)] private float _ssfrRefraction = 0.014f;
+        [SerializeField, Range(0.1f, 1f)] private float _ssfrOpacity = 0.9f;
+        [SerializeField] private Color _ssfrShallowColor = new Color(0.13f, 0.60f, 0.87f, 1f);
+        [SerializeField] private Color _ssfrDeepColor = new Color(0.015f, 0.24f, 0.52f, 1f);
+
+        public float SsfrResolutionScale => _ssfrResolutionScale;
+        public float SsfrRadiusScale => _ssfrRadiusScale;
+        public float SsfrThicknessScale => _ssfrThicknessScale;
+        public float SsfrBlurRadius => _ssfrBlurRadius;
+        public float SsfrDepthSigma => _ssfrDepthSigma;
+        public float SsfrAbsorption => _ssfrAbsorption;
+        public float SsfrRefraction => _ssfrRefraction;
+        public float SsfrOpacity => _ssfrOpacity;
+        public Color SsfrShallowColor => _ssfrShallowColor;
+        public Color SsfrDeepColor => _ssfrDeepColor;
     }
 }

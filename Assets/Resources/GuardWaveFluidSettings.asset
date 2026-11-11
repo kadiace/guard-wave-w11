@@ -35,3 +35,13 @@ MonoBehaviour:
   _spawnInterval: 0.12
   _spawnRateMultiplier: 3
   _particleRenderRadius: 0.45
+  _ssfrResolutionScale: 0.5
+  _ssfrRadiusScale: 1
+  _ssfrThicknessScale: 1.2
+  _ssfrBlurRadius: 1.5
+  _ssfrDepthSigma: 0.7
+  _ssfrAbsorption: 0.8
+  _ssfrRefraction: 0.014
+  _ssfrOpacity: 0.9
+  _ssfrShallowColor: {r: 0.13, g: 0.6, b: 0.87, a: 1}
+  _ssfrDeepColor: {r: 0.015, g: 0.24, b: 0.52, a: 1}
