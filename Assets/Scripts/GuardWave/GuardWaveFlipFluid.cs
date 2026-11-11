@@ -237,7 +237,7 @@ namespace GuardWave
             _bodies.Add(body);
         }
 
-        /// <summary>Uploads up to 192 nearby live collider shapes and current body velocities.</summary>
+        /// <summary>Uploads up to 256 live collider proxies and their current body velocities.</summary>
         private void UpdateColliders()
         {
             int count = 0;
