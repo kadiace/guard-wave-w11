@@ -4,69 +4,31 @@ using UnityEngine.Rendering;
 
 namespace GuardWave
 {
-    /// <summary>물 격자의 현재 수심을 반투명 수면과 노출된 물의 측면 메시로 표시한다.</summary>
+    /// <summary>Forest 씬에 배치된 수면 렌더러의 메시를 매 물리 틱 갱신한다.</summary>
     internal sealed class GuardWaveFloodEffect
     {
         private const float MINIMUM_VISIBLE_DEPTH = 0.03f;
 
         private readonly List<Vector3> _vertices = new List<Vector3>();
         private readonly List<int> _triangles = new List<int>();
-        private readonly List<GameObject> _shallowSurfaces = new List<GameObject>();
-        private readonly List<Mesh> _shallowMeshes = new List<Mesh>();
-        private GameObject _water;
-        private Mesh _mesh;
-        private Material _material;
+        private readonly GameObject _water;
+        private readonly MeshFilter _filter;
+        private readonly Mesh _mesh;
 
-        /// <summary>위아래 강바닥의 얕은 수면과 절벽 앞의 낙수면을 게임 시작부터 표시한다.</summary>
-        public void ShowShallow(Bounds upperBed, Bounds lowerBed, float upperY, float lowerY)
+        /// <summary>씬에 미리 배치된 비활성 수면에 런타임 갱신용 메시 데이터만 연결한다.</summary>
+        public GuardWaveFloodEffect(MeshFilter sceneWater)
         {
-            EnsureWater();
-            if (_shallowSurfaces.Count > 0) return;
-            CreateSurface("Upper River Water", new[]
-            {
-                new Vector3(upperBed.min.x, upperY, upperBed.min.z),
-                new Vector3(upperBed.min.x, upperY, upperBed.max.z),
-                new Vector3(upperBed.max.x, upperY, upperBed.max.z),
-                new Vector3(upperBed.max.x, upperY, upperBed.min.z)
-            });
-            CreateSurface("Lower River Water", new[]
-            {
-                new Vector3(lowerBed.min.x, lowerY, lowerBed.min.z),
-                new Vector3(lowerBed.min.x, lowerY, lowerBed.max.z),
-                new Vector3(lowerBed.max.x, lowerY, lowerBed.max.z),
-                new Vector3(lowerBed.max.x, lowerY, lowerBed.min.z)
-            });
-            CreateSurface("Creek Cliff Waterfall", new[]
-            {
-                new Vector3(upperBed.min.x, upperY, upperBed.min.z - 0.1f),
-                new Vector3(upperBed.min.x, lowerY, lowerBed.max.z - 0.25f),
-                new Vector3(upperBed.max.x, lowerY, lowerBed.max.z - 0.25f),
-                new Vector3(upperBed.max.x, upperY, upperBed.min.z - 0.1f)
-            });
+            _filter = sceneWater;
+            _water = sceneWater.gameObject;
+            _mesh = new Mesh { name = "Stage Flood Surface", indexFormat = IndexFormat.UInt32 };
+            _mesh.MarkDynamic();
+            _filter.sharedMesh = _mesh;
+            _water.SetActive(false);
         }
 
-        /// <summary>네 꼭짓점으로 고정된 물 표면을 만들고 종료 시 해제할 메시를 보관한다.</summary>
-        private void CreateSurface(string name, Vector3[] corners)
-        {
-            GameObject surface = new GameObject(name, typeof(MeshFilter), typeof(MeshRenderer));
-            surface.layer = 2;
-            Mesh mesh = new Mesh { name = name + " Mesh" };
-            mesh.vertices = corners;
-            mesh.triangles = new[] { 0, 1, 2, 0, 2, 3 };
-            mesh.RecalculateBounds();
-            surface.GetComponent<MeshFilter>().sharedMesh = mesh;
-            MeshRenderer renderer = surface.GetComponent<MeshRenderer>();
-            renderer.sharedMaterial = _material;
-            renderer.shadowCastingMode = ShadowCastingMode.Off;
-            renderer.receiveShadows = false;
-            _shallowSurfaces.Add(surface);
-            _shallowMeshes.Add(mesh);
-        }
-
-        /// <summary>한 스테이지의 물 표시를 활성화하고 현재 격자 상태로 메시를 채운다.</summary>
+        /// <summary>파도 시작 시 기존 씬 오브젝트를 활성화한다.</summary>
         public void Begin(GuardWaveFloodFlow flow)
         {
-            EnsureWater();
             _water.SetActive(true);
             UpdateSurface(flow);
         }
@@ -117,25 +79,18 @@ namespace GuardWave
             _mesh.RecalculateBounds();
         }
 
-        /// <summary>스테이지 종료 또는 재시작 시 물 메시를 숨긴다.</summary>
+        /// <summary>스테이지 종료 또는 재시작 시 씬 수면만 숨긴다.</summary>
         public void Hide()
         {
-            if (_water != null) _water.SetActive(false);
+            _water.SetActive(false);
         }
 
-        /// <summary>런타임에 만든 메시와 머티리얼을 해제한다.</summary>
+        /// <summary>동적 메시 데이터만 해제하고 씬에 배치된 오브젝트는 유지한다.</summary>
         public void Dispose()
         {
-            foreach (GameObject surface in _shallowSurfaces) Object.Destroy(surface);
-            foreach (Mesh mesh in _shallowMeshes) Object.Destroy(mesh);
-            if (_water != null) Object.Destroy(_water);
-            if (_mesh != null) Object.Destroy(_mesh);
-            if (_material != null) Object.Destroy(_material);
-            _shallowSurfaces.Clear();
-            _shallowMeshes.Clear();
-            _water = null;
-            _mesh = null;
-            _material = null;
+            _water.SetActive(false);
+            _filter.sharedMesh = null;
+            Object.Destroy(_mesh);
         }
 
         /// <summary>네 꼭짓점으로 한 면을 메시 버퍼에 추가한다.</summary>
@@ -154,42 +109,5 @@ namespace GuardWave
             _triangles.Add(start + 3);
         }
 
-        /// <summary>물리 충돌이 없는 반투명 수면 오브젝트와 메시를 한 번 생성한다.</summary>
-        private void EnsureWater()
-        {
-            if (_water != null) return;
-            _water = new GameObject("Stage Flood Water", typeof(MeshFilter), typeof(MeshRenderer));
-            _water.layer = 2;
-            _mesh = new Mesh { name = "Stage Flood Surface", indexFormat = IndexFormat.UInt32 };
-            _mesh.MarkDynamic();
-            _water.GetComponent<MeshFilter>().sharedMesh = _mesh;
-
-            Shader shader = Shader.Find("Universal Render Pipeline/Unlit");
-            if (shader == null) shader = Shader.Find("Universal Render Pipeline/Lit");
-            if (shader == null) shader = Shader.Find("Sprites/Default");
-            _material = new Material(shader);
-            _material.name = "Stage Flood Transparent Blue";
-            Color blue = new Color(0.08f, 0.43f, 0.98f, 0.43f);
-            if (_material.HasProperty("_BaseColor")) _material.SetColor("_BaseColor", blue);
-            if (_material.HasProperty("_Color")) _material.SetColor("_Color", blue);
-            if (_material.HasProperty("_Surface")) _material.SetFloat("_Surface", 1f);
-            if (_material.HasProperty("_Blend")) _material.SetFloat("_Blend", 0f);
-            if (_material.HasProperty("_SrcBlend"))
-                _material.SetFloat("_SrcBlend", (float)BlendMode.SrcAlpha);
-            if (_material.HasProperty("_DstBlend"))
-                _material.SetFloat("_DstBlend", (float)BlendMode.OneMinusSrcAlpha);
-            if (_material.HasProperty("_ZWrite")) _material.SetFloat("_ZWrite", 0f);
-            if (_material.HasProperty("_Cull")) _material.SetFloat("_Cull", (float)CullMode.Off);
-            _material.SetOverrideTag("RenderType", "Transparent");
-            _material.EnableKeyword("_SURFACE_TYPE_TRANSPARENT");
-            _material.DisableKeyword("_ALPHATEST_ON");
-            _material.renderQueue = (int)RenderQueue.Transparent;
-
-            MeshRenderer renderer = _water.GetComponent<MeshRenderer>();
-            renderer.sharedMaterial = _material;
-            renderer.shadowCastingMode = ShadowCastingMode.Off;
-            renderer.receiveShadows = false;
-            _water.SetActive(false);
-        }
     }
 }

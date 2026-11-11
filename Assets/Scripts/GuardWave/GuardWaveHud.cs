@@ -89,21 +89,9 @@ namespace GuardWave
             _candidatePanel = transform.Find("CandidateSelectionRow").GetComponent<RectTransform>();
             _candidatePanelShown = _candidatePanel.anchoredPosition;
 
-            // One Graphic combines all dashes into a single UI draw call.
-            GameObject guide = new GameObject("Drop Prediction Dashed Line",
-                typeof(RectTransform), typeof(CanvasRenderer),
-                typeof(GuardWaveDropGuideGraphic));
-            guide.transform.SetParent(transform, false);
-            RectTransform guideRect = (RectTransform)guide.transform;
-            guideRect.anchorMin = Vector2.zero;
-            guideRect.anchorMax = Vector2.one;
-            guideRect.offsetMin = Vector2.zero;
-            guideRect.offsetMax = Vector2.zero;
-            guideRect.SetAsFirstSibling();
-            _dropGuide = guide.GetComponent<GuardWaveDropGuideGraphic>();
-            _dropGuide.color = new Color(0.33f, 0.96f, 0.92f, 0.86f);
-            _dropGuide.raycastTarget = false;
-            guide.SetActive(false);
+            _dropGuide = transform.Find("Drop Prediction Dashed Line")
+                .GetComponent<GuardWaveDropGuideGraphic>();
+            _dropGuide.gameObject.SetActive(false);
 
             Transform candidates = transform.Find("CandidateSelectionRow/CandidateRow");
             for (int i = 0; i < _cards.Length; i++)
@@ -115,7 +103,7 @@ namespace GuardWave
                 _silhouettes[i] = candidate.Find("Silhouette").GetComponent<Image>();
                 _backgrounds[i] = candidate.GetComponent<Image>();
                 _cards[i].onClick.AddListener(() => _game.SelectOffer(index));
-                GuardWaveCandidateHover hover = candidate.gameObject.AddComponent<GuardWaveCandidateHover>();
+                GuardWaveCandidateHover hover = candidate.GetComponent<GuardWaveCandidateHover>();
                 hover.Initialize(this, index);
             }
 
@@ -130,13 +118,8 @@ namespace GuardWave
             transform.Find("CandidateSelectionRow/CandidateActions/BombActionButton").gameObject.SetActive(false);
             Button rulesButton = transform.Find("TopBar/RulesButton").GetComponent<Button>();
             rulesButton.onClick.AddListener(ShowRules);
-            _readyButton = Instantiate(rulesButton, rulesButton.transform.parent);
-            _readyButton.name = "ReadyButton";
-            _readyButton.transform.SetAsLastSibling();
-            // Remove the prefab's serialized RulesPopup.SetActive listener as well as runtime listeners.
-            _readyButton.onClick = new Button.ButtonClickedEvent();
+            _readyButton = transform.Find("TopBar/ReadyButton").GetComponent<Button>();
             _readyButton.onClick.AddListener(_game.Ready);
-            _readyButton.GetComponentInChildren<Text>().text = "준비완료";
             transform.Find("RulesPopup/CloseButton").GetComponent<Button>().onClick.AddListener(HideRules);
             Button confirmButton = transform.Find("StageResultPopup/CloseButton").GetComponent<Button>();
             confirmButton.onClick.AddListener(_game.ConfirmFailure);
@@ -469,32 +452,4 @@ Q/E: 기물 회전 / 우클릭 또는 Esc: 선택 취소
         }
     }
 
-    /// <summary>원본 후보 프리팹 버튼의 마우스 호버를 3D UI 툴팁에 전달한다.</summary>
-    public sealed class GuardWaveCandidateHover : MonoBehaviour, IPointerEnterHandler, IPointerMoveHandler, IPointerExitHandler
-    {
-        private GuardWaveHud _hud;
-        private int _index;
-
-        /// <summary>호버 대상이 가리키는 카드 인덱스를 초기화한다.</summary>
-        public void Initialize(GuardWaveHud hud, int index)
-        {
-            _hud = hud;
-            _index = index;
-        }
-
-        public void OnPointerEnter(PointerEventData eventData)
-        {
-            _hud.ShowTooltip(_index, eventData.position);
-        }
-
-        public void OnPointerMove(PointerEventData eventData)
-        {
-            _hud.MoveTooltip(eventData.position);
-        }
-
-        public void OnPointerExit(PointerEventData eventData)
-        {
-            _hud.HideTooltip();
-        }
-    }
 }
