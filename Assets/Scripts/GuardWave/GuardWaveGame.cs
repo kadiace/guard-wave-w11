@@ -619,13 +619,13 @@ namespace GuardWave
                 _status = "배치 완료. 준비완료를 누르면 파도가 시작됩니다.";
         }
 
-         /// <summary>
+        /// <summary>
         /// Z 경계를 넘은 기물만 제거한다.
         /// piece는 경계를 넘은 기물이다.
         /// </summary>
         internal void RemoveOutsideBoundary(GuardWavePiece piece)
         {
-            RemovePiece(piece, GuardWaveChangeKind.Destroyed, BOUNDARY_DESTRUCTION_DELAY, false);
+            RemovePiece(piece, GuardWaveChangeKind.Destroyed, BOUNDARY_DESTRUCTION_DELAY);
         }
 
         /// <summary>A completed right-click removes the selected object only, never its neighbors.</summary>
@@ -639,7 +639,7 @@ namespace GuardWave
 
         /// <summary>Removes one object while retaining scene-authored sticks for reload or rollback.</summary>
         private int RemovePiece(GuardWavePiece piece, GuardWaveChangeKind reason = GuardWaveChangeKind.Destroyed,
-            float destructionDelay = 0f, bool removeAttached = false)
+            float destructionDelay = 0f)
         {
             if (piece == null || !_pieceSet.Remove(piece)) return 0;
             if (piece == _outlinedPiece) SetOutlineTargets(null);
