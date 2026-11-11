@@ -101,7 +101,9 @@ namespace RestoreCastle3D
         private void Update()
         {
             if (_catalog == null) return;
-            if (_defenseFlag != null && _defenseFlag.activeSelf &&
+            // Only a started wave can fail; restored placements must remain editable.
+            if (_stageTransitioning && _waveSnapshot != null &&
+                _defenseFlag != null && _defenseFlag.activeSelf &&
                 _defenseFlag.transform.position.z <= DestructionBoundaryZ)
                 DestroyDefenseFlag();
             Mouse mouse = Mouse.current;
@@ -833,6 +835,8 @@ namespace RestoreCastle3D
         /// <summary>깃발이 파괴 경계를 넘으면 파도를 멈추고 실패 팝업을 표시한다.</summary>
         private void DestroyDefenseFlag()
         {
+            if (!_stageTransitioning || _waveSnapshot == null || _awaitingStage)
+                return;
             if (_stageFloodRoutine != null)
             {
                 StopCoroutine(_stageFloodRoutine);
@@ -857,9 +861,7 @@ namespace RestoreCastle3D
             _resolving = false;
             _awaitingStage = true;
             _finished = false;
-            _status = _waveSnapshot != null
-                ? "깃발이 파괴되었습니다. 확인을 누르면 준비완료 직전으로 돌아갑니다."
-                : "깃발이 파괴되었습니다. 확인을 누르면 처음부터 다시 시작합니다.";
+            _status = "깃발이 파괴되었습니다. 확인을 누르면 준비완료 직전으로 돌아갑니다.";
         }
 
         /// <summary>준비완료 클릭 시점의 깃발, 기물, 씬 물리 오브젝트 및 배치 UI 상태를 기록한다.</summary>
@@ -1052,11 +1054,7 @@ namespace RestoreCastle3D
         public void ConfirmFailure()
         {
             if (!_awaitingStage) return;
-            if (_waveSnapshot == null)
-            {
-                ResetGame();
-                return;
-            }
+            if (_waveSnapshot == null) return;
             RestoreWaveSnapshot();
         }
 
