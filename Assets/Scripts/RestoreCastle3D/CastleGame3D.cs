@@ -840,6 +840,19 @@ namespace RestoreCastle3D
             }
             _defenseFlag.SetActive(false);
             _floodEffect.Hide();
+            if (_waveSnapshot != null)
+            {
+                // Stop the wave's remaining momentum while the failure popup is open.
+                foreach (Rigidbody body in FindObjectsByType<Rigidbody>(FindObjectsSortMode.None))
+                {
+                    if (body.gameObject.scene.handle != gameObject.scene.handle ||
+                        body.isKinematic)
+                        continue;
+                    body.linearVelocity = Vector3.zero;
+                    body.angularVelocity = Vector3.zero;
+                    body.isKinematic = true;
+                }
+            }
             _stageTransitioning = false;
             _resolving = false;
             _awaitingStage = true;
@@ -849,25 +862,44 @@ namespace RestoreCastle3D
                 : "깃발이 파괴되었습니다. 확인을 누르면 처음부터 다시 시작합니다.";
         }
 
-        /// <summary>준비완료 직전의 깃발과 기물의 물리 상태를 저장한다.</summary>
+        /// <summary>준비완료 클릭 시점의 깃발, 기물, 씬 물리 오브젝트 및 배치 UI 상태를 기록한다.</summary>
         private WaveSnapshot CaptureWaveSnapshot()
         {
-            WaveSnapshot snapshot = new WaveSnapshot { Flag = new RigidbodyState(_flagBody) };
+            WaveSnapshot snapshot = new WaveSnapshot
+            {
+                Flag = new RigidbodyState(_flagBody),
+                SelectedOffer = _selected,
+                ObjectYaw = _objectYaw,
+                CameraTarget = _cameraTarget,
+                CameraRotation = _camera.transform.rotation,
+                CameraZoom = _camera.orthographicSize
+            };
             foreach (CastlePiece3D piece in _pieces)
                 if (piece != null) snapshot.Pieces.Add(new PieceState(piece));
+
+            foreach (Rigidbody body in FindObjectsByType<Rigidbody>(FindObjectsSortMode.None))
+            {
+                if (body == _flagBody || body.GetComponent<CastlePiece3D>() != null)
+                    continue;
+                if (body.gameObject.scene.handle != gameObject.scene.handle)
+                    continue;
+                snapshot.SceneBodies.Add(new SceneBodyState(body));
+            }
             return snapshot;
         }
 
-        /// <summary>파도 중 제거된 기물까지 준비완료 직전의 위치와 속도로 되돌린다.</summary>
+        /// <summary>파괴된 기물과 깃발을 포함한 전체 배치를 준비완료 클릭 당시로 되돌린다.</summary>
         private void RestoreWaveSnapshot()
         {
+            WaveSnapshot snapshot = _waveSnapshot;
             SetOutlineTargets(null);
             HideDropPreview();
+
             foreach (CastlePiece3D piece in _pieces)
                 if (piece != null) piece.gameObject.SetActive(false);
             _pieces.Clear();
             _pieceSet.Clear();
-            foreach (PieceState state in _waveSnapshot.Pieces)
+            foreach (PieceState state in snapshot.Pieces)
             {
                 CastlePiece3D piece = state.Piece;
                 if (piece == null) continue;
@@ -877,14 +909,29 @@ namespace RestoreCastle3D
                 _pieces.Add(piece);
                 _pieceSet.Add(piece);
             }
+
             _defenseFlag.SetActive(true);
-            _waveSnapshot.Flag.Restore(_flagBody);
+            snapshot.Flag.Restore(_flagBody);
+            foreach (SceneBodyState state in snapshot.SceneBodies)
+            {
+                if (state.Body == null) continue;
+                state.Body.gameObject.SetActive(true);
+                state.State.Restore(state.Body);
+            }
+
+            _selected = snapshot.SelectedOffer;
+            _objectYaw = snapshot.ObjectYaw;
+            _cameraTarget = snapshot.CameraTarget;
+            _camera.transform.rotation = snapshot.CameraRotation;
+            _camera.orthographicSize = snapshot.CameraZoom;
+            UpdateCameraPosition();
             Physics.SyncTransforms();
+
             _waveSnapshot = null;
             _awaitingStage = false;
             _stageTransitioning = false;
             _resolving = false;
-            _status = "파도 직전 상태로 복원했습니다. 배치를 바꾸고 다시 준비완료를 누르세요.";
+            _status = "준비완료 클릭 직전 상태로 복원했습니다. 배치를 바꾸고 다시 시도하세요.";
         }
 
         /// <summary>성공한 파도에서 제거된 기물을 실제로 파괴하고 스냅샷을 해제한다.</summary>
@@ -900,7 +947,26 @@ namespace RestoreCastle3D
         private sealed class WaveSnapshot
         {
             public readonly List<PieceState> Pieces = new List<PieceState>();
+            public readonly List<SceneBodyState> SceneBodies = new List<SceneBodyState>();
             public RigidbodyState Flag;
+            public int SelectedOffer;
+            public float ObjectYaw;
+            public Vector3 CameraTarget;
+            public Quaternion CameraRotation;
+            public float CameraZoom;
+        }
+
+        private readonly struct SceneBodyState
+        {
+            public readonly Rigidbody Body;
+            public readonly RigidbodyState State;
+
+            /// <summary>파도의 영향을 받을 수 있는 씬 물리 오브젝트의 상태를 보관한다.</summary>
+            public SceneBodyState(Rigidbody body)
+            {
+                Body = body;
+                State = new RigidbodyState(body);
+            }
         }
 
         private readonly struct PieceState
