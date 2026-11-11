@@ -168,3 +168,36 @@ artifacts, and depends on the URP camera depth and opaque color textures.
 Validate the Game camera, Scene view, transparencies and quality variants in
 Unity 6000.3.28f1. Editor shader compilation and GPU frame timing have not
 been performed in this environment.
+
+## Open downstream outlet at the cliff (feature/real-wave)
+
+The original FLIP grid stopped within a single cell of the physical
+`z = -15m` cliff lip. Its general `IsSolid` condition treated the
+negative-Z boundary as a wall; `ProjectGrid` zeroed negative-Z
+velocities and the pressure solver used a solid Neumann condition.
+This could make water accumulate at the cliff rather than fall.
+
+The downstream grid now extends **four cells past the lip** (2.4m at
+0.6m grid spacing) while retaining two upstream ghost cells.
+`IsOpenOutflow` marks only the downstream face as open; other
+out-of-range faces remain solid. `PressureAt` uses zero gauge pressure
+outside that outlet and `ProjectGrid` no longer clamps negative-Z
+velocity there. The bed-solid mask ends at the actual lip, not at the
+far downstream buffer boundary. GPU particles crossing `z < -15m`
+immediately switch to ballistic falling water, with a first-tick
+vertical gravity kick and no double XZ advance.
+
+For diagnosis, the ambient GPU solver counts actual particles
+crossing the lip independently of the refill debt. The following
+`GuardWaveFlipFluid` properties are updated through a single
+async GPU readback approximately once per second (no per-frame
+logging):
+`TotalCliffExits`, `TotalAmbientRefills`,
+`PendingAmbientRefills`. They can be inspected in a debugger.
+At sustained flow, the first two should grow; the pending count
+should not climb without bound once sufficient inactive slots exist.
+
+The creek's 1m initial depth, 20m/s ambient velocity, 3m additional
+crest, 80m/s crest speed, existing water rendering and refill
+rate scaling remain unchanged. Unity Editor Play Mode and GPU
+behavior still require hands-on validation.

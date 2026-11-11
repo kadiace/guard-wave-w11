@@ -15,6 +15,10 @@ namespace GuardWave
     {
         private const int THREADS = 128;
         private const float IMPULSE_SCALE = 2048f;
+        // Leave an actual open-water buffer past the z=-15 lip, rather than
+        // placing the pressure grid's solid boundary against the waterfall.
+        private const int OUTFLOW_BUFFER_CELLS = 4;
+        private const int UPSTREAM_BUFFER_CELLS = 2;
         private readonly GuardWaveFluidSettings _settings;
         private readonly float _cellSize;
 
@@ -95,12 +99,18 @@ namespace GuardWave
         private int _particleCount;
         private int _seed;
         private bool _pendingReadback;
+        private bool _flowReadbackPending;
+        private float _flowReadbackClock;
         private bool _disposed;
 
         public ComputeBuffer Particles => _particles;
         public int ParticleCount => _particleCount;
         public float InletSpeed { get; }
         public Bounds RenderBounds { get; }
+        // GPU flow measurements; refreshed at most once per second without logs.
+        public uint TotalCliffExits { get; private set; }
+        public uint TotalAmbientRefills { get; private set; }
+        public uint PendingAmbientRefills { get; private set; }
 
         /// <summary>Builds a bounded GPU fluid domain centered at x=0 and a 24m wide river.</summary>
         public GuardWaveFlipFluid(float startZ, float endZ, float groundY,
@@ -130,9 +140,10 @@ namespace GuardWave
             _grid = new Vector3Int(
                 Mathf.CeilToInt((24f + _cellSize * 2f) / _cellSize),
                 Mathf.CeilToInt((9f + _cellSize) / _cellSize),
-                Mathf.CeilToInt((_startZ - _endZ + _cellSize * 3f) / _cellSize));
+                Mathf.CeilToInt((_startZ - _endZ +
+                    _cellSize * (OUTFLOW_BUFFER_CELLS + UPSTREAM_BUFFER_CELLS)) / _cellSize));
             _origin = new Vector3(-12f - _cellSize, groundY - _cellSize,
-                _endZ - _cellSize);
+                _endZ - _cellSize * OUTFLOW_BUFFER_CELLS);
             _gridCount = _grid.x * _grid.y * _grid.z;
             // Include lower-cliff free-fall particles in procedural renderer culling.
             RenderBounds = new Bounds(
@@ -151,8 +162,8 @@ namespace GuardWave
             _solid = new ComputeBuffer(_gridCount, sizeof(uint));
             _colliderBuffer = new ComputeBuffer(_settings.MaxColliders, Marshal.SizeOf<ColliderData>());
             _impulses = new ComputeBuffer(_settings.MaxBodies * 2, sizeof(int) * 4);
-            _flowCounters = new ComputeBuffer(3, sizeof(uint));
-            _flowCounters.SetData(new uint[3]);
+            _flowCounters = new ComputeBuffer(4, sizeof(uint));
+            _flowCounters.SetData(new uint[4]);
             _crestCounter = new ComputeBuffer(1, sizeof(uint));
 
             _clearKernel = _compute.FindKernel("ClearGrid");
@@ -483,11 +494,32 @@ namespace GuardWave
                     Dispatch(_recycleAmbientKernel, _particleCount);
                 }
             }
+            if (_ambientFlow)
+            {
+                _flowReadbackClock += dt;
+                if (_flowReadbackClock >= 1f && !_flowReadbackPending)
+                {
+                    _flowReadbackClock = 0f;
+                    _flowReadbackPending = true;
+                    AsyncGPUReadback.Request(_flowCounters, OnFlowCountersReady);
+                }
+            }
             if (!_pendingReadback && _bodies.Count > 0)
             {
                 _pendingReadback = true;
                 AsyncGPUReadback.Request(_impulses, OnImpulsesReady);
             }
+        }
+
+        /// <summary>Samples actual exit/refill totals for inspecting flow in the debugger.</summary>
+        private void OnFlowCountersReady(AsyncGPUReadbackRequest request)
+        {
+            _flowReadbackPending = false;
+            if (_disposed || request.hasError) return;
+            NativeArray<uint> values = request.GetData<uint>();
+            PendingAmbientRefills = values[0];
+            TotalAmbientRefills = values[1];
+            TotalCliffExits = values[3];
         }
 
         /// <summary>Runs the selected compute kernel with 128 threads per workgroup.</summary>

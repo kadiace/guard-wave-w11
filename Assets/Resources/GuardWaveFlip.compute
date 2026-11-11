@@ -35,7 +35,7 @@ struct FluidCollider
     float4 bodyCenter;
 };
 RWStructuredBuffer<FluidParticle> _Particles;
-RWStructuredBuffer<uint> _FlowCounters; // [0] missing water, [1] refill sequence, [2] this-tick claims
+RWStructuredBuffer<uint> _FlowCounters; // [0] pending refill, [1] total refilled, [2] per-tick claims, [3] cliff exits
 RWStructuredBuffer<uint> _CrestCounter;  // one-shot reservation; initialized from C#
 RWStructuredBuffer<int4> _Accum;
 RWStructuredBuffer<int4> _BodyImpulses; // force impulse in xyz, torque in next xyz
@@ -122,8 +122,16 @@ float3 ColliderNormal(FluidCollider b, float3 p)
         SignedDistance(b, p + float3(0, 0, e)) - SignedDistance(b, p - float3(0, 0, e)));
     return dot(n, n) > 0.000001 ? normalize(n) : float3(0, 1, 0);
 }
+// The downstream (-Z) face is an outlet, not a no-flow solid wall.
+// Other domain faces retain their previous solid boundary conditions.
+bool IsOpenOutflow(int3 c)
+{
+    return c.z < 0 && c.x >= 0 && c.x < _GridSize.x
+        && c.y >= 0 && c.y < _GridSize.y;
+}
 bool IsSolid(int3 c)
 {
+    if (IsOpenOutflow(c)) return false;
     if (!Inside(c)) return true;
     return _Solid[Flatten(c)] != 0;
 }
@@ -137,6 +145,9 @@ float3 VelocityAt(int3 c)
 }
 float PressureAt(int3 c, float own)
 {
+    // Zero-gauge pressure at the free downstream outlet allows pressure
+    // projection to push liquid over the cliff rather than reflect it.
+    if (IsOpenOutflow(c)) return 0.0;
     if (IsSolid(c)) return own;
     return IsFluid(c) ? _PressureSrc[Flatten(c)] : 0.0;
 }
@@ -167,7 +178,10 @@ void ClassifyGrid(uint id : SV_DispatchThreadID)
     int y = (id / _GridSize.x) % _GridSize.y;
     int z = id / (_GridSize.x * _GridSize.y);
     float3 pos = Center(int3(x,y,z));
-    bool solid = pos.y <= _FloorY || abs(pos.x) >= _HalfWidth;
+    // The bed ends at the actual waterfall lip. Do not continue its
+    // collision/pressure wall into the downstream outlet buffer.
+    bool solid = (pos.y <= _FloorY && pos.z >= _ExitZ) ||
+        abs(pos.x) >= _HalfWidth;
     [loop]
     for (uint i = 0; i < _ColliderCount && !solid; ++i)
     {
@@ -405,7 +419,9 @@ void ProjectGrid(uint id : SV_DispatchThreadID)
     float3 v = _GridVelocity[id] - _Dt*grad;
     if (IsSolid(c+ex) && v.x>0 || IsSolid(c-ex) && v.x<0) v.x=0;
     if (IsSolid(c+ey) && v.y>0 || IsSolid(c-ey) && v.y<0) v.y=0;
-    if (IsSolid(c+ez) && v.z>0 || IsSolid(c-ez) && v.z<0) v.z=0;
+    // The negative-Z open outlet must not zero the exiting velocity.
+    // IsSolid(c-ez) is false outside the outlet; upper inlet stays closed.
+    if ((IsSolid(c+ez) && v.z>0) || (IsSolid(c-ez) && v.z<0)) v.z=0;
     _GridVelocity[id] = v;
 }
 [numthreads(128,1,1)]
@@ -500,9 +516,18 @@ void GridToParticle(uint id : SV_DispatchThreadID)
     }
     if (p.position.z < _ExitZ)
     {
-        p.position.w = 2; // Beyond the cliff: ballistic spray, no longer grid fluid.
-        if (_AmbientEnabled != 0 && p.velocity.w < 0.5)
-            InterlockedAdd(_FlowCounters[0], 1u);
+        // Cross the *physical* lip and leave the pressure solver immediately.
+        // Start downward acceleration this tick, without advancing XZ twice:
+        // the next Waterfall dispatch continues the full ballistic integration.
+        p.position.w = 2;
+        p.velocity.y -= _Gravity * _Dt;
+        p.position.y += p.velocity.y * (0.5 * _Dt);
+        if (_AmbientEnabled != 0)
+        {
+            InterlockedAdd(_FlowCounters[3], 1u); // Total true cliff crossings.
+            if (p.velocity.w < 0.5)
+                InterlockedAdd(_FlowCounters[0], 1u);
+        }
     }
     else if (p.position.y > _GridOrigin.y + _GridSize.y*_CellSize - 0.1)
     {
