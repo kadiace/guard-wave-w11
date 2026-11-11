@@ -77,7 +77,6 @@ namespace GuardWave
         private readonly int _initializeAmbientKernel;
         private readonly int _recycleAmbientKernel;
         private readonly int _driveInletKernel;
-        private readonly int _shiftAmbientSpeedKernel;
         private readonly int _emitCrestKernel;
         private readonly ComputeBuffer _crestCounter;
         private int _ambientInitialCount;
@@ -97,7 +96,6 @@ namespace GuardWave
         private float _elapsed;
         // Fractional refill credits prevent rounding drift at low flow speeds.
         private double _ambientRefillFraction;
-        private float _currentAmbientSpeed;
         private int _particleCount;
         private int _seed;
         private bool _pendingReadback;
@@ -108,7 +106,6 @@ namespace GuardWave
         public ComputeBuffer Particles => _particles;
         public int ParticleCount => _particleCount;
         public float InletSpeed { get; }
-        public float CurrentAmbientSpeed => _currentAmbientSpeed;
         public Bounds RenderBounds { get; }
         // GPU flow measurements; refreshed at most once per second without logs.
         public uint TotalCliffExits { get; private set; }
@@ -140,7 +137,6 @@ namespace GuardWave
                 Mathf.Clamp((_startZ - _endZ) /
                     Mathf.Max(4f, travelDuration * _settings.TravelDurationMultiplier),
                     _settings.MinInletSpeed, _settings.MaxInletSpeed);
-            _currentAmbientSpeed = InletSpeed;
             _grid = new Vector3Int(
                 Mathf.CeilToInt((24f + _cellSize * 2f) / _cellSize),
                 Mathf.CeilToInt((9f + _cellSize) / _cellSize),
@@ -176,7 +172,6 @@ namespace GuardWave
             _initializeAmbientKernel = _compute.FindKernel("InitializeAmbient");
             _recycleAmbientKernel = _compute.FindKernel("RecycleAmbient");
             _driveInletKernel = _compute.FindKernel("DriveInlet");
-            _shiftAmbientSpeedKernel = _compute.FindKernel("ShiftAmbientSpeed");
             _emitCrestKernel = _compute.FindKernel("EmitCrest");
             _p2gKernel = _compute.FindKernel("ParticleToGrid");
             _normalizeKernel = _compute.FindKernel("NormalizeGrid");
@@ -227,7 +222,6 @@ namespace GuardWave
             Bind(_recycleAmbientKernel, "_Particles", _particles);
             Bind(_recycleAmbientKernel, "_FlowCounters", _flowCounters);
             Bind(_driveInletKernel, "_Particles", _particles);
-            Bind(_shiftAmbientSpeedKernel, "_Particles", _particles);
             Bind(_emitCrestKernel, "_Particles", _particles);
             Bind(_emitCrestKernel, "_CrestCounter", _crestCounter);
             Bind(_p2gKernel, "_Particles", _particles);
@@ -314,30 +308,12 @@ namespace GuardWave
             _crestCounter.SetData(new uint[1]);
             _compute.SetInts("_CrestGrid", columns, layers, rows);
             _compute.SetFloat("_CrestAmplitude", amplitude);
-            _compute.SetFloat("_CrestSpeed", _currentAmbientSpeed);
+            _compute.SetFloat("_CrestSpeed", InletSpeed);
             _compute.SetFloat("_CrestWidth", _settings.WaveCrestWidth);
             _compute.SetFloat("_CrestLength", _settings.WaveCrestLength);
             _compute.SetFloat("_CrestCenterZ",
                 _startZ - _cellSize - _settings.WaveCrestLength * 0.5f);
             Dispatch(_emitCrestKernel, _particleCount);
-        }
-
-        /// <summary>
-        /// Changes the current river speed once without altering the pressure
-        /// solver, fixed timestep or collision calculations.
-        /// </summary>
-        public void SetAmbientSpeed(float speed)
-        {
-            if (_disposed || !_ambientFlow)
-                throw new InvalidOperationException(
-                    "An active ambient creek is required to change its speed.");
-            speed = Mathf.Max(0.01f, speed);
-            float delta = speed - _currentAmbientSpeed;
-            if (Mathf.Abs(delta) < 0.0001f) return;
-            _compute.SetFloat("_FlowSpeedDelta", delta);
-            Dispatch(_shiftAmbientSpeedKernel, _particleCount);
-            _currentAmbientSpeed = speed;
-            _compute.SetFloat("_InletVelocity", speed);
         }
 
         /// <summary>Assigns GPU resources to a kernel without binding resources it never uses.</summary>
@@ -521,7 +497,7 @@ namespace GuardWave
                 // _ambientInitialCount already includes the ambient volume
                 // multiplier, so do not multiply the refill rate a second time.
                 double particlesPerSecond = _ambientInitialCount *
-                    _currentAmbientSpeed / riverLength;
+                    InletSpeed / riverLength;
                 _ambientRefillFraction += particlesPerSecond * dt;
                 int supplyBudget = (int)Math.Min(_settings.MaxParticles,
                     Math.Floor(_ambientRefillFraction));

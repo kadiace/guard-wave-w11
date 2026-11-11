@@ -5,7 +5,6 @@
 #pragma kernel InitializeAmbient
 #pragma kernel RecycleAmbient
 #pragma kernel DriveInlet
-#pragma kernel ShiftAmbientSpeed
 #pragma kernel EmitCrest
 #pragma kernel ParticleToGrid
 #pragma kernel NormalizeGrid
@@ -67,7 +66,6 @@ float _InletZ;
 float _WaveHeight;
 float _InletVelocity;
 float _AmbientDepth;
-float _FlowSpeedDelta;
 int3 _AmbientGrid;
 uint _AmbientInitialCount;
 uint _AmbientEnabled;
@@ -282,18 +280,6 @@ void RecycleAmbient(uint id : SV_DispatchThreadID)
         }
         pending = observed;
     }
-}
-
-// Shift the existing creek velocity once on Ready / wave completion.
-// This is an intentional 10m/s state change, not a per-frame acceleration.
-[numthreads(128,1,1)]
-void ShiftAmbientSpeed(uint id : SV_DispatchThreadID)
-{
-    if (id >= _ParticleCount) return;
-    FluidParticle p = _Particles[id];
-    if (p.position.w != 1.0) return;
-    p.velocity.z -= _FlowSpeedDelta;
-    _Particles[id] = p;
 }
 
 // A steady inlet keeps the background creek moving even when its P2G/pressure

@@ -255,15 +255,16 @@ the `TotalCliffExits` and `TotalAmbientRefills` rise continuously,
 and FPS/VRAM usage remain acceptable with the larger GPU buffer.
 No Unity runtime tests were available from this environment.
 
-## Cohesive 3m crest with simple speed toggle (pressure solver unchanged)
+## Cohesive 3m crest at constant ambient speed (pressure solver unchanged)
 
-Normal flow remains **10m/s** (in the serialized fluid settings), then
-Ready increases the existing river to **20m/s** once and emits a single
-additional connected 3m water crest whose particles also begin at 20m/s.
-The extra volume is filled at the same longitudinal particle density as
-the background river and has smooth end ramps rather than an 80m/s jet.
-After the wave completes, flow returns to 10m/s; failure confirmation
-rebuilds the original creek at 10m/s.
+Normal flow remains **10m/s** (in the serialized fluid settings) before,
+during and after Ready. Ready emits one additional connected 3m water crest
+whose particles start at the same 10m/s as the existing river; no velocity
+boost is applied to the background river. The extra volume is filled at
+the same longitudinal particle density as the background river and has
+smooth end ramps. The existing loss-based upstream refill rate remains
+proportional to the configured ambient speed. Failure confirmation
+rebuilds the same 10m/s creek.
 
 The experimental face-based pressure solver, obstacle-wake damping,
 pressure-iteration increase and adaptive substeps from commit 312116a

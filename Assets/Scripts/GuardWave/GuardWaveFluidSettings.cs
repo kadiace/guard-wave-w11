@@ -32,8 +32,8 @@ namespace GuardWave
         [SerializeField, Min(0.5f)] private float _waveCrestWidth = 2.5f;
         [SerializeField, Min(2f)] private float _waveCrestLength = 14f;
         public float WaveCrestAmplitude => _waveCrestAmplitude;
-        // The wave has the same velocity as the temporary doubled creek.
-        public float WaveCrestSpeed => _ambientFlowSpeed * 2f;
+        // The crest travels at the current ambient flow speed without acceleration.
+        public float WaveCrestSpeed => _ambientFlowSpeed;
         public float WaveCrestWidth => _waveCrestWidth;
         public float WaveCrestLength => _waveCrestLength;
 
