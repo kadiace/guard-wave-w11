@@ -2,6 +2,7 @@ using UnityEngine;
 
 using GuardWave;
 
+[DefaultExecutionOrder(-100)]
 public class ForestSceneContext : MonoBehaviour
 {
     [Header("Object rotation")]
