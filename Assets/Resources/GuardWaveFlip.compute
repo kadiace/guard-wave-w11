@@ -4,6 +4,8 @@
 #pragma kernel Spawn
 #pragma kernel InitializeAmbient
 #pragma kernel RecycleAmbient
+#pragma kernel DriveInlet
+#pragma kernel EmitCrest
 #pragma kernel ParticleToGrid
 #pragma kernel NormalizeGrid
 #pragma kernel JacobiPressure
@@ -33,7 +35,8 @@ struct FluidCollider
     float4 bodyCenter;
 };
 RWStructuredBuffer<FluidParticle> _Particles;
-RWStructuredBuffer<uint> _FlowCounters; // 0 cliff exits; 1 refill reservations
+RWStructuredBuffer<uint> _FlowCounters; // [0] pending ambient replacements; [1] lifetime refill sequence
+RWStructuredBuffer<uint> _CrestCounter;  // one-shot reservation; initialized from C#
 RWStructuredBuffer<int4> _Accum;
 RWStructuredBuffer<int4> _BodyImpulses; // force impulse in xyz, torque in next xyz
 RWStructuredBuffer<float3> _GridVelocity;
@@ -66,6 +69,12 @@ float _AmbientDepth;
 int3 _AmbientGrid;
 uint _AmbientInitialCount;
 uint _AmbientEnabled;
+int3 _CrestGrid;
+float _CrestAmplitude;
+float _CrestSpeed;
+float _CrestWidth;
+float _CrestLength;
+float _CrestCenterZ;
 uint _ParticleCount;
 uint _SpawnStart;
 uint _SpawnCount;
@@ -144,11 +153,6 @@ void ClearGrid(uint id : SV_DispatchThreadID)
     }
     if (id < _BodyCount * 2)
         _BodyImpulses[id] = int4(0,0,0,0);
-    if (id == 0 && _AmbientEnabled != 0)
-    {
-        _FlowCounters[0] = 0;
-        _FlowCounters[1] = 0;
-    }
 }
 [numthreads(128,1,1)]
 void ClassifyGrid(uint id : SV_DispatchThreadID)
@@ -213,31 +217,98 @@ void InitializeAmbient(uint id : SV_DispatchThreadID)
     _Particles[id] = p;
 }
 
-// Every particle that crosses the cliff requests exactly one refill particle.
-// Dead waterfall slots are recycled; live falling spray remains visible.
-// New particles begin just upstream of the filled river, not inside already
-// occupied cells. This avoids artificially stacking water at the inlet.
+// Preserve refill debt until inactive slots become available, even while the
+// waterfall occupies the spare GPU particle slots. All refill accounting stays
+// on the GPU; a wave crest (velocity.w = 1) is never counted as base water.
 [numthreads(128,1,1)]
 void RecycleAmbient(uint id : SV_DispatchThreadID)
 {
     if (id >= _ParticleCount) return;
     FluidParticle p = _Particles[id];
     if (p.position.w != 0.0) return;
+
+    uint pending;
+    InterlockedAdd(_FlowCounters[0], 0u, pending);
+    while (pending > 0u)
+    {
+        uint observed;
+        InterlockedCompareExchange(_FlowCounters[0], pending, pending - 1u, observed);
+        if (observed == pending)
+        {
+            uint ticket;
+            InterlockedAdd(_FlowCounters[1], 1u, ticket);
+            uint width = (uint)_AmbientGrid.x;
+            uint layers = (uint)_AmbientGrid.y;
+            uint chosen = (ticket * 7919u + _SpawnSeed * 1543u) %
+                (width * layers * 2u);
+            uint x = chosen % width;
+            uint y = (chosen / width) % layers;
+            uint z = chosen / (width * layers);
+            p = (FluidParticle)0;
+            p.position = float4(
+                -_HalfWidth + (x + 0.5) * (2.0 * _HalfWidth / width),
+                _FloorY + (y + 0.5) * (_AmbientDepth / layers),
+                _InletZ + _CellSize + (z + 0.5) * (_CellSize * 0.85), 1.0);
+            p.velocity = float4(0, 0, -_InletVelocity, 0);
+            _Particles[id] = p;
+            return;
+        }
+        pending = observed;
+    }
+}
+
+// A steady inlet keeps the background creek moving even when its P2G/pressure
+// projection slows the flow. The stronger wave particles are not affected.
+[numthreads(128,1,1)]
+void DriveInlet(uint id : SV_DispatchThreadID)
+{
+    if (id >= _ParticleCount) return;
+    FluidParticle p = _Particles[id];
+    if (p.position.w != 1.0 || p.velocity.w > 0.5) return;
+    float distance = _InletZ - p.position.z;
+    float region = 3.0;
+    if (distance < -_CellSize * 2.0 || distance > region) return;
+    float influence = saturate((region - max(distance, 0.0)) / region);
+    p.velocity.z = lerp(p.velocity.z, -_InletVelocity,
+        saturate(_Dt * 6.0 * influence));
+    _Particles[id] = p;
+}
+
+// One dispatch per Ready click creates one sech^2-shaped 3m crest above the
+// 1m ambient surface, using only inactive particle slots. It never spawns
+// another crest on subsequent simulation frames.
+[numthreads(128,1,1)]
+void EmitCrest(uint id : SV_DispatchThreadID)
+{
+    if (id >= _ParticleCount) return;
+    FluidParticle p = _Particles[id];
+    if (p.position.w != 0.0) return;
     uint ticket;
-    InterlockedAdd(_FlowCounters[1], 1, ticket);
-    if (ticket >= _FlowCounters[0]) return;
-    uint width = (uint)_AmbientGrid.x;
-    uint layers = (uint)_AmbientGrid.y;
-    uint chosen = (ticket * 7919u + _SpawnSeed * 1543u) % (width * layers * 2u);
-    uint x = chosen % width;
-    uint y = (chosen / width) % layers;
-    uint z = chosen / (width * layers);
+    InterlockedAdd(_CrestCounter[0], 1u, ticket);
+    uint width = (uint)_CrestGrid.x;
+    uint layers = (uint)_CrestGrid.y;
+    uint rows = (uint)_CrestGrid.z;
+    if (ticket >= width * layers * rows) return;
+
+    uint x = ticket % width;
+    uint y = (ticket / width) % layers;
+    uint z = ticket / (width * layers);
+    float worldZ = _InletZ - (z + 0.5) * (_CrestLength / rows);
+    float s = (worldZ - _CrestCenterZ) / _CrestWidth;
+    float t = cosh(s);
+    float profile = 1.0 / (t * t);
+    float excess = (y + 0.5) * (_CrestAmplitude / layers);
+    if (excess > _CrestAmplitude * profile) return;
+
     p = (FluidParticle)0;
     p.position = float4(
         -_HalfWidth + (x + 0.5) * (2.0 * _HalfWidth / width),
-        _FloorY + (y + 0.5) * (_AmbientDepth / layers),
-        _InletZ + _CellSize + (z + 0.5) * (_CellSize * 0.85), 1.0);
-    p.velocity = float4(0, 0, -_InletVelocity, 0);
+        _FloorY + _AmbientDepth + excess,
+        worldZ, 1.0);
+    // Velocity.w marks transient wave material, so its departure does not
+    // refill the baseline creek with additional water.
+    p.velocity = float4(0, 0,
+        -lerp(_InletVelocity, _CrestSpeed, profile), 1.0);
     _Particles[id] = p;
 }
 
@@ -419,10 +490,15 @@ void GridToParticle(uint id : SV_DispatchThreadID)
     if (p.position.z < _ExitZ)
     {
         p.position.w = 2; // Beyond the cliff: ballistic spray, no longer grid fluid.
-        if (_AmbientEnabled != 0) InterlockedAdd(_FlowCounters[0], 1);
+        if (_AmbientEnabled != 0 && p.velocity.w < 0.5)
+            InterlockedAdd(_FlowCounters[0], 1u);
     }
     else if (p.position.y > _GridOrigin.y + _GridSize.y*_CellSize - 0.1)
+    {
         p.position.w = 0;
+        if (_AmbientEnabled != 0 && p.velocity.w < 0.5)
+            InterlockedAdd(_FlowCounters[0], 1u);
+    }
     _Particles[id] = p;
 }
 

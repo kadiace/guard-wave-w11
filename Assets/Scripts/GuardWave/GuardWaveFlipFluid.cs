@@ -72,6 +72,11 @@ namespace GuardWave
         private readonly ComputeBuffer _flowCounters;
         private readonly int _initializeAmbientKernel;
         private readonly int _recycleAmbientKernel;
+        private readonly int _driveInletKernel;
+        private readonly int _emitCrestKernel;
+        private readonly ComputeBuffer _crestCounter;
+        private readonly int _ambientInitialCount;
+        private readonly int _ambientColumns;
         private readonly int _gridCount;
         private readonly int _clearKernel;
         private readonly int _classifyKernel;
@@ -145,12 +150,16 @@ namespace GuardWave
             _colliderBuffer = new ComputeBuffer(_settings.MaxColliders, Marshal.SizeOf<ColliderData>());
             _impulses = new ComputeBuffer(_settings.MaxBodies * 2, sizeof(int) * 4);
             _flowCounters = new ComputeBuffer(2, sizeof(uint));
+            _flowCounters.SetData(new uint[2]);
+            _crestCounter = new ComputeBuffer(1, sizeof(uint));
 
             _clearKernel = _compute.FindKernel("ClearGrid");
             _classifyKernel = _compute.FindKernel("ClassifyGrid");
             _spawnKernel = _compute.FindKernel("Spawn");
             _initializeAmbientKernel = _compute.FindKernel("InitializeAmbient");
             _recycleAmbientKernel = _compute.FindKernel("RecycleAmbient");
+            _driveInletKernel = _compute.FindKernel("DriveInlet");
+            _emitCrestKernel = _compute.FindKernel("EmitCrest");
             _p2gKernel = _compute.FindKernel("ParticleToGrid");
             _normalizeKernel = _compute.FindKernel("NormalizeGrid");
             _pressureKernel = _compute.FindKernel("JacobiPressure");
@@ -192,13 +201,15 @@ namespace GuardWave
             Bind(_clearKernel, "_PressureSrc", _pressureA);
             Bind(_clearKernel, "_PressureDst", _pressureB);
             Bind(_clearKernel, "_BodyImpulses", _impulses);
-            Bind(_clearKernel, "_FlowCounters", _flowCounters);
             Bind(_classifyKernel, "_Solid", _solid);
             Bind(_classifyKernel, "_Colliders", _colliderBuffer);
             Bind(_spawnKernel, "_Particles", _particles);
             Bind(_initializeAmbientKernel, "_Particles", _particles);
             Bind(_recycleAmbientKernel, "_Particles", _particles);
             Bind(_recycleAmbientKernel, "_FlowCounters", _flowCounters);
+            Bind(_driveInletKernel, "_Particles", _particles);
+            Bind(_emitCrestKernel, "_Particles", _particles);
+            Bind(_emitCrestKernel, "_CrestCounter", _crestCounter);
             Bind(_p2gKernel, "_Particles", _particles);
             Bind(_p2gKernel, "_Accum", _accum);
             Bind(_p2gKernel, "_Solid", _solid);
@@ -239,11 +250,43 @@ namespace GuardWave
             int rows = Mathf.Max(1, Mathf.FloorToInt((_startZ - _endZ) / spacing));
             long requested = (long)columns * layers * rows;
             int initialCount = (int)Math.Min(requested, _settings.MaxParticles);
+            _ambientInitialCount = initialCount;
+            _ambientColumns = columns;
             _particleCount = _settings.MaxParticles;
             _compute.SetInts("_AmbientGrid", columns, layers, rows);
             _compute.SetInt("_AmbientInitialCount", initialCount);
             _compute.SetInt("_ParticleCount", _particleCount);
             Dispatch(_initializeAmbientKernel, _particleCount);
+        }
+
+        /// <summary>
+        /// Adds a single additional crest above the already-filled 1m creek.
+        /// Only inactive GPU particle slots are used. No new solver is constructed.
+        /// </summary>
+        public void EmitSingleCrest()
+        {
+            if (_disposed || !_ambientFlow)
+                throw new InvalidOperationException("A wave crest requires a running ambient FLIP creek.");
+
+            float amplitude = _settings.WaveCrestAmplitude;
+            float spacing = _cellSize * 0.85f;
+            int columns = _ambientColumns;
+            int layers = Mathf.Max(1, Mathf.CeilToInt(amplitude / spacing));
+            int rows = Mathf.Max(1, Mathf.CeilToInt(_settings.WaveCrestLength / spacing));
+            long candidateCount = (long)columns * layers * rows;
+            if (candidateCount > _settings.MaxParticles - _ambientInitialCount)
+                throw new InvalidOperationException(
+                    "The 3m crest exceeds the spare GPU particle budget. Increase MaxParticles or CellSize.");
+
+            _crestCounter.SetData(new uint[1]);
+            _compute.SetInts("_CrestGrid", columns, layers, rows);
+            _compute.SetFloat("_CrestAmplitude", amplitude);
+            _compute.SetFloat("_CrestSpeed", _settings.WaveCrestSpeed);
+            _compute.SetFloat("_CrestWidth", _settings.WaveCrestWidth);
+            _compute.SetFloat("_CrestLength", _settings.WaveCrestLength);
+            _compute.SetFloat("_CrestCenterZ",
+                _startZ - _cellSize - _settings.WaveCrestLength * 0.5f);
+            Dispatch(_emitCrestKernel, _particleCount);
         }
 
         /// <summary>Assigns GPU resources to a kernel without binding resources it never uses.</summary>
@@ -374,6 +417,7 @@ namespace GuardWave
             UpdateColliders();
             Dispatch(_clearKernel, Mathf.Max(_gridCount, _bodies.Count * 2));
             Dispatch(_classifyKernel, _gridCount);
+            if (_ambientFlow) Dispatch(_driveInletKernel, _particleCount);
 
             _spawnClock += dt;
             if (!_ambientFlow && inletFraction > 0.05f &&
@@ -469,6 +513,7 @@ namespace GuardWave
             _colliderBuffer.Release();
             _impulses.Release();
             _flowCounters.Release();
+            _crestCounter.Release();
             UnityEngine.Object.Destroy(_compute);
         }
     }

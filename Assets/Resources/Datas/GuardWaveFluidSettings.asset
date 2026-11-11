@@ -22,6 +22,10 @@ MonoBehaviour:
   _ambientWaterDepth: 1
   _ambientFlowSpeed: 2
   _ambientImpactScale: 0.01
+  _waveCrestAmplitude: 3
+  _waveCrestSpeed: 8
+  _waveCrestWidth: 2.5
+  _waveCrestLength: 14
   _minInletSpeed: 30
   _maxInletSpeed: 60
   _travelDurationMultiplier: 2

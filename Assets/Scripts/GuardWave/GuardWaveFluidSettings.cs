@@ -23,6 +23,16 @@ namespace GuardWave
         public float AmbientFlowSpeed => _ambientFlowSpeed;
         public float AmbientImpactScale => _ambientImpactScale;
 
+        [Header("One-shot wave crest above ambient water")]
+        [SerializeField, Min(0.1f)] private float _waveCrestAmplitude = 3f;
+        [SerializeField, Min(0.1f)] private float _waveCrestSpeed = 8f;
+        [SerializeField, Min(0.5f)] private float _waveCrestWidth = 2.5f;
+        [SerializeField, Min(2f)] private float _waveCrestLength = 14f;
+        public float WaveCrestAmplitude => _waveCrestAmplitude;
+        public float WaveCrestSpeed => _waveCrestSpeed;
+        public float WaveCrestWidth => _waveCrestWidth;
+        public float WaveCrestLength => _waveCrestLength;
+
         [Header("Wave movement")]
         [SerializeField, Min(0.1f)] private float _minInletSpeed = 6f;
         [SerializeField, Min(0.1f)] private float _maxInletSpeed = 13f;
