@@ -65,6 +65,37 @@ The current agent environment cannot launch the Unity Editor or test ComputeShad
 
 The game preserves the authored Forest scene and its ready/failure workflow. All modifications are restricted to the new wave implementation and its integration.
 
+## Ambient creek baseline: feature/real-wave
+
+The authored upper creek bed is five meters deeper. Two box-collider soil walls
+run along the former shore edges and join the existing bank mesh. The cliff face
+is shorter at the top but still meets the untouched lower creek floor, and the
+static waterfall surface matches the new lip. The defence flag and Beaver House
+shift down with the creek to preserve their relative placement.
+
+`GuardWaveGame.ambientFlowPreview` defaults to `true` for this validation.
+When enabled, the game immediately fills the upper river with **one meter of
+real FLIP particles**, steps the simulation continuously in `FixedUpdate`,
+and makes the Ready button unavailable. It **does not create a wave**.
+The old finite Ready-stage pulse is preserved in code for future work, but is
+not invoked in this mode.
+
+The GPU uses a full-length initial particle lattice. A particle crossing the
+cliff into ballistic spray increments an exit counter. A GPU recycling kernel
+replaces one inactive upstream particle per exit, preserving the flowing water
+rather than indefinitely allocating particles. A separate `Ambient Flow Speed`
+(default 2m/s) is used instead of the flood inlet speed (currently 30–60m/s).
+The static Upper River Water is shown in the editor but its renderer is
+disabled at runtime so SSFR can show the actual fluid.
+
+**Limitations:** This balances individual particles, not measured real-world
+volume flux. The recycled particle budget requires inactive slots while
+waterfall spray is alive. A coarse 0.6m FLIP grid, the prototype pressure
+projection, and GPU–CPU collider force latency can create visible fluctuations.
+Validate 1m apparent depth, erosion/accumulation, shoreline boundaries and
+recycling over sustained gameplay in Unity Play Mode. The Unity editor and GPU
+profiler are not available from this environment.
+
 ## Screen-space surface rendering
 
 The URP renderers now include `GuardWaveSSFRFeature`, which replaces discrete

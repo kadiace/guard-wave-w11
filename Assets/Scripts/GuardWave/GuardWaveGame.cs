@@ -23,7 +23,9 @@ namespace GuardWave
         [Header("3D drop")]
         [SerializeField, Min(2f)] private float dropHeight = 7f;
         [SerializeField, Range(0.05f, 0.5f)] private float dropClickCooldown = 0.1f;
-        [SerializeField] private float groundY = -2.25f;
+
+        [Header("Ambient creek test: only continuous flow, no wave")]
+        [SerializeField] private bool ambientFlowPreview = true;
 
         [Header("Flood stage transition")]
         [SerializeField, Min(0.1f)] private float floodFillDuration = 1.2f;
@@ -100,6 +102,12 @@ namespace GuardWave
             _initialized = true;
         }
 
+        private void FixedUpdate()
+        {
+            if (ambientFlowPreview && _fluid != null)
+                _fluid.Step(Time.fixedDeltaTime, 0f);
+        }
+
         private void Update()
         {
             if (!_initialized) return;
@@ -158,7 +166,7 @@ namespace GuardWave
             _lastDropTime = Time.unscaledTime;
             HideDropPreview();
             StartCoroutine(DropAndResolve(_offers[_selected],
-                new Vector3(placement.x, dropHeight, placement.z)));
+                new Vector3(placement.x, _placementBounds.max.y + dropHeight, placement.z)));
         }
 
         /// <summary>Esc 또는 우클릭으로 현재 기물 선택을 해제한다.</summary>
@@ -188,7 +196,8 @@ namespace GuardWave
                 return false;
 
             Ray viewRay = _camera.ScreenPointToRay(screen);
-            Plane referencePlane = new Plane(Vector3.up, Vector3.zero);
+            Plane referencePlane = new Plane(Vector3.up,
+                new Vector3(0f, _placementBounds.max.y, 0f));
             if (!referencePlane.Raycast(viewRay, out float distance)) return false;
             position = viewRay.GetPoint(distance);
             return true;
@@ -198,7 +207,7 @@ namespace GuardWave
         private bool CanPlaceAt(Vector3 position)
         {
             return position.z < 15f && _placementBounds.Contains(
-                new Vector3(position.x, groundY, position.z));
+                new Vector3(position.x, _placementBounds.center.y, position.z));
         }
 
         /// <summary>커서 위치의 배치 가능 여부에 따라 실제 자재의 낙하 미리보기 색을 바꾼다.</summary>
@@ -215,13 +224,15 @@ namespace GuardWave
 
             bool canPlace = CanPlaceAt(placement);
             _dropPreview.Show(_offers[_selected], placement,
-                Quaternion.Euler(0f, _objectYaw, 0f), dropHeight, canPlace,
+                Quaternion.Euler(0f, _objectYaw, 0f),
+                _placementBounds.max.y + dropHeight, canPlace,
                 _placementBounds.max.y);
 
             if (_dropPreview.IsVisible)
             {
                 Vector3 launchTarget = _camera.WorldToScreenPoint(
-                    new Vector3(placement.x, dropHeight, placement.z));
+                    new Vector3(placement.x,
+                        _placementBounds.max.y + dropHeight, placement.z));
                 Vector3 screenTarget = _camera.WorldToScreenPoint(_dropPreview.LandingPosition);
                 if (launchTarget.z > 0f && screenTarget.z > 0f)
                     _hud.ShowDropGuide(new Vector2(launchTarget.x, launchTarget.y),
@@ -303,6 +314,7 @@ namespace GuardWave
                 .GetComponent<BoxCollider>().bounds;
             _lowerCreekBounds = GameObject.Find("Flat Muddy Creek Bed After Cliff")
                 .GetComponent<BoxCollider>().bounds;
+            _cameraTarget.y = _placementBounds.max.y + 2f;
         }
 
         /// <summary>원본 2D 게임의 상단 상태 UI와 하단 자재 카드 UI 프리팹을 연결한다.</summary>
@@ -329,7 +341,7 @@ namespace GuardWave
         public float RotationSpeed { get; set; } = 90f;
         public float CameraYawPerScrollStep { get; set; } = 5f;
         public bool IsPaletteHidden => false;
-        public bool CanReady => !_stageTransitioning && !_resolving && !_awaitingStage
+        public bool CanReady => !ambientFlowPreview && !_stageTransitioning && !_resolving && !_awaitingStage
             && !_finished && !_rulesOpen && _defenseFlag != null
             && _defenseFlag.activeInHierarchy;
         public bool WaveHasStarted => _waveHasStarted;
@@ -514,12 +526,13 @@ namespace GuardWave
             _resolving = false;
             _awaitingStage = false;
             _finished = false;
-            _cameraTarget = Vector3.zero;
+            _cameraTarget = new Vector3(0f, _placementBounds.max.y + 2f, 0f);
             _rightGestureActive = false;
             _rightPressedPiece = null;
             UpdateCameraPosition();
             ResetDefenseFlag();
             DealOffers();
+            if (ambientFlowPreview) BeginAmbientCreekFlow();
             _status = "고무오리·쓰레기 봉투·큰 돌을 배치하세요. 기물 우클릭: 제거, 빈 공간 우클릭: 선택 해제";
         }
 
@@ -556,6 +569,30 @@ namespace GuardWave
                 state.State.RestoreMotion(state.Body);
                 GuardWavePiece piece = state.Body.GetComponent<GuardWavePiece>();
                 if (piece != null) _pieceSet.Add(piece);
+            }
+        }
+
+        /// <summary>Starts the persistent 1m creek at scene load, without injecting any wave pulse.</summary>
+        private void BeginAmbientCreekFlow()
+        {
+            try
+            {
+                _fluid = new GuardWaveFlipFluid(_placementBounds.max.z,
+                    _placementBounds.min.z, _placementBounds.max.y,
+                    _lowerCreekBounds.max.y, _fluidSettings.AmbientWaterDepth,
+                    floodTravelDuration, _pieces, _flagBody, _fluidSettings, ambientFlow: true);
+                // The authored surface is still visible in the editor; disable
+                // its renderer only in Play Mode to expose the real FLIP water.
+                GameObject upperWater = GameObject.Find("Upper River Water");
+                if (upperWater != null && upperWater.TryGetComponent(out MeshRenderer mesh))
+                    mesh.enabled = false;
+                _status = "기본 수심 1m 흐름 실험: 폭포로 빠진 입자만 상류에서 보충합니다.";
+            }
+            catch (Exception error)
+            {
+                Debug.LogError("Unable to initialize ambient creek flow: " + error);
+                DisposeFluid();
+                _status = "기본 강물 시뮬레이션 시작 실패";
             }
         }
 
