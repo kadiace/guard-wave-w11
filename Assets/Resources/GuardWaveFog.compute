@@ -67,7 +67,7 @@ void ClearFog(uint3 id : SV_DispatchThreadID)
     _VelocityOut[id] = 0; _VelocityAlt[id] = 0;
     _DensityOut[id] = 0; _DensityAlt[id] = 0;
     _PressureOut[id] = 0; _PressureAlt[id] = 0;
-    _DivergenceOut[id] = 0;
+    _DivergenceWrite[id] = 0;
     _ObstacleOut[id] = float4(1000,0,0,0);
 }
 

@@ -87,7 +87,7 @@ namespace GuardWave
             Bind(_clear, "_DensityAlt", _densityB);
             Bind(_clear, "_PressureOut", _pressureA);
             Bind(_clear, "_PressureAlt", _pressureB);
-            Bind(_clear, "_DivergenceOut", _divergence);
+            Bind(_clear, "_DivergenceWrite", _divergence);
             Bind(_clear, "_ObstacleOut", _obstacleSdf);
             Dispatch(_clear);
             _currentPressure = _pressureA;
