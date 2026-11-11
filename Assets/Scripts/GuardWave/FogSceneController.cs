@@ -33,7 +33,8 @@ namespace GuardWave
 
         public bool IsComing => _running;
         public bool CanReady => !_running && _game != null && _game.CanReady;
-        public string StatusMessage => _running ? _status : _game != null ? _game.StatusMessage : "";
+        public string StatusMessage => !string.IsNullOrEmpty(_status)
+            ? _status : _game != null ? _game.StatusMessage : "";
 
         private void Awake()
         {

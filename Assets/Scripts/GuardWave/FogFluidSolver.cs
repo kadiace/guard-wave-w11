@@ -35,6 +35,7 @@ namespace GuardWave
         private readonly float _cell;
         private readonly int _pressureIterations;
         private readonly Scene _scene;
+        private RenderTexture _currentPressure;
         private bool _densityIsA = true;
         private int _step;
         private float _time;
@@ -89,6 +90,7 @@ namespace GuardWave
             Bind(_clear, "_DivergenceOut", _divergence);
             Bind(_clear, "_ObstacleOut", _obstacleSdf);
             Dispatch(_clear);
+            _currentPressure = _pressureA;
             RefreshObstacleField();
         }
 
@@ -202,7 +204,8 @@ namespace GuardWave
             Bind(_divergenceKernel, "_DivergenceWrite", _divergence);
             Dispatch(_divergenceKernel);
 
-            RenderTexture pressureRead = _pressureA, pressureWrite = _pressureB;
+            RenderTexture pressureRead = _currentPressure;
+            RenderTexture pressureWrite = pressureRead == _pressureA ? _pressureB : _pressureA;
             Bind(_jacobi, "_ObstacleRead", _obstacleSdf);
             Bind(_jacobi, "_DivergenceRead", _divergence);
             for (int i = 0; i < _pressureIterations; i++)
@@ -212,9 +215,8 @@ namespace GuardWave
                 Dispatch(_jacobi);
                 (pressureRead, pressureWrite) = (pressureWrite, pressureRead);
             }
-            // Preserve the final solution as the next frame's initial pressure guess.
-            if (pressureRead != _pressureA)
-                Graphics.CopyTexture(pressureRead, _pressureA);
+            // Ping-pong the previous pressure solution instead of copying 3D GPU textures.
+            _currentPressure = pressureRead;
 
             Bind(_project, "_VelocityRead", _velocityB);
             Bind(_project, "_ObstacleRead", _obstacleSdf);
