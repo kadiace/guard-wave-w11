@@ -76,9 +76,10 @@ shift down with the creek to preserve their relative placement.
 `GuardWaveGame.ambientFlowPreview` defaults to `true` for this validation.
 When enabled, the game immediately fills the upper river with **one meter of
 real FLIP particles**, steps the simulation continuously in `FixedUpdate`,
-and makes the Ready button unavailable. It **does not create a wave**.
-The old finite Ready-stage pulse is preserved in code for future work, but is
-not invoked in this mode.
+and keeps the original Ready button enabled once the water is initialized.
+At scene load it **does not create a wave**; a single crest is emitted only
+when the player presses Ready. The old standalone finite Ready-stage pulse
+remains in code for non-ambient scenes.
 
 The GPU uses a full-length initial particle lattice. A particle crossing the
 cliff into ballistic spray increments an exit counter. A GPU recycling kernel
@@ -97,7 +98,37 @@ volume flux. The recycled particle budget requires inactive slots while
 waterfall spray is alive. A coarse 0.6m FLIP grid, the prototype pressure
 projection, and GPU–CPU collider force latency can create visible fluctuations.
 Validate 1m apparent depth, erosion/accumulation, shoreline boundaries and
-recycling over sustained gameplay in Unity Play Mode. The Unity editor and GPU
+recycling over sustained gameplay in Unity Play Mode.
+
+### One-shot crest triggered by Ready
+
+In ambient mode, Ready adds **one 3m amplitude** crest above the **existing 1m**
+creek: the target crest depth is therefore **4m**. The crest is seeded only
+once per click with a sech-squared longitudinal shape in the upstream section.
+A wave-only marker in particle velocity.w prevents this temporary extra mass
+from being permanently replaced by the normal creek inlet. The creek keeps
+moving before, during and after the wave; the wave solver is not recreated
+or disposed when the wave succeeds.
+
+Tunable in `GuardWaveFluidSettings.asset`:
+- Wave Crest Amplitude: 3m additional height (1m base + 3m = 4m target)
+- Wave Crest Speed: 8m/s initial velocity at peak
+- Wave Crest Width: 2.5m sech-squared characteristic width
+- Wave Crest Length: 14m upstream seeded region
+
+The persistent background inlet is separately driven at the configured
+Ambient Flow Speed. Cliff exits from ordinary water accumulate in a GPU
+replenishment counter that persists until inactive slots are available, and
+transient wave exits do not raise the baseline over time. In a failure popup,
+the same GPU water keeps moving; confirming failure restores the saved Rigidbody
+positions and reconstructs the 1m background water without re-emitting a crest.
+A successful wave ends after its estimated traversal time, not by disposing
+the background water.
+
+The 4m value is the *seeded target shape*, not a guaranteed measured surface
+height after FLIP pressure projection, collision and motion. The single-shot
+crest requires spare particle slots and may need solver/particle budget tuning.
+Unity Editor Play Mode and GPU profiling have not been run here. The Unity editor and GPU
 profiler are not available from this environment.
 
 ## Screen-space surface rendering

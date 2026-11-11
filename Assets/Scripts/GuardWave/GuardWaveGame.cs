@@ -24,7 +24,7 @@ namespace GuardWave
         [SerializeField, Min(2f)] private float dropHeight = 7f;
         [SerializeField, Range(0.05f, 0.5f)] private float dropClickCooldown = 0.1f;
 
-        [Header("Ambient creek test: only continuous flow, no wave")]
+        [Header("Ambient creek and one-shot wave (Ready button)")]
         [SerializeField] private bool ambientFlowPreview = true;
 
         [Header("Flood stage transition")]
@@ -338,7 +338,8 @@ namespace GuardWave
         public float RotationSpeed { get; set; } = 90f;
         public float CameraYawPerScrollStep { get; set; } = 5f;
         public bool IsPaletteHidden => false;
-        public bool CanReady => !ambientFlowPreview && !_stageTransitioning && !_resolving && !_awaitingStage
+        public bool CanReady => (!ambientFlowPreview || _fluid != null) &&
+            !_stageTransitioning && !_resolving && !_awaitingStage
             && !_finished && !_rulesOpen && _defenseFlag != null
             && _defenseFlag.activeInHierarchy;
         public bool WaveHasStarted => _waveHasStarted;
@@ -569,7 +570,7 @@ namespace GuardWave
             }
         }
 
-        /// <summary>Starts the persistent 1m creek at scene load, without injecting any wave pulse.</summary>
+        /// <summary>Starts the persistent 1m creek at scene load; Ready adds one crest later.</summary>
         private void BeginAmbientCreekFlow()
         {
             try
@@ -696,8 +697,71 @@ namespace GuardWave
             _waveHasStarted = true;
             _stageTransitioning = true;
             _resolving = true;
+            if (ambientFlowPreview)
+            {
+                try
+                {
+                    // Keep the existing flowing 1m river. Generate one additional
+                    // 3m crest at the upstream end without resetting the fluid.
+                    _fluid.EmitSingleCrest();
+                }
+                catch (Exception error)
+                {
+                    Debug.LogError("Unable to emit the 3m wave crest: " + error);
+                    _waveHasStarted = false;
+                    _stageTransitioning = false;
+                    _resolving = false;
+                    CommitWaveSnapshot();
+                    _status = "파봉 생성 실패: 입자 예산과 설정을 확인하세요.";
+                    return;
+                }
+                _status = "기본 수심 1m 위로 추가 파고 3m의 파봉이 다가옵니다.";
+                _stageFloodRoutine = StartCoroutine(ResolveAmbientWave());
+                return;
+            }
+
             _status = "홍수 발생: 기물과 깃발을 지키세요.";
             _stageFloodRoutine = StartCoroutine(ResolveStageFlood());
+        }
+
+        /// <summary>
+        /// Monitors exactly one upstream crest while FixedUpdate continuously
+        /// advances the same ambient creek, even during a failure popup.
+        /// </summary>
+        private IEnumerator ResolveAmbientWave()
+        {
+            float travel = (_placementBounds.size.z + _fluidSettings.WaveCrestLength) /
+                Mathf.Max(0.1f, _fluidSettings.WaveCrestSpeed);
+            float elapsed = 0f;
+            while (elapsed < travel + 3f)
+            {
+                yield return new WaitForFixedUpdate();
+                elapsed += Time.fixedDeltaTime;
+                if (_awaitingStage)
+                {
+                    // Do not dispose the ongoing liquid during the failure popup.
+                    _stageFloodRoutine = null;
+                    yield break;
+                }
+            }
+
+            if (_awaitingStage)
+            {
+                _stageFloodRoutine = null;
+                yield break;
+            }
+
+            CommitWaveSnapshot();
+            _stageTransitioning = false;
+            _resolving = false;
+            _stageFloodRoutine = null;
+            _stage++;
+            if (_stage == STAGE_COUNT)
+            {
+                _finished = true;
+                yield break;
+            }
+            _status = "파봉이 지나갔습니다. 기본 강물은 계속 흐릅니다.";
         }
 
         /// <summary>
@@ -1003,6 +1067,8 @@ namespace GuardWave
             }
             DisposeFluid();
             RestoreWaveSnapshot();
+            if (ambientFlowPreview)
+                BeginAmbientCreekFlow();
         }
 
     }
