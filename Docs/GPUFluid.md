@@ -254,50 +254,21 @@ In Unity Play Mode, check that the riverbed is consistently covered,
 the `TotalCliffExits` and `TotalAmbientRefills` rise continuously,
 and FPS/VRAM usage remain acceptable with the larger GPU buffer.
 No Unity runtime tests were available from this environment.
- 
-## FLIP wake stability and cohesive one-shot flood
 
-The normal creek speed is **10m/s**, as set by the latest
-`GuardWaveFluidSettings.asset`. Pressing Ready immediately increases
-the **entire ambient river flow to 20m/s**, and inserts one contiguous,
-flat-topped and smoothly tapered volume of **3m additional water** whose
-particles also all move at **20m/s** (no 80m/s leading jet). The target
-maximum river depth remains **1m + 3m = 4m**. When the wave succeeds the
-creek returns to **10m/s**. A failed round continues flowing at its flood
-speed behind the failure popup, until Confirm reconstructs a normal
-10m/s creek. Refilling upstream always uses the *current* ambient
-velocity and is capped by actual cliff losses.
+## Cohesive 3m crest with simple speed toggle (pressure solver unchanged)
 
-The GPU pressure solver now constructs direction-specific face fluxes,
-uses that exact same face divergence to solve the pressure Poisson
-equation (air/open-outlet p=0, solid faces Neumann), projects those same
-face velocities, and reconstructs cell-center velocities for APIC/FLIP.
-This avoids the original mismatch between the centered divergence and
-centered pressure gradient. The project has a pressure-divergence
-before/after measurement via a GPU-side atomic reduction.
-`GuardWaveFlipFluid.DivergenceBeforeProjection` and
-`DivergenceAfterProjection` update about once per second via
-asynchronous readback. Target: lower after-projection divergence.
+Normal flow remains **10m/s** (in the serialized fluid settings), then
+Ready increases the existing river to **20m/s** once and emits a single
+additional connected 3m water crest whose particles also begin at 20m/s.
+The extra volume is filled at the same longitudinal particle density as
+the background river and has smooth end ramps rather than an 80m/s jet.
+After the wave completes, flow returns to 10m/s; failure confirmation
+rebuilds the original creek at 10m/s.
 
-An adaptive fluid substep count estimates the maximum stream velocity
-and aims for <=0.5 grid cells of movement per step, up to the configured
-`Max Fluid Substeps` (6). Default pressure iterations rise from 22
-to 36. The fluid body impulse buffer is cleared only on the first
-substep, with accumulated substep responses read back once per fixed
-step. Local upstream backflow is permitted in the first ~1.5m behind
-obstacles; distant, broad reverse flow in the downstream wake is
-damped smoothly according to the `Wake` settings, never by globally
-clamping all positive-Z velocities.
-
-The raised water slug is seeded at the same doubled longitudinal
-particle density as the baseline stream, with smooth ramps of width
-`Wave Crest Width` and a 14m region. Every wave particle is given
-the same speed as the boosted ambient river, eliminating internal
-velocity shear on creation. Subsequent evolution is still computed
-from 3D fluid physics; rigid 4m tall preservation is not enforced.
-
-**Unity Editor compilation/Play Mode and GPU runtime verification have
-not been performed.** Test normal flow, small local eddies versus
-large positive-Z backflow, and persistence of the 3m crest under
-collisions. The face solver and extra pressure iterations/substeps
-increase GPU cost and may need performance tuning.
+The experimental face-based pressure solver, obstacle-wake damping,
+pressure-iteration increase and adaptive substeps from commit 312116a
+are intentionally **not included**. The former JacobiPressure,
+ProjectGrid, fluid single-Step() and 22 pressure iterations are retained
+for comparison against the earlier river behavior. Changes in this
+branch do not guarantee that 3m height stays perfectly coherent under
+unmodified FLIP physics; visual/runtime validation is still needed.
