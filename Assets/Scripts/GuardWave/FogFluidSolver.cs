@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.Runtime.InteropServices;
 using UnityEngine;
 using UnityEngine.Rendering;
-using UnityEngine.SceneManagement;
+using UnityScene = UnityEngine.SceneManagement.Scene;
 
 namespace GuardWave
 {
@@ -34,7 +34,7 @@ namespace GuardWave
         private readonly Vector3Int _size;
         private readonly float _cell;
         private readonly int _pressureIterations;
-        private readonly Scene _scene;
+        private readonly UnityScene _scene;
         private RenderTexture _currentPressure;
         private bool _densityIsA = true;
         private int _step;
@@ -44,7 +44,7 @@ namespace GuardWave
         public Bounds WorldBounds { get; }
         public RenderTexture Density => _densityIsA ? _densityA : _densityB;
 
-        public FogFluidSolver(Scene scene, Vector3 origin, Vector3 extent, float cellSize, int pressureIterations)
+        public FogFluidSolver(UnityScene scene, Vector3 origin, Vector3 extent, float cellSize, int pressureIterations)
         {
             if (!SystemInfo.supportsComputeShaders)
                 throw new NotSupportedException("Fog requires compute shader support.");
@@ -126,7 +126,7 @@ namespace GuardWave
             {
                 if (count >= MaxObstacles) break;
                 if (collider == null || !collider.enabled || collider.isTrigger ||
-                    !collider.gameObject.activeInHierarchy || collider.gameObject.scene != _scene)
+                    !collider.gameObject.activeInHierarchy || collider.gameObject.scene.handle != _scene.handle)
                     continue;
                 Bounds b = collider.bounds;
                 if (!b.Intersects(WorldBounds) || b.size.y < 0.22f ||
