@@ -632,7 +632,7 @@ namespace GuardWave
         /// <summary>Resources/Prefabs에서 3D 기물을 로드하고 Rigidbody를 통한 중력 낙하를 준비한다.</summary>
         private GuardWavePiece Spawn(GuardWaveMaterial material, Vector3 position, bool anchored = false)
         {
-            GameObject prefab = Resources.Load<GameObject>("Prefabs/" + material.id);
+            GameObject prefab = Resources.Load<GameObject>("Prefabs/Objects/" + material.id);
             if (prefab == null) throw new InvalidOperationException("Missing 3D prefab: " + material.id);
             GameObject instance = Instantiate(prefab, position, Quaternion.Euler(0f, _objectYaw, 0f));
             instance.name = material.name;
