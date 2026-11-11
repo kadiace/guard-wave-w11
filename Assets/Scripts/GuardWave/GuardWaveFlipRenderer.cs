@@ -20,7 +20,7 @@ namespace GuardWave
         /// <summary>Constructs GPU particle and shallow river materials for the URP renderer.</summary>
         public GuardWaveFlipRenderer()
         {
-            Shader waterShader = Shader.Find("GuardWave/FlipWater");
+            Shader waterShader = Resources.Load<Shader>("GuardWaveFlipWater");
             if (waterShader == null)
                 throw new InvalidOperationException("GuardWave/FlipWater shader was not imported.");
             _waterMaterial = new Material(waterShader) { name = "GuardWave GPU FLIP Water" };
