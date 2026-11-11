@@ -20,10 +20,10 @@ MonoBehaviour:
   _pressureClamp: 5000
   _pressureThreshold: 0.05
   _ambientWaterDepth: 1
-  _ambientFlowSpeed: 2
+  _ambientFlowSpeed: 20
   _ambientImpactScale: 0.01
   _waveCrestAmplitude: 3
-  _waveCrestSpeed: 8
+  _waveCrestSpeed: 80
   _waveCrestWidth: 2.5
   _waveCrestLength: 14
   _minInletSpeed: 30
