@@ -95,9 +95,6 @@ namespace GuardWave
             CreateHud();
             _dropPreview = new GuardWaveDropPreview();
             _flipRenderer = new GuardWaveFlipRenderer(_fluidSettings);
-            // The latest master authors all stationary river/waterfall surfaces in Forest.
-            // Its old flood mesh stays disabled; the GPU particle renderer replaces it.
-            _sceneContext.FloodMesh.gameObject.SetActive(false);
             ResetGame();
             _initialized = true;
         }
