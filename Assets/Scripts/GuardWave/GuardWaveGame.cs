@@ -23,7 +23,9 @@ namespace GuardWave
         [Header("3D drop")]
         [SerializeField, Min(2f)] private float dropHeight = 7f;
         [SerializeField, Range(0.05f, 0.5f)] private float dropClickCooldown = 0.1f;
-        [SerializeField] private float groundY = -2.25f;
+
+        [Header("Ambient creek and one-shot wave (Ready button)")]
+        [SerializeField] private bool ambientFlowPreview = true;
 
         [Header("Flood stage transition")]
         [SerializeField, Min(0.1f)] private float floodFillDuration = 1.2f;
@@ -38,6 +40,8 @@ namespace GuardWave
         private readonly HashSet<GuardWavePiece> _pieceSet = new HashSet<GuardWavePiece>();
         private readonly HashSet<GuardWavePiece> _scenePieces = new HashSet<GuardWavePiece>();
         private readonly List<SceneBodyState> _initialScenePieceStates = new List<SceneBodyState>();
+        private readonly List<SceneParentActiveState> _initialSceneParentStates =
+            new List<SceneParentActiveState>();
         private readonly GuardWaveMaterial[] _offers = new GuardWaveMaterial[3];
         private ForestSceneContext _sceneContext;
         private GuardWaveCatalog _catalog;
@@ -93,11 +97,14 @@ namespace GuardWave
             CreateHud();
             _dropPreview = new GuardWaveDropPreview();
             _flipRenderer = new GuardWaveFlipRenderer(_fluidSettings);
-            // The latest master authors all stationary river/waterfall surfaces in Forest.
-            // Its old flood mesh stays disabled; the GPU particle renderer replaces it.
-            _sceneContext.FloodMesh.gameObject.SetActive(false);
             ResetGame();
             _initialized = true;
+        }
+
+        private void FixedUpdate()
+        {
+            if (ambientFlowPreview && _fluid != null)
+                _fluid.Step(Time.fixedDeltaTime, 0f);
         }
 
         private void Update()
@@ -158,7 +165,7 @@ namespace GuardWave
             _lastDropTime = Time.unscaledTime;
             HideDropPreview();
             StartCoroutine(DropAndResolve(_offers[_selected],
-                new Vector3(placement.x, dropHeight, placement.z)));
+                new Vector3(placement.x, _placementBounds.max.y + dropHeight, placement.z)));
         }
 
         /// <summary>Esc 또는 우클릭으로 현재 기물 선택을 해제한다.</summary>
@@ -188,7 +195,8 @@ namespace GuardWave
                 return false;
 
             Ray viewRay = _camera.ScreenPointToRay(screen);
-            Plane referencePlane = new Plane(Vector3.up, Vector3.zero);
+            Plane referencePlane = new Plane(Vector3.up,
+                new Vector3(0f, _placementBounds.max.y, 0f));
             if (!referencePlane.Raycast(viewRay, out float distance)) return false;
             position = viewRay.GetPoint(distance);
             return true;
@@ -198,7 +206,7 @@ namespace GuardWave
         private bool CanPlaceAt(Vector3 position)
         {
             return position.z < 15f && _placementBounds.Contains(
-                new Vector3(position.x, groundY, position.z));
+                new Vector3(position.x, _placementBounds.center.y, position.z));
         }
 
         /// <summary>커서 위치의 배치 가능 여부에 따라 실제 자재의 낙하 미리보기 색을 바꾼다.</summary>
@@ -215,13 +223,15 @@ namespace GuardWave
 
             bool canPlace = CanPlaceAt(placement);
             _dropPreview.Show(_offers[_selected], placement,
-                Quaternion.Euler(0f, _objectYaw, 0f), dropHeight, canPlace,
+                Quaternion.Euler(0f, _objectYaw, 0f),
+                _placementBounds.max.y + dropHeight, canPlace,
                 _placementBounds.max.y);
 
             if (_dropPreview.IsVisible)
             {
                 Vector3 launchTarget = _camera.WorldToScreenPoint(
-                    new Vector3(placement.x, dropHeight, placement.z));
+                    new Vector3(placement.x,
+                        _placementBounds.max.y + dropHeight, placement.z));
                 Vector3 screenTarget = _camera.WorldToScreenPoint(_dropPreview.LandingPosition);
                 if (launchTarget.z > 0f && screenTarget.z > 0f)
                     _hud.ShowDropGuide(new Vector2(launchTarget.x, launchTarget.y),
@@ -303,6 +313,7 @@ namespace GuardWave
                 .GetComponent<BoxCollider>().bounds;
             _lowerCreekBounds = GameObject.Find("Flat Muddy Creek Bed After Cliff")
                 .GetComponent<BoxCollider>().bounds;
+            _cameraTarget.y = _placementBounds.max.y + 2f;
         }
 
         /// <summary>원본 2D 게임의 상단 상태 UI와 하단 자재 카드 UI 프리팹을 연결한다.</summary>
@@ -329,7 +340,8 @@ namespace GuardWave
         public float RotationSpeed { get; set; } = 90f;
         public float CameraYawPerScrollStep { get; set; } = 5f;
         public bool IsPaletteHidden => false;
-        public bool CanReady => !_stageTransitioning && !_resolving && !_awaitingStage
+        public bool CanReady => (!ambientFlowPreview || _fluid != null) &&
+            !_stageTransitioning && !_resolving && !_awaitingStage
             && !_finished && !_rulesOpen && _defenseFlag != null
             && _defenseFlag.activeInHierarchy;
         public bool WaveHasStarted => _waveHasStarted;
@@ -343,7 +355,8 @@ namespace GuardWave
         public void PublishChange(GuardWaveChange change) => ChangeCommitted?.Invoke(change);
 
         /// <summary>실제로 배치되어 살아 있는 기물인지 확인한다.</summary>
-        public bool IsPlacedPiece(GuardWavePiece piece) => piece != null && _pieceSet.Contains(piece);
+        public bool IsPlacedPiece(GuardWavePiece piece) => piece != null &&
+            piece.gameObject.activeInHierarchy && _pieceSet.Contains(piece);
 
         /// <summary>배치한 기물의 카탈로그 정보를 제공한다.</summary>
         public GuardWaveMaterial GetPieceMaterial(GuardWavePiece piece) => _catalog.Get(piece.MaterialId);
@@ -514,12 +527,13 @@ namespace GuardWave
             _resolving = false;
             _awaitingStage = false;
             _finished = false;
-            _cameraTarget = Vector3.zero;
+            _cameraTarget = new Vector3(0f, _placementBounds.max.y + 2f, 0f);
             _rightGestureActive = false;
             _rightPressedPiece = null;
             UpdateCameraPosition();
             ResetDefenseFlag();
             DealOffers();
+            if (ambientFlowPreview) BeginAmbientCreekFlow();
             _status = "고무오리·쓰레기 봉투·큰 돌을 배치하세요. 기물 우클릭: 제거, 빈 공간 우클릭: 선택 해제";
         }
 
@@ -532,18 +546,41 @@ namespace GuardWave
                 if (piece == null || piece.gameObject.scene.handle != gameObject.scene.handle)
                     continue;
                 piece.Initialize(this);
+                Rigidbody body = piece.Body;
+                if (body == null) continue;
                 _scenePieces.Add(piece);
-                _initialScenePieceStates.Add(new SceneBodyState(piece.Body));
+                _initialScenePieceStates.Add(new SceneBodyState(body));
+            }
+            CaptureSceneParentActivation(_initialSceneParentStates);
+        }
+
+        /// <summary>Captures parent activation so disabled Beaver Houses survive rollback.</summary>
+        private void CaptureSceneParentActivation(List<SceneParentActiveState> destination)
+        {
+            HashSet<GameObject> visited = new HashSet<GameObject>();
+            foreach (GuardWavePiece piece in _scenePieces)
+            {
+                if (piece == null) continue;
+                for (Transform ancestor = piece.transform.parent; ancestor != null;
+                    ancestor = ancestor.parent)
+                {
+                    GameObject parent = ancestor.gameObject;
+                    if (parent.scene.handle != gameObject.scene.handle) break;
+                    if (visited.Add(parent))
+                        destination.Add(new SceneParentActiveState(parent));
+                }
             }
         }
 
         /// <summary>Restores all authored sticks on a full game restart.</summary>
         private void RestoreInitialScenePieces()
         {
+            foreach (SceneParentActiveState parent in _initialSceneParentStates)
+                parent.Restore();
             foreach (SceneBodyState state in _initialScenePieceStates)
             {
                 if (state.Body == null) continue;
-                state.Body.gameObject.SetActive(true);
+                state.Body.gameObject.SetActive(state.ActiveSelf);
                 state.State.RestorePose(state.Body);
                 GuardWavePiece restoredScenePiece = state.Body.GetComponent<GuardWavePiece>();
                 if (restoredScenePiece != null && _scenePieces.Contains(restoredScenePiece))
@@ -559,6 +596,30 @@ namespace GuardWave
             }
         }
 
+        /// <summary>Starts the persistent 1m creek at scene load; Ready adds one crest later.</summary>
+        private void BeginAmbientCreekFlow()
+        {
+            try
+            {
+                _fluid = new GuardWaveFlipFluid(_placementBounds.max.z,
+                    _placementBounds.min.z, _placementBounds.max.y,
+                    _lowerCreekBounds.max.y, _fluidSettings.AmbientWaterDepth,
+                    floodTravelDuration, _pieces, _flagBody, _fluidSettings, ambientFlow: true);
+                // The authored surface is still visible in the editor; disable
+                // its renderer only in Play Mode to expose the real FLIP water.
+                GameObject upperWater = GameObject.Find("Upper River Water");
+                if (upperWater != null && upperWater.TryGetComponent(out MeshRenderer mesh))
+                    mesh.enabled = false;
+                _status = "기본 수심 1m 흐름 실험: 폭포로 빠진 입자만 상류에서 보충합니다.";
+            }
+            catch (Exception error)
+            {
+                Debug.LogError("Unable to initialize ambient creek flow: " + error);
+                DisposeFluid();
+                _status = "기본 강물 시뮬레이션 시작 실패";
+            }
+        }
+
         /// <summary>씬에 배치된 깃발을 최초의 자세와 운동 상태로 되돌린다.</summary>
         private void ResetDefenseFlag()
         {
@@ -571,7 +632,7 @@ namespace GuardWave
         /// <summary>Resources/Prefabs에서 3D 기물을 로드하고 Rigidbody를 통한 중력 낙하를 준비한다.</summary>
         private GuardWavePiece Spawn(GuardWaveMaterial material, Vector3 position, bool anchored = false)
         {
-            GameObject prefab = Resources.Load<GameObject>("Prefabs/" + material.id);
+            GameObject prefab = Resources.Load<GameObject>("Prefabs/Objects/" + material.id);
             if (prefab == null) throw new InvalidOperationException("Missing 3D prefab: " + material.id);
             GameObject instance = Instantiate(prefab, position, Quaternion.Euler(0f, _objectYaw, 0f));
             instance.name = material.name;
@@ -662,8 +723,70 @@ namespace GuardWave
             _waveHasStarted = true;
             _stageTransitioning = true;
             _resolving = true;
+            if (ambientFlowPreview)
+            {
+                try
+                {
+                    // Ready adds only one 3m crest; the 10m/s creek continues unchanged.
+                    _fluid.EmitSingleCrest();
+                }
+                catch (Exception error)
+                {
+                    Debug.LogError("Unable to emit the 3m wave crest: " + error);
+                    _waveHasStarted = false;
+                    _stageTransitioning = false;
+                    _resolving = false;
+                    CommitWaveSnapshot();
+                    _status = "파봉 생성 실패: 입자 예산과 설정을 확인하세요.";
+                    return;
+                }
+                _status = "기본 강물과 3m 파봉이 동일한 유속으로 흐릅니다.";
+                _stageFloodRoutine = StartCoroutine(ResolveAmbientWave());
+                return;
+            }
+
             _status = "홍수 발생: 기물과 깃발을 지키세요.";
             _stageFloodRoutine = StartCoroutine(ResolveStageFlood());
+        }
+
+        /// <summary>
+        /// Monitors exactly one upstream crest while FixedUpdate continuously
+        /// advances the same ambient creek, even during a failure popup.
+        /// </summary>
+        private IEnumerator ResolveAmbientWave()
+        {
+            float travel = (_placementBounds.size.z + _fluidSettings.WaveCrestLength) /
+                Mathf.Max(0.1f, _fluidSettings.WaveCrestSpeed);
+            float elapsed = 0f;
+            while (elapsed < travel + 3f)
+            {
+                yield return new WaitForFixedUpdate();
+                elapsed += Time.fixedDeltaTime;
+                if (_awaitingStage)
+                {
+                    // Do not dispose the ongoing liquid during the failure popup.
+                    _stageFloodRoutine = null;
+                    yield break;
+                }
+            }
+
+            if (_awaitingStage)
+            {
+                _stageFloodRoutine = null;
+                yield break;
+            }
+
+            CommitWaveSnapshot();
+            _stageTransitioning = false;
+            _resolving = false;
+            _stageFloodRoutine = null;
+            _stage++;
+            if (_stage == STAGE_COUNT)
+            {
+                _finished = true;
+                yield break;
+            }
+            _status = "파봉이 지나갔습니다. 기본 강물은 계속 흐릅니다.";
         }
 
         /// <summary>
@@ -793,7 +916,15 @@ namespace GuardWave
             foreach (GuardWavePiece piece in _pieces)
                 if (piece != null) snapshot.Pieces.Add(new PieceState(piece));
 
-            foreach (Rigidbody body in FindObjectsByType<Rigidbody>(FindObjectsSortMode.None))
+            // Inactive authored sticks must also be snapshotted: their parent
+            // may be activated later without restarting the Forest scene.
+            CaptureSceneParentActivation(snapshot.SceneParents);
+            foreach (GuardWavePiece piece in _scenePieces)
+                if (piece != null && _pieceSet.Contains(piece))
+                    snapshot.SelectableScenePieces.Add(piece);
+
+            foreach (Rigidbody body in FindObjectsByType<Rigidbody>(
+                FindObjectsInactive.Include, FindObjectsSortMode.None))
             {
                 if (body == _flagBody) continue;
                 GuardWavePiece bodyPiece = body.GetComponent<GuardWavePiece>();
@@ -817,6 +948,8 @@ namespace GuardWave
                 if (piece != null) piece.gameObject.SetActive(false);
             _pieces.Clear();
             _pieceSet.Clear();
+            foreach (SceneParentActiveState parent in snapshot.SceneParents)
+                parent.Restore();
             foreach (PieceState state in snapshot.Pieces)
             {
                 GuardWavePiece piece = state.Piece;
@@ -832,9 +965,11 @@ namespace GuardWave
             foreach (SceneBodyState state in snapshot.SceneBodies)
             {
                 if (state.Body == null) continue;
-                state.Body.gameObject.SetActive(true);
+                state.Body.gameObject.SetActive(state.ActiveSelf);
                 state.State.RestorePose(state.Body);
             }
+            foreach (GuardWavePiece piece in snapshot.SelectableScenePieces)
+                if (piece != null) _pieceSet.Add(piece);
 
             // Sync all saved poses before resuming the recorded motion.
             Physics.SyncTransforms();
@@ -872,6 +1007,8 @@ namespace GuardWave
         {
             public readonly List<PieceState> Pieces = new List<PieceState>();
             public readonly List<SceneBodyState> SceneBodies = new List<SceneBodyState>();
+            public readonly List<SceneParentActiveState> SceneParents = new List<SceneParentActiveState>();
+            public readonly HashSet<GuardWavePiece> SelectableScenePieces = new HashSet<GuardWavePiece>();
             public RigidbodyState Flag;
             public int SelectedOffer;
             public float ObjectYaw;
@@ -880,15 +1017,35 @@ namespace GuardWave
             public float CameraZoom;
         }
 
+        /// <summary>Preserves an authored parent object's own activation state.</summary>
+        private readonly struct SceneParentActiveState
+        {
+            private readonly GameObject _gameObject;
+            private readonly bool _activeSelf;
+
+            public SceneParentActiveState(GameObject gameObject)
+            {
+                _gameObject = gameObject;
+                _activeSelf = gameObject.activeSelf;
+            }
+
+            public void Restore()
+            {
+                if (_gameObject != null) _gameObject.SetActive(_activeSelf);
+            }
+        }
+
         private readonly struct SceneBodyState
         {
             public readonly Rigidbody Body;
             public readonly RigidbodyState State;
+            public readonly bool ActiveSelf;
 
-            /// <summary>파도의 영향을 받을 수 있는 씬 물리 오브젝트의 상태를 보관한다.</summary>
+            /// <summary>Preserves Rigidbody motion and its own active flag, even under an inactive parent.</summary>
             public SceneBodyState(Rigidbody body)
             {
                 Body = body;
+                ActiveSelf = body.gameObject.activeSelf;
                 State = new RigidbodyState(body);
             }
         }
@@ -920,6 +1077,7 @@ namespace GuardWave
             /// <summary>리지드바디의 위치, 속도 및 물리 속성을 기록한다.</summary>
             public RigidbodyState(Rigidbody body)
             {
+                if (body == null) throw new ArgumentNullException(nameof(body));
                 _position = body.transform.position;
                 _rotation = body.transform.rotation;
                 _scale = body.transform.localScale;
@@ -951,6 +1109,8 @@ namespace GuardWave
                     body.linearVelocity = _velocity;
                     body.angularVelocity = _angularVelocity;
                 }
+                // Sleep/WakeUp requires an active simulated Rigidbody.
+                if (!body.gameObject.activeInHierarchy) return;
                 if (_sleeping) body.Sleep();
                 else body.WakeUp();
             }
@@ -969,6 +1129,8 @@ namespace GuardWave
             }
             DisposeFluid();
             RestoreWaveSnapshot();
+            if (ambientFlowPreview)
+                BeginAmbientCreekFlow();
         }
 
     }

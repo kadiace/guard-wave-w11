@@ -19,6 +19,17 @@ MonoBehaviour:
   _angularImpulseMultiplier: 3
   _pressureClamp: 5000
   _pressureThreshold: 0.05
+  _ambientWaterDepth: 1
+  _ambientFlowSpeed: 10
+  _ambientFlowVolumeMultiplier: 2
+  _ambientImpactScale: 0.01
+  _waveCrestAmplitude: 3
+  _waveCrestWidth: 1.4
+  _waveCrestLength: 8
+  _crestHeightStiffness: 36
+  _crestHeightDamping: 12
+  _crestForwardDamping: 5
+  _crestReleaseDistance: 0.8
   _minInletSpeed: 30
   _maxInletSpeed: 60
   _travelDurationMultiplier: 2
@@ -28,7 +39,7 @@ MonoBehaviour:
   _collisionResponse: 2
   _collisionSkin: 0.06
   _cellSize: 0.6
-  _maxParticles: 24000
+  _maxParticles: 64000
   _maxBodies: 384
   _maxColliders: 256
   _pressureIterations: 22
