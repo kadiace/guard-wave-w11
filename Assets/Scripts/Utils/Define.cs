@@ -2,6 +2,7 @@ public enum Scene
 {
     Unknown,
     Game,
+    Forest,
 }
 
 public enum InputMode

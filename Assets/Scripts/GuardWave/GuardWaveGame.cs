@@ -98,6 +98,13 @@ namespace GuardWave
         private void Update()
         {
             if (!_initialized) return;
+
+            if (Keyboard.current?.rKey.wasPressedThisFrame == true)
+            {
+                Managers.Scene.ReloadCurrentScene();
+                return;
+            }
+
             // Only a started wave can fail; restored placements must remain editable.
             if (_stageTransitioning && _waveSnapshot != null &&
                 _defenseFlag != null && _defenseFlag.activeSelf &&
