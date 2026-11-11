@@ -15,8 +15,8 @@ namespace GuardWave
     {
         private const int THREADS = 128;
         private const int MAX_PARTICLES = 24000;
-        private const int MAX_BODIES = 192;
-        private const int MAX_COLLIDERS = 192;
+        private const int MAX_BODIES = 384;
+        private const int MAX_COLLIDERS = 256;
         private const int PRESSURE_ITERATIONS = 22;
         private const float CELL_SIZE = 0.6f;
         private const float IMPULSE_SCALE = 2048f;
@@ -41,6 +41,7 @@ namespace GuardWave
             public Vector4 Rotation;
             public Vector4 Velocity;
             public Vector4 Angular;
+            public Vector4 BodyCenter;
         }
 
         [StructLayout(LayoutKind.Sequential)]
@@ -81,6 +82,7 @@ namespace GuardWave
         private readonly int _pressureKernel;
         private readonly int _projectKernel;
         private readonly int _g2pKernel;
+        private readonly int _pressureBodyKernel;
         private float _spawnClock;
         private float _elapsed;
         private int _particleCount;
@@ -141,6 +143,7 @@ namespace GuardWave
             _pressureKernel = _compute.FindKernel("JacobiPressure");
             _projectKernel = _compute.FindKernel("ProjectGrid");
             _g2pKernel = _compute.FindKernel("GridToParticle");
+            _pressureBodyKernel = _compute.FindKernel("PressureToBodies");
 
             _compute.SetInts("_GridSize", _grid.x, _grid.y, _grid.z);
             _compute.SetVector("_GridOrigin", _origin);
@@ -154,23 +157,52 @@ namespace GuardWave
             _compute.SetFloat("_Gravity", Mathf.Abs(Physics.gravity.y));
             _compute.SetFloat("_FlipFraction", 0.92f);
             _compute.SetFloat("_ParticleMass", PARTICLE_EFFECTIVE_MASS);
+            _compute.SetFloat("_HydroDensity", 0.7f);
             _compute.SetInt("_BodyCount", 0);
             _compute.SetInt("_ColliderCount", 0);
-            foreach (int kernel in new[] { _clearKernel, _classifyKernel, _spawnKernel,
-                _p2gKernel, _normalizeKernel, _pressureKernel, _projectKernel, _g2pKernel })
-            {
-                _compute.SetBuffer(kernel, "_Particles", _particles);
-                _compute.SetBuffer(kernel, "_Accum", _accum);
-                _compute.SetBuffer(kernel, "_BodyImpulses", _impulses);
-                _compute.SetBuffer(kernel, "_GridVelocity", _velocity);
-                _compute.SetBuffer(kernel, "_GridBefore", _before);
-                _compute.SetBuffer(kernel, "_Solid", _solid);
-                _compute.SetBuffer(kernel, "_Colliders", _colliderBuffer);
-                _compute.SetBuffer(kernel, "_PressureSrc", _pressureA);
-                _compute.SetBuffer(kernel, "_PressureDst", _pressureB);
-            }
+            // Bind only the resources actually used by each kernel; Unity strips
+            // unused compute resources from individual kernels.
+            Bind(_clearKernel, "_Accum", _accum);
+            Bind(_clearKernel, "_GridVelocity", _velocity);
+            Bind(_clearKernel, "_GridBefore", _before);
+            Bind(_clearKernel, "_PressureSrc", _pressureA);
+            Bind(_clearKernel, "_PressureDst", _pressureB);
+            Bind(_clearKernel, "_BodyImpulses", _impulses);
+            Bind(_classifyKernel, "_Solid", _solid);
+            Bind(_classifyKernel, "_Colliders", _colliderBuffer);
+            Bind(_spawnKernel, "_Particles", _particles);
+            Bind(_p2gKernel, "_Particles", _particles);
+            Bind(_p2gKernel, "_Accum", _accum);
+            Bind(_p2gKernel, "_Solid", _solid);
+            Bind(_normalizeKernel, "_Accum", _accum);
+            Bind(_normalizeKernel, "_GridBefore", _before);
+            Bind(_normalizeKernel, "_GridVelocity", _velocity);
+            Bind(_normalizeKernel, "_Solid", _solid);
+            Bind(_pressureKernel, "_Accum", _accum);
+            Bind(_pressureKernel, "_Solid", _solid);
+            Bind(_pressureKernel, "_GridVelocity", _velocity);
+            Bind(_projectKernel, "_Accum", _accum);
+            Bind(_projectKernel, "_Solid", _solid);
+            Bind(_projectKernel, "_GridVelocity", _velocity);
+            Bind(_g2pKernel, "_Particles", _particles);
+            Bind(_g2pKernel, "_Accum", _accum);
+            Bind(_g2pKernel, "_Solid", _solid);
+            Bind(_g2pKernel, "_GridVelocity", _velocity);
+            Bind(_g2pKernel, "_GridBefore", _before);
+            Bind(_g2pKernel, "_Colliders", _colliderBuffer);
+            Bind(_g2pKernel, "_BodyImpulses", _impulses);
+            Bind(_pressureBodyKernel, "_Accum", _accum);
+            Bind(_pressureBodyKernel, "_Solid", _solid);
+            Bind(_pressureBodyKernel, "_Colliders", _colliderBuffer);
+            Bind(_pressureBodyKernel, "_BodyImpulses", _impulses);
             CollectBodies(pieces, flagBody);
             UpdateColliders();
+        }
+
+        /// <summary>Assigns GPU resources to a kernel without binding resources it never uses.</summary>
+        private void Bind(int kernel, string name, ComputeBuffer buffer)
+        {
+            _compute.SetBuffer(kernel, name, buffer);
         }
 
         /// <summary>Collects scene bodies once; dynamically updating their collider poses every step.</summary>
@@ -202,7 +234,6 @@ namespace GuardWave
         private void UpdateColliders()
         {
             int count = 0;
-            float front = _startZ - _elapsed * InletSpeed;
             foreach (Collider collider in _colliders)
             {
                 if (count >= MAX_COLLIDERS) break;
@@ -210,7 +241,7 @@ namespace GuardWave
                     continue;
                 Bounds bounds = collider.bounds;
                 if (bounds.min.x > 12.5f || bounds.max.x < -12.5f ||
-                    bounds.max.z < front - 8f || bounds.min.z > front + 15f)
+                    bounds.max.z < _endZ - CELL_SIZE || bounds.min.z > _startZ + CELL_SIZE)
                     continue;
                 Rigidbody body = collider.attachedRigidbody;
                 int index = body != null && _indices.TryGetValue(body, out int found)
@@ -252,9 +283,18 @@ namespace GuardWave
                     rotation *= Quaternion.FromToRotation(Vector3.up, axis);
                     type = 2f;
                 }
+                else if (collider is MeshCollider mesh && mesh.sharedMesh != null)
+                {
+                    // An oriented local-mesh AABB avoids oversized world-space boxes for
+                    // rotated convex sticks; concave details need a separately baked SDF.
+                    Bounds local = mesh.sharedMesh.bounds;
+                    center = collider.transform.TransformPoint(local.center);
+                    Vector3 scale = collider.transform.lossyScale;
+                    half = Vector3.Scale(local.extents, new Vector3(
+                        Mathf.Abs(scale.x), Mathf.Abs(scale.y), Mathf.Abs(scale.z)));
+                }
                 else
                 {
-                    // MeshCollider fallback: world-space bounding box until an SDF is baked.
                     rotation = Quaternion.identity;
                 }
                 data.CenterBody = new Vector4(center.x,center.y,center.z,index);
@@ -264,9 +304,13 @@ namespace GuardWave
                 {
                     Vector3 v = body.linearVelocity;
                     Vector3 w = body.angularVelocity;
-                    data.Velocity = new Vector4(v.x,v.y,v.z,0);
+                    data.Velocity = new Vector4(v.x,v.y,v.z,bounds.extents.magnitude+CELL_SIZE);
                     data.Angular = new Vector4(w.x,w.y,w.z,0);
                 }
+                if (body == null || body.isKinematic)
+                    data.Velocity.w = bounds.extents.magnitude + CELL_SIZE;
+                Vector3 bodyCenter = body != null ? body.worldCenterOfMass : center;
+                data.BodyCenter = new Vector4(bodyCenter.x, bodyCenter.y, bodyCenter.z, 0f);
                 _colliderData[count++] = data;
             }
             if (count > 0) _colliderBuffer.SetData(_colliderData, 0, 0, count);
@@ -317,6 +361,8 @@ namespace GuardWave
             }
             _compute.SetBuffer(_projectKernel, "_PressureSrc", src);
             Dispatch(_projectKernel, _gridCount);
+            _compute.SetBuffer(_pressureBodyKernel, "_PressureSrc", src);
+            Dispatch(_pressureBodyKernel, _gridCount);
             Dispatch(_g2pKernel, _particleCount);
             if (!_pendingReadback && _bodies.Count > 0)
             {
