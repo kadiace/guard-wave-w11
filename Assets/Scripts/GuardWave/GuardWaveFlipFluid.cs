@@ -316,12 +316,14 @@ namespace GuardWave
             AddBody(flag);
             foreach (GuardWavePiece piece in pieces)
                 if (piece != null) AddBody(piece.Body);
+            // Keep initially inactive authored sticks registered in GPU
+            // collider lists so activating their parent works mid-simulation.
             foreach (Rigidbody body in UnityEngine.Object.FindObjectsByType<Rigidbody>(
-                FindObjectsSortMode.None))
+                FindObjectsInactive.Include, FindObjectsSortMode.None))
                 if (body != null && body.gameObject.scene == flag.gameObject.scene)
                     AddBody(body);
             foreach (Rigidbody body in _bodies)
-                foreach (Collider collider in body.GetComponentsInChildren<Collider>())
+                foreach (Collider collider in body.GetComponentsInChildren<Collider>(true))
                     if (collider != null && !collider.isTrigger)
                         _colliders.Add(collider);
         }

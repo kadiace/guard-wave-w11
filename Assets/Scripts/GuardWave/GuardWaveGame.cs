@@ -40,6 +40,8 @@ namespace GuardWave
         private readonly HashSet<GuardWavePiece> _pieceSet = new HashSet<GuardWavePiece>();
         private readonly HashSet<GuardWavePiece> _scenePieces = new HashSet<GuardWavePiece>();
         private readonly List<SceneBodyState> _initialScenePieceStates = new List<SceneBodyState>();
+        private readonly List<SceneParentActiveState> _initialSceneParentStates =
+            new List<SceneParentActiveState>();
         private readonly GuardWaveMaterial[] _offers = new GuardWaveMaterial[3];
         private ForestSceneContext _sceneContext;
         private GuardWaveCatalog _catalog;
@@ -353,7 +355,8 @@ namespace GuardWave
         public void PublishChange(GuardWaveChange change) => ChangeCommitted?.Invoke(change);
 
         /// <summary>실제로 배치되어 살아 있는 기물인지 확인한다.</summary>
-        public bool IsPlacedPiece(GuardWavePiece piece) => piece != null && _pieceSet.Contains(piece);
+        public bool IsPlacedPiece(GuardWavePiece piece) => piece != null &&
+            piece.gameObject.activeInHierarchy && _pieceSet.Contains(piece);
 
         /// <summary>배치한 기물의 카탈로그 정보를 제공한다.</summary>
         public GuardWaveMaterial GetPieceMaterial(GuardWavePiece piece) => _catalog.Get(piece.MaterialId);
@@ -543,18 +546,41 @@ namespace GuardWave
                 if (piece == null || piece.gameObject.scene.handle != gameObject.scene.handle)
                     continue;
                 piece.Initialize(this);
+                Rigidbody body = piece.Body;
+                if (body == null) continue;
                 _scenePieces.Add(piece);
-                _initialScenePieceStates.Add(new SceneBodyState(piece.Body));
+                _initialScenePieceStates.Add(new SceneBodyState(body));
+            }
+            CaptureSceneParentActivation(_initialSceneParentStates);
+        }
+
+        /// <summary>Captures parent activation so disabled Beaver Houses survive rollback.</summary>
+        private void CaptureSceneParentActivation(List<SceneParentActiveState> destination)
+        {
+            HashSet<GameObject> visited = new HashSet<GameObject>();
+            foreach (GuardWavePiece piece in _scenePieces)
+            {
+                if (piece == null) continue;
+                for (Transform ancestor = piece.transform.parent; ancestor != null;
+                    ancestor = ancestor.parent)
+                {
+                    GameObject parent = ancestor.gameObject;
+                    if (parent.scene.handle != gameObject.scene.handle) break;
+                    if (visited.Add(parent))
+                        destination.Add(new SceneParentActiveState(parent));
+                }
             }
         }
 
         /// <summary>Restores all authored sticks on a full game restart.</summary>
         private void RestoreInitialScenePieces()
         {
+            foreach (SceneParentActiveState parent in _initialSceneParentStates)
+                parent.Restore();
             foreach (SceneBodyState state in _initialScenePieceStates)
             {
                 if (state.Body == null) continue;
-                state.Body.gameObject.SetActive(true);
+                state.Body.gameObject.SetActive(state.ActiveSelf);
                 state.State.RestorePose(state.Body);
                 GuardWavePiece restoredScenePiece = state.Body.GetComponent<GuardWavePiece>();
                 if (restoredScenePiece != null && _scenePieces.Contains(restoredScenePiece))
@@ -891,7 +917,15 @@ namespace GuardWave
             foreach (GuardWavePiece piece in _pieces)
                 if (piece != null) snapshot.Pieces.Add(new PieceState(piece));
 
-            foreach (Rigidbody body in FindObjectsByType<Rigidbody>(FindObjectsSortMode.None))
+            // Inactive authored sticks must also be snapshotted: their parent
+            // may be activated later without restarting the Forest scene.
+            CaptureSceneParentActivation(snapshot.SceneParents);
+            foreach (GuardWavePiece piece in _scenePieces)
+                if (piece != null && _pieceSet.Contains(piece))
+                    snapshot.SelectableScenePieces.Add(piece);
+
+            foreach (Rigidbody body in FindObjectsByType<Rigidbody>(
+                FindObjectsInactive.Include, FindObjectsSortMode.None))
             {
                 if (body == _flagBody) continue;
                 GuardWavePiece bodyPiece = body.GetComponent<GuardWavePiece>();
@@ -915,6 +949,8 @@ namespace GuardWave
                 if (piece != null) piece.gameObject.SetActive(false);
             _pieces.Clear();
             _pieceSet.Clear();
+            foreach (SceneParentActiveState parent in snapshot.SceneParents)
+                parent.Restore();
             foreach (PieceState state in snapshot.Pieces)
             {
                 GuardWavePiece piece = state.Piece;
@@ -930,9 +966,11 @@ namespace GuardWave
             foreach (SceneBodyState state in snapshot.SceneBodies)
             {
                 if (state.Body == null) continue;
-                state.Body.gameObject.SetActive(true);
+                state.Body.gameObject.SetActive(state.ActiveSelf);
                 state.State.RestorePose(state.Body);
             }
+            foreach (GuardWavePiece piece in snapshot.SelectableScenePieces)
+                if (piece != null) _pieceSet.Add(piece);
 
             // Sync all saved poses before resuming the recorded motion.
             Physics.SyncTransforms();
@@ -970,6 +1008,8 @@ namespace GuardWave
         {
             public readonly List<PieceState> Pieces = new List<PieceState>();
             public readonly List<SceneBodyState> SceneBodies = new List<SceneBodyState>();
+            public readonly List<SceneParentActiveState> SceneParents = new List<SceneParentActiveState>();
+            public readonly HashSet<GuardWavePiece> SelectableScenePieces = new HashSet<GuardWavePiece>();
             public RigidbodyState Flag;
             public int SelectedOffer;
             public float ObjectYaw;
@@ -978,15 +1018,35 @@ namespace GuardWave
             public float CameraZoom;
         }
 
+        /// <summary>Preserves an authored parent object's own activation state.</summary>
+        private readonly struct SceneParentActiveState
+        {
+            private readonly GameObject _gameObject;
+            private readonly bool _activeSelf;
+
+            public SceneParentActiveState(GameObject gameObject)
+            {
+                _gameObject = gameObject;
+                _activeSelf = gameObject.activeSelf;
+            }
+
+            public void Restore()
+            {
+                if (_gameObject != null) _gameObject.SetActive(_activeSelf);
+            }
+        }
+
         private readonly struct SceneBodyState
         {
             public readonly Rigidbody Body;
             public readonly RigidbodyState State;
+            public readonly bool ActiveSelf;
 
-            /// <summary>파도의 영향을 받을 수 있는 씬 물리 오브젝트의 상태를 보관한다.</summary>
+            /// <summary>Preserves Rigidbody motion and its own active flag, even under an inactive parent.</summary>
             public SceneBodyState(Rigidbody body)
             {
                 Body = body;
+                ActiveSelf = body.gameObject.activeSelf;
                 State = new RigidbodyState(body);
             }
         }
@@ -1018,6 +1078,7 @@ namespace GuardWave
             /// <summary>리지드바디의 위치, 속도 및 물리 속성을 기록한다.</summary>
             public RigidbodyState(Rigidbody body)
             {
+                if (body == null) throw new ArgumentNullException(nameof(body));
                 _position = body.transform.position;
                 _rotation = body.transform.rotation;
                 _scale = body.transform.localScale;
@@ -1049,6 +1110,8 @@ namespace GuardWave
                     body.linearVelocity = _velocity;
                     body.angularVelocity = _angularVelocity;
                 }
+                // Sleep/WakeUp requires an active simulated Rigidbody.
+                if (!body.gameObject.activeInHierarchy) return;
                 if (_sleeping) body.Sleep();
                 else body.WakeUp();
             }

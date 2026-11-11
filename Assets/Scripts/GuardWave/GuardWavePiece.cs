@@ -14,25 +14,34 @@ namespace GuardWave
         private Renderer[] _renderers;
 
         public string MaterialId => materialId;
-        public Rigidbody Body => _body;
+        // Awake is not guaranteed to run before another component queries an
+        // object that starts inactive in the authored scene.
+        public Rigidbody Body => _body != null ? _body : (_body = GetComponent<Rigidbody>());
 
         private void Awake()
         {
-            _body = GetComponent<Rigidbody>();
-            _renderers = GetComponentsInChildren<Renderer>(true);
+            CacheComponents();
             SetOutlineLayer(0);
+        }
+
+        private void CacheComponents()
+        {
+            _ = Body;
+            if (_renderers == null)
+                _renderers = GetComponentsInChildren<Renderer>(true);
         }
 
         /// <summary>Registers both runtime-placed pieces and authored scene sticks.</summary>
         public void Initialize(GuardWaveGame game)
         {
+            CacheComponents();
             _game = game;
         }
 
         /// <summary>Only change the hover rendering bit, preserving the original rendering layers.</summary>
         public void SetOutlineLayer(uint layer)
         {
-            if (_renderers == null) return;
+            CacheComponents();
             foreach (Renderer renderer in _renderers)
                 if (renderer != null)
                     renderer.renderingLayerMask = (renderer.renderingLayerMask & ~2u) | layer;

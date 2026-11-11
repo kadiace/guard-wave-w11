@@ -201,3 +201,26 @@ The creek's 1m initial depth, 20m/s ambient velocity, 3m additional
 crest, 80m/s crest speed, existing water rendering and refill
 rate scaling remain unchanged. Unity Editor Play Mode and GPU
 behavior still require hands-on validation.
+
+## Beaver House activation and inactive scene pieces
+
+Authored Beaver House sticks can now be inactive before Play and enabled or
+hidden later without causing `GuardWaveGame.RegisterScenePieces` to pass a null
+Rigidbody into its snapshot. `GuardWavePiece.Body` uses lazy component
+resolution because Unity may not have invoked `Awake` on an inactive parent.
+The renderer cache is also initialized on demand.
+
+Initial restart snapshots and pre-wave rollback store each stick's own
+`activeSelf` and the activation of its parent hierarchy. Scene Rigidbody
+snapshots include inactive objects, and the active/selectable scene-piece
+membership is preserved across rollback without reviving pieces removed
+before Ready. Fluid collider discovery includes inactive scene Rigidbodies,
+while the per-step collider upload still filters by `activeInHierarchy`.
+Thus turning Beaver House on or off during Play automatically enables or
+disables its collider contributions in the same running FLIP simulation.
+
+Play Mode tests to run in Unity: start with Beaver House inactive; toggle it
+on/off after flow begins; press Ready with it inactive; toggle it during a
+wave; fail and confirm rollback; restart; ensure the parent activation state,
+outline selection and fluid collisions match the intended state. Unity Play
+Mode and GPU execution were not available for this change.
