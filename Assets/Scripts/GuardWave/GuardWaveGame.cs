@@ -757,6 +757,8 @@ namespace GuardWave
         /// <summary>Releases all GPU fluid resources before reset, rollback or stage exit.</summary>
         private void DisposeFluid()
         {
+            // Unregister before releasing buffers to avoid rendering disposed GPU data.
+            _flipRenderer?.Render(null);
             _fluid?.Dispose();
             _fluid = null;
         }
