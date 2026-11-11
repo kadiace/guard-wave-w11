@@ -34,7 +34,7 @@ namespace GuardWave
         [SerializeField, Min(0.1f)] private float floodFillDuration = 1.2f;
         [SerializeField, Min(0.1f)] private float floodTravelDuration = 2.25f;
         [SerializeField, Min(0.05f)] private float shallowWaterDepth = 0.3f;
-        [SerializeField, Min(0.1f)] private float floodWaterDepth = 2f;
+        [SerializeField, Min(0.1f)] private float floodWaterDepth = 5f;
         [SerializeField]
         private AnimationCurve floodFillCurve =
             AnimationCurve.EaseInOut(0f, 0f, 1f, 1f);
@@ -51,6 +51,7 @@ namespace GuardWave
         private GuardWaveFlipRenderer _flipRenderer;
         private GuardWaveFlipFluid _fluid;
         private Bounds _placementBounds;
+        private Bounds _lowerCreekBounds;
         private GuardWaveFloatingText _floatingText;
         private GameObject _defenseFlag;
         private Rigidbody _flagBody;
@@ -94,10 +95,11 @@ namespace GuardWave
             _dropPreview = new GuardWaveDropPreview();
             _flipRenderer = new GuardWaveFlipRenderer();
             ResetGame();
-            Bounds lowerCreek = GameObject.Find("Flat Muddy Creek Bed After Cliff")
+            _lowerCreekBounds = GameObject.Find("Flat Muddy Creek Bed After Cliff")
                 .GetComponent<BoxCollider>().bounds;
-            _flipRenderer.ShowShallow(_placementBounds, lowerCreek,
-                groundY + shallowWaterDepth, lowerCreek.center.y + shallowWaterDepth);
+            _flipRenderer.ShowShallow(_placementBounds, _lowerCreekBounds,
+                groundY + shallowWaterDepth,
+                _lowerCreekBounds.center.y + shallowWaterDepth);
             _initialized = true;
         }
 
@@ -763,7 +765,7 @@ namespace GuardWave
             {
                 _fluid = new GuardWaveFlipFluid(_placementBounds.max.z,
                     _placementBounds.min.z, _placementBounds.max.y,
-                    waveHeight, floodTravelDuration, _pieces, _flagBody);
+                    _lowerCreekBounds.max.y, waveHeight, floodTravelDuration, _pieces, _flagBody);
             }
             catch (Exception error)
             {
@@ -794,7 +796,7 @@ namespace GuardWave
             float travel = (_placementBounds.max.z - _placementBounds.min.z) /
                 _fluid.InletSpeed;
             float drainElapsed = 0f;
-            while (drainElapsed < travel + 1.5f)
+            while (drainElapsed < travel + 3.0f)
             {
                 yield return new WaitForFixedUpdate();
                 drainElapsed += Time.fixedDeltaTime;
