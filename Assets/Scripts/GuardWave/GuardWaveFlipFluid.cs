@@ -90,6 +90,8 @@ namespace GuardWave
         private readonly int _waterfallKernel;
         private float _spawnClock;
         private float _elapsed;
+        // Fractional refill credits prevent rounding drift at low flow speeds.
+        private double _ambientRefillFraction;
         private int _particleCount;
         private int _seed;
         private bool _pendingReadback;
@@ -149,8 +151,8 @@ namespace GuardWave
             _solid = new ComputeBuffer(_gridCount, sizeof(uint));
             _colliderBuffer = new ComputeBuffer(_settings.MaxColliders, Marshal.SizeOf<ColliderData>());
             _impulses = new ComputeBuffer(_settings.MaxBodies * 2, sizeof(int) * 4);
-            _flowCounters = new ComputeBuffer(2, sizeof(uint));
-            _flowCounters.SetData(new uint[2]);
+            _flowCounters = new ComputeBuffer(3, sizeof(uint));
+            _flowCounters.SetData(new uint[3]);
             _crestCounter = new ComputeBuffer(1, sizeof(uint));
 
             _clearKernel = _compute.FindKernel("ClearGrid");
@@ -201,6 +203,7 @@ namespace GuardWave
             Bind(_clearKernel, "_PressureSrc", _pressureA);
             Bind(_clearKernel, "_PressureDst", _pressureB);
             Bind(_clearKernel, "_BodyImpulses", _impulses);
+            Bind(_clearKernel, "_FlowCounters", _flowCounters);
             Bind(_classifyKernel, "_Solid", _solid);
             Bind(_classifyKernel, "_Colliders", _colliderBuffer);
             Bind(_spawnKernel, "_Particles", _particles);
@@ -252,6 +255,7 @@ namespace GuardWave
             int initialCount = (int)Math.Min(requested, _settings.MaxParticles);
             _ambientInitialCount = initialCount;
             _ambientColumns = columns;
+            _ambientRefillFraction = 0d;
             _particleCount = _settings.MaxParticles;
             _compute.SetInts("_AmbientGrid", columns, layers, rows);
             _compute.SetInt("_AmbientInitialCount", initialCount);
@@ -460,8 +464,24 @@ namespace GuardWave
             Dispatch(_g2pKernel, _particleCount);
             if (_ambientFlow)
             {
-                _compute.SetInt("_SpawnSeed", ++_seed);
-                Dispatch(_recycleAmbientKernel, _particleCount);
+                // Q = cross-sectional area * velocity. With fixed particle
+                // density, baseline particles per second are proportional
+                // to the configured inlet speed. The original 1m lattice
+                // provides the particle density per meter of creek length.
+                double riverLength = Math.Max(0.1, _startZ - _endZ);
+                double particlesPerSecond = _ambientInitialCount * InletSpeed / riverLength;
+                _ambientRefillFraction += particlesPerSecond * dt;
+                int supplyBudget = (int)Math.Min(_settings.MaxParticles,
+                    Math.Floor(_ambientRefillFraction));
+                _ambientRefillFraction -= supplyBudget;
+                if (supplyBudget > 0)
+                {
+                    // GPU also requires outstanding cliff exits: the inlet
+                    // never adds more baseline water than was lost.
+                    _compute.SetInt("_AmbientRefillBudget", supplyBudget);
+                    _compute.SetInt("_SpawnSeed", ++_seed);
+                    Dispatch(_recycleAmbientKernel, _particleCount);
+                }
             }
             if (!_pendingReadback && _bodies.Count > 0)
             {

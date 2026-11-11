@@ -83,8 +83,24 @@ remains in code for non-ambient scenes.
 
 The GPU uses a full-length initial particle lattice. A particle crossing the
 cliff into ballistic spray increments an exit counter. A GPU recycling kernel
-replaces one inactive upstream particle per exit, preserving the flowing water
-rather than indefinitely allocating particles. A separate `Ambient Flow Speed`
+replaces inactive upstream particles for recorded outflow, preserving the
+flowing water rather than indefinitely allocating particles.
+
+**Inflow is now velocity-proportional:** each FixedUpdate calculates the
+maximum refill particles per second from the base-water particle density
+and configured Ambient Flow Speed:
+
+`refill particles / sec = initial 1m-water particles / river length * ambient velocity`
+
+A fractional accumulator avoids rounding drift. The GPU only refills up to
+this per-tick rate **and** the number of ordinary creek particles already
+lost at the cliff; excess lost-water demand carries into later ticks. This
+maintains the baseline 1m volume rather than creating extra water when the
+wave travels through the river. At the default 0.6m grid and 24m × 65m
+river, the nominal supply is about 368 particles/s at 2m/s or 3673
+particles/s at 20m/s. The actual amount is bounded by available dead
+GPU particle slots and downstream losses. The one-shot crest particles
+are excluded from background refill accounting. A separate `Ambient Flow Speed`
 (default 2m/s) is used instead of the flood inlet speed (currently 30–60m/s).
 The ambient-only impact multiplier defaults to 0.01, so the stored 100x
 wave-force tuning does not violently eject sticks during calm-flow testing.

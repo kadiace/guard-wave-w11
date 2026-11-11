@@ -35,7 +35,7 @@ struct FluidCollider
     float4 bodyCenter;
 };
 RWStructuredBuffer<FluidParticle> _Particles;
-RWStructuredBuffer<uint> _FlowCounters; // [0] pending ambient replacements; [1] lifetime refill sequence
+RWStructuredBuffer<uint> _FlowCounters; // [0] missing water, [1] refill sequence, [2] this-tick claims
 RWStructuredBuffer<uint> _CrestCounter;  // one-shot reservation; initialized from C#
 RWStructuredBuffer<int4> _Accum;
 RWStructuredBuffer<int4> _BodyImpulses; // force impulse in xyz, torque in next xyz
@@ -69,6 +69,7 @@ float _AmbientDepth;
 int3 _AmbientGrid;
 uint _AmbientInitialCount;
 uint _AmbientEnabled;
+uint _AmbientRefillBudget;
 int3 _CrestGrid;
 float _CrestAmplitude;
 float _CrestSpeed;
@@ -153,6 +154,9 @@ void ClearGrid(uint id : SV_DispatchThreadID)
     }
     if (id < _BodyCount * 2)
         _BodyImpulses[id] = int4(0,0,0,0);
+    // Keep pending refill debt and its global sequence across physics ticks.
+    if (id == 0 && _AmbientEnabled != 0)
+        _FlowCounters[2] = 0u;
 }
 [numthreads(128,1,1)]
 void ClassifyGrid(uint id : SV_DispatchThreadID)
@@ -226,6 +230,13 @@ void RecycleAmbient(uint id : SV_DispatchThreadID)
     if (id >= _ParticleCount) return;
     FluidParticle p = _Particles[id];
     if (p.position.w != 0.0) return;
+
+    // A faster inlet supplies more particles per second, but each physics
+    // tick has a finite, speed-derived budget. Claim before withdrawing a
+    // lost-water ticket so we cannot flood the creek on a sudden backlog.
+    uint claim;
+    InterlockedAdd(_FlowCounters[2], 1u, claim);
+    if (claim >= _AmbientRefillBudget) return;
 
     uint pending;
     InterlockedAdd(_FlowCounters[0], 0u, pending);
