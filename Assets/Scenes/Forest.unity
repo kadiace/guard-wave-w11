@@ -32385,6 +32385,240 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: b7f1490a6bb24dc6ae5b1045869fb0c2, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWaveStickForceProbe
+--- !u!114 &3510000000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 206273044}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 7a8b41e9595f4e0d901684e77e3e6e23, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWaveInitialLogJoint
+  initialBreakForce: 80
+  settledBreakForce: 30
+  firstContactForce: 1
+  minimumProtectionSeconds: 0.8
+  settledDuration: 0.2
+  maximumProtectionSeconds: 2
+--- !u!114 &3510000001
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 467627767}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 7a8b41e9595f4e0d901684e77e3e6e23, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWaveInitialLogJoint
+  initialBreakForce: 80
+  settledBreakForce: 30
+  firstContactForce: 1
+  minimumProtectionSeconds: 0.8
+  settledDuration: 0.2
+  maximumProtectionSeconds: 2
+--- !u!114 &3510000002
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 606983141}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 7a8b41e9595f4e0d901684e77e3e6e23, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWaveInitialLogJoint
+  initialBreakForce: 80
+  settledBreakForce: 30
+  firstContactForce: 1
+  minimumProtectionSeconds: 0.8
+  settledDuration: 0.2
+  maximumProtectionSeconds: 2
+--- !u!114 &3510000003
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 664443342}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 7a8b41e9595f4e0d901684e77e3e6e23, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWaveInitialLogJoint
+  initialBreakForce: 80
+  settledBreakForce: 30
+  firstContactForce: 1
+  minimumProtectionSeconds: 0.8
+  settledDuration: 0.2
+  maximumProtectionSeconds: 2
+--- !u!114 &3510000004
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 789559721}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 7a8b41e9595f4e0d901684e77e3e6e23, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWaveInitialLogJoint
+  initialBreakForce: 80
+  settledBreakForce: 30
+  firstContactForce: 1
+  minimumProtectionSeconds: 0.8
+  settledDuration: 0.2
+  maximumProtectionSeconds: 2
+--- !u!114 &3510000005
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1155869135}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 7a8b41e9595f4e0d901684e77e3e6e23, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWaveInitialLogJoint
+  initialBreakForce: 80
+  settledBreakForce: 30
+  firstContactForce: 1
+  minimumProtectionSeconds: 0.8
+  settledDuration: 0.2
+  maximumProtectionSeconds: 2
+--- !u!114 &3510000006
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1633743095}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 7a8b41e9595f4e0d901684e77e3e6e23, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWaveInitialLogJoint
+  initialBreakForce: 80
+  settledBreakForce: 30
+  firstContactForce: 1
+  minimumProtectionSeconds: 0.8
+  settledDuration: 0.2
+  maximumProtectionSeconds: 2
+--- !u!114 &3510000007
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1636667673}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 7a8b41e9595f4e0d901684e77e3e6e23, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWaveInitialLogJoint
+  initialBreakForce: 80
+  settledBreakForce: 30
+  firstContactForce: 1
+  minimumProtectionSeconds: 0.8
+  settledDuration: 0.2
+  maximumProtectionSeconds: 2
+--- !u!114 &3510000008
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1761136829}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 7a8b41e9595f4e0d901684e77e3e6e23, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWaveInitialLogJoint
+  initialBreakForce: 80
+  settledBreakForce: 30
+  firstContactForce: 1
+  minimumProtectionSeconds: 0.8
+  settledDuration: 0.2
+  maximumProtectionSeconds: 2
+--- !u!114 &3510000009
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1884749001}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 7a8b41e9595f4e0d901684e77e3e6e23, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWaveInitialLogJoint
+  initialBreakForce: 80
+  settledBreakForce: 30
+  firstContactForce: 1
+  minimumProtectionSeconds: 0.8
+  settledDuration: 0.2
+  maximumProtectionSeconds: 2
+--- !u!114 &3510000010
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2012625230}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 7a8b41e9595f4e0d901684e77e3e6e23, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWaveInitialLogJoint
+  initialBreakForce: 80
+  settledBreakForce: 30
+  firstContactForce: 1
+  minimumProtectionSeconds: 0.8
+  settledDuration: 0.2
+  maximumProtectionSeconds: 2
+--- !u!114 &3510000011
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2016352341}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 7a8b41e9595f4e0d901684e77e3e6e23, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWaveInitialLogJoint
+  initialBreakForce: 80
+  settledBreakForce: 30
+  firstContactForce: 1
+  minimumProtectionSeconds: 0.8
+  settledDuration: 0.2
+  maximumProtectionSeconds: 2
+--- !u!114 &3510000012
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2103365365}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 7a8b41e9595f4e0d901684e77e3e6e23, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWaveInitialLogJoint
+  initialBreakForce: 80
+  settledBreakForce: 30
+  firstContactForce: 1
+  minimumProtectionSeconds: 0.8
+  settledDuration: 0.2
+  maximumProtectionSeconds: 2
 --- !u!1001 &1762329492425469008
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -32453,238 +32687,3 @@ SceneRoots:
   - {fileID: 3100000002}
   - {fileID: 3200000002}
   - {fileID: 1530301197}
-
---- !u!114 &3510000000
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 206273044}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 7a8b41e9595f4e0d901684e77e3e6e23, type: 3}
-  m_Name:
-  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWaveInitialLogJoint
-  initialBreakForce: 80
-  settledBreakForce: 35
-  firstContactForce: 1
-  minimumProtectionSeconds: 0.8
-  maximumProtectionSeconds: 2
-  settledDuration: 0.2
---- !u!114 &3510000001
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 467627767}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 7a8b41e9595f4e0d901684e77e3e6e23, type: 3}
-  m_Name:
-  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWaveInitialLogJoint
-  initialBreakForce: 80
-  settledBreakForce: 35
-  firstContactForce: 1
-  minimumProtectionSeconds: 0.8
-  maximumProtectionSeconds: 2
-  settledDuration: 0.2
---- !u!114 &3510000002
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 606983141}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 7a8b41e9595f4e0d901684e77e3e6e23, type: 3}
-  m_Name:
-  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWaveInitialLogJoint
-  initialBreakForce: 80
-  settledBreakForce: 35
-  firstContactForce: 1
-  minimumProtectionSeconds: 0.8
-  maximumProtectionSeconds: 2
-  settledDuration: 0.2
---- !u!114 &3510000003
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 664443342}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 7a8b41e9595f4e0d901684e77e3e6e23, type: 3}
-  m_Name:
-  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWaveInitialLogJoint
-  initialBreakForce: 80
-  settledBreakForce: 35
-  firstContactForce: 1
-  minimumProtectionSeconds: 0.8
-  maximumProtectionSeconds: 2
-  settledDuration: 0.2
---- !u!114 &3510000004
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 789559721}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 7a8b41e9595f4e0d901684e77e3e6e23, type: 3}
-  m_Name:
-  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWaveInitialLogJoint
-  initialBreakForce: 80
-  settledBreakForce: 35
-  firstContactForce: 1
-  minimumProtectionSeconds: 0.8
-  maximumProtectionSeconds: 2
-  settledDuration: 0.2
---- !u!114 &3510000005
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1155869135}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 7a8b41e9595f4e0d901684e77e3e6e23, type: 3}
-  m_Name:
-  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWaveInitialLogJoint
-  initialBreakForce: 80
-  settledBreakForce: 35
-  firstContactForce: 1
-  minimumProtectionSeconds: 0.8
-  maximumProtectionSeconds: 2
-  settledDuration: 0.2
---- !u!114 &3510000006
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1633743095}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 7a8b41e9595f4e0d901684e77e3e6e23, type: 3}
-  m_Name:
-  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWaveInitialLogJoint
-  initialBreakForce: 80
-  settledBreakForce: 35
-  firstContactForce: 1
-  minimumProtectionSeconds: 0.8
-  maximumProtectionSeconds: 2
-  settledDuration: 0.2
---- !u!114 &3510000007
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1636667673}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 7a8b41e9595f4e0d901684e77e3e6e23, type: 3}
-  m_Name:
-  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWaveInitialLogJoint
-  initialBreakForce: 80
-  settledBreakForce: 35
-  firstContactForce: 1
-  minimumProtectionSeconds: 0.8
-  maximumProtectionSeconds: 2
-  settledDuration: 0.2
---- !u!114 &3510000008
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1761136829}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 7a8b41e9595f4e0d901684e77e3e6e23, type: 3}
-  m_Name:
-  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWaveInitialLogJoint
-  initialBreakForce: 80
-  settledBreakForce: 35
-  firstContactForce: 1
-  minimumProtectionSeconds: 0.8
-  maximumProtectionSeconds: 2
-  settledDuration: 0.2
---- !u!114 &3510000009
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1884749001}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 7a8b41e9595f4e0d901684e77e3e6e23, type: 3}
-  m_Name:
-  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWaveInitialLogJoint
-  initialBreakForce: 80
-  settledBreakForce: 35
-  firstContactForce: 1
-  minimumProtectionSeconds: 0.8
-  maximumProtectionSeconds: 2
-  settledDuration: 0.2
---- !u!114 &3510000010
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 2012625230}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 7a8b41e9595f4e0d901684e77e3e6e23, type: 3}
-  m_Name:
-  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWaveInitialLogJoint
-  initialBreakForce: 80
-  settledBreakForce: 35
-  firstContactForce: 1
-  minimumProtectionSeconds: 0.8
-  maximumProtectionSeconds: 2
-  settledDuration: 0.2
---- !u!114 &3510000011
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 2016352341}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 7a8b41e9595f4e0d901684e77e3e6e23, type: 3}
-  m_Name:
-  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWaveInitialLogJoint
-  initialBreakForce: 80
-  settledBreakForce: 35
-  firstContactForce: 1
-  minimumProtectionSeconds: 0.8
-  maximumProtectionSeconds: 2
-  settledDuration: 0.2
---- !u!114 &3510000012
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 2103365365}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 7a8b41e9595f4e0d901684e77e3e6e23, type: 3}
-  m_Name:
-  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWaveInitialLogJoint
-  initialBreakForce: 80
-  settledBreakForce: 35
-  firstContactForce: 1
-  minimumProtectionSeconds: 0.8
-  maximumProtectionSeconds: 2
-  settledDuration: 0.2
