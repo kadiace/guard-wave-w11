@@ -23918,2087 +23918,6 @@ MeshRenderer:
   m_SortingLayer: 0
   m_SortingOrder: 0
   m_AdditionalVertexStreams: {fileID: 0}
---- !u!1660057539 &9223372036854775807
-SceneRoots:
-  m_ObjectHideFlags: 0
-  m_Roots:
-  - {fileID: 1916402864}
-  - {fileID: 898836649}
-  - {fileID: 2100000002}
-  - {fileID: 1762329492425469008}
-  - {fileID: 3100000002}
-  - {fileID: 3200000002}
-  - {fileID: 4600000002}
-  - {fileID: 4600000012}
-  - {fileID: 4600000022}
-  - {fileID: 4600000032}
-  - {fileID: 4700000002}
-
---- !u!114 &3300000006
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 3300000000}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
-  m_Name:
-  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
-  materialId: beaver_stick
-  removeOutsideBoundary: 1
---- !u!114 &3300000016
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 3300000010}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
-  m_Name:
-  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
-  materialId: beaver_stick
-  removeOutsideBoundary: 1
---- !u!114 &3300000026
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 3300000020}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
-  m_Name:
-  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
-  materialId: beaver_stick
-  removeOutsideBoundary: 1
---- !u!114 &3300000036
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 3300000030}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
-  m_Name:
-  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
-  materialId: beaver_stick
-  removeOutsideBoundary: 1
---- !u!114 &3300000046
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 3300000040}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
-  m_Name:
-  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
-  materialId: beaver_stick
-  removeOutsideBoundary: 1
---- !u!114 &3300000056
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 3300000050}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
-  m_Name:
-  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
-  materialId: beaver_stick
-  removeOutsideBoundary: 1
---- !u!114 &3300000066
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 3300000060}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
-  m_Name:
-  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
-  materialId: beaver_stick
-  removeOutsideBoundary: 1
---- !u!114 &3300000076
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 3300000070}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
-  m_Name:
-  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
-  materialId: beaver_stick
-  removeOutsideBoundary: 1
---- !u!114 &3300000086
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 3300000080}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
-  m_Name:
-  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
-  materialId: beaver_stick
-  removeOutsideBoundary: 1
---- !u!114 &3300000096
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 3300000090}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
-  m_Name:
-  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
-  materialId: beaver_stick
-  removeOutsideBoundary: 1
---- !u!114 &3300000106
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 3300000100}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
-  m_Name:
-  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
-  materialId: beaver_stick
-  removeOutsideBoundary: 1
---- !u!114 &3300000116
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 3300000110}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
-  m_Name:
-  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
-  materialId: beaver_stick
-  removeOutsideBoundary: 1
---- !u!114 &3300000126
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 3300000120}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
-  m_Name:
-  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
-  materialId: beaver_stick
-  removeOutsideBoundary: 1
---- !u!114 &3300000136
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 3300000130}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
-  m_Name:
-  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
-  materialId: beaver_stick
-  removeOutsideBoundary: 1
---- !u!114 &3300000146
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 3300000140}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
-  m_Name:
-  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
-  materialId: beaver_stick
-  removeOutsideBoundary: 1
---- !u!114 &3300000156
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 3300000150}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
-  m_Name:
-  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
-  materialId: beaver_stick
-  removeOutsideBoundary: 1
---- !u!114 &3300000166
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 3300000160}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
-  m_Name:
-  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
-  materialId: beaver_stick
-  removeOutsideBoundary: 1
---- !u!114 &3300000176
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 3300000170}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
-  m_Name:
-  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
-  materialId: beaver_stick
-  removeOutsideBoundary: 1
---- !u!114 &3300000186
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 3300000180}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
-  m_Name:
-  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
-  materialId: beaver_stick
-  removeOutsideBoundary: 1
---- !u!114 &3300000196
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 3300000190}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
-  m_Name:
-  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
-  materialId: beaver_stick
-  removeOutsideBoundary: 1
---- !u!114 &3300000206
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 3300000200}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
-  m_Name:
-  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
-  materialId: beaver_stick
-  removeOutsideBoundary: 1
---- !u!114 &3300000216
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 3300000210}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
-  m_Name:
-  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
-  materialId: beaver_stick
-  removeOutsideBoundary: 1
---- !u!114 &3300000226
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 3300000220}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
-  m_Name:
-  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
-  materialId: beaver_stick
-  removeOutsideBoundary: 1
---- !u!114 &3300000236
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 3300000230}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
-  m_Name:
-  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
-  materialId: beaver_stick
-  removeOutsideBoundary: 1
---- !u!114 &3300000246
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 3300000240}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
-  m_Name:
-  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
-  materialId: beaver_stick
-  removeOutsideBoundary: 1
---- !u!114 &3300000256
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 3300000250}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
-  m_Name:
-  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
-  materialId: beaver_stick
-  removeOutsideBoundary: 1
---- !u!114 &3300000266
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 3300000260}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
-  m_Name:
-  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
-  materialId: beaver_stick
-  removeOutsideBoundary: 1
---- !u!114 &3300000276
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 3300000270}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
-  m_Name:
-  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
-  materialId: beaver_stick
-  removeOutsideBoundary: 1
---- !u!114 &3300000286
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 3300000280}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
-  m_Name:
-  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
-  materialId: beaver_stick
-  removeOutsideBoundary: 1
---- !u!114 &3300000296
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 3300000290}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
-  m_Name:
-  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
-  materialId: beaver_stick
-  removeOutsideBoundary: 1
---- !u!114 &3300000306
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 3300000300}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
-  m_Name:
-  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
-  materialId: beaver_stick
-  removeOutsideBoundary: 1
---- !u!114 &3300000316
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 3300000310}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
-  m_Name:
-  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
-  materialId: beaver_stick
-  removeOutsideBoundary: 1
---- !u!114 &3300000326
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 3300000320}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
-  m_Name:
-  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
-  materialId: beaver_stick
-  removeOutsideBoundary: 1
---- !u!114 &3300000336
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 3300000330}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
-  m_Name:
-  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
-  materialId: beaver_stick
-  removeOutsideBoundary: 1
---- !u!114 &3300000346
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 3300000340}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
-  m_Name:
-  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
-  materialId: beaver_stick
-  removeOutsideBoundary: 1
---- !u!114 &3300000356
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 3300000350}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
-  m_Name:
-  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
-  materialId: beaver_stick
-  removeOutsideBoundary: 1
---- !u!114 &3300000366
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 3300000360}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
-  m_Name:
-  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
-  materialId: beaver_stick
-  removeOutsideBoundary: 1
---- !u!114 &3300000376
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 3300000370}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
-  m_Name:
-  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
-  materialId: beaver_stick
-  removeOutsideBoundary: 1
---- !u!114 &3300000386
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 3300000380}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
-  m_Name:
-  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
-  materialId: beaver_stick
-  removeOutsideBoundary: 1
---- !u!114 &3300000396
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 3300000390}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
-  m_Name:
-  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
-  materialId: beaver_stick
-  removeOutsideBoundary: 1
---- !u!114 &3300000406
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 3300000400}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
-  m_Name:
-  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
-  materialId: beaver_stick
-  removeOutsideBoundary: 1
---- !u!114 &3300000416
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 3300000410}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
-  m_Name:
-  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
-  materialId: beaver_stick
-  removeOutsideBoundary: 1
---- !u!114 &3300000426
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 3300000420}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
-  m_Name:
-  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
-  materialId: beaver_stick
-  removeOutsideBoundary: 1
---- !u!114 &3300000436
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 3300000430}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
-  m_Name:
-  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
-  materialId: beaver_stick
-  removeOutsideBoundary: 1
---- !u!114 &3300000446
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 3300000440}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
-  m_Name:
-  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
-  materialId: beaver_stick
-  removeOutsideBoundary: 1
---- !u!114 &3300000456
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 3300000450}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
-  m_Name:
-  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
-  materialId: beaver_stick
-  removeOutsideBoundary: 1
---- !u!114 &3300000466
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 3300000460}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
-  m_Name:
-  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
-  materialId: beaver_stick
-  removeOutsideBoundary: 1
---- !u!114 &3300000476
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 3300000470}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
-  m_Name:
-  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
-  materialId: beaver_stick
-  removeOutsideBoundary: 1
---- !u!114 &3300000486
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 3300000480}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
-  m_Name:
-  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
-  materialId: beaver_stick
-  removeOutsideBoundary: 1
---- !u!114 &3300000496
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 3300000490}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
-  m_Name:
-  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
-  materialId: beaver_stick
-  removeOutsideBoundary: 1
---- !u!114 &3300000506
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 3300000500}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
-  m_Name:
-  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
-  materialId: beaver_stick
-  removeOutsideBoundary: 1
---- !u!114 &3300000516
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 3300000510}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
-  m_Name:
-  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
-  materialId: beaver_stick
-  removeOutsideBoundary: 1
---- !u!114 &3300000526
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 3300000520}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
-  m_Name:
-  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
-  materialId: beaver_stick
-  removeOutsideBoundary: 1
---- !u!114 &3300000536
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 3300000530}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
-  m_Name:
-  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
-  materialId: beaver_stick
-  removeOutsideBoundary: 1
---- !u!114 &3300000546
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 3300000540}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
-  m_Name:
-  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
-  materialId: beaver_stick
-  removeOutsideBoundary: 1
---- !u!114 &3300000556
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 3300000550}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
-  m_Name:
-  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
-  materialId: beaver_stick
-  removeOutsideBoundary: 1
---- !u!114 &3300000566
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 3300000560}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
-  m_Name:
-  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
-  materialId: beaver_stick
-  removeOutsideBoundary: 1
---- !u!114 &3300000576
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 3300000570}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
-  m_Name:
-  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
-  materialId: beaver_stick
-  removeOutsideBoundary: 1
---- !u!114 &3300000586
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 3300000580}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
-  m_Name:
-  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
-  materialId: beaver_stick
-  removeOutsideBoundary: 1
---- !u!114 &3300000596
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 3300000590}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
-  m_Name:
-  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
-  materialId: beaver_stick
-  removeOutsideBoundary: 1
---- !u!114 &3300000606
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 3300000600}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
-  m_Name:
-  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
-  materialId: beaver_stick
-  removeOutsideBoundary: 1
---- !u!114 &3300000616
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 3300000610}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
-  m_Name:
-  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
-  materialId: beaver_stick
-  removeOutsideBoundary: 1
---- !u!114 &3300000626
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 3300000620}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
-  m_Name:
-  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
-  materialId: beaver_stick
-  removeOutsideBoundary: 1
---- !u!114 &3300000636
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 3300000630}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
-  m_Name:
-  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
-  materialId: beaver_stick
-  removeOutsideBoundary: 1
---- !u!114 &3300000646
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 3300000640}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
-  m_Name:
-  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
-  materialId: beaver_stick
-  removeOutsideBoundary: 1
---- !u!114 &3300000656
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 3300000650}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
-  m_Name:
-  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
-  materialId: beaver_stick
-  removeOutsideBoundary: 1
---- !u!114 &3300000666
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 3300000660}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
-  m_Name:
-  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
-  materialId: beaver_stick
-  removeOutsideBoundary: 1
---- !u!114 &3300000676
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 3300000670}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
-  m_Name:
-  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
-  materialId: beaver_stick
-  removeOutsideBoundary: 1
---- !u!114 &3300000686
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 3300000680}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
-  m_Name:
-  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
-  materialId: beaver_stick
-  removeOutsideBoundary: 1
---- !u!114 &3300000696
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 3300000690}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
-  m_Name:
-  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
-  materialId: beaver_stick
-  removeOutsideBoundary: 1
---- !u!114 &3300000706
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 3300000700}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
-  m_Name:
-  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
-  materialId: beaver_stick
-  removeOutsideBoundary: 1
---- !u!114 &3300000716
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 3300000710}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
-  m_Name:
-  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
-  materialId: beaver_stick
-  removeOutsideBoundary: 1
---- !u!114 &3300000726
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 3300000720}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
-  m_Name:
-  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
-  materialId: beaver_stick
-  removeOutsideBoundary: 1
---- !u!114 &3300000736
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 3300000730}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
-  m_Name:
-  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
-  materialId: beaver_stick
-  removeOutsideBoundary: 1
---- !u!114 &3300000746
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 3300000740}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
-  m_Name:
-  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
-  materialId: beaver_stick
-  removeOutsideBoundary: 1
---- !u!114 &3300000756
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 3300000750}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
-  m_Name:
-  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
-  materialId: beaver_stick
-  removeOutsideBoundary: 1
---- !u!114 &3300000766
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 3300000760}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
-  m_Name:
-  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
-  materialId: beaver_stick
-  removeOutsideBoundary: 1
---- !u!114 &3300000776
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 3300000770}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
-  m_Name:
-  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
-  materialId: beaver_stick
-  removeOutsideBoundary: 1
---- !u!114 &3300000786
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 3300000780}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
-  m_Name:
-  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
-  materialId: beaver_stick
-  removeOutsideBoundary: 1
---- !u!114 &3300000796
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 3300000790}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
-  m_Name:
-  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
-  materialId: beaver_stick
-  removeOutsideBoundary: 1
---- !u!114 &3300000806
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 3300000800}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
-  m_Name:
-  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
-  materialId: beaver_stick
-  removeOutsideBoundary: 1
---- !u!114 &3300000816
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 3300000810}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
-  m_Name:
-  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
-  materialId: beaver_stick
-  removeOutsideBoundary: 1
---- !u!114 &3300000826
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 3300000820}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
-  m_Name:
-  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
-  materialId: beaver_stick
-  removeOutsideBoundary: 1
---- !u!114 &3300000836
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 3300000830}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
-  m_Name:
-  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
-  materialId: beaver_stick
-  removeOutsideBoundary: 1
---- !u!114 &3300000846
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 3300000840}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
-  m_Name:
-  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
-  materialId: beaver_stick
-  removeOutsideBoundary: 1
---- !u!114 &3300000856
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 3300000850}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
-  m_Name:
-  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
-  materialId: beaver_stick
-  removeOutsideBoundary: 1
---- !u!114 &3300000866
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 3300000860}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
-  m_Name:
-  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
-  materialId: beaver_stick
-  removeOutsideBoundary: 1
---- !u!114 &3300000876
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 3300000870}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
-  m_Name:
-  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
-  materialId: beaver_stick
-  removeOutsideBoundary: 1
---- !u!114 &3300000886
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 3300000880}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
-  m_Name:
-  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
-  materialId: beaver_stick
-  removeOutsideBoundary: 1
---- !u!114 &3300000896
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 3300000890}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
-  m_Name:
-  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
-  materialId: beaver_stick
-  removeOutsideBoundary: 1
---- !u!114 &3300000906
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 3300000900}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
-  m_Name:
-  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
-  materialId: beaver_stick
-  removeOutsideBoundary: 1
---- !u!114 &3300000916
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 3300000910}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
-  m_Name:
-  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
-  materialId: beaver_stick
-  removeOutsideBoundary: 1
---- !u!114 &3300000926
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 3300000920}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
-  m_Name:
-  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
-  materialId: beaver_stick
-  removeOutsideBoundary: 1
---- !u!114 &3300000936
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 3300000930}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
-  m_Name:
-  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
-  materialId: beaver_stick
-  removeOutsideBoundary: 1
---- !u!114 &3300000946
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 3300000940}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
-  m_Name:
-  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
-  materialId: beaver_stick
-  removeOutsideBoundary: 1
---- !u!114 &3300000956
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 3300000950}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
-  m_Name:
-  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
-  materialId: beaver_stick
-  removeOutsideBoundary: 1
---- !u!114 &3300000966
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 3300000960}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
-  m_Name:
-  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
-  materialId: beaver_stick
-  removeOutsideBoundary: 1
---- !u!114 &3300000976
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 3300000970}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
-  m_Name:
-  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
-  materialId: beaver_stick
-  removeOutsideBoundary: 1
---- !u!114 &3300000986
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 3300000980}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
-  m_Name:
-  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
-  materialId: beaver_stick
-  removeOutsideBoundary: 1
---- !u!114 &3300000996
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 3300000990}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
-  m_Name:
-  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
-  materialId: beaver_stick
-  removeOutsideBoundary: 1
---- !u!114 &3300001006
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 3300001000}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
-  m_Name:
-  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
-  materialId: beaver_stick
-  removeOutsideBoundary: 1
---- !u!114 &3300001016
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 3300001010}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
-  m_Name:
-  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
-  materialId: beaver_stick
-  removeOutsideBoundary: 1
---- !u!114 &3300001026
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 3300001020}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
-  m_Name:
-  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
-  materialId: beaver_stick
-  removeOutsideBoundary: 1
---- !u!114 &3300001036
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 3300001030}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
-  m_Name:
-  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
-  materialId: beaver_stick
-  removeOutsideBoundary: 1
---- !u!114 &3300001046
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 3300001040}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
-  m_Name:
-  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
-  materialId: beaver_stick
-  removeOutsideBoundary: 1
---- !u!114 &3300001056
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 3300001050}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
-  m_Name:
-  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
-  materialId: beaver_stick
-  removeOutsideBoundary: 1
---- !u!114 &3300001066
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 3300001060}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
-  m_Name:
-  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
-  materialId: beaver_stick
-  removeOutsideBoundary: 1
---- !u!114 &3300001076
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 3300001070}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
-  m_Name:
-  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
-  materialId: beaver_stick
-  removeOutsideBoundary: 1
---- !u!114 &3300001086
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 3300001080}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
-  m_Name:
-  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
-  materialId: beaver_stick
-  removeOutsideBoundary: 1
---- !u!114 &3300001096
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 3300001090}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
-  m_Name:
-  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
-  materialId: beaver_stick
-  removeOutsideBoundary: 1
---- !u!114 &3300001106
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 3300001100}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
-  m_Name:
-  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
-  materialId: beaver_stick
-  removeOutsideBoundary: 1
---- !u!114 &3300001116
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 3300001110}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
-  m_Name:
-  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
-  materialId: beaver_stick
-  removeOutsideBoundary: 1
---- !u!114 &3300001126
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 3300001120}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
-  m_Name:
-  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
-  materialId: beaver_stick
-  removeOutsideBoundary: 1
---- !u!114 &3300001136
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 3300001130}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
-  m_Name:
-  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
-  materialId: beaver_stick
-  removeOutsideBoundary: 1
---- !u!114 &3300001146
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 3300001140}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
-  m_Name:
-  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
-  materialId: beaver_stick
-  removeOutsideBoundary: 1
---- !u!114 &3300001156
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 3300001150}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
-  m_Name:
-  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
-  materialId: beaver_stick
-  removeOutsideBoundary: 1
---- !u!114 &3300001166
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 3300001160}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
-  m_Name:
-  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
-  materialId: beaver_stick
-  removeOutsideBoundary: 1
---- !u!114 &3300001176
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 3300001170}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
-  m_Name:
-  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
-  materialId: beaver_stick
-  removeOutsideBoundary: 1
---- !u!114 &3300001186
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 3300001180}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
-  m_Name:
-  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
-  materialId: beaver_stick
-  removeOutsideBoundary: 1
---- !u!114 &3300001196
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 3300001190}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
-  m_Name:
-  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
-  materialId: beaver_stick
-  removeOutsideBoundary: 1
---- !u!114 &3300001206
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 3300001200}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
-  m_Name:
-  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
-  materialId: beaver_stick
-  removeOutsideBoundary: 1
---- !u!114 &3300001216
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 3300001210}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
-  m_Name:
-  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
-  materialId: beaver_stick
-  removeOutsideBoundary: 1
---- !u!114 &3300001226
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 3300001220}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
-  m_Name:
-  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
-  materialId: beaver_stick
-  removeOutsideBoundary: 1
---- !u!114 &3300001236
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 3300001230}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
-  m_Name:
-  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
-  materialId: beaver_stick
-  removeOutsideBoundary: 1
---- !u!114 &3300001246
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 3300001240}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
-  m_Name:
-  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
-  materialId: beaver_stick
-  removeOutsideBoundary: 1
---- !u!114 &3300001256
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 3300001250}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
-  m_Name:
-  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
-  materialId: beaver_stick
-  removeOutsideBoundary: 1
---- !u!114 &3300001266
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 3300001260}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
-  m_Name:
-  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
-  materialId: beaver_stick
-  removeOutsideBoundary: 1
---- !u!114 &3300001276
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 3300001270}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
-  m_Name:
-  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
-  materialId: beaver_stick
-  removeOutsideBoundary: 1
---- !u!114 &3300001286
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 3300001280}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
-  m_Name:
-  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
-  materialId: beaver_stick
-  removeOutsideBoundary: 1
---- !u!114 &3300001296
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 3300001290}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
-  m_Name:
-  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
-  materialId: beaver_stick
-  removeOutsideBoundary: 1
---- !u!114 &3300001306
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 3300001300}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
-  m_Name:
-  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
-  materialId: beaver_stick
-  removeOutsideBoundary: 1
---- !u!114 &3300001316
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 3300001310}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
-  m_Name:
-  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
-  materialId: beaver_stick
-  removeOutsideBoundary: 1
---- !u!114 &3300001326
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 3300001320}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
-  m_Name:
-  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
-  materialId: beaver_stick
-  removeOutsideBoundary: 1
---- !u!114 &3300001336
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 3300001330}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
-  m_Name:
-  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
-  materialId: beaver_stick
-  removeOutsideBoundary: 1
---- !u!114 &3300001346
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 3300001340}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
-  m_Name:
-  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
-  materialId: beaver_stick
-  removeOutsideBoundary: 1
---- !u!114 &3300001356
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 3300001350}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
-  m_Name:
-  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
-  materialId: beaver_stick
-  removeOutsideBoundary: 1
---- !u!114 &3300001366
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 3300001360}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
-  m_Name:
-  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
-  materialId: beaver_stick
-  removeOutsideBoundary: 1
---- !u!114 &3300001376
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 3300001370}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
-  m_Name:
-  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
-  materialId: beaver_stick
-  removeOutsideBoundary: 1
---- !u!114 &3300001386
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 3300001380}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
-  m_Name:
-  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
-  materialId: beaver_stick
-  removeOutsideBoundary: 1
---- !u!114 &3300001396
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 3300001390}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
-  m_Name:
-  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
-  materialId: beaver_stick
-  removeOutsideBoundary: 1
---- !u!114 &3300001406
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 3300001400}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
-  m_Name:
-  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
-  materialId: beaver_stick
-  removeOutsideBoundary: 1
---- !u!114 &3300001416
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 3300001410}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
-  m_Name:
-  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
-  materialId: beaver_stick
-  removeOutsideBoundary: 1
---- !u!114 &3300001426
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 3300001420}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
-  m_Name:
-  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
-  materialId: beaver_stick
-  removeOutsideBoundary: 1
---- !u!114 &3300001436
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 3300001430}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
-  m_Name:
-  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
-  materialId: beaver_stick
-  removeOutsideBoundary: 1
---- !u!114 &3300001446
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 3300001440}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
-  m_Name:
-  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
-  materialId: beaver_stick
-  removeOutsideBoundary: 1
---- !u!114 &3300001456
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 3300001450}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
-  m_Name:
-  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
-  materialId: beaver_stick
-  removeOutsideBoundary: 1
---- !u!114 &3300001466
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 3300001460}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
-  m_Name:
-  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
-  materialId: beaver_stick
-  removeOutsideBoundary: 1
-  - {fileID: 7000000002}
-  - {fileID: 8000000100}
-  - {fileID: 8000000101}
-  - {fileID: 8000000102}
-  - {fileID: 8000000103}
-  - {fileID: 8000000104}
-  - {fileID: 8000000105}
 --- !u!1 &7000000001
 GameObject:
   m_ObjectHideFlags: 0
@@ -29926,3 +27845,2084 @@ PrefabInstance:
     m_AddedGameObjects: []
     m_AddedComponents: []
   m_SourcePrefab: {fileID: 100100000, guid: bbccddeeff0011223344556677889900, type: 3}
+--- !u!1660057539 &9223372036854775807
+SceneRoots:
+  m_ObjectHideFlags: 0
+  m_Roots:
+  - {fileID: 1916402864}
+  - {fileID: 898836649}
+  - {fileID: 2100000002}
+  - {fileID: 1762329492425469008}
+  - {fileID: 3100000002}
+  - {fileID: 3200000002}
+  - {fileID: 4600000002}
+  - {fileID: 4600000012}
+  - {fileID: 4600000022}
+  - {fileID: 4600000032}
+  - {fileID: 4700000002}
+
+--- !u!114 &3300000006
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3300000000}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
+  materialId: beaver_stick
+  removeOutsideBoundary: 1
+--- !u!114 &3300000016
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3300000010}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
+  materialId: beaver_stick
+  removeOutsideBoundary: 1
+--- !u!114 &3300000026
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3300000020}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
+  materialId: beaver_stick
+  removeOutsideBoundary: 1
+--- !u!114 &3300000036
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3300000030}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
+  materialId: beaver_stick
+  removeOutsideBoundary: 1
+--- !u!114 &3300000046
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3300000040}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
+  materialId: beaver_stick
+  removeOutsideBoundary: 1
+--- !u!114 &3300000056
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3300000050}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
+  materialId: beaver_stick
+  removeOutsideBoundary: 1
+--- !u!114 &3300000066
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3300000060}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
+  materialId: beaver_stick
+  removeOutsideBoundary: 1
+--- !u!114 &3300000076
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3300000070}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
+  materialId: beaver_stick
+  removeOutsideBoundary: 1
+--- !u!114 &3300000086
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3300000080}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
+  materialId: beaver_stick
+  removeOutsideBoundary: 1
+--- !u!114 &3300000096
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3300000090}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
+  materialId: beaver_stick
+  removeOutsideBoundary: 1
+--- !u!114 &3300000106
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3300000100}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
+  materialId: beaver_stick
+  removeOutsideBoundary: 1
+--- !u!114 &3300000116
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3300000110}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
+  materialId: beaver_stick
+  removeOutsideBoundary: 1
+--- !u!114 &3300000126
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3300000120}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
+  materialId: beaver_stick
+  removeOutsideBoundary: 1
+--- !u!114 &3300000136
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3300000130}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
+  materialId: beaver_stick
+  removeOutsideBoundary: 1
+--- !u!114 &3300000146
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3300000140}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
+  materialId: beaver_stick
+  removeOutsideBoundary: 1
+--- !u!114 &3300000156
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3300000150}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
+  materialId: beaver_stick
+  removeOutsideBoundary: 1
+--- !u!114 &3300000166
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3300000160}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
+  materialId: beaver_stick
+  removeOutsideBoundary: 1
+--- !u!114 &3300000176
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3300000170}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
+  materialId: beaver_stick
+  removeOutsideBoundary: 1
+--- !u!114 &3300000186
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3300000180}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
+  materialId: beaver_stick
+  removeOutsideBoundary: 1
+--- !u!114 &3300000196
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3300000190}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
+  materialId: beaver_stick
+  removeOutsideBoundary: 1
+--- !u!114 &3300000206
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3300000200}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
+  materialId: beaver_stick
+  removeOutsideBoundary: 1
+--- !u!114 &3300000216
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3300000210}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
+  materialId: beaver_stick
+  removeOutsideBoundary: 1
+--- !u!114 &3300000226
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3300000220}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
+  materialId: beaver_stick
+  removeOutsideBoundary: 1
+--- !u!114 &3300000236
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3300000230}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
+  materialId: beaver_stick
+  removeOutsideBoundary: 1
+--- !u!114 &3300000246
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3300000240}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
+  materialId: beaver_stick
+  removeOutsideBoundary: 1
+--- !u!114 &3300000256
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3300000250}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
+  materialId: beaver_stick
+  removeOutsideBoundary: 1
+--- !u!114 &3300000266
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3300000260}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
+  materialId: beaver_stick
+  removeOutsideBoundary: 1
+--- !u!114 &3300000276
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3300000270}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
+  materialId: beaver_stick
+  removeOutsideBoundary: 1
+--- !u!114 &3300000286
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3300000280}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
+  materialId: beaver_stick
+  removeOutsideBoundary: 1
+--- !u!114 &3300000296
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3300000290}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
+  materialId: beaver_stick
+  removeOutsideBoundary: 1
+--- !u!114 &3300000306
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3300000300}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
+  materialId: beaver_stick
+  removeOutsideBoundary: 1
+--- !u!114 &3300000316
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3300000310}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
+  materialId: beaver_stick
+  removeOutsideBoundary: 1
+--- !u!114 &3300000326
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3300000320}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
+  materialId: beaver_stick
+  removeOutsideBoundary: 1
+--- !u!114 &3300000336
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3300000330}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
+  materialId: beaver_stick
+  removeOutsideBoundary: 1
+--- !u!114 &3300000346
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3300000340}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
+  materialId: beaver_stick
+  removeOutsideBoundary: 1
+--- !u!114 &3300000356
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3300000350}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
+  materialId: beaver_stick
+  removeOutsideBoundary: 1
+--- !u!114 &3300000366
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3300000360}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
+  materialId: beaver_stick
+  removeOutsideBoundary: 1
+--- !u!114 &3300000376
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3300000370}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
+  materialId: beaver_stick
+  removeOutsideBoundary: 1
+--- !u!114 &3300000386
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3300000380}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
+  materialId: beaver_stick
+  removeOutsideBoundary: 1
+--- !u!114 &3300000396
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3300000390}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
+  materialId: beaver_stick
+  removeOutsideBoundary: 1
+--- !u!114 &3300000406
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3300000400}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
+  materialId: beaver_stick
+  removeOutsideBoundary: 1
+--- !u!114 &3300000416
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3300000410}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
+  materialId: beaver_stick
+  removeOutsideBoundary: 1
+--- !u!114 &3300000426
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3300000420}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
+  materialId: beaver_stick
+  removeOutsideBoundary: 1
+--- !u!114 &3300000436
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3300000430}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
+  materialId: beaver_stick
+  removeOutsideBoundary: 1
+--- !u!114 &3300000446
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3300000440}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
+  materialId: beaver_stick
+  removeOutsideBoundary: 1
+--- !u!114 &3300000456
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3300000450}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
+  materialId: beaver_stick
+  removeOutsideBoundary: 1
+--- !u!114 &3300000466
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3300000460}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
+  materialId: beaver_stick
+  removeOutsideBoundary: 1
+--- !u!114 &3300000476
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3300000470}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
+  materialId: beaver_stick
+  removeOutsideBoundary: 1
+--- !u!114 &3300000486
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3300000480}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
+  materialId: beaver_stick
+  removeOutsideBoundary: 1
+--- !u!114 &3300000496
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3300000490}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
+  materialId: beaver_stick
+  removeOutsideBoundary: 1
+--- !u!114 &3300000506
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3300000500}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
+  materialId: beaver_stick
+  removeOutsideBoundary: 1
+--- !u!114 &3300000516
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3300000510}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
+  materialId: beaver_stick
+  removeOutsideBoundary: 1
+--- !u!114 &3300000526
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3300000520}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
+  materialId: beaver_stick
+  removeOutsideBoundary: 1
+--- !u!114 &3300000536
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3300000530}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
+  materialId: beaver_stick
+  removeOutsideBoundary: 1
+--- !u!114 &3300000546
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3300000540}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
+  materialId: beaver_stick
+  removeOutsideBoundary: 1
+--- !u!114 &3300000556
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3300000550}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
+  materialId: beaver_stick
+  removeOutsideBoundary: 1
+--- !u!114 &3300000566
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3300000560}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
+  materialId: beaver_stick
+  removeOutsideBoundary: 1
+--- !u!114 &3300000576
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3300000570}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
+  materialId: beaver_stick
+  removeOutsideBoundary: 1
+--- !u!114 &3300000586
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3300000580}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
+  materialId: beaver_stick
+  removeOutsideBoundary: 1
+--- !u!114 &3300000596
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3300000590}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
+  materialId: beaver_stick
+  removeOutsideBoundary: 1
+--- !u!114 &3300000606
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3300000600}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
+  materialId: beaver_stick
+  removeOutsideBoundary: 1
+--- !u!114 &3300000616
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3300000610}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
+  materialId: beaver_stick
+  removeOutsideBoundary: 1
+--- !u!114 &3300000626
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3300000620}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
+  materialId: beaver_stick
+  removeOutsideBoundary: 1
+--- !u!114 &3300000636
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3300000630}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
+  materialId: beaver_stick
+  removeOutsideBoundary: 1
+--- !u!114 &3300000646
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3300000640}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
+  materialId: beaver_stick
+  removeOutsideBoundary: 1
+--- !u!114 &3300000656
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3300000650}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
+  materialId: beaver_stick
+  removeOutsideBoundary: 1
+--- !u!114 &3300000666
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3300000660}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
+  materialId: beaver_stick
+  removeOutsideBoundary: 1
+--- !u!114 &3300000676
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3300000670}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
+  materialId: beaver_stick
+  removeOutsideBoundary: 1
+--- !u!114 &3300000686
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3300000680}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
+  materialId: beaver_stick
+  removeOutsideBoundary: 1
+--- !u!114 &3300000696
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3300000690}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
+  materialId: beaver_stick
+  removeOutsideBoundary: 1
+--- !u!114 &3300000706
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3300000700}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
+  materialId: beaver_stick
+  removeOutsideBoundary: 1
+--- !u!114 &3300000716
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3300000710}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
+  materialId: beaver_stick
+  removeOutsideBoundary: 1
+--- !u!114 &3300000726
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3300000720}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
+  materialId: beaver_stick
+  removeOutsideBoundary: 1
+--- !u!114 &3300000736
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3300000730}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
+  materialId: beaver_stick
+  removeOutsideBoundary: 1
+--- !u!114 &3300000746
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3300000740}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
+  materialId: beaver_stick
+  removeOutsideBoundary: 1
+--- !u!114 &3300000756
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3300000750}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
+  materialId: beaver_stick
+  removeOutsideBoundary: 1
+--- !u!114 &3300000766
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3300000760}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
+  materialId: beaver_stick
+  removeOutsideBoundary: 1
+--- !u!114 &3300000776
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3300000770}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
+  materialId: beaver_stick
+  removeOutsideBoundary: 1
+--- !u!114 &3300000786
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3300000780}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
+  materialId: beaver_stick
+  removeOutsideBoundary: 1
+--- !u!114 &3300000796
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3300000790}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
+  materialId: beaver_stick
+  removeOutsideBoundary: 1
+--- !u!114 &3300000806
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3300000800}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
+  materialId: beaver_stick
+  removeOutsideBoundary: 1
+--- !u!114 &3300000816
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3300000810}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
+  materialId: beaver_stick
+  removeOutsideBoundary: 1
+--- !u!114 &3300000826
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3300000820}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
+  materialId: beaver_stick
+  removeOutsideBoundary: 1
+--- !u!114 &3300000836
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3300000830}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
+  materialId: beaver_stick
+  removeOutsideBoundary: 1
+--- !u!114 &3300000846
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3300000840}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
+  materialId: beaver_stick
+  removeOutsideBoundary: 1
+--- !u!114 &3300000856
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3300000850}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
+  materialId: beaver_stick
+  removeOutsideBoundary: 1
+--- !u!114 &3300000866
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3300000860}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
+  materialId: beaver_stick
+  removeOutsideBoundary: 1
+--- !u!114 &3300000876
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3300000870}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
+  materialId: beaver_stick
+  removeOutsideBoundary: 1
+--- !u!114 &3300000886
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3300000880}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
+  materialId: beaver_stick
+  removeOutsideBoundary: 1
+--- !u!114 &3300000896
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3300000890}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
+  materialId: beaver_stick
+  removeOutsideBoundary: 1
+--- !u!114 &3300000906
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3300000900}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
+  materialId: beaver_stick
+  removeOutsideBoundary: 1
+--- !u!114 &3300000916
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3300000910}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
+  materialId: beaver_stick
+  removeOutsideBoundary: 1
+--- !u!114 &3300000926
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3300000920}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
+  materialId: beaver_stick
+  removeOutsideBoundary: 1
+--- !u!114 &3300000936
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3300000930}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
+  materialId: beaver_stick
+  removeOutsideBoundary: 1
+--- !u!114 &3300000946
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3300000940}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
+  materialId: beaver_stick
+  removeOutsideBoundary: 1
+--- !u!114 &3300000956
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3300000950}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
+  materialId: beaver_stick
+  removeOutsideBoundary: 1
+--- !u!114 &3300000966
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3300000960}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
+  materialId: beaver_stick
+  removeOutsideBoundary: 1
+--- !u!114 &3300000976
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3300000970}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
+  materialId: beaver_stick
+  removeOutsideBoundary: 1
+--- !u!114 &3300000986
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3300000980}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
+  materialId: beaver_stick
+  removeOutsideBoundary: 1
+--- !u!114 &3300000996
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3300000990}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
+  materialId: beaver_stick
+  removeOutsideBoundary: 1
+--- !u!114 &3300001006
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3300001000}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
+  materialId: beaver_stick
+  removeOutsideBoundary: 1
+--- !u!114 &3300001016
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3300001010}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
+  materialId: beaver_stick
+  removeOutsideBoundary: 1
+--- !u!114 &3300001026
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3300001020}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
+  materialId: beaver_stick
+  removeOutsideBoundary: 1
+--- !u!114 &3300001036
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3300001030}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
+  materialId: beaver_stick
+  removeOutsideBoundary: 1
+--- !u!114 &3300001046
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3300001040}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
+  materialId: beaver_stick
+  removeOutsideBoundary: 1
+--- !u!114 &3300001056
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3300001050}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
+  materialId: beaver_stick
+  removeOutsideBoundary: 1
+--- !u!114 &3300001066
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3300001060}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
+  materialId: beaver_stick
+  removeOutsideBoundary: 1
+--- !u!114 &3300001076
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3300001070}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
+  materialId: beaver_stick
+  removeOutsideBoundary: 1
+--- !u!114 &3300001086
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3300001080}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
+  materialId: beaver_stick
+  removeOutsideBoundary: 1
+--- !u!114 &3300001096
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3300001090}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
+  materialId: beaver_stick
+  removeOutsideBoundary: 1
+--- !u!114 &3300001106
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3300001100}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
+  materialId: beaver_stick
+  removeOutsideBoundary: 1
+--- !u!114 &3300001116
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3300001110}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
+  materialId: beaver_stick
+  removeOutsideBoundary: 1
+--- !u!114 &3300001126
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3300001120}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
+  materialId: beaver_stick
+  removeOutsideBoundary: 1
+--- !u!114 &3300001136
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3300001130}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
+  materialId: beaver_stick
+  removeOutsideBoundary: 1
+--- !u!114 &3300001146
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3300001140}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
+  materialId: beaver_stick
+  removeOutsideBoundary: 1
+--- !u!114 &3300001156
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3300001150}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
+  materialId: beaver_stick
+  removeOutsideBoundary: 1
+--- !u!114 &3300001166
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3300001160}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
+  materialId: beaver_stick
+  removeOutsideBoundary: 1
+--- !u!114 &3300001176
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3300001170}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
+  materialId: beaver_stick
+  removeOutsideBoundary: 1
+--- !u!114 &3300001186
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3300001180}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
+  materialId: beaver_stick
+  removeOutsideBoundary: 1
+--- !u!114 &3300001196
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3300001190}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
+  materialId: beaver_stick
+  removeOutsideBoundary: 1
+--- !u!114 &3300001206
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3300001200}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
+  materialId: beaver_stick
+  removeOutsideBoundary: 1
+--- !u!114 &3300001216
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3300001210}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
+  materialId: beaver_stick
+  removeOutsideBoundary: 1
+--- !u!114 &3300001226
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3300001220}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
+  materialId: beaver_stick
+  removeOutsideBoundary: 1
+--- !u!114 &3300001236
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3300001230}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
+  materialId: beaver_stick
+  removeOutsideBoundary: 1
+--- !u!114 &3300001246
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3300001240}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
+  materialId: beaver_stick
+  removeOutsideBoundary: 1
+--- !u!114 &3300001256
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3300001250}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
+  materialId: beaver_stick
+  removeOutsideBoundary: 1
+--- !u!114 &3300001266
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3300001260}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
+  materialId: beaver_stick
+  removeOutsideBoundary: 1
+--- !u!114 &3300001276
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3300001270}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
+  materialId: beaver_stick
+  removeOutsideBoundary: 1
+--- !u!114 &3300001286
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3300001280}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
+  materialId: beaver_stick
+  removeOutsideBoundary: 1
+--- !u!114 &3300001296
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3300001290}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
+  materialId: beaver_stick
+  removeOutsideBoundary: 1
+--- !u!114 &3300001306
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3300001300}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
+  materialId: beaver_stick
+  removeOutsideBoundary: 1
+--- !u!114 &3300001316
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3300001310}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
+  materialId: beaver_stick
+  removeOutsideBoundary: 1
+--- !u!114 &3300001326
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3300001320}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
+  materialId: beaver_stick
+  removeOutsideBoundary: 1
+--- !u!114 &3300001336
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3300001330}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
+  materialId: beaver_stick
+  removeOutsideBoundary: 1
+--- !u!114 &3300001346
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3300001340}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
+  materialId: beaver_stick
+  removeOutsideBoundary: 1
+--- !u!114 &3300001356
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3300001350}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
+  materialId: beaver_stick
+  removeOutsideBoundary: 1
+--- !u!114 &3300001366
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3300001360}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
+  materialId: beaver_stick
+  removeOutsideBoundary: 1
+--- !u!114 &3300001376
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3300001370}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
+  materialId: beaver_stick
+  removeOutsideBoundary: 1
+--- !u!114 &3300001386
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3300001380}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
+  materialId: beaver_stick
+  removeOutsideBoundary: 1
+--- !u!114 &3300001396
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3300001390}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
+  materialId: beaver_stick
+  removeOutsideBoundary: 1
+--- !u!114 &3300001406
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3300001400}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
+  materialId: beaver_stick
+  removeOutsideBoundary: 1
+--- !u!114 &3300001416
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3300001410}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
+  materialId: beaver_stick
+  removeOutsideBoundary: 1
+--- !u!114 &3300001426
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3300001420}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
+  materialId: beaver_stick
+  removeOutsideBoundary: 1
+--- !u!114 &3300001436
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3300001430}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
+  materialId: beaver_stick
+  removeOutsideBoundary: 1
+--- !u!114 &3300001446
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3300001440}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
+  materialId: beaver_stick
+  removeOutsideBoundary: 1
+--- !u!114 &3300001456
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3300001450}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
+  materialId: beaver_stick
+  removeOutsideBoundary: 1
+--- !u!114 &3300001466
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3300001460}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
+  materialId: beaver_stick
+  removeOutsideBoundary: 1
+  - {fileID: 7000000002}
+  - {fileID: 8000000100}
+  - {fileID: 8000000101}
+  - {fileID: 8000000102}
+  - {fileID: 8000000103}
+  - {fileID: 8000000104}
+  - {fileID: 8000000105}

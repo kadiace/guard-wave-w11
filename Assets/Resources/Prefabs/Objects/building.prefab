@@ -119,7 +119,7 @@ MonoBehaviour:
   outletLocalDirection: {x: 0, y: 0, z: 1}
   windAcceleration: 28
   reach: 11
-  outletRadius: 3.8
+  outletRadius: 8.5
 --- !u!1 &6002000000
 GameObject:
   m_ObjectHideFlags: 0
