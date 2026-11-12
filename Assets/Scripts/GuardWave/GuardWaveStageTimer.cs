@@ -25,7 +25,7 @@ namespace GuardWave
         private const int WARNING_SECONDS = 10;
         // Small markers every ten seconds, stronger ticks in the final nine, then three impact beats.
         private const int TenSecondInterval = 10;
-        private const float TenSecondPulseDuration = 0.28f;
+        private const float TenSecondPulseDuration = 0.35f;
         private const float WarningPulseDuration = 0.38f;
         private const float ImpactPulseCycleDuration = 0.45f;
         private const int ImpactPulseRepeats = 3;
@@ -34,6 +34,7 @@ namespace GuardWave
         private static readonly Color ImpactColor = new Color(1f, 0.08f, 0.08f, 1f);
         private static readonly Color FlashColor = new Color(1f, 0.95f, 0.86f, 1f);
         private static readonly Color WarningColor = new Color(0.95f, 0.17f, 0.17f, 1f);
+        private static readonly Color TenSecondHighlightColor = new Color(1f, 0.65f, 0.1f, 1f);
 
         private GuardWaveGame _game;
         private FogSceneController _fogMode;
@@ -183,7 +184,7 @@ namespace GuardWave
                     }
                     else if (finalNineSeconds && enteredNewSecond)
                     {
-                        // At 10:00 the subtle pulse gets its full 0.28s.
+                        // At 10:00 the orange pulse gets its full duration.
                         if (_pulseKind == PulseKind.TenSecond)
                             _pendingWarningPulse = true;
                         else
@@ -239,11 +240,13 @@ namespace GuardWave
                     : Mathf.Clamp01(_pulseElapsed / _pulseDuration);
                 float blink = Mathf.Sin(Mathf.PI * t);
                 float amplitude = _pulseKind == PulseKind.Impact ? 0.30f
-                    : _pulseKind == PulseKind.Warning ? 0.16f : 0.07f;
+                    : _pulseKind == PulseKind.Warning ? 0.16f : 0.12f;
                 float flashStrength = _pulseKind == PulseKind.Impact ? 0.90f
-                    : _pulseKind == PulseKind.Warning ? 0.75f : 0.25f;
+                    : _pulseKind == PulseKind.Warning ? 0.75f : 1f;
+                Color flashColor = _pulseKind == PulseKind.TenSecond
+                    ? TenSecondHighlightColor : FlashColor;
                 scale += amplitude * blink;
-                color = Color.Lerp(color, FlashColor, blink * blink * flashStrength);
+                color = Color.Lerp(color, flashColor, blink * blink * flashStrength);
                 if (_pulseKind != PulseKind.TenSecond)
                     color.a = 1f - blink * blink *
                         (_pulseKind == PulseKind.Impact ? 0.25f : 0.35f);
