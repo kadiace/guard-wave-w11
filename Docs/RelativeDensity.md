@@ -72,6 +72,36 @@ waterline, so buoyancy does not linger below the cliff.
    supported water ends and then fall naturally.
 6. Activate Beaver House and watch per-stick forces, collisions, and fps.
 
+## Floating-object stability
+
+For bodies whose relative density is **below 1**, raw particle collision
+impulses and per-cell pressure reaction impulses are deliberately NOT delivered
+to Rigidbody. Fluid particles still collide against the object surface and
+continue to respond to the obstacle in FLIP. The body instead follows smoothed
+water height and local current, with damped buoyancy and limited current
+impulses. Heavy objects (density >= 1) retain the original impact behavior.
+
+The `SmoothWaterColumns` kernel blends the highest water particle across
+neighboring columns, then smooths successive frames (about 8/s), without
+replacing the original physically simulated particle field. Volume samples
+softly transition across the waterline. Buoyancy force on a light object is
+capped to 1.5 times its weight while fully immersed, and additional vertical
+velocity damping reduces bobbing. Buoyancy and current torques are reduced
+to 12%, with Rigidbody angular damping of at least 5. Very light box-shaped
+objects additionally tend to return upright. These are shared settings,
+**not extra per-object parameters**.
+
+Tuning parameters in `GuardWaveFluidSettings.asset`:
+`_floatingVerticalDamping`, `_floatingTorqueScale`,
+`_floatingMaxBuoyancyRatio`, `_floatingUprightStrength`,
+`_floatingAngularDamping`.
+
+Check the rubber duck at relative density 0.25: it should bob briefly and
+settle with most of its body above the water while moving downstream. Rotate
+it sideways before play and check that it returns roughly upright. Check
+that a large wave still carries the duck rather than shoving it one particle
+at a time; check a heavy rock still receives pressure and collision impacts.
+
 ## Approximation / caveats
 
 The free surface is reconstructed as the highest particle in a 0.6m XZ
