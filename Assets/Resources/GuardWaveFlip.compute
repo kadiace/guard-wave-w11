@@ -539,11 +539,11 @@ void GridToParticle(uint id : SV_DispatchThreadID)
         p.velocity.xyz -= n * approaching * _CollisionResponse;
         p.position.xyz += n * (_CollisionSkin-d);
         int bi = (int)b.centerBody.w;
-        // Floating pieces already receive coherent, distributed buoyancy and
-        // water-current drag. Per-particle reaction impulses cause violent
-        // kicks and torques, especially on small low-inertia toys.
-        if (bi>=0 && bi<(int)_BodyCount &&
-            !(b.fluidProperties.x > 0.0 && b.fluidProperties.x < 1.0))
+        // Game pieces with relative density use displaced-volume buoyancy and
+        // coherent current drag instead of thousands of particle reactions.
+        // Particle/surface collision still happens on the liquid side.
+        // Non-piece bodies (the defense flag) retain the original impact.
+        if (bi>=0 && bi<(int)_BodyCount && b.fluidProperties.x <= 0.0)
         {
             float3 impulse = (before-p.velocity.xyz) * _ParticleMass;
             float3 torque = cross(r, impulse);
@@ -730,6 +730,42 @@ void RelativeDensityToBodies(uint id : SV_DispatchThreadID)
         halfSize.x >= halfSize.z ? 0 : 2;
     // 5x5x5 regular samples; cylinder and sphere discard outside points.
     float samples = shape > 1.5 ? 81.0 : shape > 0.5 ? 105.0 : 125.0;
+    // The liquid is deliberately excluded from the collider interior.
+    // Sampling water inside the body therefore returns empty grid columns
+    // and makes a rubber duck appear to have zero displaced volume.
+    // Instead sample the free surface/current just OUTSIDE its XZ footprint
+    // and integrate submerged volume within the collider against that level.
+    float3 ex = Rotate(body.rotation, float3(halfSize.x, 0, 0));
+    float3 ey = Rotate(body.rotation, float3(0, halfSize.y, 0));
+    float3 ez = Rotate(body.rotation, float3(0, 0, halfSize.z));
+    float2 footprint = float2(
+        abs(ex.x) + abs(ey.x) + abs(ez.x),
+        abs(ex.z) + abs(ey.z) + abs(ez.z));
+    float2 outside = footprint + _CellSize * 0.9;
+    float waterline = 0;
+    float3 current = 0;
+    float available = 0;
+    [unroll]
+    for (int i = 0; i < 8; ++i)
+    {
+        float dx = (i == 0 || i == 4 || i == 5) ? 1.0 :
+            ((i == 1 || i == 6 || i == 7) ? -1.0 : 0.0);
+        float dz = (i == 2 || i == 4 || i == 6) ? 1.0 :
+            ((i == 3 || i == 5 || i == 7) ? -1.0 : 0.0);
+        float3 probe = body.centerBody.xyz +
+            float3(dx * outside.x, 0, dz * outside.y);
+        float localHeight;
+        float3 localCurrent;
+        float presence = SampleWater(probe, localHeight, localCurrent);
+        if (presence <= 0.001) continue;
+        available += presence;
+        waterline += localHeight * presence;
+        current += localCurrent * presence;
+    }
+    if (available <= 0.001) return;
+    waterline /= available;
+    current /= available;
+
     float wet = 0;
     float3 buoyancyTorque = 0;
     float3 dragDelta = 0;
@@ -756,15 +792,11 @@ void RelativeDensityToBodies(uint id : SV_DispatchThreadID)
         }
         float3 samplePosition = body.centerBody.xyz +
             Rotate(body.rotation, q * halfSize);
-        float surfaceY;
-        float3 flow;
-        float coverage = SampleWater(samplePosition, surfaceY, flow);
-        if (coverage <= 0.001) continue;
-        // Soft volume integration avoids a whole sample toggling between
-        // wet/dry from a small height change on the coarse 0.6m FLIP grid.
-        float immersion = saturate((surfaceY - samplePosition.y) /
+        // Only geometry determines immersed fraction once surrounding water
+        // is confirmed. Never scale displacement by empty solid-interior cells.
+        float immersion = saturate((waterline - samplePosition.y) /
             max(_CellSize * 0.25, 0.001) + 0.5);
-        float displaced = coverage * immersion;
+        float displaced = immersion;
         if (displaced <= 0.0001) continue;
         wet += displaced;
         float3 r = samplePosition - body.bodyCenter.xyz;
@@ -772,7 +804,7 @@ void RelativeDensityToBodies(uint id : SV_DispatchThreadID)
         float3 bodyPointVelocity = body.velocity.xyz + cross(body.angular.xyz,r);
         // Grounded heavy props follow a reduced target current, not merely
         // a weaker spring that would eventually reach full water speed.
-        float3 targetVelocity = flow;
+        float3 targetVelocity = current;
         targetVelocity.xz *= saturate(body.fluidProperties.y);
         float3 relativeVelocity = targetVelocity - bodyPointVelocity;
         relativeVelocity.y *= _VerticalFlowResponseScale;
@@ -856,11 +888,11 @@ void PressureToBodies(uint id : SV_DispatchThreadID)
         FluidCollider body = _Colliders[i];
         int bi = (int)body.centerBody.w;
         if (bi < 0 || bi >= (int)_BodyCount) continue;
-        // Skip per-cell pressure reaction on floaters: their forces come
-        // from the smoothed displaced volume and averaged local current.
-        // Keep pressure impacts for submerged heavy pieces.
-        if (body.fluidProperties.x > 0.0 && body.fluidProperties.x < 1.0)
-            continue;
+        // Relative-density game pieces, including heavy stones, already get
+        // volumetric buoyancy and flow forces. Per-cell pressure impulses
+        // are unbounded at the riverbed and can launch a 2.6-density stone.
+        // Preserve this impact path for non-piece bodies such as the flag.
+        if (body.fluidProperties.x > 0.0) continue;
         float3 dr = pos - body.centerBody.xyz;
         float radius = body.velocity.w + _CellSize;
         if (dot(dr, dr) > radius * radius) continue;
