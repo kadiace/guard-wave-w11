@@ -713,8 +713,10 @@ void SmoothWaterColumns(uint id : SV_DispatchThreadID)
         float key = neighborhoodHeights[i];
         int j = i - 1;
         [loop]
-        while (j >= 0 && neighborhoodHeights[j] > key)
+        while (j >= 0)
         {
+            // Do not rely on HLSL short-circuiting a negative array index.
+            if (neighborhoodHeights[j] <= key) break;
             neighborhoodHeights[j + 1] = neighborhoodHeights[j];
             --j;
         }
