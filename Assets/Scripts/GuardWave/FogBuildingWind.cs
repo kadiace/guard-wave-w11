@@ -37,3 +37,4 @@ namespace GuardWave
             Gizmos.DrawWireSphere(start + dir * Reach, OutletRadius + Reach * 0.22f);
         }
     }
+}
