@@ -255,6 +255,9 @@ namespace GuardWave
             _compute.SetInts("_GridSize", _grid.x, _grid.y, _grid.z);
             _compute.SetVector("_GridOrigin", _origin);
             _compute.SetFloat("_CellSize", _cellSize);
+            // Non-ambient preview uses approximately cubic source particles;
+            // ambient/wave uses the exact seeded river-lattice volume below.
+            _compute.SetFloat("_LiquidParticleVolume", Mathf.Pow(_cellSize * 0.85f, 3f));
             _compute.SetFloat("_FloorY", groundY);
             _compute.SetFloat("_ExitZ", endZ);
             _compute.SetFloat("_WaterfallEndY", waterfallEndY);
@@ -383,6 +386,12 @@ namespace GuardWave
             _crestSlotStart = _settings.MaxParticles - _crestCandidateCount;
             _compute.SetInt("_CrestSlotStart", _crestSlotStart);
             _ambientTargetCount = targetCount;
+            // Each live particle represents a fixed slice of the designed
+            // river volume; wave crest lattice spacing is approximately equal.
+            // This prevents a sparse group of droplets from supplying enough
+            // buoyancy for a whole object.
+            float riverVolume = 24f * _settings.AmbientWaterDepth * (_startZ - _endZ);
+            _compute.SetFloat("_LiquidParticleVolume", riverVolume / targetCount);
             _ambientColumns = columns;
             _ambientRefillFraction = 0d;
             _particleCount = _settings.MaxParticles;

@@ -56,6 +56,7 @@ StructuredBuffer<FluidCollider> _Colliders;
 int3 _GridSize;
 float3 _GridOrigin;
 float _CellSize;
+float _LiquidParticleVolume; // physical volume represented by one active FLIP particle
 float _Dt;
 float _Gravity;
 float _FlipFraction;
@@ -681,6 +682,8 @@ void SmoothWaterColumns(uint id : SV_DispatchThreadID)
     int2 cell = int2(id % _GridSize.x, id / _GridSize.x);
     float weightedSurface = 0;
     float totalWeight = 0;
+    float particleCount = 0;
+    float sampledCellCount = 0;
     float neighborhoodHeights[9];
     int heightCount = 0;
     [loop]
@@ -691,6 +694,10 @@ void SmoothWaterColumns(uint id : SV_DispatchThreadID)
         int2 n = cell + int2(x, z);
         if (any(n < 0) || n.x >= _GridSize.x || n.y >= _GridSize.z) continue;
         uint index = (uint)(n.y * _GridSize.x + n.x);
+        // Count the entire neighborhood area, including its empty cells.
+        // A few splash particles must not masquerade as a full-depth pool.
+        sampledCellCount += 1.0;
+        particleCount += max(0, _WaterFlow[index].w);
         if (_WaterFlow[index].w <= 0) continue;
         float height = (float)_WaterSurface[index];
         neighborhoodHeights[heightCount++] = height;
@@ -728,12 +735,22 @@ void SmoothWaterColumns(uint id : SV_DispatchThreadID)
     float median = neighborhoodHeights[(heightCount - 1) / 2];
     float target = min(weightedSurface / max(totalWeight, 1.0),
         median + _CellSize * 0.35 * 4096.0);
+    // Water height is also constrained by the volume of water actually
+    // present in the full 3x3 footprint. Particle count is a volume sample,
+    // not a boolean proof that an arbitrarily deep pool exists.
+    float availableVolume = particleCount * _LiquidParticleVolume;
+    float footprintArea = max(1.0, sampledCellCount) * _CellSize * _CellSize;
+    target = min(target, availableVolume / footprintArea * 4096.0);
     int oldSurface = _SmoothedWaterSurface[id];
     // Smooth changes but allow immediate first immersion after river reaches
     // a previously empty column.
     float response = 1.0 - exp(-8.0 * _Dt);
     float nextSurface = oldSurface <= 0 ?
         target : lerp((float)oldSurface, target, response);
+    // The history filter must never invent water volume after the river
+    // drains. A single surviving droplet cannot preserve yesterday's
+    // full-height surface merely because the filter decays slowly.
+    nextSurface = min(nextSurface, availableVolume / footprintArea * 4096.0);
     _SmoothedWaterSurface[id] = (int)round(nextSurface);
 }
 
