@@ -921,12 +921,7 @@ namespace GuardWave
             // collider pose. A horizontal narrow log is much stiffer than an
             // upright one, so a fixed damping rate creates an underdamped
             // spring that bobs even in calm water.
-            // Keep the existing ordinary-creek takeoff guard. Wave-driven
-            // jumps remain possible after an intentional crest is emitted.
-            float terminalRise = gravity * Mathf.Max(0f,
-                _settings.FloatingMaxBuoyancyRatio - 1f) /
-                Mathf.Max(0.01f, _settings.FloatingVerticalDamping);
-            float riseCap = Mathf.Max(0.35f, terminalRise * 0.7f);
+            // Float height responds to measured buoyancy and viscosity; no rise-speed cap.
             for (int i = 0; i < _bodies.Count; ++i)
             {
                 GuardWavePiece piece = _bodyPieces[i];
@@ -1013,11 +1008,6 @@ namespace GuardWave
                 // Experiment: fixed vertical viscosity without pose-specific critical damping.
                 float damping = 1f - Mathf.Exp(-_settings.FloatingVerticalDamping * dt);
                 Vector3 velocity = body.linearVelocity;
-                if (_ambientFlow && !_crestEmitted && velocity.y > riseCap)
-                {
-                    velocity.y = riseCap;
-                    body.linearVelocity = velocity;
-                }
                 float liftImpulse = body.mass * gravity * dt * buoyancyRatio;
                 float dragImpulse = -body.mass * damping * viscosity * velocity.y;
                 body.AddForce(Vector3.up * (liftImpulse + dragImpulse), ForceMode.Impulse);
