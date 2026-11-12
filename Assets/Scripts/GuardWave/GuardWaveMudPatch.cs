@@ -628,6 +628,12 @@ namespace GuardWave
             Vector3 localAnchor = piece.transform.InverseTransformPoint(anchor);
             Vector3 connectedAnchor = connectedBody == null ? anchor
                 : connectedBody.transform.InverseTransformPoint(anchor);
+            // Remove the incoming fall/rotation momentum before fixing the piece.
+            // Only new trigger-based bonds pass here; restoring checkpoint bonds
+            // must preserve their saved Rigidbody velocities.
+            Rigidbody pieceBody = piece.Body;
+            pieceBody.linearVelocity = Vector3.zero;
+            pieceBody.angularVelocity = Vector3.zero;
             CreateBond(piece, localAnchor, connectedAnchor, connectedBody);
             return HasBond(piece);
         }
