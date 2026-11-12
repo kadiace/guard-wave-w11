@@ -613,6 +613,7 @@ namespace GuardWave
                 body.AddForce(appliedImpulse, ForceMode.Impulse);
                 body.AddTorque(appliedAngularImpulse, ForceMode.Impulse);
                 GuardWaveStickForceProbe.RecordImpulse(body, appliedImpulse, appliedAngularImpulse);
+                GuardWaveTempWallBreakController.RecordFluidImpulse(body, appliedImpulse);
             }
         }
 

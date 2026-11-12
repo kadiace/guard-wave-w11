@@ -344,6 +344,8 @@ namespace GuardWave
             && !_finished && !_rulesOpen && _defenseFlag != null
             && _defenseFlag.activeInHierarchy;
         public bool WaveHasStarted => _waveHasStarted;
+        // A snapshot exists only while a wave attempt (including its failure popup) is active.
+        public bool WaveAttemptActive => _waveSnapshot != null;
         public bool CanSelect => !_resolving && !_awaitingStage && !_finished && !_rulesOpen
             && _paletteOpen && !_stageTransitioning;
         public bool CanShowItemInfo => !_awaitingStage && !_finished && !_rulesOpen
@@ -969,6 +971,9 @@ namespace GuardWave
             }
             foreach (GuardWavePiece piece in snapshot.SelectableScenePieces)
                 if (piece != null) _pieceSet.Add(piece);
+
+            // Recreate Temp Wall joints broken by this wave before restoring physics.
+            GuardWaveTempWallBreakController.RestoreJointsAfterRollback();
 
             // Sync all saved poses before resuming the recorded motion.
             Physics.SyncTransforms();

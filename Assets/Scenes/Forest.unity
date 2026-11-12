@@ -609,6 +609,7 @@ GameObject:
   m_Component:
   - component: {fileID: 1530301197}
   - component: {fileID: 3400001001}
+  - component: {fileID: 3400001002}
   m_Layer: 0
   m_Name: Temp Wall
   m_TagString: Untagged
@@ -657,6 +658,20 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWaveStickForceProbe
   logInterval: 0.5
+--- !u!114 &3400001002
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1530301196}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: e2a58ab0fd074507a74e798a6b51b1d3, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWaveTempWallBreakController
+  waveImpactThresholdNewtons: 100
+  impactBreakForceNewtons: 100
 --- !u!1001 &1538027813
 PrefabInstance:
   m_ObjectHideFlags: 0

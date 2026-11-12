@@ -79,6 +79,9 @@ namespace GuardWave
 
             // Unity's Joint.currentForce/currentTorque are physics-solver reaction loads.
             // They are NOT the same as the external fluid force on the Rigidbody.
+            // A failed attempt may recreate the joint on snapshot rollback.
+            if (_joint == null && _stick != null)
+                _joint = _stick.GetComponent<Joint>();
             if (_joint != null)
             {
                 _peakJointForce = Mathf.Max(_peakJointForce, _joint.currentForce.magnitude);
