@@ -1,10 +1,10 @@
-# Outflow diagnostic mode (F7)
+# Outflow diagnostic mode (Ctrl+G)
 
 This commit adds only GPU instrumentation and a colored view of already simulated particles. It does not change fluid velocities, water supply, pressure conditions, collision response, or particles' lifetime.
 
-1. Run the Forest scene and press **F7** once. Press F7 again to turn diagnostics off. The same key enables both the colored particle overlay and one aggregated Console log per second.
+1. Run the Forest scene and press **Ctrl+G** once. Press Ctrl+G again to turn diagnostics off. The same shortcut enables both the colored particle overlay and one aggregated Console log per second.
 2. The overlay marks only *active FLIP particles* in **-8 <= x <= 8** and **ExitZ <= z <= ExitZ+6** (currently z=-15 to -9). Red means **velocity.z > +0.1m/s** (upstream/reverse), blue means **velocity.z < -0.1m/s** (downstream), and yellow means **near zero**. Waterfall spray (state=2) is intentionally excluded.
 3. Console line `[GuardWave Outflow]` reports per-physics-step GPU counters, sampled once per second: fluid grid count, reverse grid velocities before and after `ProjectGrid`, newly reversed grid cells due to projection, peak positive grid velocities, active particle count and reversed counts before/after particle collisions (and crest support), newly reversed particles during collision/crest processing, peak positive particle velocity, and cliff exits for that sampled step.
 4. Reproduce with the barrier, then without it. If `projectionNewReverse` rises where the backflow begins, focus on the pressure solve and lip/outflow boundary. If `collisionNewReverse` rises instead, inspect collider handling. If both remain low while the reverse count is high, inspect velocities inherited from previous steps and transport through the wake.
 
-**Notes:** The reported numbers are an instantaneous sampled step, *not* a sum over the preceding second. The debug overlay uses the existing SSFR material's additional rendering pass and does not modify actual water colors or SSFR surfaces. GPU atomic counters are activated only when F7 is enabled. The diagnostics intentionally cover the central channel rather than the entire 24m width. Tests of GPU shader compilation, Unity Play Mode, and runtime rendering still need to be run in Unity.
+**Notes:** The reported numbers are an instantaneous sampled step, *not* a sum over the preceding second. The debug overlay uses the existing SSFR material's additional rendering pass and does not modify actual water colors or SSFR surfaces. GPU atomic counters are activated only when Ctrl+G is enabled. The diagnostics intentionally cover the central channel rather than the entire 24m width.

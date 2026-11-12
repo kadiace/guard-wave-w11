@@ -37,7 +37,7 @@ struct FluidCollider
 RWStructuredBuffer<FluidParticle> _Particles;
 RWStructuredBuffer<uint> _FlowCounters; // [0] pending refill, [1] total refilled, [2] per-tick claims, [3] cliff exits
 RWStructuredBuffer<uint> _CrestMetrics; // active wave particles, peak height centimeters, released count
-// Per-step outflow diagnostics, disabled unless F7 is enabled.
+// Per-step outflow diagnostics, disabled unless Ctrl+G is enabled.
 // 0 fluid grid cells, 1 reverse pre-projection, 2 reverse post-projection,
 // 3 projection sign flips, 4 particles sampled, 5 reverse before collision,
 // 6 reverse after collision/crest, 7 collision sign flips, 8 cliff exits,
@@ -49,6 +49,7 @@ RWStructuredBuffer<int4> _Accum;
 RWStructuredBuffer<int4> _BodyImpulses; // force impulse in xyz, torque in next xyz
 RWStructuredBuffer<float3> _GridVelocity;
 RWStructuredBuffer<float3> _GridBefore;
+StructuredBuffer<float3> _GridBeforeRead;
 RWStructuredBuffer<float> _PressureSrc;
 RWStructuredBuffer<float> _PressureDst;
 RWStructuredBuffer<uint> _Solid;
@@ -177,7 +178,6 @@ void ClearGrid(uint id : SV_DispatchThreadID)
     {
         _Accum[id] = int4(0,0,0,0);
         _GridVelocity[id] = 0;
-        _GridBefore[id] = 0;
         _PressureSrc[id] = 0;
         _PressureDst[id] = 0;
     }
@@ -490,7 +490,7 @@ void GridToParticle(uint id : SV_DispatchThreadID)
         float3 v = _GridVelocity[idx];
         float3 d = Center(c) - p.position.xyz;
         pic += w*v;
-        flipDelta += w*(v-_GridBefore[idx]);
+        flipDelta += w*(v-_GridBeforeRead[idx]);
         c0 += w*v*d.x;
         c1 += w*v*d.y;
         c2 += w*v*d.z;

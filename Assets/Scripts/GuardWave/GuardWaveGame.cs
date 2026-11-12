@@ -114,11 +114,13 @@ namespace GuardWave
         {
             if (!_initialized) return;
 
-            if (Keyboard.current?.f7Key.wasPressedThisFrame == true)
+            if (Keyboard.current != null &&
+                (Keyboard.current.leftCtrlKey.isPressed || Keyboard.current.rightCtrlKey.isPressed) &&
+                Keyboard.current.gKey.wasPressedThisFrame)
             {
                 GuardWaveFlipRenderer.OutflowDebugEnabled =
                     !GuardWaveFlipRenderer.OutflowDebugEnabled;
-                Debug.Log("[GuardWave Outflow] F7 diagnostics " +
+                Debug.Log("[GuardWave Outflow] Ctrl+G diagnostics " +
                     (GuardWaveFlipRenderer.OutflowDebugEnabled ? "ON" : "OFF") +
                     " (red=+Z reverse, blue=-Z flow, yellow=near zero; " +
                     "one GPU sample log per second).");

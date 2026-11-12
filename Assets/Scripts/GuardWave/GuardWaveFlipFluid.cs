@@ -231,7 +231,6 @@ namespace GuardWave
             // unused compute resources from individual kernels.
             Bind(_clearKernel, "_Accum", _accum);
             Bind(_clearKernel, "_GridVelocity", _velocity);
-            Bind(_clearKernel, "_GridBefore", _before);
             Bind(_clearKernel, "_PressureSrc", _pressureA);
             Bind(_clearKernel, "_PressureDst", _pressureB);
             Bind(_clearKernel, "_BodyImpulses", _impulses);
@@ -264,7 +263,7 @@ namespace GuardWave
             Bind(_g2pKernel, "_Accum", _accum);
             Bind(_g2pKernel, "_Solid", _solid);
             Bind(_g2pKernel, "_GridVelocity", _velocity);
-            Bind(_g2pKernel, "_GridBefore", _before);
+            Bind(_g2pKernel, "_GridBeforeRead", _before);
             Bind(_g2pKernel, "_Colliders", _colliderBuffer);
             Bind(_g2pKernel, "_BodyImpulses", _impulses);
             Bind(_g2pKernel, "_FlowCounters", _flowCounters);
