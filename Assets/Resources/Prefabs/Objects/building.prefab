@@ -383,7 +383,7 @@ MonoBehaviour:
   - 12.05
   - 17.05
   outletLocalDirection: {x: 0, y: 0, z: 1}
-  windAcceleration: 28
+  windAcceleration: 5.6
   reach: 14
   outletRadius: 16
   particlesPerSecond: 32

@@ -18,7 +18,9 @@ namespace GuardWave
         [SerializeField] private Vector3 outletLocalPosition = new Vector3(0f, 2.05f, 3.49f);
         [SerializeField] private Vector3 outletLocalDirection = Vector3.forward;
         [SerializeField] private float[] additionalOutletHeights = { 7.05f, 12.05f, 17.05f };
-        [SerializeField, Min(0f)] private float windAcceleration = 28f;
+        [SerializeField, Min(0f)]
+        [Tooltip("Strength of each AC vent on the GPU fog simulation. Original: 28. Default reduced to 5.6 (20%).")]
+        private float windAcceleration = 5.6f;
         [SerializeField, Min(0.1f)] private float reach = 14f;
         [SerializeField, Min(0.1f)] private float outletRadius = 16f;
 
@@ -128,7 +130,10 @@ namespace GuardWave
                 main.playOnAwake = false;
                 main.simulationSpace = ParticleSystemSimulationSpace.World;
                 main.startLifetime = new ParticleSystem.MinMaxCurve(0.85f, 1.45f);
-                main.startSpeed = new ParticleSystem.MinMaxCurve(3.5f, 5.5f);
+                // Keep the cosmetic wind streak speed proportional to the real GPU wind force.
+                float visualSpeedScale = WindAcceleration / 28f;
+                main.startSpeed = new ParticleSystem.MinMaxCurve(
+                    3.5f * visualSpeedScale, 5.5f * visualSpeedScale);
                 main.startSize = new ParticleSystem.MinMaxCurve(0.11f, 0.25f);
                 main.startColor = particleTint;
                 main.maxParticles = 128;
