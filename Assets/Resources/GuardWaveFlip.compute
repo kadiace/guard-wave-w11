@@ -799,6 +799,39 @@ float SampleWater(float3 pos, out float surfaceY, out float3 waterVelocity)
     return saturate(coverage);
 }
 
+// Physical fluid occupancy at a 3D point: trilinearly interpolated deposited
+// FLIP particle volume divided by the corresponding grid-cell volume.
+// A 2D free surface on its own is NOT evidence of water touching an object.
+// Particle deposition already excludes solid collider interiors, so callers
+// probe immediately outside the body's actual surface.
+float SampleFluidOccupancy3D(float3 pos)
+{
+    float3 grid = (pos - _GridOrigin) / _CellSize - 0.5;
+    int3 baseCell = (int3)floor(grid);
+    float3 f = frac(grid);
+    float occupancy = 0.0;
+    float cellVolume = max(_CellSize * _CellSize * _CellSize, 0.000001);
+    [unroll]
+    for (int z = 0; z <= 1; ++z)
+    [unroll]
+    for (int y = 0; y <= 1; ++y)
+    [unroll]
+    for (int x = 0; x <= 1; ++x)
+    {
+        int3 cell = baseCell + int3(x, y, z);
+        if (!Inside(cell) || IsSolid(cell)) continue;
+        float weight = (x == 0 ? 1.0 - f.x : f.x) *
+            (y == 0 ? 1.0 - f.y : f.y) *
+            (z == 0 ? 1.0 - f.z : f.z);
+        float depositedParticleCount =
+            max(0, _Accum[Flatten(cell)].w) / SCALE;
+        float cellFill = saturate(
+            depositedParticleCount * _LiquidParticleVolume / cellVolume);
+        occupancy += weight * cellFill;
+    }
+    return saturate(occupancy);
+}
+
 // Per-collider 3D volume sampling. Each sample contributes equally to total
 // immersed volume. Upward buoyancy is mass * gravity * (immersed/density);
 // current following depends on actual sampled fluid velocity, not face normal.
@@ -844,7 +877,12 @@ void RelativeDensityToBodies(uint id : SV_DispatchThreadID)
     float2 footprint = float2(
         abs(ex.x) + abs(ey.x) + abs(ez.x),
         abs(ex.z) + abs(ey.z) + abs(ez.z));
-    float2 outside = footprint + _CellSize * 0.9;
+    // Sample the nearest fluid grid stencil outside the collider's footprint,
+    // not water a full cell away from the object.
+    float2 outside = footprint + _CellSize * 0.5;
+    float bodyHalfHeight = abs(ex.y) + abs(ey.y) + abs(ez.y);
+    float bodyBottom = body.centerBody.y - bodyHalfHeight;
+    float bodyTop = body.centerBody.y + bodyHalfHeight;
     float waterline = 0;
     float3 current = 0;
     float available = 0;
@@ -860,7 +898,17 @@ void RelativeDensityToBodies(uint id : SV_DispatchThreadID)
         float localHeight;
         float3 localCurrent;
         float presence = SampleWater(probe, localHeight, localCurrent);
-        if (presence <= 0.001) continue;
+        if (presence <= 0.0) continue;
+
+        // The water column must intersect THIS collider vertically, and
+        // actual FLIP liquid must occupy a neighboring 3D cell there.
+        // A nearby pool or a ghosted free surface cannot exert a force
+        // on a dry body on the bank.
+        if (localHeight < bodyBottom) continue;
+        probe.y = clamp(localHeight - _CellSize * 0.5,
+            bodyBottom, bodyTop);
+        presence *= SampleFluidOccupancy3D(probe);
+        if (presence <= 0.0) continue;
         available += presence;
         waterline += localHeight * presence;
         current += localCurrent * presence;

@@ -350,6 +350,8 @@ namespace GuardWave
             Bind(_buoyancyBodyKernel, "_Colliders", _colliderBuffer);
             Bind(_buoyancyBodyKernel, "_SmoothedWaterSurface", _smoothedWaterSurface);
             Bind(_buoyancyBodyKernel, "_WaterFlow", _waterFlow);
+            Bind(_buoyancyBodyKernel, "_Accum", _accum);
+            Bind(_buoyancyBodyKernel, "_Solid", _solid);
             Bind(_buoyancyBodyKernel, "_BodyImpulses", _impulses);
             Bind(_waterfallKernel, "_Particles", _particles);
             CollectBodies(pieces, flagBody);
