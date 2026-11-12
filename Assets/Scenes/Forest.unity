@@ -2872,7 +2872,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
-  materialId: defense_flag
+  materialId: default_flag
   removeOutsideBoundary: 1
   relativeFluidDensity: 0.6
 --- !u!1 &3100000101
