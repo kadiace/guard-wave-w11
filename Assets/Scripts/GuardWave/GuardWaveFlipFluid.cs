@@ -607,8 +607,12 @@ namespace GuardWave
                 Vector3 angular = new Vector3(torque.X, torque.Y, torque.Z) / IMPULSE_SCALE;
                 float limit = Mathf.Max(_settings.MinImpulseLimit,
                     body.mass * _settings.MaxImpulsePerBodyMass);
-                body.AddForce(Vector3.ClampMagnitude(linear, limit), ForceMode.Impulse);
-                body.AddTorque(Vector3.ClampMagnitude(angular, limit * _settings.AngularImpulseMultiplier), ForceMode.Impulse);
+                Vector3 appliedImpulse = Vector3.ClampMagnitude(linear, limit);
+                Vector3 appliedAngularImpulse = Vector3.ClampMagnitude(
+                    angular, limit * _settings.AngularImpulseMultiplier);
+                body.AddForce(appliedImpulse, ForceMode.Impulse);
+                body.AddTorque(appliedAngularImpulse, ForceMode.Impulse);
+                GuardWaveStickForceProbe.RecordImpulse(body, appliedImpulse, appliedAngularImpulse);
             }
         }
 
