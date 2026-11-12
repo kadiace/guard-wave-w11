@@ -43,6 +43,8 @@ namespace GuardWave
         private int _playerPlacementCount;
         private readonly List<GuardWaveMudPatch> _mudPatches = new List<GuardWaveMudPatch>();
         private readonly HashSet<GuardWaveMudPatch> _sceneMudPatches = new HashSet<GuardWaveMudPatch>();
+        private readonly List<GuardWaveMudPatch.MudBondState> _initialMudBondStates =
+            new List<GuardWaveMudPatch.MudBondState>();
         // A piece can form just one mud bond during an attempt. Breaking that bond
         // must never immediately re-attach it to this or another wet stroke.
         private readonly HashSet<GuardWavePiece> _everMudBonded = new HashSet<GuardWavePiece>();
@@ -78,6 +80,11 @@ namespace GuardWave
         private Vector2 _lastMudCursorScreen;
         private bool _paintingMud;
         private bool _mudStrokePainted;
+        private GuardWaveMudPatch _dryingTarget;
+        private GuardWaveDryerCoverage _dryerCoverage;
+        private Collider _creekBedCollider;
+        private float _dryingHoldSeconds;
+        private const float MUD_DRY_HOLD_SECONDS = 1f;
 
         [Header("Mud adhesion")]
         [SerializeField, Min(0f)] private float mudBreakForce = 80f;
@@ -89,7 +96,7 @@ namespace GuardWave
         private readonly List<FixedJointState> _initialSceneJointStates = new List<FixedJointState>();
         private readonly List<SceneParentActiveState> _initialSceneParentStates =
             new List<SceneParentActiveState>();
-        private readonly GuardWaveMaterial[] _offers = new GuardWaveMaterial[3];
+        private readonly GuardWaveMaterial[] _offers = new GuardWaveMaterial[4];
         private ForestSceneContext _sceneContext;
         private GuardWaveCatalog _catalog;
         private GuardWaveHud _hud;
@@ -133,6 +140,7 @@ namespace GuardWave
         private GuardWavePiece _rightPressedPiece;
 
         internal float DestructionBoundaryZ => _sceneContext.DestructionBoundaryZ;
+        internal Collider CreekBedCollider => _creekBedCollider;
 
         private void Start()
         {
@@ -148,6 +156,9 @@ namespace GuardWave
             _dropPreview = new GuardWaveDropPreview();
             _flipRenderer = new GuardWaveFlipRenderer(_fluidSettings);
             ResetGame();
+            RegisterExistingMudBonds();
+            foreach (GuardWaveMudPatch patch in _mudPatches)
+                if (patch != null) patch.CaptureBonds(_initialMudBondStates);
             _initialized = true;
         }
 
@@ -165,7 +176,11 @@ namespace GuardWave
         private void Update()
         {
             if (!_initialized) return;
-            if (_sceneContext.PauseMenu != null && _sceneContext.PauseMenu.IsOpen) return;
+            if (_sceneContext.PauseMenu != null && _sceneContext.PauseMenu.IsOpen)
+            {
+                EndMudDrying();
+                return;
+            }
 
             Keyboard keyboard = Keyboard.current;
             if (keyboard?.rKey.wasPressedThisFrame == true)
@@ -200,6 +215,7 @@ namespace GuardWave
                 SetOutlineTargets(null);
             if (_resolving || _awaitingStage || _finished || _rulesOpen)
             {
+                EndMudDrying();
                 HideDropPreview();
                 return;
             }
@@ -219,6 +235,12 @@ namespace GuardWave
                 UpdateMudPainting(mouse);
                 return;
             }
+            if (_selected >= 0 && _offers[_selected]?.id == "hair_dryer")
+            {
+                UpdateMudDrying(mouse);
+                return;
+            }
+            EndMudDrying();
 
             if (mouse == null || !mouse.leftButton.wasPressedThisFrame ||
                 mouse.rightButton.isPressed || mouse.rightButton.wasReleasedThisFrame ||
@@ -244,6 +266,7 @@ namespace GuardWave
             if (_resolving || _awaitingStage || _finished || _rulesOpen) return;
             _paletteOpen = true;
             EndMudPainting();
+            EndMudDrying();
             _selected = -1;
             HideDropPreview();
             _status = "후보를 다시 선택하세요.";
@@ -356,6 +379,21 @@ namespace GuardWave
 
         private void PaintMudAt(RaycastHit surface)
         {
+            // One held brush gesture may cross from a log to the creek floor.
+            // Give each surface its own moving mud mesh, but explicitly bond
+            // the surfaces at the brush boundary when they physically meet.
+            GuardWaveMudPatch previousPatch = _activeMudStroke != null &&
+                _activeMudStroke.SurfaceCollider != surface.collider
+                ? _activeMudStroke : null;
+            Vector3 lastPoint = default;
+            Vector3 lastNormal = Vector3.up;
+            bool hasPreviousPoint = previousPatch != null &&
+                previousPatch.TryGetLastSurfaceSample(
+                    out lastPoint, out lastNormal);
+            if (hasPreviousPoint && Vector3.Distance(lastPoint, surface.point) >
+                GuardWaveMudPatch.BrushRadius * 2.5f)
+                hasPreviousPoint = false;
+
             if (_activeMudStroke == null ||
                 _activeMudStroke.SurfaceCollider != surface.collider ||
                 _activeMudStroke.IsFull ||
@@ -376,7 +414,13 @@ namespace GuardWave
 
             _activeMudStroke.AddPoint(surface.point, surface.normal);
             _mudStrokePainted = true;
-            _status = "진흙을 바르는 중… 커서 아래의 가장 가까운 표면에 도포됩니다.";
+            if (hasPreviousPoint)
+            {
+                previousPatch.TryBridgeTo(surface.collider, lastPoint, lastNormal);
+                _activeMudStroke.TryBridgeTo(previousPatch.SurfaceCollider,
+                    surface.point, surface.normal);
+            }
+            _status = "진흙을 바르는 중… 접촉한 표면을 고정합니다.";
         }
 
         private void EndMudPainting()
@@ -389,6 +433,69 @@ namespace GuardWave
             // One held brush gesture (even if split into patches) is one undo step.
             if (painted && _initialized && !_stageTransitioning && !_awaitingStage)
                 SaveEditState(true);
+        }
+
+        /// <summary>
+        /// Blowing must remain on the same visible wet stroke for one second.
+        /// Moving off the stroke, releasing the mouse or changing target resets
+        /// the timer. Each stroke dries once, independently.
+        /// </summary>
+        private void UpdateMudDrying(Mouse mouse)
+        {
+            if (mouse == null || !mouse.leftButton.isPressed ||
+                mouse.rightButton.isPressed || _rulesOpen || _resolving ||
+                !TryGetMudSurface(mouse.position.ReadValue(), out RaycastHit surface))
+            {
+                EndMudDrying();
+                return;
+            }
+
+            GuardWaveMudPatch target = null;
+            float shortestDistance = float.PositiveInfinity;
+            foreach (GuardWaveMudPatch patch in _mudPatches)
+            {
+                if (patch == null ||
+                    !patch.TryGetDryingDistance(surface.collider, surface.point,
+                        surface.normal, out float distanceSqr) ||
+                    distanceSqr >= shortestDistance) continue;
+                target = patch;
+                shortestDistance = distanceSqr;
+            }
+
+            if (target == null)
+            {
+                EndMudDrying();
+                return;
+            }
+
+            if (_dryingTarget != target)
+            {
+                _dryingTarget = target;
+                _dryingHoldSeconds = 0f;
+            }
+
+            _dryingHoldSeconds += Time.deltaTime;
+            if (_dryerCoverage == null)
+                _dryerCoverage = new GuardWaveDryerCoverage();
+            _dryerCoverage.Show(surface.point, surface.normal,
+                Mathf.Clamp01(_dryingHoldSeconds / MUD_DRY_HOLD_SECONDS));
+            if (_dryingHoldSeconds < MUD_DRY_HOLD_SECONDS)
+            {
+                _status = "진흙 건조 중… " +
+                    Mathf.FloorToInt(_dryingHoldSeconds / MUD_DRY_HOLD_SECONDS * 100f) + "%";
+                return;
+            }
+
+            target.Dry();
+            EndMudDrying();
+            _status = "진흙 건조 완료! 추가 부착 불가, 기존 접착력 2배.";
+        }
+
+        private void EndMudDrying()
+        {
+            _dryingTarget = null;
+            _dryingHoldSeconds = 0f;
+            _dryerCoverage?.Hide();
         }
 
         internal bool HasMudBond(GuardWavePiece piece) =>
@@ -500,6 +607,11 @@ namespace GuardWave
                 return;
             }
             if (_mudPreview != null) _mudPreview.SetActive(false);
+            if (_selected >= 0 && _offers[_selected]?.id == "hair_dryer")
+            {
+                HideDropPreview();
+                return;
+            }
             if (mouse == null || _selected < 0 || mouse.rightButton.isPressed ||
                 _offers[_selected] == null ||
                 !TryGetCursorXZ(mouse.position.ReadValue(), out Vector3 placement))
@@ -588,6 +700,9 @@ namespace GuardWave
             SetOutlineTargets(null);
             _dropPreview?.Dispose();
             EndMudPainting();
+            EndMudDrying();
+            _dryerCoverage?.Dispose();
+            _dryerCoverage = null;
             if (_mudPreview != null)
             {
                 MeshFilter filter = _mudPreview.GetComponent<MeshFilter>();
@@ -654,8 +769,9 @@ namespace GuardWave
             _flagBody = _defenseFlag.GetComponent<Rigidbody>();
             _flagCollider = _defenseFlag.GetComponent<BoxCollider>();
             _initialFlagState = new RigidbodyState(_flagBody);
-            _placementBounds = GameObject.Find("Flat Muddy Creek Bed")
-                .GetComponent<BoxCollider>().bounds;
+            _creekBedCollider = GameObject.Find("Flat Muddy Creek Bed")
+                .GetComponent<BoxCollider>();
+            _placementBounds = _creekBedCollider.bounds;
             _lowerCreekBounds = GameObject.Find("Flat Muddy Creek Bed After Cliff")
                 .GetComponent<BoxCollider>().bounds;
             _cameraTarget.y = _placementBounds.max.y + 2f;
@@ -718,6 +834,7 @@ namespace GuardWave
             if (!CanSelect || index < 0 || index >= _offers.Length) return;
             if (_offers[index] == null) return;
             EndMudPainting();
+            EndMudDrying();
             SetOutlineTargets(null);
             _selected = index;
             _status = _offers[index].name + " 선택";
@@ -726,7 +843,11 @@ namespace GuardWave
         /// <summary>규칙 창이 열려 있는 동안 게임의 배치 입력을 잠근다.</summary>
         public void SetRulesOpen(bool isOpen)
         {
-            if (isOpen) EndMudPainting();
+            if (isOpen)
+            {
+                EndMudPainting();
+                EndMudDrying();
+            }
             _rulesOpen = isOpen;
         }
 
@@ -861,6 +982,7 @@ namespace GuardWave
             EndMudPainting();
             _editHistory.Clear();
             _playerPlacementCount = 0;
+            EndMudDrying();
             SetOutlineTargets(null);
             if (_stageFloodRoutine != null)
             {
@@ -876,7 +998,11 @@ namespace GuardWave
             {
                 if (patch == null) continue;
                 patch.ClearBonds();
-                if (_sceneMudPatches.Contains(patch)) continue;
+                if (_sceneMudPatches.Contains(patch))
+                {
+                    patch.ResetDryness();
+                    continue;
+                }
                 patch.gameObject.SetActive(false);
                 SafeDestroySelectedObject(patch.gameObject);
                 Destroy(patch.gameObject);
@@ -897,6 +1023,11 @@ namespace GuardWave
             // A full in-game restart must restore the original 13 wall-to-world
             // joints as well as poses; broken joints are not repaired by resetting RBs.
             RebuildFixedJoints(_initialSceneJointStates);
+            // Recreate initially adopted bonds through the normal patch
+            // snapshot pathway. This also restores broken scene joints on
+            // full restart, rather than leaving the wall unconnected.
+            foreach (GuardWaveMudPatch.MudBondState state in _initialMudBondStates)
+                if (state.Patch != null) state.Patch.RestoreBond(state);
             _stage = 0;
             _selected = -1;
             _paletteOpen = true;
@@ -919,7 +1050,7 @@ namespace GuardWave
             if (ambientFlowPreview) BeginAmbientCreekFlow();
             _status = GetComponent<FogSceneController>() != null
                 ? "고무오리·쓰레기 봉투·큰 돌을 배치하세요."
-                : "진흙을 바르고 통나무 또는 조약돌을 배치하세요. 기물 우클릭: 제거, 빈 공간 우클릭: 선택 해제";
+                : "진흙을 바르고 드라이기로 말려 접착력을 강화하세요. 기물 우클릭: 제거, 빈 공간 우클릭: 선택 해제";
             // Initial state enables Ctrl+Z to undo the very first placement.
             SaveEditState(false);
         }
@@ -953,6 +1084,28 @@ namespace GuardWave
                     mudBreakForce, mudBreakTorque);
                 _sceneMudPatches.Add(patch);
                 _mudPatches.Add(patch);
+            }
+        }
+
+        /// <summary>
+        /// Pre-existing authored FixedJoints enter the ordinary mud bond
+        /// registry. The patch itself checks proximity and connected body:
+        /// no object names, manually paired lists, or initial-log dry logic.
+        /// </summary>
+        private void RegisterExistingMudBonds()
+        {
+            foreach (GuardWavePiece piece in _scenePieces)
+            {
+                if (!IsPlacedPiece(piece)) continue;
+                foreach (FixedJoint joint in piece.GetComponents<FixedJoint>())
+                {
+                    if (joint == null) continue;
+                    foreach (GuardWaveMudPatch patch in _mudPatches)
+                    {
+                        if (patch != null && patch.TryAdoptExistingBond(piece, joint))
+                            break;
+                    }
+                }
             }
         }
 
@@ -1066,6 +1219,7 @@ namespace GuardWave
             _offers[0] = _catalog.Get(fogScene ? "rubber_duck" : "mud");
             _offers[1] = _catalog.Get(fogScene ? "waste_bag_medium" : "log");
             _offers[2] = _catalog.Get(fogScene ? "large_stone" : "forest_pebble");
+            _offers[3] = fogScene ? null : _catalog.Get("hair_dryer");
             _selected = -1;
             _paletteOpen = true;
             HideDropPreview();
@@ -1156,6 +1310,7 @@ namespace GuardWave
         {
             if (!CanReady) return;
             EndMudPainting();
+            EndMudDrying();
             SetOutlineTargets(null);
             HideDropPreview();
             // Wave failures use exactly the same saved state as Ctrl+Z.
