@@ -565,13 +565,4 @@ namespace GuardWave
         }
     }
 
-    /// <summary>Forwards child capsule trigger events to the single owning mud patch.</summary>
-    public sealed class GuardWaveMudTriggerRelay : MonoBehaviour
-    {
-        private GuardWaveMudPatch _owner;
-
-        public void Initialize(GuardWaveMudPatch owner) => _owner = owner;
-        private void OnTriggerEnter(Collider other) => _owner?.ProcessTrigger(other);
-        private void OnTriggerStay(Collider other) => _owner?.ProcessTrigger(other);
-    }
 }
