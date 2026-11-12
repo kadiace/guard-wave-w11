@@ -65,7 +65,11 @@ namespace GuardWave
         /// <summary>이전 프리팹과 생성한 투명 머티리얼을 해제한다.</summary>
         public void Dispose()
         {
-            if (_instance != null) Object.Destroy(_instance);
+            if (_instance != null)
+            {
+                GuardWaveGame.SafeDestroySelectedObject(_instance);
+                Object.Destroy(_instance);
+            }
             _instance = null;
             _materialId = null;
             foreach (Material material in _previewMaterials)
@@ -94,7 +98,7 @@ namespace GuardWave
         private void Rebuild(GuardWaveMaterial info)
         {
             Dispose();
-            GameObject prefab = Resources.Load<GameObject>("Prefabs/" + info.id);
+            GameObject prefab = Resources.Load<GameObject>("Prefabs/Objects/" + info.id);
             if (prefab == null)
             {
                 Debug.LogWarning("[GuardWaveDropPreview] Missing prefab: " + info.id);
@@ -103,6 +107,10 @@ namespace GuardWave
 
             _instance = Object.Instantiate(prefab);
             _instance.name = "Drop Preview - " + info.name;
+            // This is a disposable visual ghost, not an editable scene piece.
+            // Keeping it out of the Hierarchy prevents stale Inspector targets
+            // when the chosen offer changes and the preview gets destroyed.
+            _instance.hideFlags = HideFlags.HideInHierarchy;
             _instance.SetActive(false);
             _materialId = info.id;
 

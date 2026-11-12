@@ -384,7 +384,7 @@ namespace GuardWave
         /// runtime destruction so inspectors do not initialize with null targets.
         /// Never touches selection in player builds.
         /// </summary>
-        private static void SafeDestroySelectedObject(GameObject candidate)
+        internal static void SafeDestroySelectedObject(GameObject candidate)
         {
 #if UNITY_EDITOR
             if (candidate == null) return;
