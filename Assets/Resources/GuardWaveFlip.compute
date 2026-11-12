@@ -678,11 +678,6 @@ void SmoothWaterColumns(uint id : SV_DispatchThreadID)
     uint columns = (uint)(_GridSize.x * _GridSize.z);
     if (id >= columns) return;
     int4 ownFlow = _WaterFlow[id];
-    if (ownFlow.w <= 0)
-    {
-        _SmoothedWaterSurface[id] = 0;
-        return;
-    }
     int2 cell = int2(id % _GridSize.x, id / _GridSize.x);
     float weightedSurface = 0;
     float totalWeight = 0;
@@ -702,6 +697,14 @@ void SmoothWaterColumns(uint id : SV_DispatchThreadID)
         float weight = x == 0 && z == 0 ? 3.0 : 1.0;
         weightedSurface += weight * height;
         totalWeight += weight;
+    }
+    // A temporarily empty 0.6m column inside a flowing river should not
+    // instantly lose buoyancy. Reconstruct its surface using at least three
+    // occupied neighboring columns; a genuinely dry region stays dry.
+    if (heightCount == 0 || (ownFlow.w <= 0 && heightCount < 3))
+    {
+        _SmoothedWaterSurface[id] = 0;
+        return;
     }
     // A single flying FLIP parcel must not become the water surface of a
     // whole floating Rigidbody. Keep the existing spatial average, but cap
@@ -747,6 +750,7 @@ float SampleWater(float3 pos, out float surfaceY, out float3 waterVelocity)
     float coverage = 0.0;
     float sumHeight = 0.0;
     float3 sumVelocity = 0;
+    float velocityCoverage = 0;
     [unroll]
     for (int z = 0; z < 2; z++)
     [unroll]
@@ -757,16 +761,24 @@ float SampleWater(float3 pos, out float surfaceY, out float3 waterVelocity)
         uint index = (uint)(c.y * _GridSize.x + c.x);
         int4 flow = _WaterFlow[index];
         int top = _SmoothedWaterSurface[index];
-        if (flow.w <= 0 || top <= 0) continue;
+        // Neighbor-supported surface samples remain valid even when their
+        // individual particle count momentarily reaches zero. Their empty
+        // velocity is NOT treated as a real stationary current.
+        if (top <= 0) continue;
         float weight = (x == 0 ? 1.0 - f.x : f.x) *
             (z == 0 ? 1.0 - f.y : f.y);
         coverage += weight;
         sumHeight += weight * ((float)top / 4096.0);
-        sumVelocity += weight * (float3(flow.xyz) / (256.0 * flow.w));
+        if (flow.w > 0)
+        {
+            sumVelocity += weight * (float3(flow.xyz) / (256.0 * flow.w));
+            velocityCoverage += weight;
+        }
     }
     if (coverage <= 0.001) return 0.0;
     surfaceY = _FloorY + sumHeight / coverage;
-    waterVelocity = sumVelocity / coverage;
+    waterVelocity = velocityCoverage > 0.001
+        ? sumVelocity / velocityCoverage : 0.0;
     return saturate(coverage);
 }
 
