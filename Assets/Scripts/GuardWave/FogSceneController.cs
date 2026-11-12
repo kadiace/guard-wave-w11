@@ -75,7 +75,7 @@ namespace GuardWave
         {
             _running = true;
             _game.SetRulesOpen(true); // Existing placement UI and input become read-only.
-            _status = "도시 도로로 밀려오는 안개를 건물 실외기 바람이 밀어내고 있습니다.";
+            _status = "도시 도로로 밀려오는 안개에 배치한 건물의 실외기 바람이 맞서고 있습니다.";
             float ground = -2.25f;
             GameObject bed = GameObject.Find("Fog Asphalt Ground");
             if (bed != null)
@@ -84,8 +84,8 @@ namespace GuardWave
                 if (c != null) ground = c.bounds.max.y;
             }
 
-            // 28 m urban highway (8 lanes x 3.5 m) and independent city fog domain.
-            // Covers roadside AC outlets at x +/-24 and atmospheric open boundaries.
+            // 24 m urban highway (8 lanes x 3 m) and independent city fog domain.
+            // Background towers have no fans; only player-placed buildings create wind.
             Vector3 origin = new Vector3(-28f, ground - 0.5f, -29f);
             Vector3 extent = new Vector3(56f, 12f, 83f);
             try

@@ -3,13 +3,13 @@
   "materials": [
     {
       "id": "building",
-      "name": "고층 건물",
+      "name": "실외기 건물",
       "category": "환경",
-      "startOnly": true,
-      "spawnOnly": true,
+      "startOnly": false,
+      "spawnOnly": false,
       "baseReinforcement": 0,
       "abilities": [
-        "+Z 벽 실외기의 지속 송풍으로 안개 흐름을 밀어낸다."
+        "건물 +Z 벽에 달린 실외기가 안개를 지속적으로 밀어낸다."
       ],
       "abilityAlternatives": []
     },

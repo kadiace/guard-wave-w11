@@ -926,7 +926,7 @@ namespace GuardWave
             DealOffers();
             if (ambientFlowPreview) BeginAmbientCreekFlow();
             _status = GetComponent<FogSceneController>() != null
-                ? "고층 건물 실외기는 +Z로 바람을 냅니다. 기물을 배치한 뒤 준비 완료를 누르세요."
+                ? "건물을 배치하면 +Z 방향 실외기 바람으로 안개를 밀어냅니다. 준비 완료를 누르세요."
                 : "진흙을 바르고 통나무 또는 조약돌을 배치하세요. 기물 우클릭: 제거, 빈 공간 우클릭: 선택 해제";
             // Initial state enables Ctrl+Z to undo the very first placement.
             SaveEditState(false);
@@ -1069,13 +1069,13 @@ namespace GuardWave
             return piece;
         }
 
-        /// <summary>Forest uses mud/log/empty, leaving the Fog palette unchanged.</summary>
+        /// <summary>Fog has only the placeable building in slot 1; Forest keeps its three tools.</summary>
         private void DealOffers()
         {
             bool fogScene = GetComponent<FogSceneController>() != null;
-            _offers[0] = _catalog.Get(fogScene ? "rubber_duck" : "mud");
-            _offers[1] = _catalog.Get(fogScene ? "waste_bag_medium" : "log");
-            _offers[2] = _catalog.Get(fogScene ? "large_stone" : "forest_pebble");
+            _offers[0] = _catalog.Get(fogScene ? "building" : "mud");
+            _offers[1] = fogScene ? null : _catalog.Get("log");
+            _offers[2] = fogScene ? null : _catalog.Get("forest_pebble");
             _selected = -1;
             _paletteOpen = true;
             HideDropPreview();
