@@ -1,6 +1,6 @@
 {
   "stages": [
     { "sceneName": "Forest", "disasterName": "파도", "countdownSeconds": 30 },
-    { "sceneName": "Fog", "disasterName": "독안개", "countdownSeconds": 30 }
+    { "sceneName": "Fog", "disasterName": "독안개", "countdownSeconds": 40 }
   ]
 }
