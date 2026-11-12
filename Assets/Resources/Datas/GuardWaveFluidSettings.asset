@@ -28,10 +28,14 @@ MonoBehaviour:
   _verticalFlowResponseScale: 0.35
   _groundedFlowMultiplier: 0.15
   _floatingVerticalDamping: 7
+  _floatingEquilibriumDampingRatio: 1.25
+  _floatingSurfaceSmoothingRate: 6
   _floatingTorqueScale: 0.12
   _floatingMaxBuoyancyRatio: 1.5
   _floatingUprightStrength: 1.5
   _floatingAngularDamping: 5
+  _floatingFlowAlignmentStrength: 10
+  _floatingFlowAlignmentFullSpeed: 4
   _waveCrestAmplitude: 3
   _waveCrestWidth: 1.4
   _waveCrestLength: 8

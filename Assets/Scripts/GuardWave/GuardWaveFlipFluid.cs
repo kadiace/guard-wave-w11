@@ -60,6 +60,17 @@ namespace GuardWave
         // Only scene-authored Initial Wall logs carry these components.
         private readonly List<GuardWaveInitialLogJoint> _initialLogJoints =
             new List<GuardWaveInitialLogJoint>();
+        private readonly List<GuardWavePiece> _bodyPieces = new List<GuardWavePiece>();
+        private readonly List<Collider[]> _bodySampleColliders = new List<Collider[]>();
+        private readonly float[] _recentWaterline;
+        private readonly float[] _recentFluidCoverage;
+        private readonly float[] _recentWaterlineTime;
+        private readonly float[] _smoothedBodyWaterline;
+        private readonly bool[] _hasSmoothedBodyWaterline;
+        private readonly Vector2[] _recentFlowXZ;
+        private readonly Vector2[] _smoothedBodyFlowXZ;
+        private readonly bool[] _hasSmoothedBodyFlowXZ;
+        private const float WATERLINE_SAMPLE_MAX_AGE = 0.25f;
         private readonly List<Collider> _colliders = new List<Collider>();
         private readonly Dictionary<Rigidbody, int> _indices = new Dictionary<Rigidbody, int>();
         private readonly ColliderData[] _colliderData;
@@ -92,6 +103,7 @@ namespace GuardWave
         private readonly int _emitCrestKernel;
         private int _crestSlotStart;
         private int _crestCandidateCount;
+        private bool _crestEmitted;
         private int _ambientTargetCount;
         private int _ambientColumns;
         private readonly int _gridCount;
@@ -126,6 +138,9 @@ namespace GuardWave
             public float SourceTime;
             public Vector3[] Linear;
             public Vector3[] Angular;
+            public float[] Waterline;
+            public float[] FluidCoverage;
+            public Vector2[] FlowXZ;
         }
         private readonly Dictionary<long, ImpulseFrame> _completedImpulseFrames =
             new Dictionary<long, ImpulseFrame>();
@@ -162,6 +177,14 @@ namespace GuardWave
             _cellSize = _settings.CellSize;
             _colliderData = new ColliderData[_settings.MaxColliders];
             _bodyColliderCounts = new int[_settings.MaxBodies];
+            _recentWaterline = new float[_settings.MaxBodies];
+            _recentFluidCoverage = new float[_settings.MaxBodies];
+            _recentWaterlineTime = new float[_settings.MaxBodies];
+            _smoothedBodyWaterline = new float[_settings.MaxBodies];
+            _hasSmoothedBodyWaterline = new bool[_settings.MaxBodies];
+            _recentFlowXZ = new Vector2[_settings.MaxBodies];
+            _smoothedBodyFlowXZ = new Vector2[_settings.MaxBodies];
+            _hasSmoothedBodyFlowXZ = new bool[_settings.MaxBodies];
             if (!SystemInfo.supportsComputeShaders)
                 throw new NotSupportedException("GPU FLIP water requires compute shader support.");
 
@@ -235,6 +258,9 @@ namespace GuardWave
             _compute.SetInts("_GridSize", _grid.x, _grid.y, _grid.z);
             _compute.SetVector("_GridOrigin", _origin);
             _compute.SetFloat("_CellSize", _cellSize);
+            // Non-ambient preview uses approximately cubic source particles;
+            // ambient/wave uses the exact seeded river-lattice volume below.
+            _compute.SetFloat("_LiquidParticleVolume", Mathf.Pow(_cellSize * 0.85f, 3f));
             _compute.SetFloat("_FloorY", groundY);
             _compute.SetFloat("_ExitZ", endZ);
             _compute.SetFloat("_WaterfallEndY", waterfallEndY);
@@ -260,6 +286,8 @@ namespace GuardWave
             _compute.SetFloat("_FloatTorqueScale", _settings.FloatingTorqueScale);
             _compute.SetFloat("_FloatMaxBuoyancyRatio", _settings.FloatingMaxBuoyancyRatio);
             _compute.SetFloat("_FloatUprightStrength", _settings.FloatingUprightStrength);
+            _compute.SetFloat("_FloatFlowAlignmentStrength", _settings.FloatingFlowAlignmentStrength);
+            _compute.SetFloat("_FloatFlowAlignmentFullSpeed", _settings.FloatingFlowAlignmentFullSpeed);
             _compute.SetFloat("_MaxFluidVelocity", _settings.MaxParticleSpeed);
             _compute.SetFloat("_CrestHeightStiffness", _settings.CrestHeightStiffness);
             _compute.SetFloat("_CrestHeightDamping", _settings.CrestHeightDamping);
@@ -322,6 +350,8 @@ namespace GuardWave
             Bind(_buoyancyBodyKernel, "_Colliders", _colliderBuffer);
             Bind(_buoyancyBodyKernel, "_SmoothedWaterSurface", _smoothedWaterSurface);
             Bind(_buoyancyBodyKernel, "_WaterFlow", _waterFlow);
+            Bind(_buoyancyBodyKernel, "_Accum", _accum);
+            Bind(_buoyancyBodyKernel, "_Solid", _solid);
             Bind(_buoyancyBodyKernel, "_BodyImpulses", _impulses);
             Bind(_waterfallKernel, "_Particles", _particles);
             CollectBodies(pieces, flagBody);
@@ -361,6 +391,12 @@ namespace GuardWave
             _crestSlotStart = _settings.MaxParticles - _crestCandidateCount;
             _compute.SetInt("_CrestSlotStart", _crestSlotStart);
             _ambientTargetCount = targetCount;
+            // Each live particle represents a fixed slice of the designed
+            // river volume; wave crest lattice spacing is approximately equal.
+            // This prevents a sparse group of droplets from supplying enough
+            // buoyancy for a whole object.
+            float riverVolume = 24f * _settings.AmbientWaterDepth * (_startZ - _endZ);
+            _compute.SetFloat("_LiquidParticleVolume", riverVolume / targetCount);
             _ambientColumns = columns;
             _ambientRefillFraction = 0d;
             _particleCount = _settings.MaxParticles;
@@ -403,6 +439,7 @@ namespace GuardWave
                 _startZ - _cellSize - _settings.WaveCrestLength * 0.5f);
             // Dispatch only the reserved lattice indices, not random free slots.
             Dispatch(_emitCrestKernel, _crestCandidateCount);
+            _crestEmitted = true;
         }
 
         /// <summary>Assigns GPU resources to a kernel without binding resources it never uses.</summary>
@@ -463,6 +500,9 @@ namespace GuardWave
             _indices.Add(body, _bodies.Count);
             _bodies.Add(body);
             _initialLogJoints.Add(body.GetComponent<GuardWaveInitialLogJoint>());
+            _bodyPieces.Add(body.GetComponent<GuardWavePiece>());
+            // Cache once; never allocate child-collider arrays in FixedUpdate.
+            _bodySampleColliders.Add(body.GetComponentsInChildren<Collider>(true));
         }
 
         /// <summary>Uploads up to 256 live collider proxies and their current body velocities.</summary>
@@ -482,6 +522,12 @@ namespace GuardWave
                     bounds.max.z < _endZ - _cellSize || bounds.min.z > _startZ + _cellSize)
                     continue;
                 Rigidbody body = collider.attachedRigidbody;
+                // Once the center of mass passes the waterfall lip there is
+                // no supporting creek water. Do not send these bodies back to
+                // GPU collision, buoyancy, alignment, or pressure kernels.
+                if (body != null && !body.isKinematic &&
+                    body.worldCenterOfMass.z <= _endZ)
+                    continue;
                 int index = body != null && _indices.TryGetValue(body, out int found)
                     && !body.isKinematic ? found : -1;
                 ColliderData data = new ColliderData();
@@ -560,6 +606,12 @@ namespace GuardWave
                             piece.MaterialId == "beaver_stick" ? 1f : 0f;
                         data.FluidProperties = new Vector4(piece.RelativeFluidDensity,
                             grounded, body.mass, shape);
+                        // Only logs/sticks and the flag seek a low projected-area
+                        // attitude in moving water. Do not tip ducks/other props.
+                        if (piece.MaterialId == "log" ||
+                            piece.MaterialId == "beaver_stick" ||
+                            piece.MaterialId == "default_flag")
+                            data.Angular.w = 1f;
                         if (piece.RelativeFluidDensity < 1f)
                             body.angularDamping = Mathf.Max(body.angularDamping,
                                 _settings.FloatingAngularDamping);
@@ -752,7 +804,10 @@ namespace GuardWave
                 SourceStep = sourceStep,
                 SourceTime = sourceTime,
                 Linear = new Vector3[bodyCount],
-                Angular = new Vector3[bodyCount]
+                Angular = new Vector3[bodyCount],
+                Waterline = new float[bodyCount],
+                FluidCoverage = new float[bodyCount],
+                FlowXZ = new Vector2[bodyCount]
             };
             for (int i = 0; i < bodyCount; i++)
             {
@@ -760,14 +815,275 @@ namespace GuardWave
                 Int4 torque = values[i * 2 + 1];
                 frame.Linear[i] = new Vector3(force.X, force.Y, force.Z) / IMPULSE_SCALE;
                 frame.Angular[i] = new Vector3(torque.X, torque.Y, torque.Z) / IMPULSE_SCALE;
+                // Both surface and current are summed with the same
+                // fixed-point wet-coverage weight. Their ratio is already in
+                // world units; do not divide by IMPULSE_SCALE again.
+                frame.Waterline[i] = torque.W > 0
+                    ? (float)force.W / torque.W
+                    : float.NaN;
+                frame.FlowXZ[i] = torque.W > 0
+                    ? new Vector2((float)force.X / torque.W,
+                        (float)force.Z / torque.W)
+                    : Vector2.zero;
+                // For float bodies, force.Y counts ALL collider footprints,
+                // including entirely dry colliders. torque.W sums wet
+                // fractions, so their quotient is the true body-wide
+                // observed water coverage (zero on a dry GPU readback).
+                frame.FluidCoverage[i] = force.Y > 0
+                    ? Mathf.Clamp01((float)torque.W / force.Y)
+                    : 0f;
             }
             _completedImpulseFrames.Add(requestFrame, frame);
+        }
+
+        /// <summary>
+        /// Match GPU's 5x5x5 immersed-volume sampling against the CURRENT
+        /// world-space collider pose. This avoids applying outdated buoyancy
+        /// when a floating body has already risen above the water surface.
+        /// </summary>
+        private static float CurrentSubmergedFraction(Collider collider, float waterline,
+            float cellSize, out float submergedSlope)
+        {
+            submergedSlope = 0f;
+            Vector3 center;
+            Vector3 halfSize;
+            int shape = 0;
+            Transform transform = collider.transform;
+            if (collider is BoxCollider box)
+            {
+                center = box.center;
+                halfSize = box.size * 0.5f;
+            }
+            else if (collider is MeshCollider mesh && mesh.sharedMesh != null)
+            {
+                Bounds bounds = mesh.sharedMesh.bounds;
+                center = bounds.center;
+                halfSize = bounds.extents;
+            }
+            else if (collider is SphereCollider sphere)
+            {
+                center = sphere.center;
+                halfSize = Vector3.one * sphere.radius;
+                shape = 2;
+            }
+            else if (collider is CapsuleCollider capsule)
+            {
+                center = capsule.center;
+                halfSize = Vector3.one * capsule.radius;
+                if (capsule.direction == 0)
+                    halfSize.x = Mathf.Max(capsule.radius, capsule.height * 0.5f);
+                else if (capsule.direction == 1)
+                    halfSize.y = Mathf.Max(capsule.radius, capsule.height * 0.5f);
+                else
+                    halfSize.z = Mathf.Max(capsule.radius, capsule.height * 0.5f);
+                shape = 1;
+            }
+            else
+                return 0f;
+
+            float sum = 0f;
+            float slopeSum = 0f;
+            int count = 0;
+            float softness = Mathf.Max(0.001f, cellSize * 0.25f);
+            // Derivative of the sampled immersed volume with respect to water
+            // height (equivalently, negative derivative with respect to body Y).
+            // The finite interval smooths the discrete 5x5x5 sample layers.
+            float derivativeRadius = Mathf.Max(0.05f, cellSize * 0.15f);
+            float derivativeStep = derivativeRadius / softness;
+            for (int x = -2; x <= 2; ++x)
+            for (int y = -2; y <= 2; ++y)
+            for (int z = -2; z <= 2; ++z)
+            {
+                Vector3 q = new Vector3(x, y, z) * 0.4f;
+                if (shape == 2 && q.sqrMagnitude > 1.001f) continue;
+                if (shape == 1)
+                {
+                    float radial = collider is CapsuleCollider capsule && capsule.direction == 0
+                        ? q.y * q.y + q.z * q.z
+                        : collider is CapsuleCollider capsuleZ && capsuleZ.direction == 2
+                            ? q.x * q.x + q.y * q.y
+                            : q.x * q.x + q.z * q.z;
+                    if (radial > 1.001f) continue;
+                }
+                Vector3 point = transform.TransformPoint(
+                    center + Vector3.Scale(q, halfSize));
+                float relativeHeight = (waterline - point.y) / softness + 0.5f;
+                sum += Mathf.Clamp01(relativeHeight);
+                slopeSum += (Mathf.Clamp01(relativeHeight + derivativeStep) -
+                    Mathf.Clamp01(relativeHeight - derivativeStep)) /
+                    (2f * derivativeRadius);
+                ++count;
+            }
+            if (count == 0) return 0f;
+            submergedSlope = slopeSum / count;
+            return sum / count;
+        }
+
+        /// <summary>
+        /// Apply buoyancy and vertical viscosity each physics tick using the
+        /// LIVE Rigidbody pose and the most recently observed FLIP waterline.
+        /// GPU readback latency may delay the waterline but can no longer
+        /// replay an obsolete upward kick calculated for a previous pose.
+        /// </summary>
+        private void ApplyLiveFloatingBuoyancy()
+        {
+            float dt = Time.fixedDeltaTime;
+            float gravity = Mathf.Abs(Physics.gravity.y) * _settings.GravityMultiplier;
+            // The restoring stiffness near the waterline varies greatly with
+            // collider pose. A horizontal narrow log is much stiffer than an
+            // upright one, so a fixed damping rate creates an underdamped
+            // spring that bobs even in calm water.
+            // Keep the existing ordinary-creek takeoff guard. Wave-driven
+            // jumps remain possible after an intentional crest is emitted.
+            float terminalRise = gravity * Mathf.Max(0f,
+                _settings.FloatingMaxBuoyancyRatio - 1f) /
+                Mathf.Max(0.01f, _settings.FloatingVerticalDamping);
+            float riseCap = Mathf.Max(0.35f, terminalRise * 0.7f);
+            for (int i = 0; i < _bodies.Count; ++i)
+            {
+                GuardWavePiece piece = _bodyPieces[i];
+                if (piece == null || !piece.enabled || piece.RelativeFluidDensity >= 1f)
+                    continue;
+                Rigidbody body = _bodies[i];
+                if (body == null || body.isKinematic || !body.gameObject.activeInHierarchy)
+                    continue;
+                // The moment a piece passes the lip, drop all remembered
+                // hydrodynamic support, even if readbacks from its past creek
+                // position are still queued. It now free-falls with its XZ
+                // momentum unchanged.
+                if (body.worldCenterOfMass.z <= _endZ)
+                {
+                    _recentFluidCoverage[i] = 0f;
+                    _recentWaterlineTime[i] = 0f;
+                    _hasSmoothedBodyWaterline[i] = false;
+                    _hasSmoothedBodyFlowXZ[i] = false;
+                    continue;
+                }
+                if (_recentWaterlineTime[i] <= 0f ||
+                    Time.fixedTime - _recentWaterlineTime[i] > WATERLINE_SAMPLE_MAX_AGE)
+                {
+                    // After a dry gap or a GPU readback stall, restart surface
+                    // filtering from the next real sample instead of blending
+                    // from an old water height.
+                    _hasSmoothedBodyWaterline[i] = false;
+                    _hasSmoothedBodyFlowXZ[i] = false;
+                    continue;
+                }
+
+                // Zero measured water coverage disables ALL fluid-driven
+                // linear motion, regardless of past surface height or flow.
+                float fluidCoverage = _recentFluidCoverage[i];
+                if (fluidCoverage <= 0f)
+                {
+                    _hasSmoothedBodyWaterline[i] = false;
+                    _hasSmoothedBodyFlowXZ[i] = false;
+                    continue;
+                }
+                float waterline = _recentWaterline[i];
+                if (!_hasSmoothedBodyWaterline[i])
+                {
+                    _smoothedBodyWaterline[i] = waterline;
+                    _hasSmoothedBodyWaterline[i] = true;
+                }
+                else
+                {
+                    // Suppress small frame-to-frame FLIP surface disturbances
+                    // while still following a crest and crossing spatial water
+                    // gradients as the Rigidbody travels downstream.
+                    Vector3 horizontalVelocity = body.linearVelocity;
+                    horizontalVelocity.y = 0f;
+                    float surfaceResponse = _settings.FloatingSurfaceSmoothingRate +
+                        0.4f * horizontalVelocity.magnitude / Mathf.Max(0.1f, _cellSize);
+                    if (_crestEmitted) surfaceResponse = Mathf.Max(surfaceResponse, 18f);
+                    float smoothing = 1f - Mathf.Exp(-surfaceResponse * dt);
+                    _smoothedBodyWaterline[i] = Mathf.Lerp(
+                        _smoothedBodyWaterline[i], waterline, smoothing);
+                }
+                waterline = _smoothedBodyWaterline[i];
+                float immersed = 0f;
+                float submergedSlope = 0f;
+                int colliders = 0;
+                foreach (Collider collider in _bodySampleColliders[i])
+                {
+                    if (collider == null || !collider.enabled ||
+                        !collider.gameObject.activeInHierarchy ||
+                        collider.isTrigger || collider.attachedRigidbody != body)
+                        continue;
+                    float colliderSlope;
+                    immersed += CurrentSubmergedFraction(collider, waterline,
+                        _cellSize, out colliderSlope);
+                    submergedSlope += colliderSlope;
+                    ++colliders;
+                }
+                if (colliders == 0) continue;
+                // Same displaced-volume definition as the GPU torque path:
+                // submerged shape fraction times observed local water cover.
+                immersed = immersed / colliders * fluidCoverage;
+                submergedSlope = submergedSlope / colliders * fluidCoverage;
+                if (immersed <= 0.0001f) continue;
+
+                float density = Mathf.Max(0.01f, piece.RelativeFluidDensity);
+                float buoyancyRatio = Mathf.Min(immersed / density,
+                    _settings.FloatingMaxBuoyancyRatio);
+                float viscosity = Mathf.Clamp01(immersed / density);
+                // d(acceleration)/d(height) = -g * submergedSlope / density.
+                // The critical linear damping coefficient is 2 * sqrt(k).
+                // Add a little overdamping to avoid oscillation under slowly
+                // varying waterlines, while preserving natural floating.
+                float stiffness = gravity * submergedSlope / density;
+                float criticalDamping = 2f * Mathf.Sqrt(Mathf.Max(0f, stiffness));
+                float dampingRate = Mathf.Clamp(Mathf.Max(
+                    _settings.FloatingVerticalDamping,
+                    criticalDamping * _settings.FloatingEquilibriumDampingRatio),
+                    0f, 30f);
+                float damping = 1f - Mathf.Exp(-dampingRate * dt);
+                Vector3 velocity = body.linearVelocity;
+                if (_ambientFlow && !_crestEmitted && velocity.y > riseCap)
+                {
+                    velocity.y = riseCap;
+                    body.linearVelocity = velocity;
+                }
+                float liftImpulse = body.mass * gravity * dt * buoyancyRatio;
+                float dragImpulse = -body.mass * damping * viscosity * velocity.y;
+                body.AddForce(Vector3.up * (liftImpulse + dragImpulse), ForceMode.Impulse);
+
+                // A GPU readback may arrive every few physics steps. Follow
+                // the latest measured water current continuously using the
+                // CURRENT Rigidbody XZ velocity, rather than applying an old
+                // velocity-difference impulse only when a readback arrives.
+                if (!_hasSmoothedBodyFlowXZ[i])
+                {
+                    _smoothedBodyFlowXZ[i] = _recentFlowXZ[i];
+                    _hasSmoothedBodyFlowXZ[i] = true;
+                }
+                else
+                {
+                    float rate = _crestEmitted
+                        ? Mathf.Max(14f, _settings.WaterFlowResponse * 2f)
+                        : Mathf.Max(1f, _settings.WaterFlowResponse);
+                    float alpha = 1f - Mathf.Exp(-rate * dt);
+                    _smoothedBodyFlowXZ[i] = Vector2.Lerp(
+                        _smoothedBodyFlowXZ[i], _recentFlowXZ[i], alpha);
+                }
+                Vector2 currentXZ = _smoothedBodyFlowXZ[i];
+                Vector2 bodyVelocityXZ = new Vector2(velocity.x, velocity.z);
+                float responseRate = _settings.WaterFlowResponse * 2f;
+                float following = (1f - Mathf.Exp(-responseRate * dt)) * viscosity;
+                Vector2 flowImpulseXZ = body.mass * following *
+                    (currentXZ - bodyVelocityXZ);
+                flowImpulseXZ = Vector2.ClampMagnitude(flowImpulseXZ, body.mass * 0.65f);
+                Vector3 flowImpulse = new Vector3(flowImpulseXZ.x, 0f, flowImpulseXZ.y);
+                body.AddForce(flowImpulse, ForceMode.Impulse);
+                if (_initialLogJoints[i] != null)
+                    _initialLogJoints[i].ObserveFluidImpulse(flowImpulse);
+            }
         }
 
         /// <summary>Apply at most one ordered GPU impulse frame per physics tick.</summary>
         public void ApplyPendingImpulses()
         {
             if (_disposed) return;
+            ApplyLiveFloatingBuoyancy();
             if (!_impulsePlaybackStarted)
             {
                 if (_completedImpulseFrames.Count < IMPULSE_PLAYBACK_BUFFER_STEPS)
@@ -787,9 +1103,39 @@ namespace GuardWave
                 Rigidbody body = _bodies[i];
                 if (body == null || body.isKinematic || !body.gameObject.activeInHierarchy)
                     continue;
+                // Readbacks can be several frames late; never replay earlier
+                // creek impulses once the body is beyond the waterfall edge.
+                if (body.worldCenterOfMass.z <= _endZ)
+                    continue;
                 float limit = Mathf.Max(_settings.MinImpulseLimit,
                     body.mass * _settings.MaxImpulsePerBodyMass);
                 Vector3 appliedImpulse = Vector3.ClampMagnitude(frame.Linear[i], limit);
+                GuardWavePiece piece = _bodyPieces[i];
+                if (piece != null && piece.enabled && piece.RelativeFluidDensity < 1f)
+                {
+                    // For buoyant bodies, the first-slot linear channels
+                    // encode sampled water current rather than force. All
+                    // linear buoyancy/drag is computed from live pose/speed
+                    // once per FixedUpdate in ApplyLiveFloatingBuoyancy().
+                    float waterline = frame.Waterline[i];
+                    _recentFluidCoverage[i] = frame.FluidCoverage[i];
+                    if (_recentFluidCoverage[i] > 0f &&
+                        !float.IsNaN(waterline) && !float.IsInfinity(waterline))
+                    {
+                        _recentWaterline[i] = waterline;
+                        _recentFlowXZ[i] = frame.FlowXZ[i];
+                        _recentWaterlineTime[i] = Time.fixedTime;
+                    }
+                    else
+                    {
+                        // No water in this sampled body footprint: discard
+                        // support immediately, without object-specific rules.
+                        _recentFluidCoverage[i] = 0f;
+                        _hasSmoothedBodyWaterline[i] = false;
+                        _hasSmoothedBodyFlowXZ[i] = false;
+                    }
+                    appliedImpulse = Vector3.zero;
+                }
                 Vector3 appliedAngularImpulse = Vector3.ClampMagnitude(
                     frame.Angular[i], limit * _settings.AngularImpulseMultiplier);
                 body.AddForce(appliedImpulse, ForceMode.Impulse);
