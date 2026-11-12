@@ -91,6 +91,7 @@ namespace GuardWave
         private Vector2 _rightDragDisplacement;
         private bool _rightGestureActive;
         private bool _rightGestureMoved;
+        private bool _rightGestureStartedWithOffer;
         private GuardWavePiece _rightPressedPiece;
 
         internal float DestructionBoundaryZ => _sceneContext.DestructionBoundaryZ;
@@ -607,6 +608,8 @@ namespace GuardWave
             if (mouse == null)
             {
                 _rightGestureActive = false;
+                _rightGestureStartedWithOffer = false;
+                _rightPressedPiece = null;
                 return;
             }
 
@@ -616,8 +619,13 @@ namespace GuardWave
             if (rightButton.wasPressedThisFrame)
             {
                 _rightGestureActive = !pointerOverUi;
-                _rightPressedPiece = _rightGestureActive && !_stageTransitioning &&
-                    !_resolving && !_awaitingStage && !_finished && !_rulesOpen
+                // A right-click gesture begun while holding any palette item
+                // cancels placement first, even over an existing piece. Capture
+                // this at mouse-down so it cannot also remove on mouse-up.
+                _rightGestureStartedWithOffer = _rightGestureActive && _selected >= 0;
+                _rightPressedPiece = _rightGestureActive && !_rightGestureStartedWithOffer &&
+                    !_stageTransitioning && !_resolving && !_awaitingStage &&
+                    !_finished && !_rulesOpen
                     ? FindPointedPiece(mouse.position.ReadValue()) : null;
                 _rightGestureMoved = false;
                 _rightDragDisplacement = Vector2.zero;
@@ -673,13 +681,16 @@ namespace GuardWave
             {
                 if (_rightGestureActive && !_rightGestureMoved && !pointerOverUi)
                 {
-                    if (_rightPressedPiece != null)
+                    if (_rightGestureStartedWithOffer)
+                        OpenCandidatePalette();
+                    else if (_rightPressedPiece != null)
                         _rightPressedPiece.RemoveByRightClick();
                     else
                         OpenCandidatePalette();
                 }
                 _rightPressedPiece = null;
                 _rightGestureActive = false;
+                _rightGestureStartedWithOffer = false;
             }
 
             UpdateCameraPosition();
@@ -753,6 +764,7 @@ namespace GuardWave
             _finished = false;
             _cameraTarget = new Vector3(0f, _placementBounds.max.y + 2f, 0f);
             _rightGestureActive = false;
+            _rightGestureStartedWithOffer = false;
             _rightPressedPiece = null;
             UpdateCameraPosition();
             ResetDefenseFlag();
@@ -928,9 +940,11 @@ namespace GuardWave
         internal void RemovePieceByRightClick(GuardWavePiece piece)
         {
             if (_stageTransitioning || _resolving || _awaitingStage || _finished ||
-                _rulesOpen || piece == null || piece.MaterialId == "foundation")
+                _rulesOpen || _selected >= 0 || piece == null ||
+                piece.MaterialId == "foundation")
                 return;
-            RemovePiece(piece);
+            // Manual removal is not destruction by flood or game rules.
+            RemovePiece(piece, GuardWaveChangeKind.Removed);
         }
 
         /// <summary>Removes one object while retaining scene-authored sticks for reload or rollback.</summary>

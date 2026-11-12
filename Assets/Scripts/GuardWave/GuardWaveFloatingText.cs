@@ -4,7 +4,7 @@ using UnityEngine;
 
 namespace GuardWave
 {
-    public enum GuardWaveChangeKind { Destroyed, Flooded, EffectEnabled, EffectDisabled, Growth, Created }
+    public enum GuardWaveChangeKind { Destroyed, Flooded, EffectEnabled, EffectDisabled, Growth, Created, Removed }
 
     public readonly struct GuardWaveChange
     {
@@ -35,6 +35,7 @@ namespace GuardWave
         [SerializeField] private Color increaseColor = new Color32(255, 100, 110, 255);
         [SerializeField] private Color decreaseColor = new Color32(89, 191, 255, 255);
         [SerializeField] private Color destructionColor = new Color32(213, 138, 255, 255);
+        [SerializeField] private Color removalColor = new Color32(255, 177, 69, 255);
         [SerializeField] private Color floodColor = new Color32(40, 220, 200, 255);
         [SerializeField] private Color effectColor = new Color32(255, 209, 106, 255);
 
@@ -105,6 +106,7 @@ namespace GuardWave
             entry.Text.text = change.Label ?? (change.Kind switch
                 {
                     GuardWaveChangeKind.Destroyed => "파괴!",
+                    GuardWaveChangeKind.Removed => "제거!",
                     GuardWaveChangeKind.Flooded => "침수!",
                     GuardWaveChangeKind.EffectEnabled => "효과 발동!",
                     GuardWaveChangeKind.EffectDisabled => "효과 해제!",
@@ -113,8 +115,10 @@ namespace GuardWave
                     _ => "획득!"
                 });
             entry.Color = change.Kind == GuardWaveChangeKind.Destroyed ? destructionColor :
+                change.Kind == GuardWaveChangeKind.Removed ? removalColor :
                 change.Kind == GuardWaveChangeKind.Flooded ? floodColor : effectColor;
             entry.Text.fontSize = fontSize * (change.Kind == GuardWaveChangeKind.Destroyed ||
+                change.Kind == GuardWaveChangeKind.Removed ||
                 change.Kind == GuardWaveChangeKind.Flooded ? 1.3f : 1f);
             entry.Text.transform.SetAsLastSibling();
             _active.Add(entry);
@@ -149,7 +153,8 @@ namespace GuardWave
             RectTransformUtility.ScreenPointToLocalPointInRectangle(_canvasRect, screen, null,
                 out Vector2 local);
             entry.Text.rectTransform.anchoredPosition = local;
-            float pop = entry.Kind == GuardWaveChangeKind.Destroyed ? 0.55f : 0.22f;
+            float pop = entry.Kind == GuardWaveChangeKind.Destroyed ? 0.55f :
+                entry.Kind == GuardWaveChangeKind.Removed ? 0.35f : 0.22f;
             entry.Text.rectTransform.localScale = Vector3.one * (1f + pop *
                 (1f - Mathf.Clamp01(progress * 6f)));
             Color color = entry.Color;
