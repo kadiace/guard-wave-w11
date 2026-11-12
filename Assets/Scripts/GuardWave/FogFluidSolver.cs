@@ -42,7 +42,7 @@ namespace GuardWave
         private readonly RenderTexture _temperatureA, _temperatureB, _curl;
         private readonly RenderTexture _densityPredict, _densityReverse;
         private readonly RenderTexture _pressureA, _pressureB, _divergence, _obstacleSdf;
-        private readonly int _clear, _classify, _advectVelocity, _curlKernel, _forces;
+        private readonly int _clear, _clearAuxiliary, _classify, _advectVelocity, _curlKernel, _forces;
         private readonly int _divergenceKernel, _jacobi, _project, _advectTemperature;
         private readonly int _predictDensity, _reverseDensity, _advectDensity;
         private readonly Vector3Int _size;
@@ -101,6 +101,7 @@ namespace GuardWave
             _obstacles = new ComputeBuffer(MaxObstacles, Marshal.SizeOf<Obstacle>());
             _windVents = new ComputeBuffer(MaxWindVents, Marshal.SizeOf<WindVent>());
             _clear = _compute.FindKernel("ClearFog");
+            _clearAuxiliary = _compute.FindKernel("ClearFogAuxiliary");
             _classify = _compute.FindKernel("BuildObstacleSdf");
             _advectVelocity = _compute.FindKernel("AdvectFogVelocity");
             _curlKernel = _compute.FindKernel("ComputeFogVorticity");
@@ -131,12 +132,13 @@ namespace GuardWave
             Bind(_clear, "_TemperatureAlt", _temperatureB);
             Bind(_clear, "_DensityPredictOut", _densityPredict);
             Bind(_clear, "_DensityReverseOut", _densityReverse);
-            Bind(_clear, "_CurlOut", _curl);
-            Bind(_clear, "_PressureOut", _pressureA);
-            Bind(_clear, "_PressureAlt", _pressureB);
-            Bind(_clear, "_DivergenceWrite", _divergence);
-            Bind(_clear, "_ObstacleOut", _obstacleSdf);
             Dispatch(_clear);
+            Bind(_clearAuxiliary, "_CurlOut", _curl);
+            Bind(_clearAuxiliary, "_PressureOut", _pressureA);
+            Bind(_clearAuxiliary, "_PressureAlt", _pressureB);
+            Bind(_clearAuxiliary, "_DivergenceWrite", _divergence);
+            Bind(_clearAuxiliary, "_ObstacleOut", _obstacleSdf);
+            Dispatch(_clearAuxiliary);
             _currentPressure = _pressureA;
             RefreshObstacleField();
             RefreshWindField();
