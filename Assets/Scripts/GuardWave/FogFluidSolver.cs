@@ -262,20 +262,24 @@ namespace GuardWave
             {
                 if (source == null || !source.isActiveAndEnabled ||
                     source.gameObject.scene.handle != _scene.handle ||
-                    source.WindAcceleration <= 0f || !WorldBounds.Contains(source.OutletPosition))
+                    source.WindAcceleration <= 0f)
                     continue;
-                if (count >= MaxWindVents) break;
-                Vector3 position = source.OutletPosition;
                 Vector3 direction = source.OutletDirection;
                 if (direction.sqrMagnitude < 0.5f) continue;
-                _ventData[count++] = new WindVent
+                for (int vent = 0; vent < source.OutletCount && count < MaxWindVents; vent++)
                 {
-                    PositionRange = new Vector4(position.x, position.y, position.z, source.Reach),
-                    DirectionAcceleration = new Vector4(direction.x, direction.y,
-                        direction.z, source.WindAcceleration),
-                    Radius = new Vector4(source.OutletRadius, 0f, 0f, 0f)
-                };
-                peak = Mathf.Max(peak, source.WindAcceleration);
+                    Vector3 position = source.GetOutletPosition(vent);
+                    if (!WorldBounds.Contains(position)) continue;
+                    _ventData[count++] = new WindVent
+                    {
+                        PositionRange = new Vector4(position.x, position.y, position.z, source.Reach),
+                        DirectionAcceleration = new Vector4(direction.x, direction.y,
+                            direction.z, source.WindAcceleration),
+                        Radius = new Vector4(source.OutletRadius, 0f, 0f, 0f)
+                    };
+                    peak = Mathf.Max(peak, source.WindAcceleration);
+                }
+                if (count >= MaxWindVents) break;
             }
             _compute.SetInt("_WindVentCount", count);
             _compute.SetFloat("_PeakFanSpeed", peak);

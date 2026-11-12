@@ -85,9 +85,9 @@ namespace GuardWave
             }
 
             // 24 m urban highway (8 lanes x 3 m) and independent city fog domain.
-            // Background towers have no fans; only player-placed buildings create wind.
+            // Background towers have no fans; player-placed mid-height vents remain in the gas domain.
             Vector3 origin = new Vector3(-28f, ground - 0.5f, -29f);
-            Vector3 extent = new Vector3(56f, 12f, 83f);
+            Vector3 extent = new Vector3(56f, 20f, 83f);
             try
             {
                 _fluid = new FogFluidSolver(gameObject.scene, origin, extent,
