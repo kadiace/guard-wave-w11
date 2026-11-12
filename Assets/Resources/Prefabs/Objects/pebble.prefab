@@ -78,6 +78,7 @@ MonoBehaviour:
   m_Name:
   m_EditorClassIdentifier: Assembly-CSharp::RestoreCastle3D.CastlePiece3D
   materialId: pebble
+  relativeFluidDensity: 2.6
 --- !u!1 &10000
 GameObject:
   m_ObjectHideFlags: 0

@@ -641,6 +641,9 @@ namespace GuardWave
             piece.Body.useGravity = !anchored;
             _pieces.Add(piece);
             _pieceSet.Add(piece);
+            // The ambient FLIP river already exists when the player drops this
+            // prefab. Without this, its collider never reaches GPU buoyancy.
+            _fluid?.RegisterPiece(piece);
             if (material.id == "vine")
                 PublishChange(new GuardWaveChange(piece, null, GuardWaveChangeKind.Created, 0,
                     position, "덩쿨 생성!"));

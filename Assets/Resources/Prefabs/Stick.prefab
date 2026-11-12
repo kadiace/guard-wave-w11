@@ -158,6 +158,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
   materialId: beaver_stick
   removeOutsideBoundary: 1
+  relativeFluidDensity: 0.6
 --- !u!65 &5576235316683910146
 BoxCollider:
   m_ObjectHideFlags: 0

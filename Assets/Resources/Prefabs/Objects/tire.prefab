@@ -80,6 +80,7 @@ MonoBehaviour:
   m_Name:
   m_EditorClassIdentifier: Assembly-CSharp::RestoreCastle3D.CastlePiece3D
   materialId: tire
+  relativeFluidDensity: 0.9
 --- !u!1 &10000
 GameObject:
   m_ObjectHideFlags: 0

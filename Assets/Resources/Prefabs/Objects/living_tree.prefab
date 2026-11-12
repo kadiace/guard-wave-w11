@@ -79,6 +79,7 @@ MonoBehaviour:
   m_Name:
   m_EditorClassIdentifier: Assembly-CSharp::RestoreCastle3D.CastlePiece3D
   materialId: living_tree
+  relativeFluidDensity: 0.7
 --- !u!1 &10000
 GameObject:
   m_ObjectHideFlags: 0
