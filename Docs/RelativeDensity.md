@@ -20,6 +20,16 @@ without modifying the 860KB Forest scene. Every object prefab has its own
 explicit starting value; these are gameplay tuning values, not measured
 material densities. **Edit values freely for future stages.**
 
+### Runtime-spawned objects
+
+Forest creates its ambient water solver before the first palette placement.
+`GuardWaveGame.Spawn()` must call `_fluid?.RegisterPiece(piece)` after
+instantiating a prefab. The solver registers the new Rigidbody and its
+non-trigger colliders; otherwise GPU fluid collision and buoyancy kernels
+never see palette-spawned items even when their density Inspector field
+is correct (e.g. rubber duck = 0.25). Live palette objects are prioritized
+over inactive authored colliders when limited by the GPU collider budget.
+
 At every fixed step, `GuardWaveFlip.compute` reconstructs water columns from
 live particles after the FLIP update. The `RelativeDensityToBodies` kernel
 samples a 5x5x5 volume for each active collider; cylinder and sphere shapes
