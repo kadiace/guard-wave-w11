@@ -146,7 +146,11 @@ namespace GuardWave
         private void FixedUpdate()
         {
             PruneDeadMudJoints();
-            if (ambientFlowPreview && _fluid != null)
+            if (_fluid == null) return;
+            // Drain at most one completed GPU step per physics tick, before
+            // dispatching the next simulation step.
+            _fluid.ApplyPendingImpulses();
+            if (ambientFlowPreview)
                 _fluid.Step(Time.fixedDeltaTime, 0f);
         }
 

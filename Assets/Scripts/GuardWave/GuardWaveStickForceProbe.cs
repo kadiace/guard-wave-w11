@@ -5,6 +5,7 @@ using UnityEngine;
 namespace GuardWave
 {
     [DisallowMultipleComponent]
+    [DefaultExecutionOrder(100)] // Observe applied impulses after GuardWaveGame.FixedUpdate.
     public sealed class GuardWaveStickForceProbe : MonoBehaviour
     {
         private sealed class StickState
@@ -18,6 +19,8 @@ namespace GuardWave
             public float PeakJointForce;
             public float PeakJointTorque;
             public int Readbacks;
+            public long SourceStep = -1;
+            public float SourceTime;
         }
 
         private static GuardWaveStickForceProbe _active;
@@ -51,11 +54,14 @@ namespace GuardWave
         }
 
         /// <summary>Records the clamped impulse applied to a tracked Stick by the fluid simulation.</summary>
-        internal static void RecordImpulse(Rigidbody body, Vector3 impulse, Vector3 angularImpulse)
+        internal static void RecordImpulse(Rigidbody body, Vector3 impulse,
+            Vector3 angularImpulse, long sourceStep, float sourceTime)
         {
             if (_active == null || !_active._states.TryGetValue(body, out StickState state)) return;
 
             state.Readbacks++;
+            state.SourceStep = sourceStep;
+            state.SourceTime = sourceTime;
             float magnitude = impulse.magnitude;
             state.SumImpulseMagnitudes += magnitude;
             if (magnitude > state.PeakImpulse)
@@ -88,8 +94,11 @@ namespace GuardWave
                 string breakForce = state.Joint != null ? state.Joint.breakForce.ToString("F2") : "no joint";
                 string breakTorque = state.Joint != null ? state.Joint.breakTorque.ToString("F2") : "no joint";
 
+                string source = state.Readbacks > 0
+                    ? $"gpuStep={state.SourceStep}, gpuTime={state.SourceTime:F2}s"
+                    : "gpuStep=none";
                 Debug.Log(
-                    $"[GuardWave StickForce] {state.Body.name} over {Time.fixedDeltaTime:F2}s, samples={state.Readbacks} | " +
+                    $"[GuardWave StickForce] {state.Body.name} over {Time.fixedDeltaTime:F2}s, samples={state.Readbacks}, {source} | " +
                     $"fluid avg~{averageFluidForce:F2} N, peak~{peakFluidForceEstimate:F2} N " +
                     $"(peak impulse={state.PeakImpulse:F3} N*s, direction={state.PeakImpulseDirection}) | " +
                     $"fluid angular peak~{peakFluidTorqueEstimate:F2} N*m | " +
@@ -100,6 +109,8 @@ namespace GuardWave
                     state.Body);
 
                 state.Readbacks = 0;
+                state.SourceStep = -1;
+                state.SourceTime = 0f;
                 state.SumImpulseMagnitudes = 0f;
                 state.PeakImpulse = 0f;
                 state.PeakAngularImpulse = 0f;

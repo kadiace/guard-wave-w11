@@ -114,6 +114,21 @@ namespace GuardWave
         // Multiple in-flight snapshots preserve continuous forces across fixed steps.
         private int _pendingImpulseReadbacks;
         private const int MAX_PENDING_IMPULSE_READBACKS = 8;
+        // Buffer two readbacks, then apply one GPU frame per Unity physics tick.
+        private const int IMPULSE_PLAYBACK_BUFFER_STEPS = 2;
+        private sealed class ImpulseFrame
+        {
+            public long SourceStep;
+            public float SourceTime;
+            public Vector3[] Linear;
+            public Vector3[] Angular;
+        }
+        private readonly Dictionary<long, ImpulseFrame> _completedImpulseFrames =
+            new Dictionary<long, ImpulseFrame>();
+        private long _gpuStep;
+        private long _requestedImpulseFrame;
+        private long _nextImpulseFrameToApply = 1;
+        private bool _impulsePlaybackStarted;
         private bool _flowReadbackPending;
         private float _flowReadbackClock;
         private bool _crestMetricsReadbackPending;
@@ -576,6 +591,7 @@ namespace GuardWave
         {
             if (_disposed) return;
             _elapsed += dt;
+            _gpuStep++;
             _compute.SetFloat("_Dt", dt);
             UpdateColliders();
             Dispatch(_clearKernel, Mathf.Max(_gridCount, _bodies.Count * 2));
@@ -673,8 +689,12 @@ namespace GuardWave
                 // A palette item may be registered while an older GPU snapshot
                 // is in flight. Never read uninitialized slots for that item.
                 int requestedBodyCount = _bodies.Count;
+                long requestFrame = ++_requestedImpulseFrame;
+                long sourceStep = _gpuStep;
+                float sourceTime = _elapsed;
                 AsyncGPUReadback.Request(_impulses,
-                    request => OnImpulsesReady(request, requestedBodyCount));
+                    request => OnImpulsesReady(request, requestedBodyCount,
+                        requestFrame, sourceStep, sourceTime));
             }
         }
 
@@ -707,28 +727,70 @@ namespace GuardWave
         }
 
         /// <summary>Applies bounded fluid reaction impulses to scene Rigidbodies on the main thread.</summary>
-        private void OnImpulsesReady(AsyncGPUReadbackRequest request, int requestedBodyCount)
+        // Readback callbacks may arrive in bursts. Copy GPU data, but do not
+        // apply any Rigidbody force outside the physics timestep.
+        private void OnImpulsesReady(AsyncGPUReadbackRequest request, int requestedBodyCount,
+            long requestFrame, long sourceStep, float sourceTime)
         {
             _pendingImpulseReadbacks = Mathf.Max(0, _pendingImpulseReadbacks - 1);
-            if (_disposed || request.hasError) return;
+            if (_disposed) return;
+            if (request.hasError)
+            {
+                // Preserve request ordering after a failed GPU readback.
+                _completedImpulseFrames.Add(requestFrame, null);
+                return;
+            }
             NativeArray<Int4> values = request.GetData<Int4>();
-            for (int i = 0; i < requestedBodyCount; i++)
+            int bodyCount = Mathf.Min(requestedBodyCount, values.Length / 2);
+            ImpulseFrame frame = new ImpulseFrame
+            {
+                SourceStep = sourceStep,
+                SourceTime = sourceTime,
+                Linear = new Vector3[bodyCount],
+                Angular = new Vector3[bodyCount]
+            };
+            for (int i = 0; i < bodyCount; i++)
+            {
+                Int4 force = values[i * 2];
+                Int4 torque = values[i * 2 + 1];
+                frame.Linear[i] = new Vector3(force.X, force.Y, force.Z) / IMPULSE_SCALE;
+                frame.Angular[i] = new Vector3(torque.X, torque.Y, torque.Z) / IMPULSE_SCALE;
+            }
+            _completedImpulseFrames.Add(requestFrame, frame);
+        }
+
+        /// <summary>Apply at most one ordered GPU impulse frame per physics tick.</summary>
+        public void ApplyPendingImpulses()
+        {
+            if (_disposed) return;
+            if (!_impulsePlaybackStarted)
+            {
+                if (_completedImpulseFrames.Count < IMPULSE_PLAYBACK_BUFFER_STEPS)
+                    return;
+                _impulsePlaybackStarted = true;
+            }
+            // Explicit sequence IDs also handle callbacks arriving out of order.
+            if (!_completedImpulseFrames.TryGetValue(_nextImpulseFrameToApply,
+                    out ImpulseFrame frame))
+                return;
+            _completedImpulseFrames.Remove(_nextImpulseFrameToApply++);
+            if (frame == null) return;
+
+            int count = Mathf.Min(frame.Linear.Length, _bodies.Count);
+            for (int i = 0; i < count; i++)
             {
                 Rigidbody body = _bodies[i];
                 if (body == null || body.isKinematic || !body.gameObject.activeInHierarchy)
                     continue;
-                Int4 force = values[i * 2];
-                Int4 torque = values[i * 2 + 1];
-                Vector3 linear = new Vector3(force.X, force.Y, force.Z) / IMPULSE_SCALE;
-                Vector3 angular = new Vector3(torque.X, torque.Y, torque.Z) / IMPULSE_SCALE;
                 float limit = Mathf.Max(_settings.MinImpulseLimit,
                     body.mass * _settings.MaxImpulsePerBodyMass);
-                Vector3 appliedImpulse = Vector3.ClampMagnitude(linear, limit);
+                Vector3 appliedImpulse = Vector3.ClampMagnitude(frame.Linear[i], limit);
                 Vector3 appliedAngularImpulse = Vector3.ClampMagnitude(
-                    angular, limit * _settings.AngularImpulseMultiplier);
+                    frame.Angular[i], limit * _settings.AngularImpulseMultiplier);
                 body.AddForce(appliedImpulse, ForceMode.Impulse);
                 body.AddTorque(appliedAngularImpulse, ForceMode.Impulse);
-                GuardWaveStickForceProbe.RecordImpulse(body, appliedImpulse, appliedAngularImpulse);
+                GuardWaveStickForceProbe.RecordImpulse(body, appliedImpulse,
+                    appliedAngularImpulse, frame.SourceStep, frame.SourceTime);
             }
         }
 
@@ -737,6 +799,7 @@ namespace GuardWave
         {
             if (_disposed) return;
             _disposed = true;
+            _completedImpulseFrames.Clear();
             _particles.Release();
             _accum.Release();
             _velocity.Release();
