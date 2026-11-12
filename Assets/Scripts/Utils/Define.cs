@@ -3,6 +3,7 @@ public enum Scene
     Unknown,
     Game,
     Forest,
+    Fog,
 }
 
 public enum InputMode
