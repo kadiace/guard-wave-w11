@@ -17,8 +17,8 @@ namespace GuardWave
         [SerializeField] private Vector3 outletLocalPosition = new Vector3(0f, 4f, 7.15f);
         [SerializeField] private Vector3 outletLocalDirection = Vector3.forward;
         [SerializeField, Min(0f)] private float windAcceleration = 28f;
-        [SerializeField, Min(0.1f)] private float reach = 11f;
-        [SerializeField, Min(0.1f)] private float outletRadius = 8.5f;
+        [SerializeField, Min(0.1f)] private float reach = 14f;
+        [SerializeField, Min(0.1f)] private float outletRadius = 16f;
 
         public string MaterialId => materialId;
         public Vector3 OutletPosition => transform.TransformPoint(outletLocalPosition);
