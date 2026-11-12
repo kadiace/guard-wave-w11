@@ -4,9 +4,9 @@ using UnityEngine;
 namespace GuardWave
 {
     /// <summary>
-    /// One continuous brush stroke of adhesive mud. A slightly raised mesh
-    /// forms an uneven wet ribbon, while trigger samples along that ribbon
-    /// attach falling Rigidbodies to the painted surface via FixedJoint.
+    /// One continuous, thick impasto-like adhesive paint stroke.
+    /// Tapered ends, asymmetric raised ridges and lengthwise pigmentation
+    /// replace circular stamps. Physics adhesion remains on the painted surface.
     /// </summary>
     [DisallowMultipleComponent]
     public sealed class GuardWaveMudPatch : MonoBehaviour
@@ -16,8 +16,10 @@ namespace GuardWave
 
         private const int MaxSamples = 512;
         private const float ColliderSpacing = 0.5f;
-        private const float SurfaceOffset = 0.018f;
-        private const int CapSides = 12;
+        private const float SurfaceOffset = 0.012f;
+        private const int CrossSections = 9;
+        private static Texture2D s_impastoTexture;
+        private static int s_impastoTextureUsers;
 
         private readonly List<Vector3> _points = new List<Vector3>();
         private readonly List<Vector3> _normals = new List<Vector3>();
@@ -51,8 +53,10 @@ namespace GuardWave
             Vector3 previousPoint = transform.TransformPoint(_points[last]);
             Vector3 previousNormal =
                 transform.TransformDirection(_normals[last]).normalized;
-            return Vector3.Distance(previousPoint, worldPoint) <= BrushRadius * 1.8f &&
-                   Vector3.Dot(previousNormal, worldNormal.normalized) > 0.85f;
+            // Faceted logs have abruptly changing normals. Keep one painted
+            // smear through gentle bends, but still split at true surface breaks.
+            return Vector3.Distance(previousPoint, worldPoint) <= BrushRadius * 2.4f &&
+                   Vector3.Dot(previousNormal, worldNormal.normalized) > 0.45f;
         }
 
         public readonly struct MudBondState
@@ -124,48 +128,96 @@ namespace GuardWave
             RebuildStrokeMesh();
         }
 
+        /// <summary>
+        /// Build one continuous raised paint ribbon: nine cross-stroke samples
+        /// for brush ridges, irregular edges and four tapered end rows. The
+        /// surface normals follow the hit collider rather than a flat plane.
+        /// Nothing is instanced per sample, so no stacked-circle appearance.
+        /// </summary>
         private void RebuildStrokeMesh()
         {
             if (_mesh == null || _points.Count == 0) return;
 
             int count = _points.Count;
-            var vertices = new List<Vector3>(count * 3 + CapSides * 4);
-            var triangles = new List<int>(count * 12 + CapSides * 6);
-            var uv = new List<Vector2>(count * 3 + CapSides * 4);
+            int rows = count + 4;
+            var vertices = new List<Vector3>(rows * CrossSections);
+            var triangles = new List<int>((rows - 1) * (CrossSections - 1) * 6);
+            var uv = new List<Vector2>(rows * CrossSections);
+            float[] lengths = new float[count];
+            for (int i = 1; i < count; i++)
+                lengths[i] = lengths[i - 1] +
+                    Vector3.Distance(_points[i - 1], _points[i]);
 
-            float traveled = 0f;
-            for (int i = 0; i < count; i++)
+            for (int row = 0; row < rows; row++)
             {
-                Vector3 normal = _normals[i];
-                Vector3 tangent = TangentAt(i);
+                int index = Mathf.Clamp(row - 2, 0, count - 1);
+                Vector3 normal = _normals[index];
+                Vector3 tangent = TangentAt(index);
                 Vector3 side = Vector3.Cross(normal, tangent).normalized;
-                float noise = Mathf.Sin(i * 2.31f + 0.7f) * 0.045f
-                    + Mathf.Sin(i * 0.91f) * 0.045f;
-                float width = BrushRadius * (0.91f + noise);
-                Vector3 center = _points[i] + normal * (SurfaceOffset + 0.019f);
-                Vector3 left = _points[i] - side * width + normal * SurfaceOffset;
-                Vector3 right = _points[i] + side * width + normal * SurfaceOffset;
-                if (i > 0) traveled += Vector3.Distance(_points[i - 1], _points[i]);
-                vertices.Add(left);
-                vertices.Add(center);
-                vertices.Add(right);
-                uv.Add(new Vector2(0f, traveled));
-                uv.Add(new Vector2(0.5f, traveled));
-                uv.Add(new Vector2(1f, traveled));
 
-                if (i == 0) continue;
-                int a = (i - 1) * 3;
-                int b = i * 3;
-                // Winding points upward along the surface, with a narrow
-                // raised center ridge to create a fresh, wet brush highlight.
-                triangles.Add(a); triangles.Add(b); triangles.Add(a + 1);
-                triangles.Add(a + 1); triangles.Add(b); triangles.Add(b + 1);
-                triangles.Add(a + 1); triangles.Add(b + 1); triangles.Add(a + 2);
-                triangles.Add(a + 2); triangles.Add(b + 1); triangles.Add(b + 2);
+                // The brush picks up its deposited paint at the start and
+                // releases it at the tail, rather than making round end caps.
+                float offset = 0f;
+                float taper = 1f;
+                if (row == 0) { offset = -BrushRadius * 0.48f; taper = 0.06f; }
+                else if (row == 1) { offset = -BrushRadius * 0.22f; taper = 0.68f; }
+                else if (row == rows - 2)
+                {
+                    offset = BrushRadius * 0.22f;
+                    taper = 0.72f;
+                }
+                else if (row == rows - 1)
+                {
+                    offset = BrushRadius * 0.47f;
+                    taper = 0.07f;
+                }
+
+                float distance = lengths[index] + offset;
+                float variation = Mathf.PerlinNoise(distance * 1.9f + 2.1f, 1.71f);
+                float width = BrushRadius * taper *
+                    Mathf.Lerp(0.80f, 1.14f, variation);
+
+                Vector3 center = _points[index] + tangent * offset;
+                for (int j = 0; j < CrossSections; j++)
+                {
+                    float x = (j / (float)(CrossSections - 1)) * 2f - 1f;
+                    float edgeNoise = Mathf.Sin(distance * 8.7f + x * 3.2f) *
+                        Mathf.Sin(distance * 3.4f + 1.9f) * 0.047f;
+                    float lateral = x * width + x * edgeNoise * taper;
+
+                    // Broad, thick body with a pair of longitudinal knife/
+                    // bristle ridges. Height varies with deposited paint flow,
+                    // but falls to a thin feathered film at both edges.
+                    float core = Mathf.Pow(Mathf.Max(0f, 1f - x * x), 1.3f);
+                    float ridgeA = Mathf.Exp(-Mathf.Pow((x + 0.36f) * 6.2f, 2f));
+                    float ridgeB = Mathf.Exp(-Mathf.Pow((x - 0.28f) * 6.5f, 2f));
+                    float ridgeNoise = Mathf.PerlinNoise(
+                        distance * 4.1f + 0.7f, x * 2.6f + 3.1f);
+                    float thickness = core *
+                        (0.052f + ridgeA * 0.057f + ridgeB * 0.036f +
+                         ridgeNoise * 0.027f) *
+                        Mathf.Lerp(0.26f, 1f, taper);
+                    float edgeFilm = Mathf.Lerp(0.002f, 0.008f, core);
+
+                    vertices.Add(center + side * lateral +
+                        normal * (SurfaceOffset + edgeFilm + thickness));
+                    uv.Add(new Vector2(j / (float)(CrossSections - 1),
+                        distance / (BrushRadius * 1.15f)));
+                }
+
+                if (row == 0) continue;
+                for (int j = 0; j < CrossSections - 1; j++)
+                {
+                    int a = (row - 1) * CrossSections + j;
+                    int b = row * CrossSections + j;
+                    triangles.Add(a);
+                    triangles.Add(b);
+                    triangles.Add(a + 1);
+                    triangles.Add(a + 1);
+                    triangles.Add(b);
+                    triangles.Add(b + 1);
+                }
             }
-
-            AddRoundedEnd(0, vertices, uv, triangles);
-            if (count > 1) AddRoundedEnd(count - 1, vertices, uv, triangles);
 
             _mesh.Clear();
             _mesh.SetVertices(vertices);
@@ -192,58 +244,50 @@ namespace GuardWave
             return delta.normalized;
         }
 
-        private void AddRoundedEnd(int pointIndex, List<Vector3> vertices,
-            List<Vector2> uv, List<int> triangles)
-        {
-            Vector3 normal = _normals[pointIndex];
-            Vector3 forward = TangentAt(pointIndex);
-            Vector3 side = Vector3.Cross(normal, forward).normalized;
-            Vector3 center = _points[pointIndex] + normal * (SurfaceOffset + 0.018f);
-            int centerIndex = vertices.Count;
-            vertices.Add(center);
-            uv.Add(new Vector2(0.5f, 0.5f));
-            for (int i = 0; i < CapSides; i++)
-            {
-                float angle = i * Mathf.PI * 2f / CapSides;
-                float radius = BrushRadius * (0.89f + 0.045f * Mathf.Sin(i * 3.23f + pointIndex));
-                Vector3 radial = side * Mathf.Cos(angle) + forward * Mathf.Sin(angle);
-                vertices.Add(_points[pointIndex] + radial * radius + normal * SurfaceOffset);
-                uv.Add(new Vector2(0.5f + Mathf.Cos(angle) * 0.5f,
-                    0.5f + Mathf.Sin(angle) * 0.5f));
-            }
-            for (int i = 0; i < CapSides; i++)
-            {
-                triangles.Add(centerIndex);
-                triangles.Add(centerIndex + 1 + (i + 1) % CapSides);
-                triangles.Add(centerIndex + 1 + i);
-            }
-        }
-
         public static GameObject CreatePreview()
         {
-            // Create render-only geometry directly. Creating a primitive and
-            // immediately Destroy()ing its Collider can invalidate the active
-            // component Inspector's target during Play Mode.
-            GameObject preview = new GameObject("Mud Brush Cursor");
+            // A tiny tapered paint swipe, not a flat circular cursor stamp.
+            // All parts are render-only to avoid transient inspector targets.
+            GameObject preview = new GameObject("Impasto Brush Cursor");
             MeshFilter filter = preview.AddComponent<MeshFilter>();
             MeshRenderer renderer = preview.AddComponent<MeshRenderer>();
-            const int sides = 24;
-            var vertices = new Vector3[sides + 1];
-            var triangles = new int[sides * 3];
-            vertices[0] = Vector3.zero;
-            for (int i = 0; i < sides; i++)
+            const int rows = 5;
+            const int across = 9;
+            float[] lengths = { -0.43f, -0.23f, 0f, 0.21f, 0.44f };
+            float[] widths = { 0.07f, 0.73f, 1f, 0.78f, 0.07f };
+            Vector3[] vertices = new Vector3[rows * across];
+            int[] triangles = new int[(rows - 1) * (across - 1) * 6];
+            Vector2[] uv = new Vector2[vertices.Length];
+            for (int r = 0; r < rows; r++)
             {
-                float angle = i * 2f * Mathf.PI / sides;
-                vertices[i + 1] = new Vector3(
-                    Mathf.Cos(angle) * BrushRadius, 0f,
-                    Mathf.Sin(angle) * BrushRadius);
-                triangles[i * 3] = 0;
-                triangles[i * 3 + 1] = (i + 1) % sides + 1;
-                triangles[i * 3 + 2] = i + 1;
+                for (int c = 0; c < across; c++)
+                {
+                    float x = c / (float)(across - 1) * 2f - 1f;
+                    float body = Mathf.Max(0f, 1f - x * x);
+                    float ridge = Mathf.Exp(-Mathf.Pow((x + 0.32f) * 5.3f, 2f));
+                    float height = (body * (0.040f + ridge * 0.045f)) *
+                        Mathf.Lerp(0.25f, 1f, widths[r]);
+                    vertices[r * across + c] = new Vector3(
+                        x * BrushRadius * widths[r],
+                        height + 0.005f, lengths[r]);
+                    uv[r * across + c] = new Vector2(
+                        c / (float)(across - 1), lengths[r] / BrushRadius);
+                    if (r == 0 || c == across - 1) continue;
+                    int a = (r - 1) * across + c;
+                    int b = r * across + c;
+                    int at = ((r - 1) * (across - 1) + c) * 6;
+                    triangles[at] = a;
+                    triangles[at + 1] = b;
+                    triangles[at + 2] = a + 1;
+                    triangles[at + 3] = a + 1;
+                    triangles[at + 4] = b;
+                    triangles[at + 5] = b + 1;
+                }
             }
-            Mesh mesh = new Mesh { name = "Mud Brush Cursor Disc" };
+            Mesh mesh = new Mesh { name = "Impasto Brush Tip" };
             mesh.vertices = vertices;
             mesh.triangles = triangles;
+            mesh.uv = uv;
             mesh.RecalculateNormals();
             mesh.RecalculateBounds();
             filter.sharedMesh = mesh;
@@ -259,16 +303,63 @@ namespace GuardWave
             Shader shader = Shader.Find("Universal Render Pipeline/Lit");
             if (shader == null) shader = Shader.Find("Standard");
             Material material = new Material(shader);
-            material.name = preview ? "Wet Glue Brush Cursor" : "Wet Adhesive Mud";
+            material.name = preview ? "Impasto Brush Preview" : "Wet Impasto Adhesive";
             Color tint = preview
-                ? new Color(0.78f, 0.60f, 0.33f, 1f)
-                : new Color(0.51f, 0.35f, 0.19f, 1f);
+                ? new Color(0.75f, 0.51f, 0.29f, 1f)
+                : new Color(0.42f, 0.27f, 0.14f, 1f);
             if (material.HasProperty("_BaseColor")) material.SetColor("_BaseColor", tint);
             if (material.HasProperty("_Color")) material.SetColor("_Color", tint);
             if (material.HasProperty("_Smoothness"))
-                material.SetFloat("_Smoothness", preview ? 0.55f : 0.79f);
-            if (material.HasProperty("_Metallic")) material.SetFloat("_Metallic", 0f);
+                material.SetFloat("_Smoothness", preview ? 0.77f : 0.83f);
+            if (material.HasProperty("_Metallic"))
+                material.SetFloat("_Metallic", 0f);
+            if (material.HasProperty("_SpecColor"))
+                material.SetColor("_SpecColor", new Color(0.30f, 0.24f, 0.17f, 1f));
+
+            // The texture has directional pigment/binder streaks, not splat
+            // circles. Share one readable texture among all paint strokes.
+            if (!preview)
+            {
+                if (s_impastoTexture == null)
+                    s_impastoTexture = CreateImpastoTexture();
+                s_impastoTextureUsers++;
+                if (material.HasProperty("_BaseMap"))
+                    material.SetTexture("_BaseMap", s_impastoTexture);
+                if (material.HasProperty("_MainTex"))
+                    material.SetTexture("_MainTex", s_impastoTexture);
+            }
             return material;
+        }
+
+        private static Texture2D CreateImpastoTexture()
+        {
+            const int size = 96;
+            Texture2D texture = new Texture2D(
+                size, size, TextureFormat.RGBA32, true);
+            texture.name = "Impasto Pigment & Binder Striations";
+            texture.wrapMode = TextureWrapMode.Repeat;
+            texture.filterMode = FilterMode.Bilinear;
+
+            Color[] pixels = new Color[size * size];
+            for (int y = 0; y < size; y++)
+            {
+                float v = y / (float)size;
+                for (int x = 0; x < size; x++)
+                {
+                    float u = x / (float)(size - 1);
+                    float lengthwise = Mathf.PerlinNoise(u * 10.0f, v * 1.8f);
+                    float fine = Mathf.PerlinNoise(u * 34f + 2f, v * 5f);
+                    float streak = Mathf.Sin(u * 61f + v * 2.7f) * 0.036f;
+                    float pigment = Mathf.Clamp(
+                        0.69f + 0.19f * lengthwise + 0.13f * fine + streak,
+                        0.48f, 1f);
+                    pixels[y * size + x] = new Color(
+                        pigment, pigment * 0.94f, pigment * 0.87f, 1f);
+                }
+            }
+            texture.SetPixels(pixels);
+            texture.Apply(true, true);
+            return texture;
         }
 
         private void OnTriggerEnter(Collider other) => TryBond(other);
@@ -387,6 +478,11 @@ namespace GuardWave
             ClearBonds();
             if (_material != null) Destroy(_material);
             if (_mesh != null) Destroy(_mesh);
+            if (s_impastoTextureUsers > 0 && --s_impastoTextureUsers == 0)
+            {
+                if (s_impastoTexture != null) Destroy(s_impastoTexture);
+                s_impastoTexture = null;
+            }
         }
     }
 }

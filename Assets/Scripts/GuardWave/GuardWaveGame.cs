@@ -351,7 +351,7 @@ namespace GuardWave
                 {
                     if (_mudPreview == null) _mudPreview = GuardWaveMudPatch.CreatePreview();
                     _mudPreview.transform.SetPositionAndRotation(
-                        surface.point + surface.normal * 0.034f,
+                        surface.point + surface.normal * 0.020f,
                         Quaternion.FromToRotation(Vector3.up, surface.normal));
                     _mudPreview.SetActive(true);
                 }
