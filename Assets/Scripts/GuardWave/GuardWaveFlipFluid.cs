@@ -56,6 +56,9 @@ namespace GuardWave
         }
 
         private readonly List<Rigidbody> _bodies = new List<Rigidbody>();
+        // Only scene-authored Initial Wall logs carry these components.
+        private readonly List<GuardWaveInitialLogJoint> _initialLogJoints =
+            new List<GuardWaveInitialLogJoint>();
         private readonly List<Collider> _colliders = new List<Collider>();
         private readonly Dictionary<Rigidbody, int> _indices = new Dictionary<Rigidbody, int>();
         private readonly ColliderData[] _colliderData;
@@ -458,6 +461,7 @@ namespace GuardWave
                 return;
             _indices.Add(body, _bodies.Count);
             _bodies.Add(body);
+            _initialLogJoints.Add(body.GetComponent<GuardWaveInitialLogJoint>());
         }
 
         /// <summary>Uploads up to 256 live collider proxies and their current body velocities.</summary>
@@ -789,6 +793,8 @@ namespace GuardWave
                     frame.Angular[i], limit * _settings.AngularImpulseMultiplier);
                 body.AddForce(appliedImpulse, ForceMode.Impulse);
                 body.AddTorque(appliedAngularImpulse, ForceMode.Impulse);
+                if (_initialLogJoints[i] != null)
+                    _initialLogJoints[i].ObserveFluidImpulse(appliedImpulse);
                 GuardWaveStickForceProbe.RecordImpulse(body, appliedImpulse,
                     appliedAngularImpulse, frame.SourceStep, frame.SourceTime);
             }
