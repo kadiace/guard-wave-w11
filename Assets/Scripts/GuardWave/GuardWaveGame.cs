@@ -491,6 +491,11 @@ namespace GuardWave
                 return;
             }
 
+            // Refresh the previous checkpoint with the actual wet mud joints
+            // immediately before curing. Their forces may have changed since
+            // the last placement or paint action.
+            if (_editHistory.Count > 0)
+                _editHistory[_editHistory.Count - 1] = CaptureWaveSnapshot();
             target.Dry();
             EndMudDrying();
             // Each completed dry is one independent Ctrl+Z step. The snapshot
@@ -1499,12 +1504,18 @@ namespace GuardWave
         {
             if (_awaitingStage || _finished)
                 return;
+            // No Ready click is required: ambient water can already sweep away
+            // the flag. Choose the most recent checkpoint where it was still
+            // above the boundary, so confirmation cannot immediately re-fail.
+            if (_waveSnapshot == null)
+                for (int i = _editHistory.Count - 1; i >= 0; i--)
+                    if (_editHistory[i].Flag.PositionZ > DestructionBoundaryZ)
+                    {
+                        _waveSnapshot = _editHistory[i];
+                        break;
+                    }
             EndMudPainting();
             EndMudDrying();
-            // No Ready click is required: ambient water can already sweep away
-            // the flag. Reuse the last valid edit state as the failure checkpoint.
-            if (_waveSnapshot == null && _editHistory.Count > 0)
-                _waveSnapshot = _editHistory[_editHistory.Count - 1];
             // Keep the flood coroutine and GPU particle buffers alive so
             // the wave continues flowing behind the failure popup.
             _stageTransitioning = false;
@@ -1845,6 +1856,8 @@ namespace GuardWave
             private readonly bool _useGravity;
 
             /// <summary>리지드바디의 위치, 속도 및 물리 속성을 기록한다.</summary>
+            public float PositionZ => _position.z;
+
             public RigidbodyState(Rigidbody body)
             {
                 if (body == null) throw new ArgumentNullException(nameof(body));
@@ -1903,6 +1916,12 @@ namespace GuardWave
                 _stageFloodRoutine = null;
             }
             DisposeFluid();
+            // A stroke may have ended as the flag was falling. Discard any
+            // later snapshots than the safe failure checkpoint.
+            int checkpointIndex = _editHistory.IndexOf(_waveSnapshot);
+            if (checkpointIndex >= 0 && checkpointIndex < _editHistory.Count - 1)
+                _editHistory.RemoveRange(checkpointIndex + 1,
+                    _editHistory.Count - checkpointIndex - 1);
             RestoreEditState(_waveSnapshot);
             CommitWaveSnapshot();
             _awaitingStage = false;
