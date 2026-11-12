@@ -13,6 +13,8 @@
 #pragma kernel GridToParticle
 #pragma kernel PressureToBodies
 #pragma kernel Waterfall
+#pragma kernel ClearExitCounts
+#pragma kernel UpdateExitFlux
 
 #define SCALE 2048.0
 #define MAX_COLLIDERS 256
@@ -35,6 +37,7 @@ struct FluidCollider
     float4 bodyCenter;
 };
 RWStructuredBuffer<FluidParticle> _Particles;
+// [0..3] legacy counters; [4..] per-XY-cell cliff departures THIS physics tick.
 RWStructuredBuffer<uint> _FlowCounters; // [0] pending refill, [1] total refilled, [2] per-tick claims, [3] cliff exits
 RWStructuredBuffer<uint> _CrestMetrics; // active wave particles, peak height centimeters, released count
 // Per-step outflow diagnostics, disabled unless Ctrl+G is enabled.
@@ -42,7 +45,8 @@ RWStructuredBuffer<uint> _CrestMetrics; // active wave particles, peak height ce
 // 3 projection sign flips, 4 particles sampled, 5 reverse before collision,
 // 6 reverse after collision/crest, 7 collision sign flips, 8 cliff exits,
 // 9/10 maximum +Z grid speed (millimeters/s) before/after projection,
-// 11 maximum +Z particle speed (millimeters/s).
+// 11 maximum +Z particle speed (millimeters/s),
+// 12 total lip departures (whole river), 13 reconstructed outlet flux (liters/s).
 RWStructuredBuffer<uint> _OutflowDiagnostics;
 int _OutflowDiagnosticsEnabled;
 RWStructuredBuffer<int4> _Accum;
@@ -54,6 +58,12 @@ RWStructuredBuffer<float> _PressureSrc;
 RWStructuredBuffer<float> _PressureDst;
 RWStructuredBuffer<uint> _Solid;
 StructuredBuffer<FluidCollider> _Colliders;
+// Filtered observed exit speed (positive magnitude, -Z outward) per XY lip face.
+// Read-only SRV for pressure kernel, RW UAV for separate end-of-step update kernel.
+StructuredBuffer<float> _LipFaceFluxRead;
+RWStructuredBuffer<float> _LipFaceFlux;
+int _LipCellZ;
+float _OutletParticleVolume;
 int3 _GridSize;
 float3 _GridOrigin;
 float _CellSize;
@@ -185,11 +195,19 @@ void ClearGrid(uint id : SV_DispatchThreadID)
         _BodyImpulses[id] = int4(0,0,0,0);
     if (id < 3)
         _CrestMetrics[id] = 0u;
-    if (_OutflowDiagnosticsEnabled != 0 && id < 12)
+    if (_OutflowDiagnosticsEnabled != 0 && id < 14)
         _OutflowDiagnostics[id] = 0u;
     // Keep pending refill debt and its global sequence across physics ticks.
     if (id == 0 && _AmbientEnabled != 0)
         _FlowCounters[2] = 0u;
+}
+// The extra FlowCounters entries share the G2P UAV already bound by this solver.
+// Clearing here rather than ClearGrid keeps ClearGrid <= 8 UAVs.
+[numthreads(128,1,1)]
+void ClearExitCounts(uint id : SV_DispatchThreadID)
+{
+    uint faces = (uint)(_GridSize.x * _GridSize.y);
+    if (id < faces) _FlowCounters[4u + id] = 0u;
 }
 [numthreads(128,1,1)]
 void ClassifyGrid(uint id : SV_DispatchThreadID)
@@ -417,6 +435,27 @@ void JacobiPressure(uint id : SV_DispatchThreadID)
     float div = (VelocityAt(c+ex).x-VelocityAt(c-ex).x +
         VelocityAt(c+ey).y-VelocityAt(c-ey).y +
         VelocityAt(c+ez).z-VelocityAt(c-ez).z) / (2*_CellSize);
+    // At the physical lip (between the last upstream cell and the 4-cell
+    // downstream buffer), use the *measured* previous-step particle flux as
+    // the downstream face velocity. Replace the old zero-velocity ghost term
+    // rather than adding a second sink on top of an already open boundary.
+    // The pressure solve remains collocated; this is a conservative boundary
+    // flux approximation, not a full staggered MAC projection.
+    if (_OutletParticleVolume > 0.0 && c.z == _LipCellZ && !IsFluid(c-ez))
+    {
+        uint face = (uint)(c.y * _GridSize.x + c.x);
+        float outwardSpeed = _LipFaceFluxRead[face];
+        if (outwardSpeed > 0.01)
+        {
+            float zDivOld = (VelocityAt(c+ez).z - VelocityAt(c-ez).z) /
+                (2.0 * _CellSize);
+            // Face-normal fluxes: upstream face - downstream face, each / cell size.
+            float upstreamFaceSpeed = 0.5 *
+                (_GridVelocity[id].z + VelocityAt(c+ez).z);
+            float zDivMeasured = (upstreamFaceSpeed + outwardSpeed) / _CellSize;
+            div += zDivMeasured - zDivOld;
+        }
+    }
     float own = _PressureSrc[id];
     float sum = PressureAt(c+ex,own)+PressureAt(c-ex,own)+
         PressureAt(c+ey,own)+PressureAt(c-ey,own)+
@@ -602,6 +641,16 @@ void GridToParticle(uint id : SV_DispatchThreadID)
     }
     if (p.position.z < _ExitZ)
     {
+        // Convert physical lip crossings to per-face volumetric outlet flow.
+        // These 2D bins use spare FlowCounters slots, avoiding an extra G2P UAV.
+        if (_OutletParticleVolume > 0.0)
+        {
+            int x = clamp((int)floor((p.position.x - _GridOrigin.x) / _CellSize),
+                0, _GridSize.x - 1);
+            int y = clamp((int)floor((p.position.y - _GridOrigin.y) / _CellSize),
+                0, _GridSize.y - 1);
+            InterlockedAdd(_FlowCounters[4 + y * _GridSize.x + x], 1u);
+        }
         if (_OutflowDiagnosticsEnabled != 0 && abs(p.position.x) <= 8.0)
             InterlockedAdd(_OutflowDiagnostics[8], 1u);
         // Cross the *physical* lip and leave the pressure solver immediately.
@@ -624,6 +673,39 @@ void GridToParticle(uint id : SV_DispatchThreadID)
             InterlockedAdd(_FlowCounters[0], 1u);
     }
     _Particles[id] = p;
+}
+
+// After G2P, reconstruct an *observed* normal outlet speed for next step's
+// pressure boundary. A reflected 1:2:1 X filter conserves the cross-sectional
+// count; EMA suppresses quantization jitter from particles crossing in bursts.
+// No velocities or particles are altered by this kernel.
+[numthreads(128,1,1)]
+void UpdateExitFlux(uint id : SV_DispatchThreadID)
+{
+    uint faces = (uint)(_GridSize.x * _GridSize.y);
+    if (id >= faces) return;
+    uint width = (uint)_GridSize.x;
+    uint x = id % width;
+    uint row = id / width;
+    uint left = row * width + (x == 0u ? 0u : x - 1u);
+    uint right = row * width + (x + 1u < width ? x + 1u : x);
+    uint departures = _FlowCounters[4u + id];
+    float filteredCount = 0.25 * (float)_FlowCounters[4u + left] +
+        0.5 * (float)departures +
+        0.25 * (float)_FlowCounters[4u + right];
+    float speed = filteredCount * _OutletParticleVolume /
+        max(_Dt * _CellSize * _CellSize, 1e-6);
+    // This is a measured boundary flux, not an additional driving force.
+    float alpha = 1.0 - exp(-_Dt / 0.12);
+    float smoothed = lerp(_LipFaceFlux[id],
+        clamp(speed, 0.0, _MaxFluidVelocity), alpha);
+    _LipFaceFlux[id] = smoothed;
+    if (_OutflowDiagnosticsEnabled != 0)
+    {
+        InterlockedAdd(_OutflowDiagnostics[12], departures);
+        InterlockedAdd(_OutflowDiagnostics[13],
+            (uint)round(smoothed * _CellSize * _CellSize * 1000.0));
+    }
 }
 
 [numthreads(128,1,1)]

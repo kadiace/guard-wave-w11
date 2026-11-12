@@ -8,3 +8,42 @@ This commit adds only GPU instrumentation and a colored view of already simulate
 4. Reproduce with the barrier, then without it. If `projectionNewReverse` rises where the backflow begins, focus on the pressure solve and lip/outflow boundary. If `collisionNewReverse` rises instead, inspect collider handling. If both remain low while the reverse count is high, inspect velocities inherited from previous steps and transport through the wake.
 
 **Notes:** The reported numbers are an instantaneous sampled step, *not* a sum over the preceding second. The debug overlay uses the existing SSFR material's additional rendering pass and does not modify actual water colors or SSFR surfaces. GPU atomic counters are activated only when Ctrl+G is enabled. The diagnostics intentionally cover the central channel rather than the entire 24m width.
+
+
+## Observed-volume outlet boundary coupling
+
+The physical lip is **z=-15m**, between the last upstream cell
+(`_LipCellZ=4`, cell center -14.7m) and the existing four-cell outlet
+buffer (first center -15.3m). In the running ambient creek:
+
+- The `GridToParticle` crossing transition increments a **per-x/y lip-face**
+  counter in `_FlowCounters[4..]`, *in addition to* the original global
+  water-loss counters. No extra G2P UAV is needed (the GPU has an 8-UAV cap).
+- The representative particle volume is **24m × 1m × channel length /
+  initial ambient particle count**. Therefore the exit-volume rate for one
+  face is `count × volume / fixedDeltaTime`. Crest parcels have the same
+  spatial sample density. The 1:2:1 lateral filter preserves the total face
+  count, and a 0.12s exponential temporal filter avoids particle-lattice
+  quantization causing large stepwise pressure spikes.
+- `UpdateExitFlux` runs on the GPU **after** G2P and writes the filtered
+  observed outlet face-normal speed. The following step's
+  `JacobiPressure` substitutes that observed **outward face flux** into
+  the divergence at wet cells touching the physical lip, instead of
+  **adding** a second suction source on top of the existing free outlet.
+  The normal zero-gauge pressure/free surface remains unchanged.
+- When there is no measured exit flow, the existing pressure divergence is
+  retained; nothing forcibly accelerates dry faces or reverses particles.
+  A separate smoothing buffer makes this a one-step delayed measurement,
+  avoiding CPU readback latency entirely.
+- `Ctrl+G` logs now include `allCliffExitsThisStep` (whole width) and
+  `filteredOutletQ` (estimated m³/s, sum of smoothed face speeds times cell
+  face area). The existing `cliffExitsThisStep` diagnostic remains limited
+  to the central ±8m strip.
+
+This is an **incremental finite-volume flux boundary correction in the
+existing collocated solver**, not a full conservative staggered MAC solve.
+It does **not** artificially lower pressure by a fixed amount per parcel;
+it does **not** force all water to move downstream. Before judging the
+visual outcome, run Unity Play Mode/compute compilation on the target GPU,
+then compare central reverse-flow fraction, lip exit rate, outlet Q, and
+water levels with Ctrl+G before/after this commit.

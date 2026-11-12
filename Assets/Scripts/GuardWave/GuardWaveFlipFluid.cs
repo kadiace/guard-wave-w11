@@ -74,6 +74,7 @@ namespace GuardWave
         private readonly float _waveHeight;
         private readonly bool _ambientFlow;
         private readonly ComputeBuffer _flowCounters;
+        private readonly ComputeBuffer _lipFaceFlux;
         private readonly ComputeBuffer _crestMetrics;
         private readonly ComputeBuffer _outflowDiagnostics;
         private bool _outflowReadbackPending;
@@ -89,6 +90,8 @@ namespace GuardWave
         private int _ambientColumns;
         private readonly int _gridCount;
         private readonly int _clearKernel;
+        private readonly int _clearExitCountsKernel;
+        private readonly int _updateExitFluxKernel;
         private readonly int _classifyKernel;
         private readonly int _spawnKernel;
         private readonly int _p2gKernel;
@@ -175,15 +178,21 @@ namespace GuardWave
             _solid = new ComputeBuffer(_gridCount, sizeof(uint));
             _colliderBuffer = new ComputeBuffer(_settings.MaxColliders, Marshal.SizeOf<ColliderData>());
             _impulses = new ComputeBuffer(_settings.MaxBodies * 2, sizeof(int) * 4);
-            _flowCounters = new ComputeBuffer(4, sizeof(uint));
-            _flowCounters.SetData(new uint[4]);
+            // Preserve indices 0..3, append one counter per physical-lip XY face.
+            int lipFaces = _grid.x * _grid.y;
+            _flowCounters = new ComputeBuffer(4 + lipFaces, sizeof(uint));
+            _flowCounters.SetData(new uint[4 + lipFaces]);
+            _lipFaceFlux = new ComputeBuffer(lipFaces, sizeof(float));
+            _lipFaceFlux.SetData(new float[lipFaces]);
             _crestMetrics = new ComputeBuffer(3, sizeof(uint));
             _crestMetrics.SetData(new uint[3]);
-            _outflowDiagnostics = new ComputeBuffer(12, sizeof(uint));
-            _outflowDiagnostics.SetData(new uint[12]);
+            _outflowDiagnostics = new ComputeBuffer(14, sizeof(uint));
+            _outflowDiagnostics.SetData(new uint[14]);
             _compute.SetInt("_OutflowDiagnosticsEnabled", 0);
 
             _clearKernel = _compute.FindKernel("ClearGrid");
+            _clearExitCountsKernel = _compute.FindKernel("ClearExitCounts");
+            _updateExitFluxKernel = _compute.FindKernel("UpdateExitFlux");
             _classifyKernel = _compute.FindKernel("ClassifyGrid");
             _spawnKernel = _compute.FindKernel("Spawn");
             _initializeAmbientKernel = _compute.FindKernel("InitializeAmbient");
@@ -203,6 +212,8 @@ namespace GuardWave
             _compute.SetFloat("_CellSize", _cellSize);
             _compute.SetFloat("_FloorY", groundY);
             _compute.SetFloat("_ExitZ", endZ);
+            _compute.SetInt("_LipCellZ", OUTFLOW_BUFFER_CELLS);
+            _compute.SetFloat("_OutletParticleVolume", 0f);
             _compute.SetFloat("_WaterfallEndY", waterfallEndY);
             _compute.SetFloat("_HalfWidth", 12f);
             _compute.SetFloat("_InletZ", _startZ - _cellSize);
@@ -237,6 +248,10 @@ namespace GuardWave
             Bind(_clearKernel, "_FlowCounters", _flowCounters);
             Bind(_clearKernel, "_CrestMetrics", _crestMetrics);
             Bind(_clearKernel, "_OutflowDiagnostics", _outflowDiagnostics);
+            Bind(_clearExitCountsKernel, "_FlowCounters", _flowCounters);
+            Bind(_updateExitFluxKernel, "_FlowCounters", _flowCounters);
+            Bind(_updateExitFluxKernel, "_LipFaceFlux", _lipFaceFlux);
+            Bind(_updateExitFluxKernel, "_OutflowDiagnostics", _outflowDiagnostics);
             Bind(_classifyKernel, "_Solid", _solid);
             Bind(_classifyKernel, "_Colliders", _colliderBuffer);
             Bind(_spawnKernel, "_Particles", _particles);
@@ -255,6 +270,7 @@ namespace GuardWave
             Bind(_pressureKernel, "_Accum", _accum);
             Bind(_pressureKernel, "_Solid", _solid);
             Bind(_pressureKernel, "_GridVelocity", _velocity);
+            Bind(_pressureKernel, "_LipFaceFluxRead", _lipFaceFlux);
             Bind(_projectKernel, "_Accum", _accum);
             Bind(_projectKernel, "_Solid", _solid);
             Bind(_projectKernel, "_GridVelocity", _velocity);
@@ -312,6 +328,11 @@ namespace GuardWave
             _crestSlotStart = _settings.MaxParticles - _crestCandidateCount;
             _compute.SetInt("_CrestSlotStart", _crestSlotStart);
             _ambientInitialCount = initialCount;
+            // Each ambient particle represents a fraction of the authored
+            // channel volume; wave crest rows use the same spatial density.
+            _compute.SetFloat("_OutletParticleVolume",
+                24f * _settings.AmbientWaterDepth *
+                (_startZ - _endZ) / Mathf.Max(1, initialCount));
             _ambientColumns = columns;
             _ambientRefillFraction = 0d;
             _particleCount = _settings.MaxParticles;
@@ -484,6 +505,7 @@ namespace GuardWave
             _compute.SetInt("_OutflowDiagnosticsEnabled", OutflowDiagnosticsEnabled ? 1 : 0);
             UpdateColliders();
             Dispatch(_clearKernel, Mathf.Max(_gridCount, _bodies.Count * 2));
+            Dispatch(_clearExitCountsKernel, _grid.x * _grid.y);
             Dispatch(_classifyKernel, _gridCount);
             if (_ambientFlow) Dispatch(_driveInletKernel, _particleCount);
 
@@ -526,6 +548,10 @@ namespace GuardWave
             // Continue pre-existing spray first; newly exited fluid starts falling next tick.
             Dispatch(_waterfallKernel, _particleCount);
             Dispatch(_g2pKernel, _particleCount);
+            // Finish sampling the departing parcels; pressure sees these
+            // filtered outlet face fluxes at the NEXT fixed-physics step.
+            if (_ambientFlow)
+                Dispatch(_updateExitFluxKernel, _grid.x * _grid.y);
             if (_ambientFlow)
             {
                 // Q = cross-sectional area * velocity. With fixed particle
@@ -619,7 +645,8 @@ namespace GuardWave
                 $"projectionNewReverse={d[3]} gridMax+Z(pre/post)={d[9] / 1000f:F2}/{d[10] / 1000f:F2}m/s " +
                 $"particles={d[4]} reverse(preCollision/post)={d[5]}/{d[6]} " +
                 $"collisionNewReverse={d[7]} particleMax+Z={d[11] / 1000f:F2}m/s " +
-                $"cliffExitsThisStep={d[8]}");
+                $"cliffExitsThisStep={d[8]} allCliffExitsThisStep={d[12]} " +
+                $"filteredOutletQ={d[13] / 1000f:F2}m3/s");
         }
 
         /// <summary>Runs the selected compute kernel with 128 threads per workgroup.</summary>
@@ -665,6 +692,7 @@ namespace GuardWave
             _colliderBuffer.Release();
             _impulses.Release();
             _flowCounters.Release();
+            _lipFaceFlux.Release();
             _crestMetrics.Release();
             _outflowDiagnostics.Release();
             UnityEngine.Object.Destroy(_compute);
