@@ -156,3 +156,4 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
   materialId: log
   removeOutsideBoundary: 1
+  relativeFluidDensity: 0.6

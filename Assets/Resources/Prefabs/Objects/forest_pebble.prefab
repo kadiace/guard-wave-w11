@@ -155,3 +155,4 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
   materialId: forest_pebble
   removeOutsideBoundary: 1
+  relativeFluidDensity: 2.6

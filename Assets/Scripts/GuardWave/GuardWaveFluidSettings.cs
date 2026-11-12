@@ -29,6 +29,26 @@ namespace GuardWave
         public float AmbientMaxSupplyParticlesPerSecond => _ambientMaxSupplyParticlesPerSecond;
         public float AmbientImpactScale => _ambientImpactScale;
 
+        [Header("Relative-density buoyancy and current")]
+        [SerializeField, Min(0.05f)] private float _waterFlowResponse = 6f;
+        [SerializeField, Range(0f, 1f)] private float _verticalFlowResponseScale = 0.35f;
+        [SerializeField, Range(0f, 1f)] private float _groundedFlowMultiplier = 0.15f;
+        public float WaterFlowResponse => _waterFlowResponse;
+        public float VerticalFlowResponseScale => _verticalFlowResponseScale;
+        public float GroundedFlowMultiplier => _groundedFlowMultiplier;
+
+        [Header("Floating body stabilization")]
+        [SerializeField, Min(0f)] private float _floatingVerticalDamping = 7f;
+        [SerializeField, Range(0f, 1f)] private float _floatingTorqueScale = 0.12f;
+        [SerializeField, Min(1f)] private float _floatingMaxBuoyancyRatio = 1.5f;
+        [SerializeField, Min(0f)] private float _floatingUprightStrength = 1.5f;
+        [SerializeField, Min(0f)] private float _floatingAngularDamping = 5f;
+        public float FloatingVerticalDamping => _floatingVerticalDamping;
+        public float FloatingTorqueScale => _floatingTorqueScale;
+        public float FloatingMaxBuoyancyRatio => _floatingMaxBuoyancyRatio;
+        public float FloatingUprightStrength => _floatingUprightStrength;
+        public float FloatingAngularDamping => _floatingAngularDamping;
+
         [Header("One-shot wave crest above ambient water")]
         [SerializeField, Min(0.1f)] private float _waveCrestAmplitude = 3f;
         [SerializeField, Min(0.5f)] private float _waveCrestWidth = 1.4f;

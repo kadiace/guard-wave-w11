@@ -9,6 +9,18 @@ namespace GuardWave
         [SerializeField] private string materialId;
         [SerializeField] private bool removeOutsideBoundary = true;
 
+        [Header("Fluid interaction")]
+        [Tooltip("Relative to the stage fluid: below 1 floats, 1 neutral, above 1 sinks.")]
+        [SerializeField, Min(0.01f)] private float relativeFluidDensity = 0.6f;
+        // Missing serialized fields in older scene objects resolve to the log default.
+        public float RelativeFluidDensity =>
+            Mathf.Max(0.01f, relativeFluidDensity > 0f ? relativeFluidDensity : 0.6f);
+
+        // Static supports reduce current following only; buoyancy stays active.
+        private float _lastGroundContactTime = float.NegativeInfinity;
+        public bool IsRestingOnGround => Time.fixedTime - _lastGroundContactTime
+            <= Time.fixedDeltaTime * 1.5f;
+
         private GuardWaveGame _game;
         private Rigidbody _body;
         private Renderer[] _renderers;
@@ -55,6 +67,23 @@ namespace GuardWave
             if (transform.position.z <= _game.DestructionBoundaryZ)
                 _game.RemoveOutsideBoundary(this);
         }
+
+        private void OnCollisionEnter(Collision collision) => RecordGroundContact(collision);
+        private void OnCollisionStay(Collision collision) => RecordGroundContact(collision);
+
+        private void RecordGroundContact(Collision collision)
+        {
+            Rigidbody other = collision.rigidbody;
+            if (other != null && !other.isKinematic) return;
+            for (int i = 0; i < collision.contactCount; i++)
+            {
+                if (collision.GetContact(i).normal.y <= 0.5f) continue;
+                _lastGroundContactTime = Time.fixedTime;
+                break;
+            }
+        }
+
+        private void OnDisable() => _lastGroundContactTime = float.NegativeInfinity;
 
         /// <summary>Invoked on a completed right-click; dragging continues to pan the camera.</summary>
         public void RemoveByRightClick()

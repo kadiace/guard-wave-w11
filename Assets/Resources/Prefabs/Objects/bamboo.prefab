@@ -96,6 +96,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::RestoreCastle3D.CastlePiece3D
   materialId: bamboo
+  relativeFluidDensity: 0.55
 --- !u!1 &10000
 GameObject:
   m_ObjectHideFlags: 0

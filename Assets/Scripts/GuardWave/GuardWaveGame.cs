@@ -872,6 +872,10 @@ namespace GuardWave
             piece.Body.useGravity = !anchored;
             _pieces.Add(piece);
             _pieceSet.Add(piece);
+            // Newly placed bodies must join the live ambient FLIP solver:
+            // this registers their Rigidbody and non-trigger colliders so
+            // log (0.6) and Forest pebble (2.6) receive density-based forces.
+            _fluid?.RegisterPiece(piece);
             if (material.id == "vine")
                 PublishChange(new GuardWaveChange(piece, null, GuardWaveChangeKind.Created, 0,
                     position, "덩쿨 생성!"));

@@ -154,5 +154,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
-  materialId: beaver_stick
+  materialId: barrel
   removeOutsideBoundary: 1
+  relativeFluidDensity: 0.65
