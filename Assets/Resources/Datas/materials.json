@@ -2,10 +2,17 @@
   "schemaVersion": 1,
   "materials": [
     {
+      "id": "default_flag",
+      "name": "깃발",
+      "category": "목표",
+      "startOnly": true,
+      "abilities": ["파도에서 지켜야 하는 목표물입니다. 절벽 아래 파괴 경계를 넘으면 방어에 실패합니다."]
+    },
+    {
       "id": "mud",
       "name": "진흙",
       "category": "지형",
-      "abilities": ["아래로 사영한 표면에 바릅니다. 위에 떨어지는 기물을 부착시킵니다."]
+      "abilities": ["물체 표면에 발라, 그 위에 닿는 기물을 고정합니다."]
     },
     {
       "id": "foundation",
@@ -42,7 +49,7 @@
       "category": "목재",
       "baseReinforcement": 5,
       "abilities": [
-        "인접한 모든 [목재]의 내구도 합만큼 상승"
+        "물에 뜨는 목재입니다. 진흙이 발린 표면에 닿으면 고정됩니다."
       ],
       "abilityAlternatives": []
     },
@@ -50,7 +57,7 @@
       "id": "forest_pebble",
       "name": "조약돌",
       "category": "석재",
-      "abilities": []
+      "abilities": ["물에 가라앉는 무거운 돌입니다. 진흙이 발린 표면에 닿으면 고정됩니다."]
     },
     {
       "id": "pebble",
