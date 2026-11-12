@@ -35,7 +35,7 @@ struct FluidCollider
     float4 bodyCenter;
 };
 RWStructuredBuffer<FluidParticle> _Particles;
-RWStructuredBuffer<uint> _FlowCounters; // [0] pending refill, [1] total refilled, [2] per-tick claims, [3] cliff exits
+RWStructuredBuffer<uint> _FlowCounters; // [0] missing base water (initial + losses), [1] total supplied, [2] per-tick claims, [3] cliff exits
 RWStructuredBuffer<uint> _CrestMetrics; // active wave particles, peak height centimeters, released count
 RWStructuredBuffer<int4> _Accum;
 RWStructuredBuffer<int4> _BodyImpulses; // force impulse in xyz, torque in next xyz
@@ -72,7 +72,6 @@ float _CrestForwardDamping;
 float _CrestReleaseDistance;
 uint _CrestSlotStart;
 int3 _AmbientGrid;
-uint _AmbientInitialCount;
 uint _AmbientEnabled;
 uint _AmbientRefillBudget;
 int3 _CrestGrid;
@@ -144,15 +143,33 @@ bool IsFluid(int3 c)
 {
     return Inside(c) && !IsSolid(c) && _Accum[Flatten(c)].w > (int)(SCALE * 0.01);
 }
+// The physical lip, not the far end of the four-cell grid buffer, is the
+// pressure outlet. Buffer cells are still available to particle interpolation.
+bool IsOutletBuffer(int3 c)
+{
+    return Inside(c) && Center(c).z < _ExitZ;
+}
 float3 VelocityAt(int3 c)
 {
-    return IsFluid(c) ? _GridVelocity[Flatten(c)] : 0;
+    if (IsFluid(c)) return _GridVelocity[Flatten(c)];
+    // A dry cell immediately downstream is not motionless water. Extend the
+    // last upstream liquid velocity into the open outlet (zero normal gradient)
+    // instead of introducing an artificial zero-velocity wall in divergence.
+    if (IsOpenOutflow(c) || IsOutletBuffer(c))
+    {
+        int firstRiverZ = clamp(
+            (int)ceil((_ExitZ - _GridOrigin.z) / _CellSize - 0.5),
+            0, _GridSize.z - 1);
+        int3 riverCell = int3(c.x, c.y, firstRiverZ);
+        if (IsFluid(riverCell)) return _GridVelocity[Flatten(riverCell)];
+    }
+    return 0;
 }
 float PressureAt(int3 c, float own)
 {
-    // Zero-gauge pressure at the free downstream outlet allows pressure
-    // projection to push liquid over the cliff rather than reflect it.
-    if (IsOpenOutflow(c)) return 0.0;
+    // Atmospheric pressure begins at the physical waterfall lip, including
+    // grid cells in the downstream interpolation buffer.
+    if (IsOpenOutflow(c) || IsOutletBuffer(c)) return 0.0;
     if (IsSolid(c)) return own;
     return IsFluid(c) ? _PressureSrc[Flatten(c)] : 0.0;
 }
@@ -222,29 +239,17 @@ void Spawn(uint id : SV_DispatchThreadID)
     p.velocity = float4(0, 0, -_InletVelocity, 0);
     _Particles[index] = p;
 }
-// The initial 1m river is present before any Ready click.
+// The ambient creek starts dry. The shared supply debt fills it from upstream.
 [numthreads(128,1,1)]
 void InitializeAmbient(uint id : SV_DispatchThreadID)
 {
     if (id >= _ParticleCount) return;
-    FluidParticle p = (FluidParticle)0;
-    if (id < _AmbientInitialCount)
-    {
-        uint x = id % (uint)_AmbientGrid.x;
-        uint y = (id / (uint)_AmbientGrid.x) % (uint)_AmbientGrid.y;
-        uint z = id / (uint)(_AmbientGrid.x * _AmbientGrid.y);
-        p.position = float4(
-            -_HalfWidth + (x + 0.5) * (2.0 * _HalfWidth / _AmbientGrid.x),
-            _FloorY + (y + 0.5) * (_AmbientDepth / _AmbientGrid.y),
-            _ExitZ + (z + 0.5) * ((_InletZ + _CellSize - _ExitZ) / _AmbientGrid.z), 1.0);
-        p.velocity = float4(0, 0, -_InletVelocity, 0);
-    }
-    _Particles[id] = p;
+    _Particles[id] = (FluidParticle)0;
 }
 
-// Preserve refill debt until inactive slots become available, even while the
-// waterfall occupies the spare GPU particle slots. All refill accounting stays
-// on the GPU; a wave crest (velocity.w = 1) is never counted as base water.
+// Preserve the initial-fill and lost-water debt until inactive slots become
+// available, including while waterfall spray occupies the spare GPU slots.
+// Crest particles (velocity.w = 1) never count as baseline water.
 [numthreads(128,1,1)]
 void RecycleAmbient(uint id : SV_DispatchThreadID)
 {
@@ -254,9 +259,8 @@ void RecycleAmbient(uint id : SV_DispatchThreadID)
     FluidParticle p = _Particles[id];
     if (p.position.w != 0.0) return;
 
-    // A faster inlet supplies more particles per second, but each physics
-    // tick has a finite, speed-derived budget. Claim before withdrawing a
-    // lost-water ticket so we cannot flood the creek on a sudden backlog.
+    // The shared per-tick supply cap applies to startup filling and losses.
+    // Claim budget before withdrawing a missing-water ticket.
     uint claim;
     InterlockedAdd(_FlowCounters[2], 1u, claim);
     if (claim >= _AmbientRefillBudget) return;
@@ -397,7 +401,7 @@ void JacobiPressure(uint id : SV_DispatchThreadID)
     int3 c = int3(id % _GridSize.x,
         (id / _GridSize.x) % _GridSize.y,
         id / (_GridSize.x * _GridSize.y));
-    if (!IsFluid(c)) { _PressureDst[id] = 0; return; }
+    if (!IsFluid(c) || IsOutletBuffer(c)) { _PressureDst[id] = 0; return; }
     int3 ex = int3(1,0,0), ey = int3(0,1,0), ez = int3(0,0,1);
     float div = (VelocityAt(c+ex).x-VelocityAt(c-ex).x +
         VelocityAt(c+ey).y-VelocityAt(c-ey).y +
@@ -421,6 +425,14 @@ void ProjectGrid(uint id : SV_DispatchThreadID)
         (id / _GridSize.x) % _GridSize.y,
         id / (_GridSize.x * _GridSize.y));
     if (!IsFluid(c)) return;
+    if (IsOutletBuffer(c))
+    {
+        // Do not let pressure projection push falling water back into the river.
+        float3 outletVelocity = _GridVelocity[id];
+        outletVelocity.z = min(outletVelocity.z, 0.0);
+        _GridVelocity[id] = outletVelocity;
+        return;
+    }
     int3 ex = int3(1,0,0), ey = int3(0,1,0), ez = int3(0,0,1);
     float p = _PressureSrc[id];
     float3 grad = float3(
@@ -433,6 +445,10 @@ void ProjectGrid(uint id : SV_DispatchThreadID)
     // The negative-Z open outlet must not zero the exiting velocity.
     // IsSolid(c-ez) is false outside the outlet; upper inlet stays closed.
     if ((IsSolid(c+ez) && v.z>0) || (IsSolid(c-ez) && v.z<0)) v.z=0;
+    // A free outlet must not acquire +Z velocity from pressure projection.
+    // This does not impose a target river speed or accelerate the waterfall.
+    if (Center(c).z < _ExitZ + 2.0 * _CellSize)
+        v.z = min(v.z, 0.0);
     _GridVelocity[id] = v;
 }
 [numthreads(128,1,1)]
@@ -445,6 +461,7 @@ void GridToParticle(uint id : SV_DispatchThreadID)
     int3 baseCell = (int3)floor(g);
     float3 f = frac(g);
     float3 pic = 0, flipDelta = 0, c0 = 0, c1 = 0, c2 = 0;
+    float3 offsetMoment = 0;
     float weight = 0;
     [unroll]
     for (int z=0; z<=1; z++)
@@ -464,20 +481,38 @@ void GridToParticle(uint id : SV_DispatchThreadID)
         c0 += w*v*d.x;
         c1 += w*v*d.y;
         c2 += w*v*d.z;
+        offsetMoment += w*d;
         weight += w;
     }
+    // Cache the longitudinal velocity on entry to the last two grid cells.
+    // It is an advective/open-boundary condition, not a pull toward the edge:
+    // the parcel keeps the speed it already had when it reached the lip.
+    bool nearOutlet = p.position.z >= _ExitZ &&
+        p.position.z < _ExitZ + 2.0 * _CellSize;
+    if (nearOutlet && p.affineZ.w == 0.0)
+        p.affineZ.w = p.velocity.z < -0.01 ? -p.velocity.z : -1.0;
     if (weight > 0.001)
     {
         pic /= weight;
         flipDelta /= weight;
         p.velocity.xyz = lerp(pic, p.velocity.xyz + flipDelta, _FlipFraction);
         float scale = 4.0 / (_CellSize * _CellSize * weight);
-        // Preserve crest height and collision-release tag across APIC updates.
-        p.affineX = float4(c0*scale,p.affineX.w);
-        p.affineY = float4(c1*scale,p.affineY.w);
-        p.affineZ = float4(c2*scale,0);
+        // A truncated free-surface/outlet stencil has a biased centroid.
+        // Center APIC moments so constant velocity cannot manufacture a
+        // spurious gradient (and then reverse a neighboring particle).
+        p.affineX = float4((c0 - pic * offsetMoment.x)*scale,p.affineX.w);
+        p.affineY = float4((c1 - pic * offsetMoment.y)*scale,p.affineY.w);
+        p.affineZ = float4((c2 - pic * offsetMoment.z)*scale,p.affineZ.w);
     }
     else p.velocity.y -= _Gravity * _Dt;
+    if (nearOutlet && p.affineZ.w > 0.0)
+    {
+        p.velocity.z = -p.affineZ.w;
+        // No longitudinal APIC shear in the outgoing ballistic handoff.
+        p.affineX.z = 0;
+        p.affineY.z = 0;
+        p.affineZ.z = 0;
+    }
     p.velocity.xyz = clamp(p.velocity.xyz, -_MaxFluidVelocity, _MaxFluidVelocity);
     p.position.xyz += p.velocity.xyz * _Dt;
     // Fixed banks/floor are collision boundaries, not a prescribed wave shape.
@@ -507,6 +542,9 @@ void GridToParticle(uint id : SV_DispatchThreadID)
             d < _CrestReleaseDistance)
             p.affineY.w = 1.0; // Collision: stop holding this parcel up.
         if (d >= _CollisionSkin) continue;
+        // An actual obstacle may stop or reverse flow even at the outlet.
+        // -1 means release the cached outflow speed until leaving the band.
+        p.affineZ.w = -1.0;
         float3 n = ColliderNormal(b, p.position.xyz);
         float3 r = p.position.xyz - b.bodyCenter.xyz;
         float3 bv = b.velocity.xyz + cross(b.angular.xyz, r);
@@ -554,12 +592,12 @@ void GridToParticle(uint id : SV_DispatchThreadID)
     }
     if (p.position.z < _ExitZ)
     {
-        // Cross the *physical* lip and leave the pressure solver immediately.
-        // Start downward acceleration this tick, without advancing XZ twice:
-        // the next Waterfall dispatch continues the full ballistic integration.
+        // Cross the physical lip and leave the pressure solver immediately.
+        // Keep the full G2P velocity (including its single gravity step);
+        // Waterfall continues ballistic integration from the next tick.
         p.position.w = 2;
-        p.velocity.y -= _Gravity * _Dt;
-        p.position.y += p.velocity.y * (0.5 * _Dt);
+        // G2P already integrated this tick's gravity and position. Do not
+        // add a second downward impulse at the lip; Waterfall takes over next tick.
         if (_AmbientEnabled != 0)
         {
             InterlockedAdd(_FlowCounters[3], 1u); // Total true cliff crossings.

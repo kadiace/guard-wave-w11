@@ -81,7 +81,7 @@ namespace GuardWave
         private readonly int _emitCrestKernel;
         private int _crestSlotStart;
         private int _crestCandidateCount;
-        private int _ambientInitialCount;
+        private int _ambientTargetCount;
         private int _ambientColumns;
         private readonly int _gridCount;
         private readonly int _clearKernel;
@@ -269,23 +269,22 @@ namespace GuardWave
             if (_ambientFlow) InitializeAmbientWater();
         }
 
-        /// <summary>Starts with a full 1m creek and reserves unused GPU slots for refill.</summary>
+        /// <summary>Starts with an empty creek while reserving baseline and crest particle capacity.</summary>
         private void InitializeAmbientWater()
         {
             float spacing = _cellSize * 0.85f;
             int columns = Mathf.Max(1, Mathf.FloorToInt(24f / spacing));
             int layers = Mathf.Max(1, Mathf.CeilToInt(_settings.AmbientWaterDepth / spacing));
-            // Sample the same 1m-deep creek more densely along its length:
-            // doubling longitudinal particle density doubles initial liquid
-            // particles, actual cliff departures and speed-scaled replenishment.
-            // Preserve the 1m depth and 3m additional crest height.
+            // The full 1m creek lattice is the target baseline water volume,
+            // not a startup spawn. All baseline parcels enter at the upstream boundary.
+            // Keep its density and the 3m crest reservation unchanged.
             int rows = Mathf.Max(1, Mathf.RoundToInt(
                 (_startZ - _endZ) / spacing * _settings.AmbientFlowVolumeMultiplier));
             long requested = (long)columns * layers * rows;
             if (requested > _settings.MaxParticles)
                 throw new InvalidOperationException(
                     "Ambient creek particle density exceeds MaxParticles. Increase the GPU budget.");
-            int initialCount = (int)requested;
+            int targetCount = (int)requested;
             int crestLayers = Mathf.Max(1, Mathf.CeilToInt(
                 _settings.WaveCrestAmplitude / spacing));
             int crestRows = Mathf.Max(1, Mathf.RoundToInt(
@@ -295,18 +294,20 @@ namespace GuardWave
             // Reserve the full wave lattice for the lifetime of this creek.
             // Waterfall and ambient refills use only the preceding slots.
             if (crestCandidates > int.MaxValue ||
-                initialCount + crestCandidates >= _settings.MaxParticles)
+                targetCount + crestCandidates >= _settings.MaxParticles)
                 throw new InvalidOperationException(
                     "GPU particle capacity cannot fit both the base river and reserved crest.");
             _crestCandidateCount = (int)crestCandidates;
             _crestSlotStart = _settings.MaxParticles - _crestCandidateCount;
             _compute.SetInt("_CrestSlotStart", _crestSlotStart);
-            _ambientInitialCount = initialCount;
+            _ambientTargetCount = targetCount;
             _ambientColumns = columns;
             _ambientRefillFraction = 0d;
             _particleCount = _settings.MaxParticles;
             _compute.SetInts("_AmbientGrid", columns, layers, rows);
-            _compute.SetInt("_AmbientInitialCount", initialCount);
+            // Queue the whole missing initial volume as supply debt. Future
+            // cliff losses add to the very same counter on the GPU.
+            _flowCounters.SetData(new uint[] { (uint)targetCount, 0u, 0u, 0u });
             _compute.SetInt("_ParticleCount", _particleCount);
             Dispatch(_initializeAmbientKernel, _particleCount);
         }
@@ -517,23 +518,21 @@ namespace GuardWave
             Dispatch(_g2pKernel, _particleCount);
             if (_ambientFlow)
             {
-                // Q = cross-sectional area * velocity. With fixed particle
-                // density, baseline particles per second are proportional
-                // to the configured inlet speed. The original 1m lattice
-                // provides the particle density per meter of creek length.
+                // Fill the initial deficit and replace later losses using one
+                // upstream supply budget. Keep the original steady-state
+                // water density, but never exceed the configured supply cap.
                 double riverLength = Math.Max(0.1, _startZ - _endZ);
-                // _ambientInitialCount already includes the ambient volume
-                // multiplier, so do not multiply the refill rate a second time.
-                double particlesPerSecond = _ambientInitialCount *
-                    InletSpeed / riverLength;
+                double steadyRate = _ambientTargetCount * InletSpeed / riverLength;
+                double particlesPerSecond = Math.Min(steadyRate,
+                    _settings.AmbientMaxSupplyParticlesPerSecond);
                 _ambientRefillFraction += particlesPerSecond * dt;
                 int supplyBudget = (int)Math.Min(_settings.MaxParticles,
                     Math.Floor(_ambientRefillFraction));
                 _ambientRefillFraction -= supplyBudget;
                 if (supplyBudget > 0)
                 {
-                    // GPU also requires outstanding cliff exits: the inlet
-                    // never adds more baseline water than was lost.
+                    // Supply only the outstanding deficit: initially the empty
+                    // river's target volume, then newly lost baseline parcels.
                     _compute.SetInt("_AmbientRefillBudget", supplyBudget);
                     _compute.SetInt("_SpawnSeed", ++_seed);
                     Dispatch(_recycleAmbientKernel, _particleCount);
