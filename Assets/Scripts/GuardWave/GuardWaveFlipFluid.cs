@@ -83,6 +83,12 @@ namespace GuardWave
         private readonly ComputeBuffer _pressureB;
         private readonly ComputeBuffer _solid;
         private readonly ComputeBuffer _colliderBuffer;
+        // Packed z-slice broadphase: each GPU cell tests only colliders whose
+        // bounding spheres reach its longitudinal slice.
+        private readonly ComputeBuffer _colliderZOffsetsBuffer;
+        private readonly ComputeBuffer _colliderZIndicesBuffer;
+        private readonly int[] _colliderZOffsetsData;
+        private readonly int[] _colliderZIndicesData;
         private readonly ComputeBuffer _impulses;
         private readonly ComputeBuffer _waterSurface;
         private readonly ComputeBuffer _smoothedWaterSurface;
@@ -121,6 +127,9 @@ namespace GuardWave
         private readonly int _smoothWaterColumnsKernel;
         private readonly int _buoyancyBodyKernel;
         private readonly int _waterfallKernel;
+        private readonly int[] _shaderWarmupKernels;
+        private int _shaderWarmupIndex;
+        public bool IsShaderPrewarmed => _shaderWarmupIndex >= _shaderWarmupKernels.Length;
         private float _spawnClock;
         private float _elapsed;
         // Fractional refill credits prevent rounding drift at low flow speeds.
@@ -225,6 +234,11 @@ namespace GuardWave
             _pressureB = new ComputeBuffer(_gridCount, sizeof(float));
             _solid = new ComputeBuffer(_gridCount, sizeof(uint));
             _colliderBuffer = new ComputeBuffer(_settings.MaxColliders, Marshal.SizeOf<ColliderData>());
+            _colliderZOffsetsBuffer = new ComputeBuffer(_grid.z + 1, sizeof(int));
+            _colliderZIndicesBuffer = new ComputeBuffer(
+                _grid.z * _settings.MaxColliders, sizeof(int));
+            _colliderZOffsetsData = new int[_grid.z + 1];
+            _colliderZIndicesData = new int[_grid.z * _settings.MaxColliders];
             _impulses = new ComputeBuffer(_settings.MaxBodies * 2, sizeof(int) * 4);
             _waterSurface = new ComputeBuffer(_grid.x * _grid.z, sizeof(int));
             _smoothedWaterSurface = new ComputeBuffer(_grid.x * _grid.z, sizeof(int));
@@ -254,6 +268,16 @@ namespace GuardWave
             _smoothWaterColumnsKernel = _compute.FindKernel("SmoothWaterColumns");
             _buoyancyBodyKernel = _compute.FindKernel("RelativeDensityToBodies");
             _waterfallKernel = _compute.FindKernel("Waterfall");
+            _shaderWarmupKernels = new[]
+            {
+                _clearKernel, _clearWaterColumnsKernel, _classifyKernel,
+                _spawnKernel, _recycleAmbientKernel, _driveInletKernel,
+                _emitCrestKernel, _p2gKernel, _normalizeKernel, _pressureKernel,
+                _projectKernel, _g2pKernel, _pressureBodyKernel,
+                _waterColumnsKernel, _smoothWaterColumnsKernel,
+                _buoyancyBodyKernel, _waterfallKernel
+            };
+            _compute.SetInt("_WarmupOnly", 0);
 
             _compute.SetInts("_GridSize", _grid.x, _grid.y, _grid.z);
             _compute.SetVector("_GridOrigin", _origin);
@@ -312,6 +336,8 @@ namespace GuardWave
             Bind(_clearKernel, "_CrestMetrics", _crestMetrics);
             Bind(_classifyKernel, "_Solid", _solid);
             Bind(_classifyKernel, "_Colliders", _colliderBuffer);
+            Bind(_classifyKernel, "_ColliderZOffsets", _colliderZOffsetsBuffer);
+            Bind(_classifyKernel, "_ColliderZIndices", _colliderZIndicesBuffer);
             Bind(_spawnKernel, "_Particles", _particles);
             Bind(_initializeAmbientKernel, "_Particles", _particles);
             Bind(_recycleAmbientKernel, "_Particles", _particles);
@@ -328,6 +354,12 @@ namespace GuardWave
             Bind(_pressureKernel, "_Accum", _accum);
             Bind(_pressureKernel, "_Solid", _solid);
             Bind(_pressureKernel, "_GridVelocity", _velocity);
+            // These ping-pong bindings are overwritten during real steps.
+            // Initialize them now so warmup dispatches have valid resources.
+            Bind(_pressureKernel, "_PressureSrc", _pressureA);
+            Bind(_pressureKernel, "_PressureDst", _pressureB);
+            Bind(_projectKernel, "_PressureSrc", _pressureA);
+            Bind(_pressureBodyKernel, "_PressureSrc", _pressureA);
             Bind(_projectKernel, "_Accum", _accum);
             Bind(_projectKernel, "_Solid", _solid);
             Bind(_projectKernel, "_GridVelocity", _velocity);
@@ -360,6 +392,25 @@ namespace GuardWave
             CollectBodies(pieces, flagBody);
             UpdateColliders();
             if (_ambientFlow) InitializeAmbientWater();
+        }
+
+        /// <summary>
+        /// Compile one GPU simulation kernel per render frame while the player
+        /// prepares. A shader-side early return prevents any fluid mutation.
+        /// </summary>
+        public void PrewarmOneKernel()
+        {
+            if (_disposed || IsShaderPrewarmed) return;
+            _compute.SetInt("_WarmupOnly", 1);
+            try
+            {
+                Dispatch(_shaderWarmupKernels[_shaderWarmupIndex], 1);
+                _shaderWarmupIndex++;
+            }
+            finally
+            {
+                _compute.SetInt("_WarmupOnly", 0);
+            }
         }
 
         /// <summary>Starts with an empty creek while reserving baseline and crest particle capacity.</summary>
@@ -642,6 +693,27 @@ namespace GuardWave
                 _colliderData[i] = data;
             }
             if (count > 0) _colliderBuffer.SetData(_colliderData, 0, 0, count);
+
+            // Conservative z-only broadphase matches the shader's previous
+            // bounding-sphere rejection, but avoids checking every body at
+            // every x/y cell in the 3D pressure grid.
+            int packedCount = 0;
+            for (int z = 0; z < _grid.z; ++z)
+            {
+                _colliderZOffsetsData[z] = packedCount;
+                float worldZ = _origin.z + (z + 0.5f) * _cellSize;
+                for (int i = 0; i < count; ++i)
+                {
+                    ColliderData candidate = _colliderData[i];
+                    if (Mathf.Abs(candidate.CenterBody.z - worldZ) >
+                        candidate.Velocity.w) continue;
+                    _colliderZIndicesData[packedCount++] = i;
+                }
+            }
+            _colliderZOffsetsData[_grid.z] = packedCount;
+            _colliderZOffsetsBuffer.SetData(_colliderZOffsetsData);
+            if (packedCount > 0)
+                _colliderZIndicesBuffer.SetData(_colliderZIndicesData, 0, 0, packedCount);
             _compute.SetInt("_ColliderCount", count);
             _compute.SetInt("_BodyCount", _bodies.Count);
         }
@@ -1129,6 +1201,8 @@ namespace GuardWave
             _pressureB.Release();
             _solid.Release();
             _colliderBuffer.Release();
+            _colliderZOffsetsBuffer.Release();
+            _colliderZIndicesBuffer.Release();
             _impulses.Release();
             _waterSurface.Release();
             _smoothedWaterSurface.Release();

@@ -53,6 +53,9 @@ RWStructuredBuffer<float> _PressureSrc;
 RWStructuredBuffer<float> _PressureDst;
 RWStructuredBuffer<uint> _Solid;
 StructuredBuffer<FluidCollider> _Colliders;
+StructuredBuffer<int> _ColliderZOffsets;
+StructuredBuffer<int> _ColliderZIndices;
+int _WarmupOnly;
 int3 _GridSize;
 float3 _GridOrigin;
 float _CellSize;
@@ -194,6 +197,7 @@ float PressureAt(int3 c, float own)
 [numthreads(128,1,1)]
 void ClearGrid(uint id : SV_DispatchThreadID)
 {
+    if (_WarmupOnly != 0) return;
     uint cells = _GridSize.x * _GridSize.y * _GridSize.z;
     if (id < cells)
     {
@@ -216,6 +220,7 @@ void ClearGrid(uint id : SV_DispatchThreadID)
 [numthreads(128,1,1)]
 void ClearWaterColumns(uint id : SV_DispatchThreadID)
 {
+    if (_WarmupOnly != 0) return;
     if (id >= (uint)(_GridSize.x * _GridSize.z)) return;
     _WaterSurface[id] = 0;
     _WaterFlow[id] = int4(0,0,0,0);
@@ -223,6 +228,7 @@ void ClearWaterColumns(uint id : SV_DispatchThreadID)
 [numthreads(128,1,1)]
 void ClassifyGrid(uint id : SV_DispatchThreadID)
 {
+    if (_WarmupOnly != 0) return;
     uint cells = _GridSize.x * _GridSize.y * _GridSize.z;
     if (id >= cells) return;
     int x = id % _GridSize.x;
@@ -233,10 +239,12 @@ void ClassifyGrid(uint id : SV_DispatchThreadID)
     // collision/pressure wall into the downstream outlet buffer.
     bool solid = (pos.y <= _FloorY && pos.z >= _ExitZ) ||
         abs(pos.x) >= _HalfWidth;
+    uint beginCollider = (uint)_ColliderZOffsets[z];
+    uint endCollider = (uint)_ColliderZOffsets[z + 1];
     [loop]
-    for (uint i = 0; i < _ColliderCount && !solid; ++i)
+    for (uint i = beginCollider; i < endCollider && !solid; ++i)
     {
-        FluidCollider b = _Colliders[i];
+        FluidCollider b = _Colliders[_ColliderZIndices[i]];
         float3 dr = pos - b.centerBody.xyz;
         if (dot(dr, dr) > b.velocity.w * b.velocity.w) continue;
         solid = SignedDistance(b, pos) <= 0;
@@ -246,6 +254,7 @@ void ClassifyGrid(uint id : SV_DispatchThreadID)
 [numthreads(128,1,1)]
 void Spawn(uint id : SV_DispatchThreadID)
 {
+    if (_WarmupOnly != 0) return;
     if (id >= _SpawnCount) return;
     uint index = _SpawnStart + id;
     // Mix the candidate lattice coordinates instead of filling the river from one side.
@@ -270,6 +279,7 @@ void Spawn(uint id : SV_DispatchThreadID)
 [numthreads(128,1,1)]
 void InitializeAmbient(uint id : SV_DispatchThreadID)
 {
+    if (_WarmupOnly != 0) return;
     if (id >= _ParticleCount) return;
     _Particles[id] = (FluidParticle)0;
 }
@@ -280,6 +290,7 @@ void InitializeAmbient(uint id : SV_DispatchThreadID)
 [numthreads(128,1,1)]
 void RecycleAmbient(uint id : SV_DispatchThreadID)
 {
+    if (_WarmupOnly != 0) return;
     // Preserve dedicated wave slots even when the river is full of waterfall
     // spray. Otherwise EmitCrest randomly skips candidates as slots run out.
     if (id >= _ParticleCount || id >= _CrestSlotStart) return;
@@ -327,6 +338,7 @@ void RecycleAmbient(uint id : SV_DispatchThreadID)
 [numthreads(128,1,1)]
 void DriveInlet(uint id : SV_DispatchThreadID)
 {
+    if (_WarmupOnly != 0) return;
     if (id >= _ParticleCount) return;
     FluidParticle p = _Particles[id];
     if (p.position.w != 1.0 || p.velocity.w > 0.5) return;
@@ -345,6 +357,7 @@ void DriveInlet(uint id : SV_DispatchThreadID)
 [numthreads(128,1,1)]
 void EmitCrest(uint id : SV_DispatchThreadID)
 {
+    if (_WarmupOnly != 0) return;
     uint width = (uint)_CrestGrid.x;
     uint layers = (uint)_CrestGrid.y;
     uint rows = (uint)_CrestGrid.z;
@@ -382,6 +395,7 @@ void EmitCrest(uint id : SV_DispatchThreadID)
 [numthreads(128,1,1)]
 void ParticleToGrid(uint id : SV_DispatchThreadID)
 {
+    if (_WarmupOnly != 0) return;
     if (id >= _ParticleCount) return;
     FluidParticle p = _Particles[id];
     if (p.position.w != 1.0) return;
@@ -412,6 +426,7 @@ void ParticleToGrid(uint id : SV_DispatchThreadID)
 [numthreads(128,1,1)]
 void NormalizeGrid(uint id : SV_DispatchThreadID)
 {
+    if (_WarmupOnly != 0) return;
     uint cells = _GridSize.x * _GridSize.y * _GridSize.z;
     if (id >= cells) return;
     int4 sum = _Accum[id];
@@ -423,6 +438,7 @@ void NormalizeGrid(uint id : SV_DispatchThreadID)
 [numthreads(128,1,1)]
 void JacobiPressure(uint id : SV_DispatchThreadID)
 {
+    if (_WarmupOnly != 0) return;
     uint cells = _GridSize.x * _GridSize.y * _GridSize.z;
     if (id >= cells) return;
     int3 c = int3(id % _GridSize.x,
@@ -446,6 +462,7 @@ void JacobiPressure(uint id : SV_DispatchThreadID)
 [numthreads(128,1,1)]
 void ProjectGrid(uint id : SV_DispatchThreadID)
 {
+    if (_WarmupOnly != 0) return;
     uint cells = _GridSize.x * _GridSize.y * _GridSize.z;
     if (id >= cells) return;
     int3 c = int3(id % _GridSize.x,
@@ -481,6 +498,7 @@ void ProjectGrid(uint id : SV_DispatchThreadID)
 [numthreads(128,1,1)]
 void GridToParticle(uint id : SV_DispatchThreadID)
 {
+    if (_WarmupOnly != 0) return;
     if (id >= _ParticleCount) return;
     FluidParticle p = _Particles[id];
     if (p.position.w != 1.0) return;
@@ -653,6 +671,7 @@ void GridToParticle(uint id : SV_DispatchThreadID)
 [numthreads(128,1,1)]
 void BuildWaterColumns(uint id : SV_DispatchThreadID)
 {
+    if (_WarmupOnly != 0) return;
     if (id >= _ParticleCount) return;
     FluidParticle p = _Particles[id];
     if (p.position.w != 1.0) return; // falling waterfall particles are not a pool
@@ -677,6 +696,7 @@ void BuildWaterColumns(uint id : SV_DispatchThreadID)
 [numthreads(128,1,1)]
 void SmoothWaterColumns(uint id : SV_DispatchThreadID)
 {
+    if (_WarmupOnly != 0) return;
     uint columns = (uint)(_GridSize.x * _GridSize.z);
     if (id >= columns) return;
     int4 ownFlow = _WaterFlow[id];
@@ -836,6 +856,7 @@ float SampleFluidOccupancy3D(float3 pos)
 [numthreads(128,1,1)]
 void RelativeDensityToBodies(uint id : SV_DispatchThreadID)
 {
+    if (_WarmupOnly != 0) return;
     if (id >= _ColliderCount) return;
     FluidCollider body = _Colliders[id];
     int bi = (int)body.centerBody.w;
@@ -1077,6 +1098,7 @@ void RelativeDensityToBodies(uint id : SV_DispatchThreadID)
 [numthreads(128,1,1)]
 void PressureToBodies(uint id : SV_DispatchThreadID)
 {
+    if (_WarmupOnly != 0) return;
     uint cells = _GridSize.x * _GridSize.y * _GridSize.z;
     if (id >= cells) return;
     int3 c = int3(id % _GridSize.x,
@@ -1120,6 +1142,7 @@ void PressureToBodies(uint id : SV_DispatchThreadID)
 [numthreads(128,1,1)]
 void Waterfall(uint id : SV_DispatchThreadID)
 {
+    if (_WarmupOnly != 0) return;
     if (id >= _ParticleCount) return;
     FluidParticle p = _Particles[id];
     if (p.position.w < 1.5) return;
