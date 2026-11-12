@@ -50,6 +50,9 @@ public sealed class OutGameStageSelect : MonoBehaviour, IBeginDragHandler, IDrag
     private float _ignoreClickUntil;
     private float _scrollCooldownUntil;
     private bool _loading;
+    private bool _dragging;
+    private Vector2 _dragStartLocal;
+    private Vector2 _dragCurrentLocal;
 
     private void Awake()
     {
@@ -69,8 +72,8 @@ public sealed class OutGameStageSelect : MonoBehaviour, IBeginDragHandler, IDrag
             _posterButtons[i].onClick.AddListener(() => OnPosterClicked(index));
         }
 
-        _previousButton.onClick.AddListener(() => Select(_selected - 1));
-        _nextButton.onClick.AddListener(() => Select(_selected + 1));
+        _previousButton.onClick.AddListener(SelectPrevious);
+        _nextButton.onClick.AddListener(SelectNext);
         _playButton.onClick.AddListener(LaunchSelectedStage);
         ShowSelectedStage();
         ApplyPosterPoses();
@@ -115,6 +118,9 @@ public sealed class OutGameStageSelect : MonoBehaviour, IBeginDragHandler, IDrag
             }
         }
 
+        // During a drag, the carousel follows the pointer instead of lerping to a stage.
+        if (_dragging) return;
+
         // Unscaled time keeps the menu responsive if arriving from a paused game.
         float blend = 1f - Mathf.Exp(-_transitionSpeed * Time.unscaledDeltaTime);
         _animatedIndex = Mathf.Lerp(_animatedIndex, _selected, blend);
@@ -136,6 +142,10 @@ public sealed class OutGameStageSelect : MonoBehaviour, IBeginDragHandler, IDrag
             _posterFrames[i].color = Color.Lerp(_activeFrame, _inactiveFrame, easedDistance);
         }
     }
+
+    private void SelectPrevious() => Select(_selected - 1);
+
+    private void SelectNext() => Select(_selected + 1);
 
     private void Select(int index)
     {
@@ -165,14 +175,64 @@ public sealed class OutGameStageSelect : MonoBehaviour, IBeginDragHandler, IDrag
         else Select(index);
     }
 
-    public void OnBeginDrag(PointerEventData eventData) { }
-    public void OnDrag(PointerEventData eventData) { }
+    private RectTransform CarouselRoot => _posters[0].parent as RectTransform;
+
+    private bool TryToCarouselLocal(Vector2 screenPosition, PointerEventData eventData,
+        out Vector2 localPosition)
+    {
+        return RectTransformUtility.ScreenPointToLocalPointInRectangle(
+            CarouselRoot, screenPosition, eventData.pressEventCamera, out localPosition);
+    }
+
+    public void OnBeginDrag(PointerEventData eventData)
+    {
+        if (_loading || eventData.button != PointerEventData.InputButton.Left)
+            return;
+
+        RectTransform carousel = CarouselRoot;
+        if (carousel == null ||
+            !RectTransformUtility.RectangleContainsScreenPoint(
+                carousel, eventData.pressPosition, eventData.pressEventCamera))
+            return;
+
+        // Buttons are ordinary clicks, not a draggable area.
+        if (RectTransformUtility.RectangleContainsScreenPoint(
+                (RectTransform)_previousButton.transform, eventData.pressPosition, eventData.pressEventCamera) ||
+            RectTransformUtility.RectangleContainsScreenPoint(
+                (RectTransform)_nextButton.transform, eventData.pressPosition, eventData.pressEventCamera) ||
+            RectTransformUtility.RectangleContainsScreenPoint(
+                (RectTransform)_playButton.transform, eventData.pressPosition, eventData.pressEventCamera))
+            return;
+
+        if (!TryToCarouselLocal(eventData.pressPosition, eventData, out _dragStartLocal))
+            return;
+
+        _dragging = true;
+        _dragCurrentLocal = _dragStartLocal;
+    }
+
+    public void OnDrag(PointerEventData eventData)
+    {
+        if (!_dragging || _loading) return;
+        if (!TryToCarouselLocal(eventData.position, eventData, out _dragCurrentLocal))
+            return;
+
+        float delta = _dragCurrentLocal.x - _dragStartLocal.x;
+        _animatedIndex = Mathf.Clamp(
+            _selected - delta / _posterSpacing, 0f, Destinations.Length - 1);
+        ApplyPosterPoses();
+    }
 
     public void OnEndDrag(PointerEventData eventData)
     {
-        if (_loading || eventData.button != PointerEventData.InputButton.Left) return;
-        float delta = eventData.position.x - eventData.pressPosition.x;
+        if (!_dragging) return;
+
+        OnDrag(eventData);
+        _dragging = false;
+
+        float delta = _dragCurrentLocal.x - _dragStartLocal.x;
         if (Mathf.Abs(delta) < _swipeThreshold) return;
+
         _ignoreClickUntil = Time.unscaledTime + 0.2f;
         Select(_selected + (delta < 0f ? 1 : -1));
     }

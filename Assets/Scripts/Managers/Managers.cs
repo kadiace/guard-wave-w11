@@ -1,4 +1,5 @@
 using UnityEngine;
+using UnityEngine.InputSystem.UI;
 
 public class Managers : MonoBehaviour
 {
@@ -66,7 +67,16 @@ public class Managers : MonoBehaviour
         _instance._gameStateManager.Init();
         _instance._spawnManager.Init();
 
-        _instance._resourceManager.Instantiate("Prefabs/UIs/EventSystem");
+        // Keep one EventSystem alive across Game <-> Forest/Fog scene changes.
+        GameObject eventSystem = _instance._resourceManager.Instantiate(
+            "Prefabs/UIs/EventSystem", _instance.transform);
+        if (eventSystem != null)
+        {
+            InputSystemUIInputModule uiModule = eventSystem.GetComponent<InputSystemUIInputModule>();
+            // The prefab previously referenced a deleted Input Actions asset GUID.
+            // Assign fresh UI actions so mouse clicks, drag, and touch all work.
+            if (uiModule != null) uiModule.AssignDefaultActions();
+        }
     }
 
     public static void Clear()
