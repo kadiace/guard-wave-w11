@@ -402,6 +402,7 @@ Ctrl+Z: 최근 기물 배치, 진흙 붓질 또는 수동 제거 되돌리기
                 case "log":
                 case "forest_pebble":
                 case "default_flag":
+                case "building":
                     return BuildCandidateDetails(material);
                 case "hair_dryer":
                     // The dryer only needs a short sentence on hover.

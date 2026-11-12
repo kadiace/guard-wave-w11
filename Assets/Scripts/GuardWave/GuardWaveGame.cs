@@ -781,11 +781,17 @@ namespace GuardWave
             _flagBody = _defenseFlag.GetComponent<Rigidbody>();
             _flagCollider = _defenseFlag.GetComponent<BoxCollider>();
             _initialFlagState = new RigidbodyState(_flagBody);
-            _creekBedCollider = GameObject.Find("Flat Muddy Creek Bed")
-                .GetComponent<BoxCollider>();
+            // Fog is an independent urban stage, not a resized Forest creek.
+            bool urbanFog = GetComponent<FogSceneController>() != null;
+            string groundName = urbanFog ? "Fog Asphalt Ground" : "Flat Muddy Creek Bed";
+            GameObject ground = GameObject.Find(groundName);
+            if (ground == null)
+                throw new InvalidOperationException("Missing scene ground: " + groundName);
+            _creekBedCollider = ground.GetComponent<BoxCollider>();
             _placementBounds = _creekBedCollider.bounds;
-            _lowerCreekBounds = GameObject.Find("Flat Muddy Creek Bed After Cliff")
-                .GetComponent<BoxCollider>().bounds;
+            _lowerCreekBounds = urbanFog ? _placementBounds
+                : GameObject.Find("Flat Muddy Creek Bed After Cliff")
+                    .GetComponent<BoxCollider>().bounds;
             _cameraTarget.y = _placementBounds.max.y + 2f;
         }
 
@@ -944,7 +950,8 @@ namespace GuardWave
                 else if (!rightButton.isPressed && !rightButton.wasReleasedThisFrame && !pointerOverUi)
                 {
                     _camera.orthographicSize = Mathf.Clamp(_camera.orthographicSize *
-                        Mathf.Exp(-scroll * 0.03f), 6f, 12.5f);
+                        Mathf.Exp(-scroll * 0.03f), 6f,
+                        GetComponent<FogSceneController>() != null ? 32f : 12.5f);
                 }
             }
 
@@ -1052,7 +1059,8 @@ namespace GuardWave
             _resolving = false;
             _awaitingStage = false;
             _finished = false;
-            _cameraTarget = new Vector3(0f, _placementBounds.max.y + 2f, 0f);
+            _cameraTarget = new Vector3(0f, _placementBounds.max.y +
+                (GetComponent<FogSceneController>() != null ? 7f : 2f), 0f);
             _rightGestureActive = false;
             _rightGestureStartedWithOffer = false;
             _rightPressedPiece = null;
@@ -1061,7 +1069,7 @@ namespace GuardWave
             DealOffers();
             if (ambientFlowPreview) BeginAmbientCreekFlow();
             _status = GetComponent<FogSceneController>() != null
-                ? "고무오리·쓰레기 봉투·큰 돌을 배치하세요."
+                ? "건물을 배치하면 +Z 방향 실외기 바람으로 안개를 밀어냅니다. 준비 완료를 누르세요."
                 : "진흙을 바르고 드라이기로 말려 접착력을 강화하세요. 기물 우클릭: 제거, 빈 공간 우클릭: 선택 해제";
             // Initial state enables Ctrl+Z to undo the very first placement.
             SaveEditState(false);
@@ -1087,7 +1095,9 @@ namespace GuardWave
         /// <summary>씬에 배치된 진흙을 게임의 접착 및 되돌리기 대상에 포함한다.</summary>
         private void RegisterSceneMudPatches()
         {
-            Collider creekBed = GameObject.Find("Flat Muddy Creek Bed").GetComponent<Collider>();
+            string groundName = GetComponent<FogSceneController>() != null
+                ? "Fog Asphalt Ground" : "Flat Muddy Creek Bed";
+            Collider creekBed = GameObject.Find(groundName).GetComponent<Collider>();
             foreach (GuardWaveMudPatch patch in FindObjectsByType<GuardWaveMudPatch>(
                 FindObjectsInactive.Include, FindObjectsSortMode.None))
             {
@@ -1224,13 +1234,13 @@ namespace GuardWave
             return piece;
         }
 
-        /// <summary>Forest uses mud/log/empty, leaving the Fog palette unchanged.</summary>
+        /// <summary>Fog has only the placeable building in slot 1; Forest keeps its three tools.</summary>
         private void DealOffers()
         {
             bool fogScene = GetComponent<FogSceneController>() != null;
-            _offers[0] = _catalog.Get(fogScene ? "rubber_duck" : "mud");
-            _offers[1] = _catalog.Get(fogScene ? "waste_bag_medium" : "log");
-            _offers[2] = _catalog.Get(fogScene ? "large_stone" : "forest_pebble");
+            _offers[0] = _catalog.Get(fogScene ? "building" : "mud");
+            _offers[1] = fogScene ? null : _catalog.Get("log");
+            _offers[2] = fogScene ? null : _catalog.Get("forest_pebble");
             _offers[3] = fogScene ? null : _catalog.Get("hair_dryer");
             _selected = -1;
             _paletteOpen = true;

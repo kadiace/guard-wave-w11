@@ -15,6 +15,7 @@ namespace GuardWave
     internal sealed class FogFluidSolver : IDisposable
     {
         private const int MaxObstacles = 256;
+        private const int MaxWindVents = 32;
 
         [StructLayout(LayoutKind.Sequential)]
         private struct Obstacle
@@ -24,6 +25,16 @@ namespace GuardWave
             public Vector4 Rotation;
         }
 
+        [StructLayout(LayoutKind.Sequential)]
+        private struct WindVent
+        {
+            public Vector4 PositionRange;
+            public Vector4 DirectionAcceleration;
+            public Vector4 Radius;
+        }
+
+        private readonly WindVent[] _ventData = new WindVent[MaxWindVents];
+        private readonly ComputeBuffer _windVents;
         private readonly ComputeShader _compute;
         private readonly ComputeBuffer _obstacles;
         private readonly Obstacle[] _obstacleData = new Obstacle[MaxObstacles];
@@ -88,6 +99,7 @@ namespace GuardWave
             _divergence = MakeTexture("Fog Divergence");
             _obstacleSdf = MakeTexture("Fog Obstacle SDF");
             _obstacles = new ComputeBuffer(MaxObstacles, Marshal.SizeOf<Obstacle>());
+            _windVents = new ComputeBuffer(MaxWindVents, Marshal.SizeOf<WindVent>());
             _clear = _compute.FindKernel("ClearFog");
             _classify = _compute.FindKernel("BuildObstacleSdf");
             _advectVelocity = _compute.FindKernel("AdvectFogVelocity");
@@ -108,6 +120,9 @@ namespace GuardWave
             _compute.SetFloat("_InletStrength", 0f);
             ConfigureMotion(2.2f, 0.9f, 3.5f, 1.1f, 0.5f);
             _compute.SetBuffer(_classify, "_ObstacleBoxes", _obstacles);
+            _compute.SetBuffer(_forces, "_WindVents", _windVents);
+            _compute.SetInt("_WindVentCount", 0);
+            _compute.SetFloat("_PeakFanSpeed", 0f);
             Bind(_clear, "_VelocityOut", _velocityA);
             Bind(_clear, "_VelocityAlt", _velocityB);
             Bind(_clear, "_DensityOut", _densityA);
@@ -124,6 +139,7 @@ namespace GuardWave
             Dispatch(_clear);
             _currentPressure = _pressureA;
             RefreshObstacleField();
+            RefreshWindField();
         }
 
         public void ConfigureMotion(float vorticity, float turbulence, float expansion,
@@ -233,6 +249,39 @@ namespace GuardWave
             Dispatch(_classify);
         }
 
+        /// <summary>
+        /// Rebuild the authored vent field in world space. Multiple instances of
+        /// the building prefab are supported, including rotated or scaled ones.
+        /// </summary>
+        private void RefreshWindField()
+        {
+            int count = 0;
+            float peak = 0f;
+            foreach (FogBuildingWind source in UnityEngine.Object.FindObjectsByType<FogBuildingWind>(
+                FindObjectsSortMode.None))
+            {
+                if (source == null || !source.isActiveAndEnabled ||
+                    source.gameObject.scene.handle != _scene.handle ||
+                    source.WindAcceleration <= 0f || !WorldBounds.Contains(source.OutletPosition))
+                    continue;
+                if (count >= MaxWindVents) break;
+                Vector3 position = source.OutletPosition;
+                Vector3 direction = source.OutletDirection;
+                if (direction.sqrMagnitude < 0.5f) continue;
+                _ventData[count++] = new WindVent
+                {
+                    PositionRange = new Vector4(position.x, position.y, position.z, source.Reach),
+                    DirectionAcceleration = new Vector4(direction.x, direction.y,
+                        direction.z, source.WindAcceleration),
+                    Radius = new Vector4(source.OutletRadius, 0f, 0f, 0f)
+                };
+                peak = Mathf.Max(peak, source.WindAcceleration);
+            }
+            _compute.SetInt("_WindVentCount", count);
+            _compute.SetFloat("_PeakFanSpeed", peak);
+            if (count > 0) _windVents.SetData(_ventData);
+        }
+
         public void Step(float deltaTime, float inlet, float windSpeed, float baseY)
         {
             if (_disposed) return;
@@ -245,7 +294,11 @@ namespace GuardWave
             _compute.SetFloat("_FogBaseY", baseY);
             _compute.SetFloat("_InletStrength", Mathf.Clamp01(inlet));
             _compute.SetFloat("_InletZ", WorldBounds.max.z - _cell * 1.5f);
-            if ((_step++ % 8) == 0) RefreshObstacleField();
+            if ((_step++ % 8) == 0)
+            {
+                RefreshObstacleField();
+                RefreshWindField();
+            }
 
             // Ping-pong velocity across advection, vorticity force and projection.
             RenderTexture velocityCurrent = _velocityIsA ? _velocityA : _velocityB;
@@ -333,6 +386,7 @@ namespace GuardWave
             if (_disposed) return;
             _disposed = true;
             _obstacles?.Release();
+            _windVents?.Release();
             foreach (RenderTexture t in new[] {
                 _velocityA, _velocityB, _densityA, _densityB,
                 _temperatureA, _temperatureB, _curl, _densityPredict, _densityReverse,

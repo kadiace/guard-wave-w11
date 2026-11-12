@@ -75,19 +75,19 @@ namespace GuardWave
         {
             _running = true;
             _game.SetRulesOpen(true); // Existing placement UI and input become read-only.
-            _status = "짙은 연막이 상류에서 부풀어 오르고 있습니다.";
+            _status = "도시 도로로 밀려오는 안개에 배치한 건물의 실외기 바람이 맞서고 있습니다.";
             float ground = -2.25f;
-            GameObject bed = GameObject.Find("Flat Muddy Creek Bed");
+            GameObject bed = GameObject.Find("Fog Asphalt Ground");
             if (bed != null)
             {
                 Collider c = bed.GetComponent<Collider>();
                 if (c != null) ground = c.bounds.max.y;
             }
 
-            // 24 m inlet [-12,12], but a 40 m wide domain allows natural sideward spread.
-            // Longitudinal interval covers the Forest creek and downstream cliff.
-            Vector3 origin = new Vector3(-20f, ground - 0.5f, -29f);
-            Vector3 extent = new Vector3(40f, 9f, 83f);
+            // 24 m urban highway (8 lanes x 3 m) and independent city fog domain.
+            // Background towers have no fans; only player-placed buildings create wind.
+            Vector3 origin = new Vector3(-28f, ground - 0.5f, -29f);
+            Vector3 extent = new Vector3(56f, 12f, 83f);
             try
             {
                 _fluid = new FogFluidSolver(gameObject.scene, origin, extent,
