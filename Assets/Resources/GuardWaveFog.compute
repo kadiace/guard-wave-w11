@@ -1,5 +1,6 @@
 // Independent GPU smoke/gas solver. Never modifies GuardWave water compute code.
 #pragma kernel ClearFog
+#pragma kernel ClearFogAuxiliary
 #pragma kernel BuildObstacleSdf
 #pragma kernel AdvectFogVelocity
 #pragma kernel ComputeFogVorticity
@@ -99,10 +100,16 @@ float CurlMagnitude(int3 p) {
 [numthreads(8,4,8)]
 void ClearFog(uint3 id : SV_DispatchThreadID) {
     if (any(id >= uint3(_GridSize))) return;
+    // Stay within the 8-UAV limit on D3D11 and other limited graphics APIs.
     _VelocityOut[id] = 0; _VelocityAlt[id] = 0;
     _DensityOut[id] = 0; _DensityAlt[id] = 0;
     _TemperatureOut[id] = 0; _TemperatureAlt[id] = 0;
     _DensityPredictOut[id] = 0; _DensityReverseOut[id] = 0;
+}
+
+[numthreads(8,4,8)]
+void ClearFogAuxiliary(uint3 id : SV_DispatchThreadID) {
+    if (any(id >= uint3(_GridSize))) return;
     _CurlOut[id] = 0;
     _PressureOut[id] = 0; _PressureAlt[id] = 0;
     _DivergenceWrite[id] = 0;
