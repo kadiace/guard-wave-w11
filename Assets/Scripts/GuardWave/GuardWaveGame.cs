@@ -37,6 +37,12 @@ namespace GuardWave
             AnimationCurve.EaseInOut(0f, 0f, 1f, 1f);
 
         private readonly List<GuardWavePiece> _pieces = new List<GuardWavePiece>();
+        private readonly List<GuardWaveMudPatch> _mudPatches = new List<GuardWaveMudPatch>();
+        private GameObject _mudPreview;
+
+        [Header("Mud adhesion")]
+        [SerializeField, Min(0f)] private float mudBreakForce = 2000f;
+        [SerializeField, Min(0f)] private float mudBreakTorque = 1400f;
         private readonly HashSet<GuardWavePiece> _pieceSet = new HashSet<GuardWavePiece>();
         private readonly HashSet<GuardWavePiece> _scenePieces = new HashSet<GuardWavePiece>();
         private readonly List<SceneBodyState> _initialScenePieceStates = new List<SceneBodyState>();
@@ -163,8 +169,16 @@ namespace GuardWave
             _dropMouseReleased = false;
             _lastDropTime = Time.unscaledTime;
             HideDropPreview();
-            StartCoroutine(DropAndResolve(_offers[_selected],
-                new Vector3(placement.x, _placementBounds.max.y + dropHeight, placement.z)));
+            if (_offers[_selected].id == "mud")
+            {
+                if (TryGetMudSurface(placement, out RaycastHit surface))
+                    ApplyMud(surface);
+            }
+            else
+            {
+                StartCoroutine(DropAndResolve(_offers[_selected],
+                    new Vector3(placement.x, _placementBounds.max.y + dropHeight, placement.z)));
+            }
         }
 
         /// <summary>Esc 또는 우클릭으로 현재 기물 선택을 해제한다.</summary>
@@ -208,10 +222,64 @@ namespace GuardWave
                 new Vector3(position.x, _placementBounds.center.y, position.z));
         }
 
+        /// <summary>Projects the chosen creek XZ vertically onto a solid surface.</summary>
+        private bool TryGetMudSurface(Vector3 placement, out RaycastHit hit)
+        {
+            hit = default;
+            if (!CanPlaceAt(placement)) return false;
+            Vector3 start = new Vector3(placement.x,
+                _placementBounds.max.y + dropHeight + 5f, placement.z);
+            return Physics.Raycast(start, Vector3.down, out hit, 500f,
+                       Physics.DefaultRaycastLayers, QueryTriggerInteraction.Ignore)
+                   && hit.normal.y > 0.35f
+                   && hit.collider.GetComponentInParent<GuardWaveMudPatch>() == null;
+        }
+
+        /// <summary>Paints a thin adhesive patch on the vertical projection hit.</summary>
+        private void ApplyMud(RaycastHit surface)
+        {
+            GameObject patchObject = new GameObject("Mud Patch");
+            patchObject.transform.SetPositionAndRotation(
+                surface.point + surface.normal * 0.018f,
+                Quaternion.AngleAxis(_objectYaw, surface.normal)
+                    * Quaternion.FromToRotation(Vector3.up, surface.normal));
+            patchObject.transform.SetParent(surface.collider.transform, true);
+            GuardWaveMudPatch patch = patchObject.AddComponent<GuardWaveMudPatch>();
+            patch.Initialize(this, surface.rigidbody, mudBreakForce, mudBreakTorque);
+            _mudPatches.Add(patch);
+            _status = "진흙을 발랐습니다. 그 위에 통나무를 떨어뜨리면 부착됩니다.";
+        }
+
+        internal bool HasMudBond(GuardWavePiece piece)
+        {
+            foreach (GuardWaveMudPatch patch in _mudPatches)
+                if (patch != null && patch.HasBond(piece)) return true;
+            return false;
+        }
+
         /// <summary>커서 위치의 배치 가능 여부에 따라 실제 자재의 낙하 미리보기 색을 바꾼다.</summary>
         private void UpdateDropPreview()
         {
             Mouse mouse = Mouse.current;
+            if (mouse != null && _selected >= 0 && _offers[_selected]?.id == "mud")
+            {
+                _dropPreview.Hide();
+                _hud.HideDropGuide();
+                if (!mouse.rightButton.isPressed &&
+                    TryGetPlacementXZ(mouse.position.ReadValue(), out Vector3 mudXZ) &&
+                    TryGetMudSurface(mudXZ, out RaycastHit surface))
+                {
+                    if (_mudPreview == null) _mudPreview = GuardWaveMudPatch.CreatePreview();
+                    _mudPreview.transform.SetPositionAndRotation(
+                        surface.point + surface.normal * 0.026f,
+                        Quaternion.AngleAxis(_objectYaw, surface.normal)
+                            * Quaternion.FromToRotation(Vector3.up, surface.normal));
+                    _mudPreview.SetActive(true);
+                }
+                else if (_mudPreview != null) _mudPreview.SetActive(false);
+                return;
+            }
+            if (_mudPreview != null) _mudPreview.SetActive(false);
             if (mouse == null || _selected < 0 || mouse.rightButton.isPressed ||
                 _offers[_selected] == null ||
                 !TryGetCursorXZ(mouse.position.ReadValue(), out Vector3 placement))
@@ -247,12 +315,19 @@ namespace GuardWave
         {
             _dropPreview?.Hide();
             _hud?.HideDropGuide();
+            if (_mudPreview != null) _mudPreview.SetActive(false);
         }
 
         private void OnDestroy()
         {
             SetOutlineTargets(null);
             _dropPreview?.Dispose();
+            if (_mudPreview != null)
+            {
+                Renderer renderer = _mudPreview.GetComponent<Renderer>();
+                if (renderer != null) Destroy(renderer.sharedMaterial);
+                Destroy(_mudPreview);
+            }
             DisposeFluid();
             _flipRenderer?.Dispose();
             // The flag is owned by the Forest scene.
@@ -370,6 +445,7 @@ namespace GuardWave
         public void SelectOffer(int index)
         {
             if (!CanSelect || index < 0 || index >= _offers.Length) return;
+            if (_offers[index] == null) return;
             _selected = index;
             _status = _offers[index].name + " 선택";
         }
@@ -509,6 +585,14 @@ namespace GuardWave
             _waveHasStarted = false;
             CommitWaveSnapshot();
 
+            foreach (GuardWaveMudPatch patch in _mudPatches)
+            {
+                if (patch == null) continue;
+                patch.ClearBonds();
+                patch.gameObject.SetActive(false);
+                Destroy(patch.gameObject);
+            }
+            _mudPatches.Clear();
             foreach (GuardWavePiece piece in _pieces)
                 if (piece != null) Destroy(piece.gameObject);
             _pieces.Clear();
@@ -533,7 +617,9 @@ namespace GuardWave
             ResetDefenseFlag();
             DealOffers();
             if (ambientFlowPreview) BeginAmbientCreekFlow();
-            _status = "고무오리·쓰레기 봉투·큰 돌을 배치하세요. 기물 우클릭: 제거, 빈 공간 우클릭: 선택 해제";
+            _status = GetComponent<FogSceneController>() != null
+                ? "고무오리·쓰레기 봉투·큰 돌을 배치하세요."
+                : "진흙을 바르고 통나무를 배치하세요. 기물 우클릭: 제거, 빈 공간 우클릭: 선택 해제";
         }
 
         /// <summary>Registers authored Forest objects as selectable without creating runtime scene objects.</summary>
@@ -647,12 +733,13 @@ namespace GuardWave
             return piece;
         }
 
-        /// <summary>팔레트 재료를 고무오리, 쓰레기 봉투, 큰 돌로 고정한다.</summary>
+        /// <summary>Forest uses mud/log/empty, leaving the Fog palette unchanged.</summary>
         private void DealOffers()
         {
-            _offers[0] = _catalog.Get("rubber_duck");
-            _offers[1] = _catalog.Get("waste_bag_medium");
-            _offers[2] = _catalog.Get("large_stone");
+            bool fogScene = GetComponent<FogSceneController>() != null;
+            _offers[0] = _catalog.Get(fogScene ? "rubber_duck" : "mud");
+            _offers[1] = _catalog.Get(fogScene ? "waste_bag_medium" : "log");
+            _offers[2] = fogScene ? _catalog.Get("large_stone") : null;
             _selected = -1;
             _paletteOpen = true;
             HideDropPreview();
@@ -704,6 +791,8 @@ namespace GuardWave
             if (piece == null || !_pieceSet.Remove(piece)) return 0;
             if (piece == _outlinedPiece) SetOutlineTargets(null);
             _pieces.Remove(piece);
+            foreach (GuardWaveMudPatch patch in _mudPatches)
+                if (patch != null) patch.DetachPiece(piece);
             PublishChange(new GuardWaveChange(piece, piece, reason, 0, piece.transform.position));
             if (_scenePieces.Contains(piece) || _waveSnapshot != null)
                 piece.gameObject.SetActive(false);
@@ -914,6 +1003,8 @@ namespace GuardWave
             };
             foreach (GuardWavePiece piece in _pieces)
                 if (piece != null) snapshot.Pieces.Add(new PieceState(piece));
+            foreach (GuardWaveMudPatch patch in _mudPatches)
+                if (patch != null) patch.CaptureBonds(snapshot.MudBonds);
 
             // Inactive authored sticks must also be snapshotted: their parent
             // may be activated later without restarting the Forest scene.
@@ -977,6 +1068,11 @@ namespace GuardWave
             snapshot.Flag.RestoreMotion(_flagBody);
             foreach (SceneBodyState state in snapshot.SceneBodies)
                 if (state.Body != null) state.State.RestoreMotion(state.Body);
+            // Broken/moved joints are not restored by Rigidbody poses alone.
+            foreach (GuardWaveMudPatch patch in _mudPatches)
+                if (patch != null) patch.ClearBonds();
+            foreach (GuardWaveMudPatch.MudBondState bond in snapshot.MudBonds)
+                if (bond.Patch != null) bond.Patch.RestoreBond(bond);
 
             _selected = snapshot.SelectedOffer;
             _objectYaw = snapshot.ObjectYaw;
@@ -1005,6 +1101,8 @@ namespace GuardWave
         private sealed class WaveSnapshot
         {
             public readonly List<PieceState> Pieces = new List<PieceState>();
+            public readonly List<GuardWaveMudPatch.MudBondState> MudBonds =
+                new List<GuardWaveMudPatch.MudBondState>();
             public readonly List<SceneBodyState> SceneBodies = new List<SceneBodyState>();
             public readonly List<SceneParentActiveState> SceneParents = new List<SceneParentActiveState>();
             public readonly HashSet<GuardWavePiece> SelectableScenePieces = new HashSet<GuardWavePiece>();

@@ -2,6 +2,12 @@
   "schemaVersion": 1,
   "materials": [
     {
+      "id": "mud",
+      "name": "진흙",
+      "category": "지형",
+      "abilities": ["아래로 사영한 표면에 바릅니다. 위에 떨어지는 기물을 부착시킵니다."]
+    },
+    {
       "id": "foundation",
       "name": "기반",
       "category": "목재",

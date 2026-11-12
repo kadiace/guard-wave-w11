@@ -118,8 +118,10 @@ namespace GuardWave
             _completePopup.SetActive(false);
             _rulesPopup.SetActive(false);
             _tooltip.SetActive(false);
-            _rulesBody.text = @"고무오리, 쓰레기 봉투, 큰 돌 중 원하는 기물을 선택해 무제한 배치하세요.
-선택한 기물은 우클릭으로 해제하기 전까지 계속 배치할 수 있습니다.
+            _rulesBody.text = @"진흙을 선택해 클릭하면 아래로 사영한 표면에 진흙이 발립니다.
+진흙 위에 통나무 등의 물체가 떨어지면 부착됩니다.
+통나무는 기존과 같이 클릭 위치에 떨어뜨려 무제한 배치할 수 있습니다.
+선택한 재료는 우클릭으로 해제하기 전까지 계속 사용할 수 있습니다.
 하단의 준비완료를 누르면 홍수가 밀려옵니다.
 깃발을 지키세요! 파도에 깃발이 밀려 절벽 뒤 파괴 경계를 넘으면 방어에 실패합니다.
 실패 팝업의 확인을 누르면 준비완료를 누르기 직전의 배치로 돌아갑니다.
@@ -222,7 +224,16 @@ Q/E: 기물 회전 / 우클릭 또는 Esc: 선택 취소
             for (int i = 0; i < _cards.Length; i++)
             {
                 GuardWaveMaterial info = _game.CurrentOffers[i];
-                if (info == null) continue;
+                if (info == null)
+                {
+                    _shownIds[i] = null;
+                    _names[i].text = "";
+                    _silhouettes[i].sprite = null;
+                    _silhouettes[i].color = Color.clear;
+                    _cards[i].interactable = false;
+                    _backgrounds[i].color = new Color(0.12f, 0.17f, 0.21f, 1f);
+                    continue;
+                }
                 if (_shownIds[i] != info.id)
                 {
                     _shownIds[i] = info.id;
@@ -264,7 +275,8 @@ Q/E: 기물 회전 / 우클릭 또는 Esc: 선택 취소
             texture.filterMode = FilterMode.Point;
             texture.wrapMode = TextureWrapMode.Clamp;
             Material material = Resources.Load<Material>("Materials/" + info.id + "_Base");
-            Color color = material == null ? Color.gray : material.color;
+            Color color = info.id == "mud" ? new Color(0.42f, 0.28f, 0.16f, 1f)
+                : material == null ? Color.gray : material.color;
             Color shadow = new Color(color.r * 0.53f, color.g * 0.53f, color.b * 0.53f, 1f);
             int shape = Shape(info.id, info.category);
             for (int y = 0; y < size; y++)
@@ -273,7 +285,9 @@ Q/E: 기물 회전 / 우클릭 또는 Esc: 선택 취소
                 {
                     float u = (x - 15.5f) / 14f;
                     float v = (y - 15.5f) / 14f;
-                    bool filled = shape == 0 ? Mathf.Abs(u) < 0.28f && Mathf.Abs(v) < 0.85f
+                    bool filled = shape == 7
+                        ? u * u + v * v < 0.74f + 0.08f * Mathf.Sin(u * 12f) * Mathf.Cos(v * 9f)
+                        : shape == 0 ? Mathf.Abs(u) < 0.28f && Mathf.Abs(v) < 0.85f
                         : shape == 1 ? Mathf.Abs(u) < 0.8f && Mathf.Abs(v) < 0.36f
                         : shape == 2 ? (u * u + v * v < 0.78f && u * u + v * v > 0.22f)
                         : shape == 3 ? (u * u + v * v < 0.72f && v > 0.08f) || (Mathf.Abs(u) < 0.14f && v < 0.35f && v > -0.9f)
@@ -293,6 +307,7 @@ Q/E: 기물 회전 / 우클릭 또는 Esc: 선택 취소
         /// <summary>재료 ID와 종류에 따라 카드의 간략한 픽셀 실루엣 유형을 결정한다.</summary>
         private static int Shape(string id, string category)
         {
+            if (id == "mud") return 7;
             if (id == "tire" || id == "life_ring") return 2;
             if (id == "sunflower" || id == "living_tree" || id == "growing_vine") return 3;
             if (id == "branch" || id == "leafy_branch" || id == "vine") return 0;
