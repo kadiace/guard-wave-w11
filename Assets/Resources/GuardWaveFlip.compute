@@ -144,15 +144,33 @@ bool IsFluid(int3 c)
 {
     return Inside(c) && !IsSolid(c) && _Accum[Flatten(c)].w > (int)(SCALE * 0.01);
 }
+// The physical lip, not the far end of the four-cell grid buffer, is the
+// pressure outlet. Buffer cells are still available to particle interpolation.
+bool IsOutletBuffer(int3 c)
+{
+    return Inside(c) && Center(c).z < _ExitZ;
+}
 float3 VelocityAt(int3 c)
 {
-    return IsFluid(c) ? _GridVelocity[Flatten(c)] : 0;
+    if (IsFluid(c)) return _GridVelocity[Flatten(c)];
+    // A dry cell immediately downstream is not motionless water. Extend the
+    // last upstream liquid velocity into the open outlet (zero normal gradient)
+    // instead of introducing an artificial zero-velocity wall in divergence.
+    if (IsOpenOutflow(c) || IsOutletBuffer(c))
+    {
+        int firstRiverZ = clamp(
+            (int)ceil((_ExitZ - _GridOrigin.z) / _CellSize - 0.5),
+            0, _GridSize.z - 1);
+        int3 riverCell = int3(c.x, c.y, firstRiverZ);
+        if (IsFluid(riverCell)) return _GridVelocity[Flatten(riverCell)];
+    }
+    return 0;
 }
 float PressureAt(int3 c, float own)
 {
-    // Zero-gauge pressure at the free downstream outlet allows pressure
-    // projection to push liquid over the cliff rather than reflect it.
-    if (IsOpenOutflow(c)) return 0.0;
+    // Atmospheric pressure begins at the physical waterfall lip, including
+    // grid cells in the downstream interpolation buffer.
+    if (IsOpenOutflow(c) || IsOutletBuffer(c)) return 0.0;
     if (IsSolid(c)) return own;
     return IsFluid(c) ? _PressureSrc[Flatten(c)] : 0.0;
 }
@@ -397,7 +415,7 @@ void JacobiPressure(uint id : SV_DispatchThreadID)
     int3 c = int3(id % _GridSize.x,
         (id / _GridSize.x) % _GridSize.y,
         id / (_GridSize.x * _GridSize.y));
-    if (!IsFluid(c)) { _PressureDst[id] = 0; return; }
+    if (!IsFluid(c) || IsOutletBuffer(c)) { _PressureDst[id] = 0; return; }
     int3 ex = int3(1,0,0), ey = int3(0,1,0), ez = int3(0,0,1);
     float div = (VelocityAt(c+ex).x-VelocityAt(c-ex).x +
         VelocityAt(c+ey).y-VelocityAt(c-ey).y +
@@ -421,6 +439,14 @@ void ProjectGrid(uint id : SV_DispatchThreadID)
         (id / _GridSize.x) % _GridSize.y,
         id / (_GridSize.x * _GridSize.y));
     if (!IsFluid(c)) return;
+    if (IsOutletBuffer(c))
+    {
+        // Do not let pressure projection push falling water back into the river.
+        float3 outletVelocity = _GridVelocity[id];
+        outletVelocity.z = min(outletVelocity.z, 0.0);
+        _GridVelocity[id] = outletVelocity;
+        return;
+    }
     int3 ex = int3(1,0,0), ey = int3(0,1,0), ez = int3(0,0,1);
     float p = _PressureSrc[id];
     float3 grad = float3(
@@ -433,6 +459,10 @@ void ProjectGrid(uint id : SV_DispatchThreadID)
     // The negative-Z open outlet must not zero the exiting velocity.
     // IsSolid(c-ez) is false outside the outlet; upper inlet stays closed.
     if ((IsSolid(c+ez) && v.z>0) || (IsSolid(c-ez) && v.z<0)) v.z=0;
+    // A free outlet must not acquire +Z velocity from pressure projection.
+    // This does not impose a target river speed or accelerate the waterfall.
+    if (Center(c).z < _ExitZ + 2.0 * _CellSize)
+        v.z = min(v.z, 0.0);
     _GridVelocity[id] = v;
 }
 [numthreads(128,1,1)]
@@ -445,6 +475,7 @@ void GridToParticle(uint id : SV_DispatchThreadID)
     int3 baseCell = (int3)floor(g);
     float3 f = frac(g);
     float3 pic = 0, flipDelta = 0, c0 = 0, c1 = 0, c2 = 0;
+    float3 offsetMoment = 0;
     float weight = 0;
     [unroll]
     for (int z=0; z<=1; z++)
@@ -464,20 +495,38 @@ void GridToParticle(uint id : SV_DispatchThreadID)
         c0 += w*v*d.x;
         c1 += w*v*d.y;
         c2 += w*v*d.z;
+        offsetMoment += w*d;
         weight += w;
     }
+    // Cache the longitudinal velocity on entry to the last two grid cells.
+    // It is an advective/open-boundary condition, not a pull toward the edge:
+    // the parcel keeps the speed it already had when it reached the lip.
+    bool nearOutlet = p.position.z >= _ExitZ &&
+        p.position.z < _ExitZ + 2.0 * _CellSize;
+    if (nearOutlet && p.affineZ.w == 0.0)
+        p.affineZ.w = p.velocity.z < -0.01 ? -p.velocity.z : -1.0;
     if (weight > 0.001)
     {
         pic /= weight;
         flipDelta /= weight;
         p.velocity.xyz = lerp(pic, p.velocity.xyz + flipDelta, _FlipFraction);
         float scale = 4.0 / (_CellSize * _CellSize * weight);
-        // Preserve crest height and collision-release tag across APIC updates.
-        p.affineX = float4(c0*scale,p.affineX.w);
-        p.affineY = float4(c1*scale,p.affineY.w);
-        p.affineZ = float4(c2*scale,0);
+        // A truncated free-surface/outlet stencil has a biased centroid.
+        // Center APIC moments so constant velocity cannot manufacture a
+        // spurious gradient (and then reverse a neighboring particle).
+        p.affineX = float4((c0 - pic * offsetMoment.x)*scale,p.affineX.w);
+        p.affineY = float4((c1 - pic * offsetMoment.y)*scale,p.affineY.w);
+        p.affineZ = float4((c2 - pic * offsetMoment.z)*scale,p.affineZ.w);
     }
     else p.velocity.y -= _Gravity * _Dt;
+    if (nearOutlet && p.affineZ.w > 0.0)
+    {
+        p.velocity.z = -p.affineZ.w;
+        // No longitudinal APIC shear in the outgoing ballistic handoff.
+        p.affineX.z = 0;
+        p.affineY.z = 0;
+        p.affineZ.z = 0;
+    }
     p.velocity.xyz = clamp(p.velocity.xyz, -_MaxFluidVelocity, _MaxFluidVelocity);
     p.position.xyz += p.velocity.xyz * _Dt;
     // Fixed banks/floor are collision boundaries, not a prescribed wave shape.
@@ -507,6 +556,9 @@ void GridToParticle(uint id : SV_DispatchThreadID)
             d < _CrestReleaseDistance)
             p.affineY.w = 1.0; // Collision: stop holding this parcel up.
         if (d >= _CollisionSkin) continue;
+        // An actual obstacle may stop or reverse flow even at the outlet.
+        // -1 means release the cached outflow speed until leaving the band.
+        p.affineZ.w = -1.0;
         float3 n = ColliderNormal(b, p.position.xyz);
         float3 r = p.position.xyz - b.bodyCenter.xyz;
         float3 bv = b.velocity.xyz + cross(b.angular.xyz, r);
@@ -558,8 +610,8 @@ void GridToParticle(uint id : SV_DispatchThreadID)
         // Start downward acceleration this tick, without advancing XZ twice:
         // the next Waterfall dispatch continues the full ballistic integration.
         p.position.w = 2;
-        p.velocity.y -= _Gravity * _Dt;
-        p.position.y += p.velocity.y * (0.5 * _Dt);
+        // G2P already integrated this tick's gravity and position. Do not
+        // add a second downward impulse at the lip; Waterfall takes over next tick.
         if (_AmbientEnabled != 0)
         {
             InterlockedAdd(_FlowCounters[3], 1u); // Total true cliff crossings.
