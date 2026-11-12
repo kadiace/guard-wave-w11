@@ -150,7 +150,6 @@ namespace GuardWave
             if (_fluidSettings == null) throw new InvalidOperationException("Missing Resources/Datas/GuardWaveFluidSettings.asset");
             ConfigureScene();
             RegisterScenePieces();
-            CaptureNonMudFixedJoints(_initialSceneJointStates);
             RegisterSceneMudPatches();
             CreateHud();
             _dropPreview = new GuardWaveDropPreview();
@@ -158,9 +157,14 @@ namespace GuardWave
             ResetGame();
             RegisterExistingMudBonds();
             _initialSceneJointStates.Clear();
+            // Only non-mud joints belong to the generic joint snapshot.
+            // Adopted authored joints are captured by their MudPatch instead.
             CaptureNonMudFixedJoints(_initialSceneJointStates);
             foreach (GuardWaveMudPatch patch in _mudPatches)
                 if (patch != null) patch.CaptureBonds(_initialMudBondStates);
+            // ResetGame captured the first history entry before adoption.
+            _editHistory.Clear();
+            SaveEditState(false);
             _initialized = true;
         }
 
@@ -199,8 +203,8 @@ namespace GuardWave
                 return;
             }
 
-            // Only a started wave can fail; restored placements must remain editable.
-            if (_stageTransitioning &&
+            // Ambient flow can destroy the flag before the first Ready click.
+            if (!_awaitingStage && !_finished &&
                 _defenseFlag != null && _defenseFlag.activeSelf &&
                 _defenseFlag.transform.position.z <= DestructionBoundaryZ)
                 DestroyDefenseFlag();
@@ -488,8 +492,14 @@ namespace GuardWave
                 return;
             }
 
+            // Refresh the preceding checkpoint immediately before curing so
+            // Ctrl+Z can restore exact pre-cure bond strengths and motion.
+            if (_editHistory.Count > 0)
+                _editHistory[_editHistory.Count - 1] = CaptureWaveSnapshot();
             target.Dry();
             EndMudDrying();
+            // One fully dried patch equals one edit; partial heating is not saved.
+            SaveEditState(false);
             _status = "진흙 건조 완료! 추가 부착 불가, 기존 접착력 2배.";
         }
 
@@ -1022,15 +1032,14 @@ namespace GuardWave
             _pieces.Clear();
             _pieceSet.Clear();
             RestoreInitialScenePieces();
-            // A full in-game restart must restore the original 13 wall-to-world
-            // joints as well as poses; broken joints are not repaired by resetting RBs.
+            // During Start(), keep authored joints intact for first adoption.
+            // On later resets, restore non-mud and mud joints separately.
             if (_initialized)
+            {
                 RebuildFixedJoints(_initialSceneJointStates);
-            // Recreate initially adopted bonds through the normal patch
-            // snapshot pathway. This also restores broken scene joints on
-            // full restart, rather than leaving the wall unconnected.
-            foreach (GuardWaveMudPatch.MudBondState state in _initialMudBondStates)
-                if (state.Patch != null) state.Patch.RestoreBond(state);
+                foreach (GuardWaveMudPatch.MudBondState state in _initialMudBondStates)
+                    if (state.Patch != null) state.Patch.RestoreBond(state);
+            }
             _stage = 0;
             _selected = -1;
             _paletteOpen = true;
@@ -1267,7 +1276,8 @@ namespace GuardWave
         {
             if (_stageTransitioning || _resolving || _awaitingStage || _finished ||
                 _rulesOpen || _selected >= 0 || piece == null ||
-                piece.MaterialId == "foundation")
+                piece.MaterialId == "foundation" ||
+                piece.MaterialId == "default_flag" || piece.gameObject == _defenseFlag)
                 return;
             // Manual removal is an edit too, so Ctrl+Z restores the removed piece.
             if (RemovePiece(piece, GuardWaveChangeKind.Removed) > 0)
@@ -1278,7 +1288,9 @@ namespace GuardWave
         private int RemovePiece(GuardWavePiece piece, GuardWaveChangeKind reason = GuardWaveChangeKind.Destroyed,
             float destructionDelay = 0f)
         {
-            if (piece == null || !_pieceSet.Remove(piece)) return 0;
+            // Never remove the defense flag through the ordinary piece pipeline.
+            if (piece == null || piece.MaterialId == "default_flag" ||
+                piece.gameObject == _defenseFlag || !_pieceSet.Remove(piece)) return 0;
             if (piece == _outlinedPiece) SetOutlineTargets(null);
             _pieces.Remove(piece);
             _everMudBonded.Remove(piece);
@@ -1316,9 +1328,8 @@ namespace GuardWave
             EndMudDrying();
             SetOutlineTargets(null);
             HideDropPreview();
-            // Wave failures use exactly the same saved state as Ctrl+Z.
-            // With no player placement, confirmation will reload the scene.
-            _waveSnapshot = _playerPlacementCount > 0 && _editHistory.Count > 0
+            // Include drying-only edits, even without any placed objects.
+            _waveSnapshot = _editHistory.Count > 0
                 ? _editHistory[_editHistory.Count - 1] : null;
             _waveHasStarted = true;
             _stageTransitioning = true;
@@ -1489,8 +1500,19 @@ namespace GuardWave
         /// <summary>깃발이 파괴되면 팝업을 열되 기물의 속도와 Rigidbody 물리는 유지한다.</summary>
         private void DestroyDefenseFlag()
         {
-            if (!_stageTransitioning || _awaitingStage)
+            if (_awaitingStage || _finished)
                 return;
+            // Without Ready, pick a checkpoint whose flag is still in bounds.
+            // Never save the flag's already-destroyed position as the reset state.
+            if (_waveSnapshot == null)
+                for (int i = _editHistory.Count - 1; i >= 0; i--)
+                    if (_editHistory[i].Flag.PositionZ > DestructionBoundaryZ)
+                    {
+                        _waveSnapshot = _editHistory[i];
+                        break;
+                    }
+            EndMudPainting();
+            EndMudDrying();
             // Keep the flood coroutine and GPU particle buffers alive so
             // the wave continues flowing behind the failure popup.
             _stageTransitioning = false;
@@ -1531,6 +1553,7 @@ namespace GuardWave
             {
                 if (patch == null || !patch.gameObject.activeSelf) continue;
                 snapshot.MudPatches.Add(patch);
+                snapshot.MudDryness[patch] = patch.IsDry;
                 patch.CaptureBonds(snapshot.MudBonds);
             }
             snapshot.MudBondHistory.UnionWith(_everMudBonded);
@@ -1602,8 +1625,12 @@ namespace GuardWave
             foreach (GuardWaveMudPatch patch in _mudPatches)
                 if (patch != null) patch.ClearBonds();
             foreach (GuardWaveMudPatch patch in _mudPatches)
-                if (patch != null)
-                    patch.gameObject.SetActive(snapshot.MudPatches.Contains(patch));
+            {
+                if (patch == null) continue;
+                patch.RestoreDryness(snapshot.MudDryness.TryGetValue(patch, out bool wasDry)
+                    && wasDry);
+                patch.gameObject.SetActive(snapshot.MudPatches.Contains(patch));
+            }
             foreach (GuardWavePiece piece in _runtimePieces)
                 if (piece != null) piece.gameObject.SetActive(false);
             _pieces.Clear();
@@ -1683,6 +1710,7 @@ namespace GuardWave
         {
             if (_stageTransitioning || _awaitingStage || _finished || _rulesOpen ||
                 _resolving) return;
+            EndMudDrying(); // Cancel partial heating; it is not an edit.
             // Ending a brush gesture commits it first, so Ctrl+Z removes that stroke.
             EndMudPainting();
             if (_editHistory.Count <= 1) return;
@@ -1696,6 +1724,8 @@ namespace GuardWave
             public readonly List<PieceState> Pieces = new List<PieceState>();
             public readonly HashSet<GuardWaveMudPatch> MudPatches =
                 new HashSet<GuardWaveMudPatch>();
+            public readonly Dictionary<GuardWaveMudPatch, bool> MudDryness =
+                new Dictionary<GuardWaveMudPatch, bool>();
             public readonly List<GuardWaveMudPatch.MudBondState> MudBonds =
                 new List<GuardWaveMudPatch.MudBondState>();
             public readonly List<FixedJointState> FixedJoints = new List<FixedJointState>();
@@ -1822,6 +1852,8 @@ namespace GuardWave
             private readonly bool _useGravity;
 
             /// <summary>리지드바디의 위치, 속도 및 물리 속성을 기록한다.</summary>
+            public float PositionZ => _position.z;
+
             public RigidbodyState(Rigidbody body)
             {
                 if (body == null) throw new ArgumentNullException(nameof(body));
@@ -1880,6 +1912,12 @@ namespace GuardWave
                 _stageFloodRoutine = null;
             }
             DisposeFluid();
+            // Drop unsafe later edits if the pre-Ready failure selected an
+            // earlier valid checkpoint.
+            int checkpointIndex = _editHistory.IndexOf(_waveSnapshot);
+            if (checkpointIndex >= 0 && checkpointIndex < _editHistory.Count - 1)
+                _editHistory.RemoveRange(checkpointIndex + 1,
+                    _editHistory.Count - checkpointIndex - 1);
             RestoreEditState(_waveSnapshot);
             CommitWaveSnapshot();
             _awaitingStage = false;

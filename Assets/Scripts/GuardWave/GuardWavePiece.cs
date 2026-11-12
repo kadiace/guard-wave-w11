@@ -62,8 +62,10 @@ namespace GuardWave
         /// <summary>Removes any registered piece that crosses the Forest destruction boundary.</summary>
         private void FixedUpdate()
         {
+            // The flag has a dedicated failure lifecycle; do not remove it
+            // as an ordinary piece at the outflow boundary.
             if (_game == null || !removeOutsideBoundary || materialId == "foundation" ||
-                !_game.IsPlacedPiece(this)) return;
+                materialId == "default_flag" || !_game.IsPlacedPiece(this)) return;
             if (transform.position.z <= _game.DestructionBoundaryZ)
                 _game.RemoveOutsideBoundary(this);
         }
