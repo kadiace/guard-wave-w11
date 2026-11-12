@@ -19,6 +19,7 @@ namespace GuardWave
         // placing the pressure grid's solid boundary against the waterfall.
         private const int OUTFLOW_BUFFER_CELLS = 4;
         private const int UPSTREAM_BUFFER_CELLS = 2;
+        private const float AMBIENT_SUPPLY_RATE_MULTIPLIER = 1f;
         private readonly GuardWaveFluidSettings _settings;
         private readonly float _cellSize;
 
@@ -653,7 +654,7 @@ namespace GuardWave
                 // upstream supply budget. Keep the original steady-state
                 // water density, but never exceed the configured supply cap.
                 double riverLength = Math.Max(0.1, _startZ - _endZ);
-                double steadyRate = _ambientTargetCount * InletSpeed / riverLength;
+                double steadyRate = _ambientTargetCount * InletSpeed / riverLength * AMBIENT_SUPPLY_RATE_MULTIPLIER;
                 double particlesPerSecond = Math.Min(steadyRate,
                     _settings.AmbientMaxSupplyParticlesPerSecond);
                 _ambientRefillFraction += particlesPerSecond * dt;

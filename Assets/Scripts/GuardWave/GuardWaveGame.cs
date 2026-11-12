@@ -37,6 +37,10 @@ namespace GuardWave
             AnimationCurve.EaseInOut(0f, 0f, 1f, 1f);
 
         private readonly List<GuardWavePiece> _pieces = new List<GuardWavePiece>();
+        // Keep removed/undone runtime objects alive so older checkpoints can restore them.
+        private readonly HashSet<GuardWavePiece> _runtimePieces = new HashSet<GuardWavePiece>();
+        private readonly List<WaveSnapshot> _editHistory = new List<WaveSnapshot>();
+        private int _playerPlacementCount;
         private readonly List<GuardWaveMudPatch> _mudPatches = new List<GuardWaveMudPatch>();
         private readonly HashSet<GuardWaveMudPatch> _sceneMudPatches = new HashSet<GuardWaveMudPatch>();
         // A piece can form just one mud bond during an attempt. Breaking that bond
@@ -73,6 +77,7 @@ namespace GuardWave
         private GuardWaveMudPatch _activeMudStroke;
         private Vector2 _lastMudCursorScreen;
         private bool _paintingMud;
+        private bool _mudStrokePainted;
 
         [Header("Mud adhesion")]
         [SerializeField, Min(0f)] private float mudBreakForce = 80f;
@@ -80,6 +85,8 @@ namespace GuardWave
         private readonly HashSet<GuardWavePiece> _pieceSet = new HashSet<GuardWavePiece>();
         private readonly HashSet<GuardWavePiece> _scenePieces = new HashSet<GuardWavePiece>();
         private readonly List<SceneBodyState> _initialScenePieceStates = new List<SceneBodyState>();
+        // The scene-authored Initial Wall uses world-anchored FixedJoints, not MudPatch bonds.
+        private readonly List<FixedJointState> _initialSceneJointStates = new List<FixedJointState>();
         private readonly List<SceneParentActiveState> _initialSceneParentStates =
             new List<SceneParentActiveState>();
         private readonly GuardWaveMaterial[] _offers = new GuardWaveMaterial[3];
@@ -135,6 +142,7 @@ namespace GuardWave
             if (_fluidSettings == null) throw new InvalidOperationException("Missing Resources/Datas/GuardWaveFluidSettings.asset");
             ConfigureScene();
             RegisterScenePieces();
+            CaptureNonMudFixedJoints(_initialSceneJointStates);
             RegisterSceneMudPatches();
             CreateHud();
             _dropPreview = new GuardWaveDropPreview();
@@ -159,15 +167,23 @@ namespace GuardWave
             if (!_initialized) return;
             if (_sceneContext.PauseMenu != null && _sceneContext.PauseMenu.IsOpen) return;
 
-            if (Keyboard.current?.rKey.wasPressedThisFrame == true)
+            Keyboard keyboard = Keyboard.current;
+            if (keyboard?.rKey.wasPressedThisFrame == true)
             {
                 ClearEditorSceneSelectionBeforeReload();
                 Managers.Scene.ReloadCurrentScene();
                 return;
             }
 
+            if (keyboard != null && keyboard.zKey.wasPressedThisFrame &&
+                (keyboard.leftCtrlKey.isPressed || keyboard.rightCtrlKey.isPressed))
+            {
+                UndoLastEdit();
+                return;
+            }
+
             // Only a started wave can fail; restored placements must remain editable.
-            if (_stageTransitioning && _waveSnapshot != null &&
+            if (_stageTransitioning &&
                 _defenseFlag != null && _defenseFlag.activeSelf &&
                 _defenseFlag.transform.position.z <= DestructionBoundaryZ)
                 DestroyDefenseFlag();
@@ -188,7 +204,6 @@ namespace GuardWave
                 return;
             }
 
-            Keyboard keyboard = Keyboard.current;
             if (keyboard != null)
             {
                 if (keyboard.qKey.isPressed) _objectYaw -= RotationSpeed * Time.deltaTime;
@@ -360,14 +375,20 @@ namespace GuardWave
             }
 
             _activeMudStroke.AddPoint(surface.point, surface.normal);
+            _mudStrokePainted = true;
             _status = "진흙을 바르는 중… 커서 아래의 가장 가까운 표면에 도포됩니다.";
         }
 
         private void EndMudPainting()
         {
+            bool painted = _mudStrokePainted;
             _paintingMud = false;
+            _mudStrokePainted = false;
             _activeMudStroke?.FlushStrokeMesh();
             _activeMudStroke = null;
+            // One held brush gesture (even if split into patches) is one undo step.
+            if (painted && _initialized && !_stageTransitioning && !_awaitingStage)
+                SaveEditState(true);
         }
 
         internal bool HasMudBond(GuardWavePiece piece) =>
@@ -838,6 +859,8 @@ namespace GuardWave
         private void ResetGame()
         {
             EndMudPainting();
+            _editHistory.Clear();
+            _playerPlacementCount = 0;
             SetOutlineTargets(null);
             if (_stageFloodRoutine != null)
             {
@@ -861,15 +884,19 @@ namespace GuardWave
             _mudPatches.Clear();
             _mudPatches.AddRange(_sceneMudPatches);
             _everMudBonded.Clear();
-            foreach (GuardWavePiece piece in _pieces)
+            foreach (GuardWavePiece piece in _runtimePieces)
             {
                 if (piece == null) continue;
                 SafeDestroySelectedObject(piece.gameObject);
                 Destroy(piece.gameObject);
             }
+            _runtimePieces.Clear();
             _pieces.Clear();
             _pieceSet.Clear();
             RestoreInitialScenePieces();
+            // A full in-game restart must restore the original 13 wall-to-world
+            // joints as well as poses; broken joints are not repaired by resetting RBs.
+            RebuildFixedJoints(_initialSceneJointStates);
             _stage = 0;
             _selected = -1;
             _paletteOpen = true;
@@ -893,6 +920,8 @@ namespace GuardWave
             _status = GetComponent<FogSceneController>() != null
                 ? "고무오리·쓰레기 봉투·큰 돌을 배치하세요."
                 : "진흙을 바르고 통나무 또는 조약돌을 배치하세요. 기물 우클릭: 제거, 빈 공간 우클릭: 선택 해제";
+            // Initial state enables Ctrl+Z to undo the very first placement.
+            SaveEditState(false);
         }
 
         /// <summary>Registers authored Forest objects as selectable without creating runtime scene objects.</summary>
@@ -1018,6 +1047,7 @@ namespace GuardWave
             piece.Body.isKinematic = anchored;
             piece.Body.useGravity = !anchored;
             _pieces.Add(piece);
+            _runtimePieces.Add(piece);
             _pieceSet.Add(piece);
             // Newly placed bodies must join the live ambient FLIP solver:
             // this registers their Rigidbody and non-trigger colliders so
@@ -1045,6 +1075,7 @@ namespace GuardWave
         private IEnumerator DropAndResolve(GuardWaveMaterial material, Vector3 position)
         {
             GuardWavePiece dropped = Spawn(material, position);
+            WaveSnapshot placementState = SaveEditState(true);
             _pendingDrops++;
             _status = material.name + " 배치 중. 같은 기물을 계속 배치하거나 준비완료를 누르세요.";
 
@@ -1058,6 +1089,9 @@ namespace GuardWave
             }
 
             _pendingDrops--;
+            // Update the checkpoint with the settled pose, but never overwrite a
+            // newer action or a checkpoint already removed by Ctrl+Z.
+            RefreshLatestEditState(placementState);
             if (_pendingDrops == 0 && !_stageTransitioning && !_awaitingStage)
                 _status = "배치 완료. 준비완료를 누르면 파도가 시작됩니다.";
         }
@@ -1078,8 +1112,9 @@ namespace GuardWave
                 _rulesOpen || _selected >= 0 || piece == null ||
                 piece.MaterialId == "foundation")
                 return;
-            // Manual removal is not destruction by flood or game rules.
-            RemovePiece(piece, GuardWaveChangeKind.Removed);
+            // Manual removal is an edit too, so Ctrl+Z restores the removed piece.
+            if (RemovePiece(piece, GuardWaveChangeKind.Removed) > 0)
+                SaveEditState(false);
         }
 
         /// <summary>Removes one object while retaining scene-authored sticks for reload or rollback.</summary>
@@ -1093,7 +1128,7 @@ namespace GuardWave
             foreach (GuardWaveMudPatch patch in _mudPatches)
                 if (patch != null) patch.DetachPiece(piece);
             PublishChange(new GuardWaveChange(piece, piece, reason, 0, piece.transform.position));
-            if (_scenePieces.Contains(piece) || _waveSnapshot != null)
+            if (_scenePieces.Contains(piece) || _runtimePieces.Contains(piece))
             {
                 if (destructionDelay > 0f)
                     StartCoroutine(DeactivateRemovedPieceAfterDelay(piece, destructionDelay));
@@ -1116,14 +1151,17 @@ namespace GuardWave
                 piece.gameObject.SetActive(false);
         }
 
-        /// <summary>준비완료 시 깃발과 기물의 물리 상태를 저장하고 파도를 시작한다.</summary>
+        /// <summary>준비완료 시 마지막 배치 체크포인트를 파도 실패 복원 기준으로 사용한다.</summary>
         public void Ready()
         {
             if (!CanReady) return;
             EndMudPainting();
             SetOutlineTargets(null);
             HideDropPreview();
-            _waveSnapshot = CaptureWaveSnapshot();
+            // Wave failures use exactly the same saved state as Ctrl+Z.
+            // With no player placement, confirmation will reload the scene.
+            _waveSnapshot = _playerPlacementCount > 0 && _editHistory.Count > 0
+                ? _editHistory[_editHistory.Count - 1] : null;
             _waveHasStarted = true;
             _stageTransitioning = true;
             _resolving = true;
@@ -1293,7 +1331,7 @@ namespace GuardWave
         /// <summary>깃발이 파괴되면 팝업을 열되 기물의 속도와 Rigidbody 물리는 유지한다.</summary>
         private void DestroyDefenseFlag()
         {
-            if (!_stageTransitioning || _waveSnapshot == null || _awaitingStage)
+            if (!_stageTransitioning || _awaitingStage)
                 return;
             // Keep the flood coroutine and GPU particle buffers alive so
             // the wave continues flowing behind the failure popup.
@@ -1301,7 +1339,9 @@ namespace GuardWave
             _resolving = false;
             _awaitingStage = true;
             _finished = false;
-            _status = "깃발이 파괴되었습니다. 확인을 누르면 준비완료 직전으로 돌아갑니다.";
+            _status = _waveSnapshot == null
+                ? "깃발이 파괴되었습니다. 확인을 누르면 씬을 다시 시작합니다."
+                : "깃발이 파괴되었습니다. 확인을 누르면 마지막 배치 상태로 돌아갑니다.";
             StartCoroutine(DeactivateDefenseFlagAfterDelay());
         }
 
@@ -1314,7 +1354,7 @@ namespace GuardWave
                 _defenseFlag.SetActive(false);
         }
 
-        /// <summary>준비완료 클릭 시점의 깃발, 기물, 씬 물리 오브젝트 및 배치 UI 상태를 기록한다.</summary>
+        /// <summary>깃발, 배치 기물, 진흙, 접착 상태 및 물리 상태를 체크포인트로 기록한다.</summary>
         private WaveSnapshot CaptureWaveSnapshot()
         {
             WaveSnapshot snapshot = new WaveSnapshot
@@ -1324,13 +1364,22 @@ namespace GuardWave
                 ObjectYaw = _objectYaw,
                 CameraTarget = _cameraTarget,
                 CameraRotation = _camera.transform.rotation,
-                CameraZoom = _camera.orthographicSize
+                CameraZoom = _camera.orthographicSize,
+                PlayerPlacementCount = _playerPlacementCount
             };
             foreach (GuardWavePiece piece in _pieces)
                 if (piece != null) snapshot.Pieces.Add(new PieceState(piece));
             foreach (GuardWaveMudPatch patch in _mudPatches)
-                if (patch != null) patch.CaptureBonds(snapshot.MudBonds);
+            {
+                if (patch == null || !patch.gameObject.activeSelf) continue;
+                snapshot.MudPatches.Add(patch);
+                patch.CaptureBonds(snapshot.MudBonds);
+            }
             snapshot.MudBondHistory.UnionWith(_everMudBonded);
+
+            // Include the 13 preauthored Initial Wall joints. These are not
+            // MudPatch-created bonds and must be reconstructed separately.
+            CaptureNonMudFixedJoints(snapshot.FixedJoints);
 
             // Inactive authored sticks must also be snapshotted: their parent
             // may be activated later without restarting the Forest scene.
@@ -1353,14 +1402,51 @@ namespace GuardWave
             return snapshot;
         }
 
-        /// <summary>기물·깃발의 자세를 일괄 복원한 뒤 물리를 재개해 준비완료 시점으로 되돌린다.</summary>
-        private void RestoreWaveSnapshot()
+        /// <summary>Capture scene-authored and other non-mud FixedJoints.</summary>
+        private void CaptureNonMudFixedJoints(List<FixedJointState> destination)
         {
-            WaveSnapshot snapshot = _waveSnapshot;
+            HashSet<FixedJoint> mudJoints = new HashSet<FixedJoint>();
+            foreach (MudJointState bond in _activeMudJoints.Values)
+                if (bond.Joint != null) mudJoints.Add(bond.Joint);
+            foreach (FixedJoint joint in FindObjectsByType<FixedJoint>(
+                FindObjectsInactive.Include, FindObjectsSortMode.None))
+            {
+                if (joint == null || joint.gameObject.scene.handle != gameObject.scene.handle ||
+                    mudJoints.Contains(joint))
+                    continue;
+                destination.Add(new FixedJointState(joint));
+            }
+        }
+
+        /// <summary>Recreate authored joints after they were destroyed by physics or a rollback.</summary>
+        private void RebuildFixedJoints(List<FixedJointState> states)
+        {
+            foreach (FixedJoint joint in FindObjectsByType<FixedJoint>(
+                FindObjectsInactive.Include, FindObjectsSortMode.None))
+            {
+                if (joint != null && joint.gameObject.scene.handle == gameObject.scene.handle)
+                    Destroy(joint);
+            }
+            // Destroy() is deferred until the end of this frame. Adding the new
+            // components here ensures they exist before the next physics tick.
+            foreach (FixedJointState state in states)
+                state.Restore();
+        }
+
+        /// <summary>Undo와 파도 실패가 공유하는 단일 체크포인트 복원 경로.</summary>
+        private void RestoreEditState(WaveSnapshot snapshot)
+        {
+            if (snapshot == null) return;
             SetOutlineTargets(null);
             HideDropPreview();
 
-            foreach (GuardWavePiece piece in _pieces)
+            // Clear live joints before changing active bodies/patches.
+            foreach (GuardWaveMudPatch patch in _mudPatches)
+                if (patch != null) patch.ClearBonds();
+            foreach (GuardWaveMudPatch patch in _mudPatches)
+                if (patch != null)
+                    patch.gameObject.SetActive(snapshot.MudPatches.Contains(patch));
+            foreach (GuardWavePiece piece in _runtimePieces)
                 if (piece != null) piece.gameObject.SetActive(false);
             _pieces.Clear();
             _pieceSet.Clear();
@@ -1387,16 +1473,15 @@ namespace GuardWave
             foreach (GuardWavePiece piece in snapshot.SelectableScenePieces)
                 if (piece != null) _pieceSet.Add(piece);
 
-            // Sync all saved poses before resuming the recorded motion.
+            // Restore preauthored bonds against the saved world-space poses.
             Physics.SyncTransforms();
+            RebuildFixedJoints(snapshot.FixedJoints);
             foreach (PieceState state in snapshot.Pieces)
                 if (state.Piece != null) state.Body.RestoreMotion(state.Piece.Body);
             snapshot.Flag.RestoreMotion(_flagBody);
             foreach (SceneBodyState state in snapshot.SceneBodies)
                 if (state.Body != null) state.State.RestoreMotion(state.Body);
             // Broken/moved joints are not restored by Rigidbody poses alone.
-            foreach (GuardWaveMudPatch patch in _mudPatches)
-                if (patch != null) patch.ClearBonds();
             _everMudBonded.Clear();
             _everMudBonded.UnionWith(snapshot.MudBondHistory);
             foreach (GuardWaveMudPatch.MudBondState bond in snapshot.MudBonds)
@@ -1407,33 +1492,55 @@ namespace GuardWave
             _cameraTarget = snapshot.CameraTarget;
             _camera.transform.rotation = snapshot.CameraRotation;
             _camera.orthographicSize = snapshot.CameraZoom;
+            _playerPlacementCount = snapshot.PlayerPlacementCount;
             UpdateCameraPosition();
-
-            _waveSnapshot = null;
-            _awaitingStage = false;
-            _stageTransitioning = false;
-            _resolving = false;
-            _status = "준비완료 클릭 직전 상태로 복원했습니다. 배치를 바꾸고 다시 시도하세요.";
         }
 
-        /// <summary>성공한 파도에서 제거된 기물을 실제로 파괴하고 스냅샷을 해제한다.</summary>
+        /// <summary>파도 스냅샷은 배치 이력과 공유되므로 파도 종료 시 참조만 해제한다.</summary>
         private void CommitWaveSnapshot()
         {
-            if (_waveSnapshot == null) return;
-            foreach (PieceState state in _waveSnapshot.Pieces)
-            {
-                if (state.Piece == null || _pieceSet.Contains(state.Piece)) continue;
-                SafeDestroySelectedObject(state.Piece.gameObject);
-                Destroy(state.Piece.gameObject);
-            }
             _waveSnapshot = null;
+        }
+
+        /// <summary>한 번의 배치, 붓질 또는 수동 제거 결과를 저장한다.</summary>
+        private WaveSnapshot SaveEditState(bool placed)
+        {
+            if (placed) _playerPlacementCount++;
+            WaveSnapshot state = CaptureWaveSnapshot();
+            _editHistory.Add(state);
+            return state;
+        }
+
+        /// <summary>마지막 낙하가 안정화되면 다른 입력을 덮지 않고 위치를 갱신한다.</summary>
+        private void RefreshLatestEditState(WaveSnapshot original)
+        {
+            if (_stageTransitioning || _awaitingStage || _editHistory.Count == 0 ||
+                !ReferenceEquals(_editHistory[_editHistory.Count - 1], original))
+                return;
+            _editHistory[_editHistory.Count - 1] = CaptureWaveSnapshot();
+        }
+
+        /// <summary>Ctrl+Z로 가장 최근 사용자 편집 한 단계만 되돌린다.</summary>
+        private void UndoLastEdit()
+        {
+            if (_stageTransitioning || _awaitingStage || _finished || _rulesOpen ||
+                _resolving) return;
+            // Ending a brush gesture commits it first, so Ctrl+Z removes that stroke.
+            EndMudPainting();
+            if (_editHistory.Count <= 1) return;
+            _editHistory.RemoveAt(_editHistory.Count - 1);
+            RestoreEditState(_editHistory[_editHistory.Count - 1]);
+            _status = "이전 배치 상태로 되돌렸습니다.";
         }
 
         private sealed class WaveSnapshot
         {
             public readonly List<PieceState> Pieces = new List<PieceState>();
+            public readonly HashSet<GuardWaveMudPatch> MudPatches =
+                new HashSet<GuardWaveMudPatch>();
             public readonly List<GuardWaveMudPatch.MudBondState> MudBonds =
                 new List<GuardWaveMudPatch.MudBondState>();
+            public readonly List<FixedJointState> FixedJoints = new List<FixedJointState>();
             public readonly HashSet<GuardWavePiece> MudBondHistory =
                 new HashSet<GuardWavePiece>();
             public readonly List<SceneBodyState> SceneBodies = new List<SceneBodyState>();
@@ -1445,6 +1552,58 @@ namespace GuardWave
             public Vector3 CameraTarget;
             public Quaternion CameraRotation;
             public float CameraZoom;
+            public int PlayerPlacementCount;
+        }
+
+        /// <summary>Rebuilds preauthored or other non-mud fixed joints after they break.</summary>
+        private readonly struct FixedJointState
+        {
+            private readonly GameObject _owner;
+            private readonly Rigidbody _connectedBody;
+            private readonly Vector3 _anchor;
+            private readonly Vector3 _connectedAnchor;
+            private readonly Vector3 _axis;
+            private readonly bool _autoAnchor;
+            private readonly bool _collision;
+            private readonly bool _preprocessing;
+            private readonly float _breakForce;
+            private readonly float _breakTorque;
+            private readonly float _massScale;
+            private readonly float _connectedMassScale;
+
+            public FixedJointState(FixedJoint joint)
+            {
+                _owner = joint.gameObject;
+                _connectedBody = joint.connectedBody;
+                _anchor = joint.anchor;
+                _connectedAnchor = joint.connectedAnchor;
+                _axis = joint.axis;
+                _autoAnchor = joint.autoConfigureConnectedAnchor;
+                _collision = joint.enableCollision;
+                _preprocessing = joint.enablePreprocessing;
+                _breakForce = joint.breakForce;
+                _breakTorque = joint.breakTorque;
+                _massScale = joint.massScale;
+                _connectedMassScale = joint.connectedMassScale;
+            }
+
+            public void Restore()
+            {
+                if (_owner == null) return;
+                FixedJoint joint = _owner.AddComponent<FixedJoint>();
+                joint.autoConfigureConnectedAnchor = false;
+                joint.connectedBody = _connectedBody;
+                joint.anchor = _anchor;
+                joint.connectedAnchor = _connectedAnchor;
+                joint.axis = _axis;
+                joint.breakForce = _breakForce;
+                joint.breakTorque = _breakTorque;
+                joint.enableCollision = _collision;
+                joint.enablePreprocessing = _preprocessing;
+                joint.massScale = _massScale;
+                joint.connectedMassScale = _connectedMassScale;
+                joint.autoConfigureConnectedAnchor = _autoAnchor;
+            }
         }
 
         /// <summary>Preserves an authored parent object's own activation state.</summary>
@@ -1546,21 +1705,32 @@ namespace GuardWave
             }
         }
 
-        /// <summary>실패 팝업 확인 시 준비완료 직전 상태를 복원한다.</summary>
+        /// <summary>실패 시 마지막 배치 상태로, 배치가 없으면 씬 로드 상태로 돌아간다.</summary>
         public void ConfirmFailure()
         {
             if (!_awaitingStage) return;
-            if (_waveSnapshot == null) return;
-            // Cleanup belongs to the user's confirmation, not to the failure popup.
+            if (_waveSnapshot == null)
+            {
+                ClearEditorSceneSelectionBeforeReload();
+                Managers.Scene.ReloadCurrentScene();
+                return;
+            }
+            // Keep the wave visible until the player confirms the failure.
             if (_stageFloodRoutine != null)
             {
                 StopCoroutine(_stageFloodRoutine);
                 _stageFloodRoutine = null;
             }
             DisposeFluid();
-            RestoreWaveSnapshot();
+            RestoreEditState(_waveSnapshot);
+            CommitWaveSnapshot();
+            _awaitingStage = false;
+            _stageTransitioning = false;
+            _waveHasStarted = false;
+            _resolving = false;
             if (ambientFlowPreview)
                 BeginAmbientCreekFlow();
+            _status = "마지막 배치 상태로 복원했습니다. 배치를 바꾸고 다시 시도하세요.";
         }
 
     }
