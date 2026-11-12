@@ -1367,6 +1367,20 @@ namespace GuardWave
             }
             snapshot.MudBondHistory.UnionWith(_everMudBonded);
 
+            // Preauthored wall joints can break during a wave. Rigidbody poses
+            // alone cannot recreate destroyed FixedJoint components.
+            HashSet<FixedJoint> mudJoints = new HashSet<FixedJoint>();
+            foreach (MudJointState bond in _activeMudJoints.Values)
+                if (bond.Joint != null) mudJoints.Add(bond.Joint);
+            foreach (FixedJoint joint in FindObjectsByType<FixedJoint>(
+                FindObjectsInactive.Include, FindObjectsSortMode.None))
+            {
+                if (joint == null || joint.gameObject.scene.handle != gameObject.scene.handle ||
+                    mudJoints.Contains(joint))
+                    continue;
+                snapshot.FixedJoints.Add(new FixedJointState(joint));
+            }
+
             // Inactive authored sticks must also be snapshotted: their parent
             // may be activated later without restarting the Forest scene.
             CaptureSceneParentActivation(snapshot.SceneParents);
@@ -1398,6 +1412,16 @@ namespace GuardWave
             // Clear live joints before changing active bodies/patches.
             foreach (GuardWaveMudPatch patch in _mudPatches)
                 if (patch != null) patch.ClearBonds();
+            // Destroy() is deferred, so disable broken/replaced joints immediately
+            // to avoid a frame with both the old joint and its replacement.
+            foreach (FixedJoint joint in FindObjectsByType<FixedJoint>(
+                FindObjectsInactive.Include, FindObjectsSortMode.None))
+            {
+                if (joint == null || joint.gameObject.scene.handle != gameObject.scene.handle)
+                    continue;
+                joint.enabled = false;
+                Destroy(joint);
+            }
             foreach (GuardWaveMudPatch patch in _mudPatches)
                 if (patch != null)
                     patch.gameObject.SetActive(snapshot.MudPatches.Contains(patch));
@@ -1428,8 +1452,10 @@ namespace GuardWave
             foreach (GuardWavePiece piece in snapshot.SelectableScenePieces)
                 if (piece != null) _pieceSet.Add(piece);
 
-            // Sync all saved poses before resuming the recorded motion.
+            // Sync all saved poses before recreating fixed joints and motion.
             Physics.SyncTransforms();
+            foreach (FixedJointState state in snapshot.FixedJoints)
+                state.Restore();
             foreach (PieceState state in snapshot.Pieces)
                 if (state.Piece != null) state.Body.RestoreMotion(state.Piece.Body);
             snapshot.Flag.RestoreMotion(_flagBody);
@@ -1494,6 +1520,7 @@ namespace GuardWave
                 new HashSet<GuardWaveMudPatch>();
             public readonly List<GuardWaveMudPatch.MudBondState> MudBonds =
                 new List<GuardWaveMudPatch.MudBondState>();
+            public readonly List<FixedJointState> FixedJoints = new List<FixedJointState>();
             public readonly HashSet<GuardWavePiece> MudBondHistory =
                 new HashSet<GuardWavePiece>();
             public readonly List<SceneBodyState> SceneBodies = new List<SceneBodyState>();
@@ -1506,6 +1533,60 @@ namespace GuardWave
             public Quaternion CameraRotation;
             public float CameraZoom;
             public int PlayerPlacementCount;
+        }
+
+        /// <summary>Rebuilds preauthored or other non-mud fixed joints after they break.</summary>
+        private readonly struct FixedJointState
+        {
+            private readonly GameObject _owner;
+            private readonly Rigidbody _connectedBody;
+            private readonly Vector3 _anchor;
+            private readonly Vector3 _connectedAnchor;
+            private readonly Vector3 _axis;
+            private readonly Vector3 _secondaryAxis;
+            private readonly bool _autoAnchor;
+            private readonly bool _collision;
+            private readonly bool _preprocessing;
+            private readonly float _breakForce;
+            private readonly float _breakTorque;
+            private readonly float _massScale;
+            private readonly float _connectedMassScale;
+
+            public FixedJointState(FixedJoint joint)
+            {
+                _owner = joint.gameObject;
+                _connectedBody = joint.connectedBody;
+                _anchor = joint.anchor;
+                _connectedAnchor = joint.connectedAnchor;
+                _axis = joint.axis;
+                _secondaryAxis = joint.secondaryAxis;
+                _autoAnchor = joint.autoConfigureConnectedAnchor;
+                _collision = joint.enableCollision;
+                _preprocessing = joint.enablePreprocessing;
+                _breakForce = joint.breakForce;
+                _breakTorque = joint.breakTorque;
+                _massScale = joint.massScale;
+                _connectedMassScale = joint.connectedMassScale;
+            }
+
+            public void Restore()
+            {
+                if (_owner == null) return;
+                FixedJoint joint = _owner.AddComponent<FixedJoint>();
+                joint.autoConfigureConnectedAnchor = false;
+                joint.connectedBody = _connectedBody;
+                joint.anchor = _anchor;
+                joint.connectedAnchor = _connectedAnchor;
+                joint.axis = _axis;
+                joint.secondaryAxis = _secondaryAxis;
+                joint.breakForce = _breakForce;
+                joint.breakTorque = _breakTorque;
+                joint.enableCollision = _collision;
+                joint.enablePreprocessing = _preprocessing;
+                joint.massScale = _massScale;
+                joint.connectedMassScale = _connectedMassScale;
+                joint.autoConfigureConnectedAnchor = _autoAnchor;
+            }
         }
 
         /// <summary>Preserves an authored parent object's own activation state.</summary>
