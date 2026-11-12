@@ -41,12 +41,9 @@ namespace GuardWave
             bool hasHit = Physics.Raycast(origin, Vector3.down, out RaycastHit hit,
                 MaximumRayDistance, Physics.DefaultRaycastLayers,
                 QueryTriggerInteraction.Ignore);
-            if (!hasHit && canPlace)
-            {
-                Hide();
-                return;
-            }
-
+            // Falling pieces can still be dropped over water, gaps or
+            // objects without colliders. Falling back to the fixed placement
+            // plane keeps both the ghost and dotted guide visible.
             float surfaceY = hasHit ? hit.point.y : fallbackSurfaceY;
             _instance.transform.SetPositionAndRotation(
                 new Vector3(placement.x,
@@ -114,11 +111,34 @@ namespace GuardWave
             _instance.SetActive(false);
             _materialId = info.id;
 
-            BoxCollider sourceCollider = _instance.GetComponent<BoxCollider>();
-            _colliderBottomY = sourceCollider == null
-                ? 0f
-                : (sourceCollider.center.y - sourceCollider.size.y * 0.5f)
-                    * _instance.transform.localScale.y;
+            // Determine the actual base for either MeshCollider (log / rock)
+            // or BoxCollider prefabs before turning off preview physics.
+            // Bounds are measured relative to the prefab instance root,
+            // so the ghost can rest on the predicted impact surface.
+            _colliderBottomY = 0f;
+            bool foundCollider = false;
+            foreach (Collider sourceCollider in _instance.GetComponentsInChildren<Collider>(true))
+            {
+                if (!sourceCollider.enabled) continue;
+                float bottom = sourceCollider.bounds.min.y - _instance.transform.position.y;
+                if (!foundCollider || bottom < _colliderBottomY)
+                {
+                    _colliderBottomY = bottom;
+                    foundCollider = true;
+                }
+            }
+            if (!foundCollider)
+            {
+                foreach (Renderer sourceRenderer in _instance.GetComponentsInChildren<Renderer>(true))
+                {
+                    float bottom = sourceRenderer.bounds.min.y - _instance.transform.position.y;
+                    if (!foundCollider || bottom < _colliderBottomY)
+                    {
+                        _colliderBottomY = bottom;
+                        foundCollider = true;
+                    }
+                }
+            }
 
             // A preview must never push pieces, fall, start a barrel fuse,
             // participate in contact scoring, or block the prediction Raycast.

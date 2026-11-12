@@ -118,9 +118,9 @@ namespace GuardWave
             _completePopup.SetActive(false);
             _rulesPopup.SetActive(false);
             _tooltip.SetActive(false);
-            _rulesBody.text = @"진흙을 선택하고 마우스 왼쪽 버튼을 누른 채 드래그해 표면에 풀을 펴 바르세요.
-바른 자국 위에 통나무 등 물체가 떨어지면 부착됩니다.
-통나무는 기존과 같이 클릭 위치에 떨어뜨려 무제한 배치할 수 있습니다.
+            _rulesBody.text = @"진흙을 선택하고 마우스 왼쪽 버튼을 누른 채 드래그해 XZ 평면에 풀을 펴 바르세요.
+바른 자국 위에 통나무나 조약돌이 떨어지면 부착됩니다.
+통나무와 조약돌은 클릭 위치 위에서 떨어뜨려 무제한 배치할 수 있습니다.
 선택한 재료는 우클릭으로 해제하기 전까지 계속 사용할 수 있습니다.
 하단의 준비완료를 누르면 홍수가 밀려옵니다.
 깃발을 지키세요! 파도에 깃발이 밀려 절벽 뒤 파괴 경계를 넘으면 방어에 실패합니다.
@@ -274,7 +274,10 @@ Q/E: 기물 회전 / 우클릭 또는 Esc: 선택 취소
             Texture2D texture = new Texture2D(size, size, TextureFormat.RGBA32, false);
             texture.filterMode = FilterMode.Point;
             texture.wrapMode = TextureWrapMode.Clamp;
-            Material material = Resources.Load<Material>("Materials/" + info.id + "_Base");
+            // The new Forest-only pebble uses the existing stone palette
+            // color while retaining its own original mesh and prefab.
+            string materialId = info.id == "forest_pebble" ? "pebble" : info.id;
+            Material material = Resources.Load<Material>("Materials/" + materialId + "_Base");
             Color color = info.id == "mud" ? new Color(0.42f, 0.28f, 0.16f, 1f)
                 : material == null ? Color.gray : material.color;
             Color shadow = new Color(color.r * 0.53f, color.g * 0.53f, color.b * 0.53f, 1f);
@@ -312,7 +315,8 @@ Q/E: 기물 회전 / 우클릭 또는 Esc: 선택 취소
             if (id == "sunflower" || id == "living_tree" || id == "growing_vine") return 3;
             if (id == "branch" || id == "leafy_branch" || id == "vine") return 0;
             if (id == "shoe" || id == "log" || id == "umbrella") return 1;
-            if (id == "pebble" || id == "large_stone" || id == "fossil") return 5;
+            if (id == "pebble" || id == "forest_pebble" ||
+                id == "large_stone" || id == "fossil") return 5;
             if (category == "폐기물") return 6;
             return 4;
         }

@@ -354,18 +354,19 @@ namespace GuardWave
                 _placementBounds.max.y + dropHeight, canPlace,
                 _placementBounds.max.y);
 
-            if (_dropPreview.IsVisible)
-            {
-                Vector3 launchTarget = _camera.WorldToScreenPoint(
-                    new Vector3(placement.x,
-                        _placementBounds.max.y + dropHeight, placement.z));
-                Vector3 screenTarget = _camera.WorldToScreenPoint(_dropPreview.LandingPosition);
-                if (launchTarget.z > 0f && screenTarget.z > 0f)
-                    _hud.ShowDropGuide(new Vector2(launchTarget.x, launchTarget.y),
-                        new Vector2(screenTarget.x, screenTarget.y));
-                else
-                    _hud.HideDropGuide();
-            }
+            // A valid placement always has a guide even if collision raycasts
+            // miss (e.g. an empty creek section) or the ghost cannot load.
+            // The marker aligns with the same XZ used by Spawn().
+            Vector3 launchTarget = _camera.WorldToScreenPoint(
+                new Vector3(placement.x,
+                    _placementBounds.max.y + dropHeight, placement.z));
+            Vector3 landingPosition = _dropPreview.IsVisible
+                ? _dropPreview.LandingPosition
+                : new Vector3(placement.x, _placementBounds.max.y, placement.z);
+            Vector3 screenTarget = _camera.WorldToScreenPoint(landingPosition);
+            if (canPlace && launchTarget.z > 0f && screenTarget.z > 0f)
+                _hud.ShowDropGuide(new Vector2(launchTarget.x, launchTarget.y),
+                    new Vector2(screenTarget.x, screenTarget.y));
             else
                 _hud.HideDropGuide();
         }
@@ -449,7 +450,11 @@ namespace GuardWave
             Vector2 position = mouse == null ? Vector2.zero : mouse.position.ReadValue();
             GuardWavePiece piece = mouse != null && CanShowItemInfo &&
                 !mouse.rightButton.isPressed ? FindPointedPiece(position) : null;
-            SetOutlineTargets(piece);
+            // While a Forest palette tool is selected, hovered physics
+            // objects must not compete with the placement / paint preview.
+            // Keep Fog's hover behavior unchanged.
+            bool paintingOrPlacing = _offers[0]?.id == "mud" && _selected >= 0;
+            SetOutlineTargets(paintingOrPlacing ? null : piece);
             _hud.SetHoveredPiece(piece, position);
         }
 
@@ -555,6 +560,7 @@ namespace GuardWave
             if (!CanSelect || index < 0 || index >= _offers.Length) return;
             if (_offers[index] == null) return;
             EndMudPainting();
+            SetOutlineTargets(null);
             _selected = index;
             _status = _offers[index].name + " 선택";
         }
@@ -735,7 +741,7 @@ namespace GuardWave
             if (ambientFlowPreview) BeginAmbientCreekFlow();
             _status = GetComponent<FogSceneController>() != null
                 ? "고무오리·쓰레기 봉투·큰 돌을 배치하세요."
-                : "진흙을 바르고 통나무를 배치하세요. 기물 우클릭: 제거, 빈 공간 우클릭: 선택 해제";
+                : "진흙을 바르고 통나무 또는 조약돌을 배치하세요. 기물 우클릭: 제거, 빈 공간 우클릭: 선택 해제";
         }
 
         /// <summary>Registers authored Forest objects as selectable without creating runtime scene objects.</summary>
@@ -855,7 +861,7 @@ namespace GuardWave
             bool fogScene = GetComponent<FogSceneController>() != null;
             _offers[0] = _catalog.Get(fogScene ? "rubber_duck" : "mud");
             _offers[1] = _catalog.Get(fogScene ? "waste_bag_medium" : "log");
-            _offers[2] = fogScene ? _catalog.Get("large_stone") : null;
+            _offers[2] = _catalog.Get(fogScene ? "large_stone" : "forest_pebble");
             _selected = -1;
             _paletteOpen = true;
             HideDropPreview();

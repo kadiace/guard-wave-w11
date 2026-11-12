@@ -47,6 +47,12 @@
       "abilityAlternatives": []
     },
     {
+      "id": "forest_pebble",
+      "name": "조약돌",
+      "category": "석재",
+      "abilities": []
+    },
+    {
       "id": "pebble",
       "name": "조약돌",
       "category": "석재",
