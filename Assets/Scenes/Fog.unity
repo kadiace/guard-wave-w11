@@ -431,7 +431,7 @@ MonoBehaviour:
     m_PreInfinity: 2
     m_PostInfinity: 2
     m_RotationOrder: 4
-  mudBreakForce: 80
+  mudBreakForce: 150
   mudBreakTorque: 1400
 --- !u!114 &2100000005
 MonoBehaviour:

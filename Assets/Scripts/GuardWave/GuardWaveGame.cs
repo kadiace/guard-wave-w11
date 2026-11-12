@@ -97,7 +97,7 @@ namespace GuardWave
         private const float MUD_DRY_HOLD_SECONDS = 1f;
 
         [Header("Mud adhesion")]
-        [SerializeField, Min(0f)] private float mudBreakForce = 80f;
+        [SerializeField, Min(0f)] private float mudBreakForce = 150f;
         [SerializeField, Min(0f)] private float mudBreakTorque = 1400f;
         private readonly HashSet<GuardWavePiece> _pieceSet = new HashSet<GuardWavePiece>();
         private readonly HashSet<GuardWavePiece> _scenePieces = new HashSet<GuardWavePiece>();
