@@ -109,6 +109,14 @@ namespace GuardWave
                     transform.up) < -0.12f || piece.Body.linearVelocity.y > 0.2f)
                 return;
 
+            // A trigger is intentionally tall enough to catch fast falling pieces,
+            // but do not lock a piece in mid-air at the first trigger overlap.
+            // Wait until its actual collision surface reaches the painted plane.
+            float gap = Vector3.Dot(
+                other.ClosestPoint(transform.position) - transform.position,
+                transform.up);
+            if (gap > 0.08f || gap < -0.3f) return;
+
             Vector3 worldAnchor = transform.position;
             Vector3 anchor = piece.transform.InverseTransformPoint(worldAnchor);
             Vector3 connectedAnchor = _surfaceBody == null ? worldAnchor
