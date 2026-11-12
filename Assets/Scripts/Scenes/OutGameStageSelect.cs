@@ -163,23 +163,23 @@ public sealed class OutGameStageSelect : MonoBehaviour, IBeginDragHandler, IDrag
             root.pivot = new Vector2(1f, 0f);
             root.anchoredPosition = new Vector2(-17f, 17f);
             root.sizeDelta = new Vector2(148f, 152f);
-            Image backdrop = root.gameObject.AddComponent<Image>();
-            backdrop.color = new Color(0.04f, 0.06f, 0.07f, 0.72f);
-            backdrop.raycastTarget = false;
             CanvasGroup group = root.gameObject.AddComponent<CanvasGroup>();
             group.blocksRaycasts = false;
             group.interactable = false;
             _awardRoots[i] = root;
 
-            RectTransform art = CreateAwardRect("LaurelWomanStatuette", root);
+            RectTransform art = CreateAwardRect("LaurelClapperboardIcon", root);
             art.anchorMin = art.anchorMax = new Vector2(0.5f, 1f);
             art.pivot = new Vector2(0.5f, 1f);
             art.anchoredPosition = new Vector2(0f, -5f);
-            art.sizeDelta = new Vector2(104f, 112f);
+            art.sizeDelta = new Vector2(116f, 116f);
             Image icon = art.gameObject.AddComponent<Image>();
             icon.sprite = sprite;
             icon.preserveAspect = true;
             icon.raycastTarget = false;
+            Outline iconOutline = art.gameObject.AddComponent<Outline>();
+            iconOutline.effectColor = Color.white;
+            iconOutline.effectDistance = new Vector2(2.5f, -2.5f);
             _awardImages[i] = icon;
 
             RectTransform textRect = CreateAwardRect("AwardStatus", root);
@@ -194,6 +194,9 @@ public sealed class OutGameStageSelect : MonoBehaviour, IBeginDragHandler, IDrag
             label.fontStyle = FontStyle.Bold;
             label.alignment = TextAnchor.MiddleCenter;
             label.raycastTarget = false;
+            Outline textOutline = textRect.gameObject.AddComponent<Outline>();
+            textOutline.effectColor = Color.white;
+            textOutline.effectDistance = new Vector2(1.75f, -1.75f);
             _awardLabels[i] = label;
 
             bool newlyCleared = StageClearSession.RecentlyCleared == Destinations[i];
