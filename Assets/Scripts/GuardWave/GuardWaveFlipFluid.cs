@@ -64,6 +64,8 @@ namespace GuardWave
         private readonly List<Collider[]> _bodySampleColliders = new List<Collider[]>();
         private readonly float[] _recentWaterline;
         private readonly float[] _recentWaterlineTime;
+        private readonly float[] _smoothedBodyWaterline;
+        private readonly bool[] _hasSmoothedBodyWaterline;
         private const float WATERLINE_SAMPLE_MAX_AGE = 0.25f;
         private readonly List<Collider> _colliders = new List<Collider>();
         private readonly Dictionary<Rigidbody, int> _indices = new Dictionary<Rigidbody, int>();
@@ -171,6 +173,8 @@ namespace GuardWave
             _bodyColliderCounts = new int[_settings.MaxBodies];
             _recentWaterline = new float[_settings.MaxBodies];
             _recentWaterlineTime = new float[_settings.MaxBodies];
+            _smoothedBodyWaterline = new float[_settings.MaxBodies];
+            _hasSmoothedBodyWaterline = new bool[_settings.MaxBodies];
             if (!SystemInfo.supportsComputeShaders)
                 throw new NotSupportedException("GPU FLIP water requires compute shader support.");
 
@@ -794,8 +798,10 @@ namespace GuardWave
         /// world-space collider pose. This avoids applying outdated buoyancy
         /// when a floating body has already risen above the water surface.
         /// </summary>
-        private static float CurrentSubmergedFraction(Collider collider, float waterline, float cellSize)
+        private static float CurrentSubmergedFraction(Collider collider, float waterline,
+            float cellSize, out float submergedSlope)
         {
+            submergedSlope = 0f;
             Vector3 center;
             Vector3 halfSize;
             int shape = 0;
@@ -833,8 +839,14 @@ namespace GuardWave
                 return 0f;
 
             float sum = 0f;
+            float slopeSum = 0f;
             int count = 0;
             float softness = Mathf.Max(0.001f, cellSize * 0.25f);
+            // Derivative of the sampled immersed volume with respect to water
+            // height (equivalently, negative derivative with respect to body Y).
+            // The finite interval smooths the discrete 5x5x5 sample layers.
+            float derivativeRadius = Mathf.Max(0.05f, cellSize * 0.15f);
+            float derivativeStep = derivativeRadius / softness;
             for (int x = -2; x <= 2; ++x)
             for (int y = -2; y <= 2; ++y)
             for (int z = -2; z <= 2; ++z)
@@ -852,10 +864,16 @@ namespace GuardWave
                 }
                 Vector3 point = transform.TransformPoint(
                     center + Vector3.Scale(q, halfSize));
-                sum += Mathf.Clamp01((waterline - point.y) / softness + 0.5f);
+                float relativeHeight = (waterline - point.y) / softness + 0.5f;
+                sum += Mathf.Clamp01(relativeHeight);
+                slopeSum += (Mathf.Clamp01(relativeHeight + derivativeStep) -
+                    Mathf.Clamp01(relativeHeight - derivativeStep)) /
+                    (2f * derivativeRadius);
                 ++count;
             }
-            return count > 0 ? sum / count : 0f;
+            if (count == 0) return 0f;
+            submergedSlope = slopeSum / count;
+            return sum / count;
         }
 
         /// <summary>
@@ -868,7 +886,10 @@ namespace GuardWave
         {
             float dt = Time.fixedDeltaTime;
             float gravity = Mathf.Abs(Physics.gravity.y) * _settings.GravityMultiplier;
-            float damping = 1f - Mathf.Exp(-_settings.FloatingVerticalDamping * dt);
+            // The restoring stiffness near the waterline varies greatly with
+            // collider pose. A horizontal narrow log is much stiffer than an
+            // upright one, so a fixed damping rate creates an underdamped
+            // spring that bobs even in calm water.
             // Keep the existing ordinary-creek takeoff guard. Wave-driven
             // jumps remain possible after an intentional crest is emitted.
             float terminalRise = gravity * Mathf.Max(0f,
@@ -881,13 +902,41 @@ namespace GuardWave
                 if (piece == null || !piece.enabled || piece.RelativeFluidDensity >= 1f)
                     continue;
                 Rigidbody body = _bodies[i];
-                if (body == null || body.isKinematic || !body.gameObject.activeInHierarchy ||
-                    _recentWaterlineTime[i] <= 0f ||
-                    Time.fixedTime - _recentWaterlineTime[i] > WATERLINE_SAMPLE_MAX_AGE)
+                if (body == null || body.isKinematic || !body.gameObject.activeInHierarchy)
                     continue;
+                if (_recentWaterlineTime[i] <= 0f ||
+                    Time.fixedTime - _recentWaterlineTime[i] > WATERLINE_SAMPLE_MAX_AGE)
+                {
+                    // After a dry gap or a GPU readback stall, restart surface
+                    // filtering from the next real sample instead of blending
+                    // from an old water height.
+                    _hasSmoothedBodyWaterline[i] = false;
+                    continue;
+                }
 
                 float waterline = _recentWaterline[i];
+                if (!_hasSmoothedBodyWaterline[i])
+                {
+                    _smoothedBodyWaterline[i] = waterline;
+                    _hasSmoothedBodyWaterline[i] = true;
+                }
+                else
+                {
+                    // Suppress small frame-to-frame FLIP surface disturbances
+                    // while still following a crest and crossing spatial water
+                    // gradients as the Rigidbody travels downstream.
+                    Vector3 horizontalVelocity = body.linearVelocity;
+                    horizontalVelocity.y = 0f;
+                    float surfaceResponse = _settings.FloatingSurfaceSmoothingRate +
+                        0.4f * horizontalVelocity.magnitude / Mathf.Max(0.1f, _cellSize);
+                    if (_crestEmitted) surfaceResponse = Mathf.Max(surfaceResponse, 18f);
+                    float smoothing = 1f - Mathf.Exp(-surfaceResponse * dt);
+                    _smoothedBodyWaterline[i] = Mathf.Lerp(
+                        _smoothedBodyWaterline[i], waterline, smoothing);
+                }
+                waterline = _smoothedBodyWaterline[i];
                 float immersed = 0f;
+                float submergedSlope = 0f;
                 int colliders = 0;
                 foreach (Collider collider in _bodySampleColliders[i])
                 {
@@ -895,17 +944,32 @@ namespace GuardWave
                         !collider.gameObject.activeInHierarchy ||
                         collider.isTrigger || collider.attachedRigidbody != body)
                         continue;
-                    immersed += CurrentSubmergedFraction(collider, waterline, _cellSize);
+                    float colliderSlope;
+                    immersed += CurrentSubmergedFraction(collider, waterline,
+                        _cellSize, out colliderSlope);
+                    submergedSlope += colliderSlope;
                     ++colliders;
                 }
                 if (colliders == 0) continue;
                 immersed /= colliders;
+                submergedSlope /= colliders;
                 if (immersed <= 0.0001f) continue;
 
                 float density = Mathf.Max(0.01f, piece.RelativeFluidDensity);
                 float buoyancyRatio = Mathf.Min(immersed / density,
                     _settings.FloatingMaxBuoyancyRatio);
                 float viscosity = Mathf.Clamp01(immersed / density);
+                // d(acceleration)/d(height) = -g * submergedSlope / density.
+                // The critical linear damping coefficient is 2 * sqrt(k).
+                // Add a little overdamping to avoid oscillation under slowly
+                // varying waterlines, while preserving natural floating.
+                float stiffness = gravity * submergedSlope / density;
+                float criticalDamping = 2f * Mathf.Sqrt(Mathf.Max(0f, stiffness));
+                float dampingRate = Mathf.Clamp(Mathf.Max(
+                    _settings.FloatingVerticalDamping,
+                    criticalDamping * _settings.FloatingEquilibriumDampingRatio),
+                    0f, 30f);
+                float damping = 1f - Mathf.Exp(-dampingRate * dt);
                 Vector3 velocity = body.linearVelocity;
                 if (_ambientFlow && !_crestEmitted && velocity.y > riseCap)
                 {
