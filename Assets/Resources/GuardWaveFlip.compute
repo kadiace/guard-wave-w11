@@ -606,9 +606,9 @@ void GridToParticle(uint id : SV_DispatchThreadID)
     }
     if (p.position.z < _ExitZ)
     {
-        // Cross the *physical* lip and leave the pressure solver immediately.
-        // Start downward acceleration this tick, without advancing XZ twice:
-        // the next Waterfall dispatch continues the full ballistic integration.
+        // Cross the physical lip and leave the pressure solver immediately.
+        // Keep the full G2P velocity (including its single gravity step);
+        // Waterfall continues ballistic integration from the next tick.
         p.position.w = 2;
         // G2P already integrated this tick's gravity and position. Do not
         // add a second downward impulse at the lip; Waterfall takes over next tick.
