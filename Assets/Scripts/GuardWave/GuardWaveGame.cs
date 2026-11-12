@@ -123,6 +123,7 @@ namespace GuardWave
 
             if (Keyboard.current?.rKey.wasPressedThisFrame == true)
             {
+                ClearEditorSceneSelectionBeforeReload();
                 Managers.Scene.ReloadCurrentScene();
                 return;
             }
@@ -226,18 +227,12 @@ namespace GuardWave
                 new Vector3(position.x, _placementBounds.center.y, position.z));
         }
 
-        /// <summary>Projects the chosen creek XZ vertically onto a solid surface.</summary>
-        private bool TryGetMudSurface(Vector3 placement, out RaycastHit hit)
-        {
-            hit = default;
-            if (!CanPlaceAt(placement)) return false;
-            Vector3 start = new Vector3(placement.x,
-                _placementBounds.max.y + dropHeight + 5f, placement.z);
-            return Physics.Raycast(start, Vector3.down, out hit, 500f,
-                       Physics.DefaultRaycastLayers, QueryTriggerInteraction.Ignore)
-                   && hit.normal.y > 0.35f
-                   && hit.collider.GetComponentInParent<GuardWaveMudPatch>() == null;
-        }
+        /// <summary>
+        /// The cursor already maps directly to this XZ plane. Mud uses that
+        /// point, never an additional downward raycast to colliders below it.
+        /// </summary>
+        private Vector3 GetMudPoint(Vector3 cursorXZ) =>
+            new Vector3(cursorXZ.x, _placementBounds.max.y, cursorXZ.z);
 
         /// <summary>
         /// Holds one brush stroke while the left mouse button is down.
@@ -263,14 +258,14 @@ namespace GuardWave
             {
                 if (!mouse.leftButton.wasPressedThisFrame || !_dropMouseReleased ||
                     Time.unscaledTime - _lastDropTime < dropClickCooldown ||
-                    !TryGetMudSurface(position, out RaycastHit firstHit))
+                    !CanPlaceAt(position))
                     return;
 
                 _paintingMud = true;
                 _dropMouseReleased = false;
                 _lastDropTime = Time.unscaledTime;
                 _lastMudCursor = position;
-                PaintMudAt(firstHit);
+                PaintMudAt(GetMudPoint(position));
                 return;
             }
 
@@ -283,33 +278,32 @@ namespace GuardWave
             for (int i = 1; i <= segments; i++)
             {
                 Vector3 sample = Vector3.Lerp(_lastMudCursor, position, i / (float)segments);
-                if (TryGetMudSurface(sample, out RaycastHit hit))
-                    PaintMudAt(hit);
+                if (CanPlaceAt(sample))
+                    PaintMudAt(GetMudPoint(sample));
                 else
                     _activeMudStroke = null;
             }
             _lastMudCursor = position;
         }
 
-        private void PaintMudAt(RaycastHit surface)
+        private void PaintMudAt(Vector3 worldPoint)
         {
-            if (_activeMudStroke == null ||
-                _activeMudStroke.SurfaceCollider != surface.collider ||
-                _activeMudStroke.IsFull)
+            if (_activeMudStroke == null || _activeMudStroke.IsFull)
             {
                 GameObject strokeObject = new GameObject("Painted Mud Stroke");
                 strokeObject.transform.SetPositionAndRotation(
-                    surface.point, Quaternion.FromToRotation(Vector3.up, surface.normal));
-                strokeObject.transform.SetParent(surface.collider.transform, true);
+                    worldPoint, Quaternion.identity);
 
                 _activeMudStroke = strokeObject.AddComponent<GuardWaveMudPatch>();
-                _activeMudStroke.Initialize(this, surface.collider,
-                    surface.rigidbody, mudBreakForce, mudBreakTorque);
+                // The brush draws on a fixed world XZ plane, not onto a
+                // detected surface or a Rigidbody beneath the cursor.
+                _activeMudStroke.Initialize(this, null, null,
+                    mudBreakForce, mudBreakTorque);
                 _mudPatches.Add(_activeMudStroke);
             }
 
-            _activeMudStroke.AddPoint(surface.point, surface.normal);
-            _status = "진흙을 바르는 중… 마우스를 드래그해 풀을 펴 바르세요.";
+            _activeMudStroke.AddPoint(worldPoint, Vector3.up);
+            _status = "진흙을 바르는 중… 마우스를 드래그해 XZ 평면에 풀을 펴 바르세요.";
         }
 
         private void EndMudPainting()
@@ -334,14 +328,12 @@ namespace GuardWave
                 _dropPreview.Hide();
                 _hud.HideDropGuide();
                 if (!mouse.rightButton.isPressed &&
-                    TryGetPlacementXZ(mouse.position.ReadValue(), out Vector3 mudXZ) &&
-                    TryGetMudSurface(mudXZ, out RaycastHit surface))
+                    TryGetPlacementXZ(mouse.position.ReadValue(), out Vector3 mudXZ))
                 {
                     if (_mudPreview == null) _mudPreview = GuardWaveMudPatch.CreatePreview();
                     _mudPreview.transform.SetPositionAndRotation(
-                        surface.point + surface.normal * 0.026f,
-                        Quaternion.AngleAxis(_objectYaw, surface.normal)
-                            * Quaternion.FromToRotation(Vector3.up, surface.normal));
+                        GetMudPoint(mudXZ) + Vector3.up * 0.034f,
+                        Quaternion.identity);
                     _mudPreview.SetActive(true);
                 }
                 else if (_mudPreview != null) _mudPreview.SetActive(false);
@@ -386,6 +378,50 @@ namespace GuardWave
             if (_mudPreview != null) _mudPreview.SetActive(false);
         }
 
+        /// <summary>
+        /// Unity Editor creates Rigidbody/Transform/GameObject inspectors from
+        /// the current selection. Clear references to an object BEFORE its
+        /// runtime destruction so inspectors do not initialize with null targets.
+        /// Never touches selection in player builds.
+        /// </summary>
+        private static void SafeDestroySelectedObject(GameObject candidate)
+        {
+#if UNITY_EDITOR
+            if (candidate == null) return;
+            foreach (UnityEngine.Object selected in UnityEditor.Selection.objects)
+            {
+                GameObject selectedObject = selected as GameObject;
+                if (selectedObject == null && selected is Component component)
+                    selectedObject = component.gameObject;
+                if (selectedObject != null &&
+                    (selectedObject == candidate ||
+                     selectedObject.transform.IsChildOf(candidate.transform)))
+                {
+                    UnityEditor.Selection.objects = Array.Empty<UnityEngine.Object>();
+                    break;
+                }
+            }
+#endif
+        }
+
+        private void ClearEditorSceneSelectionBeforeReload()
+        {
+#if UNITY_EDITOR
+            foreach (UnityEngine.Object selected in UnityEditor.Selection.objects)
+            {
+                GameObject selectedObject = selected as GameObject;
+                if (selectedObject == null && selected is Component component)
+                    selectedObject = component.gameObject;
+                if (selectedObject != null &&
+                    selectedObject.scene.handle == gameObject.scene.handle)
+                {
+                    UnityEditor.Selection.objects = Array.Empty<UnityEngine.Object>();
+                    break;
+                }
+            }
+#endif
+        }
+
         private void OnDestroy()
         {
             SetOutlineTargets(null);
@@ -395,6 +431,9 @@ namespace GuardWave
             {
                 Renderer renderer = _mudPreview.GetComponent<Renderer>();
                 if (renderer != null) Destroy(renderer.sharedMaterial);
+                MeshFilter filter = _mudPreview.GetComponent<MeshFilter>();
+                if (filter != null) Destroy(filter.sharedMesh);
+                SafeDestroySelectedObject(_mudPreview);
                 Destroy(_mudPreview);
             }
             DisposeFluid();
@@ -662,11 +701,16 @@ namespace GuardWave
                 if (patch == null) continue;
                 patch.ClearBonds();
                 patch.gameObject.SetActive(false);
+                SafeDestroySelectedObject(patch.gameObject);
                 Destroy(patch.gameObject);
             }
             _mudPatches.Clear();
             foreach (GuardWavePiece piece in _pieces)
-                if (piece != null) Destroy(piece.gameObject);
+            {
+                if (piece == null) continue;
+                SafeDestroySelectedObject(piece.gameObject);
+                Destroy(piece.gameObject);
+            }
             _pieces.Clear();
             _pieceSet.Clear();
             RestoreInitialScenePieces();
@@ -869,7 +913,10 @@ namespace GuardWave
             if (_scenePieces.Contains(piece) || _waveSnapshot != null)
                 piece.gameObject.SetActive(false);
             else
+            {
+                SafeDestroySelectedObject(piece.gameObject);
                 Destroy(piece.gameObject, destructionDelay);
+            }
             return 1;
         }
 
@@ -1166,8 +1213,11 @@ namespace GuardWave
         {
             if (_waveSnapshot == null) return;
             foreach (PieceState state in _waveSnapshot.Pieces)
-                if (state.Piece != null && !_pieceSet.Contains(state.Piece))
-                    Destroy(state.Piece.gameObject);
+            {
+                if (state.Piece == null || _pieceSet.Contains(state.Piece)) continue;
+                SafeDestroySelectedObject(state.Piece.gameObject);
+                Destroy(state.Piece.gameObject);
+            }
             _waveSnapshot = null;
         }
 

@@ -205,14 +205,36 @@ namespace GuardWave
 
         public static GameObject CreatePreview()
         {
-            GameObject preview = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
-            preview.name = "Mud Brush Cursor";
-            preview.transform.localScale = new Vector3(
-                BrushRadius * 2f, 0.008f, BrushRadius * 2f);
-            Collider collider = preview.GetComponent<Collider>();
-            collider.enabled = false;
-            Destroy(collider);
-            preview.GetComponent<Renderer>().sharedMaterial = CreateMudMaterial(true);
+            // Create render-only geometry directly. Creating a primitive and
+            // immediately Destroy()ing its Collider can invalidate the active
+            // component Inspector's target during Play Mode.
+            GameObject preview = new GameObject("Mud Brush Cursor");
+            MeshFilter filter = preview.AddComponent<MeshFilter>();
+            MeshRenderer renderer = preview.AddComponent<MeshRenderer>();
+            const int sides = 24;
+            var vertices = new Vector3[sides + 1];
+            var triangles = new int[sides * 3];
+            vertices[0] = Vector3.zero;
+            for (int i = 0; i < sides; i++)
+            {
+                float angle = i * 2f * Mathf.PI / sides;
+                vertices[i + 1] = new Vector3(
+                    Mathf.Cos(angle) * BrushRadius, 0f,
+                    Mathf.Sin(angle) * BrushRadius);
+                triangles[i * 3] = 0;
+                triangles[i * 3 + 1] = (i + 1) % sides + 1;
+                triangles[i * 3 + 2] = i + 1;
+            }
+            Mesh mesh = new Mesh { name = "Mud Brush Cursor Disc" };
+            mesh.vertices = vertices;
+            mesh.triangles = triangles;
+            mesh.RecalculateNormals();
+            mesh.RecalculateBounds();
+            filter.sharedMesh = mesh;
+            renderer.sharedMaterial = CreateMudMaterial(true);
+            renderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+            renderer.receiveShadows = false;
+            preview.hideFlags = HideFlags.HideInHierarchy;
             return preview;
         }
 
