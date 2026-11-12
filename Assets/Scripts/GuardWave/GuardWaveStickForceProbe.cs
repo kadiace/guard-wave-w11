@@ -1,37 +1,43 @@
+using System.Collections.Generic;
+
 using UnityEngine;
 
 namespace GuardWave
 {
-    /// <summary>
-    /// Diagnostic probe for Forest/Initial Wall's first child Rigidbody (Stick).
-    /// Logs the actual impulses applied by GuardWaveFlipFluid and the joint's
-    /// observed reaction loads. It never changes any physics settings.
-    /// </summary>
     [DisallowMultipleComponent]
     public sealed class GuardWaveStickForceProbe : MonoBehaviour
     {
+        private sealed class StickState
+        {
+            public Rigidbody Body;
+            public Joint Joint;
+            public float SumImpulseMagnitudes;
+            public float PeakImpulse;
+            public float PeakAngularImpulse;
+            public Vector3 PeakImpulseDirection;
+            public float PeakJointForce;
+            public float PeakJointTorque;
+            public int Readbacks;
+        }
+
         private static GuardWaveStickForceProbe _active;
-        private Rigidbody _stick;
-        private Joint _joint;
-        private float _sumImpulseMagnitudes;
-        private float _peakImpulse;
-        private float _peakAngularImpulse;
-        private Vector3 _peakImpulseDirection;
-        private float _peakJointForce;
-        private float _peakJointTorque;
-        private int _readbacks;
+        private readonly Dictionary<Rigidbody, StickState> _states = new Dictionary<Rigidbody, StickState>();
 
         private void Awake()
         {
-            _stick = GetComponentInChildren<Rigidbody>();
-            if (_stick == null)
+            foreach (Transform child in transform)
             {
-                Debug.LogWarning("[GuardWave StickForce] Initial Wall has no child Rigidbody.", this);
-                enabled = false;
-                return;
+                if (!child.name.StartsWith("Stick") && !child.name.StartsWith("Log")) continue;
+                Rigidbody body = child.GetComponent<Rigidbody>();
+                if (body == null) continue;
+                _states.Add(body, new StickState { Body = body, Joint = body.GetComponent<Joint>() });
             }
 
-            _joint = _stick.GetComponent<Joint>();
+            if (_states.Count == 0)
+            {
+                Debug.LogWarning("[GuardWave StickForce] Initial Wall has no child Stick or Log Rigidbody.", this);
+                enabled = false;
+            }
         }
 
         private void OnEnable()
@@ -41,69 +47,66 @@ namespace GuardWave
 
         private void OnDisable()
         {
-            if (_active == this)
-                _active = null;
+            if (_active == this) _active = null;
         }
 
-        /// <summary>Called with the CLAMPED impulse actually passed to AddForce/AddTorque.</summary>
+        /// <summary>Records the clamped impulse applied to a tracked Stick by the fluid simulation.</summary>
         internal static void RecordImpulse(Rigidbody body, Vector3 impulse, Vector3 angularImpulse)
         {
-            GuardWaveStickForceProbe probe = _active;
-            if (probe == null || probe._stick != body)
-                return;
+            if (_active == null || !_active._states.TryGetValue(body, out StickState state)) return;
 
-            probe._readbacks++;
-
+            state.Readbacks++;
             float magnitude = impulse.magnitude;
-            probe._sumImpulseMagnitudes += magnitude;
-            if (magnitude > probe._peakImpulse)
+            state.SumImpulseMagnitudes += magnitude;
+            if (magnitude > state.PeakImpulse)
             {
-                probe._peakImpulse = magnitude;
-                probe._peakImpulseDirection = impulse.normalized;
+                state.PeakImpulse = magnitude;
+                state.PeakImpulseDirection = impulse.normalized;
             }
 
-            probe._peakAngularImpulse = Mathf.Max(probe._peakAngularImpulse, angularImpulse.magnitude);
+            state.PeakAngularImpulse = Mathf.Max(state.PeakAngularImpulse, angularImpulse.magnitude);
         }
 
         private void FixedUpdate()
         {
-            // Unity's Joint.currentForce/currentTorque are physics-solver reaction loads.
-            // They are NOT the same as the external fluid force on the Rigidbody.
-            // A failed attempt may recreate the joint on snapshot rollback.
-            if (_joint == null && _stick != null)
-                _joint = _stick.GetComponent<Joint>();
-            if (_joint != null)
+            foreach (StickState state in _states.Values)
             {
-                _peakJointForce = Mathf.Max(_peakJointForce, _joint.currentForce.magnitude);
-                _peakJointTorque = Mathf.Max(_peakJointTorque, _joint.currentTorque.magnitude);
+                if (state.Body == null) continue;
+
+                // A failed attempt may recreate the joint on snapshot rollback.
+                if (state.Joint == null) state.Joint = state.Body.GetComponent<Joint>();
+                if (state.Joint != null)
+                {
+                    state.PeakJointForce = Mathf.Max(state.PeakJointForce, state.Joint.currentForce.magnitude);
+                    state.PeakJointTorque = Mathf.Max(state.PeakJointTorque, state.Joint.currentTorque.magnitude);
+                }
+
+                float step = Mathf.Max(Time.fixedDeltaTime, 0.0001f);
+                float averageFluidForce = state.SumImpulseMagnitudes / step;
+                float peakFluidForceEstimate = state.PeakImpulse / step;
+                float peakFluidTorqueEstimate = state.PeakAngularImpulse / step;
+                string breakForce = state.Joint != null ? state.Joint.breakForce.ToString("F2") : "no joint";
+                string breakTorque = state.Joint != null ? state.Joint.breakTorque.ToString("F2") : "no joint";
+
+                Debug.Log(
+                    $"[GuardWave StickForce] {state.Body.name} over {Time.fixedDeltaTime:F2}s, samples={state.Readbacks} | " +
+                    $"fluid avg~{averageFluidForce:F2} N, peak~{peakFluidForceEstimate:F2} N " +
+                    $"(peak impulse={state.PeakImpulse:F3} N*s, direction={state.PeakImpulseDirection}) | " +
+                    $"fluid angular peak~{peakFluidTorqueEstimate:F2} N*m | " +
+                    $"joint peak force={state.PeakJointForce:F2} N / breakForce={breakForce} N, " +
+                    $"peak torque={state.PeakJointTorque:F2} N*m / breakTorque={breakTorque} N*m. " +
+                    "Fluid peaks are impulse/fixedDeltaTime estimates (async GPU readback); " +
+                    "use joint peaks to tune break thresholds.",
+                    state.Body);
+
+                state.Readbacks = 0;
+                state.SumImpulseMagnitudes = 0f;
+                state.PeakImpulse = 0f;
+                state.PeakAngularImpulse = 0f;
+                state.PeakImpulseDirection = Vector3.zero;
+                state.PeakJointForce = 0f;
+                state.PeakJointTorque = 0f;
             }
-
-            float step = Mathf.Max(Time.fixedDeltaTime, 0.0001f);
-            float averageFluidForce = _sumImpulseMagnitudes / step;
-            float peakFluidForceEstimate = _peakImpulse / step;
-            float peakFluidTorqueEstimate = _peakAngularImpulse / step;
-            string breakForce = _joint != null ? _joint.breakForce.ToString("F2") : "no joint";
-            string breakTorque = _joint != null ? _joint.breakTorque.ToString("F2") : "no joint";
-
-            Debug.Log(
-                $"[GuardWave StickForce] Temp Wall/Stick over {Time.fixedDeltaTime:F2}s, samples={_readbacks} | " +
-                $"fluid avg~{averageFluidForce:F2} N, peak~{peakFluidForceEstimate:F2} N " +
-                $"(peak impulse={_peakImpulse:F3} N*s, direction={_peakImpulseDirection}) | " +
-                $"fluid angular peak~{peakFluidTorqueEstimate:F2} N*m | " +
-                $"joint peak force={_peakJointForce:F2} N / breakForce={breakForce} N, " +
-                $"peak torque={_peakJointTorque:F2} N*m / breakTorque={breakTorque} N*m. " +
-                "Fluid peaks are impulse/fixedDeltaTime estimates (async GPU readback); " +
-                "use joint peaks to tune break thresholds.",
-                _stick);
-
-            _readbacks = 0;
-            _sumImpulseMagnitudes = 0f;
-            _peakImpulse = 0f;
-            _peakAngularImpulse = 0f;
-            _peakImpulseDirection = Vector3.zero;
-            _peakJointForce = 0f;
-            _peakJointTorque = 0f;
-
         }
     }
 }

@@ -1090,13 +1090,26 @@ namespace GuardWave
                 if (patch != null) patch.DetachPiece(piece);
             PublishChange(new GuardWaveChange(piece, piece, reason, 0, piece.transform.position));
             if (_scenePieces.Contains(piece) || _waveSnapshot != null)
-                piece.gameObject.SetActive(false);
+            {
+                if (destructionDelay > 0f)
+                    StartCoroutine(DeactivateRemovedPieceAfterDelay(piece, destructionDelay));
+                else
+                    piece.gameObject.SetActive(false);
+            }
             else
             {
                 SafeDestroySelectedObject(piece.gameObject);
                 Destroy(piece.gameObject, destructionDelay);
             }
             return 1;
+        }
+
+        /// <summary>경계 밖 씬 기물을 지연 비활성화하되, 그동안 복원되었다면 유지한다.</summary>
+        private IEnumerator DeactivateRemovedPieceAfterDelay(GuardWavePiece piece, float delay)
+        {
+            yield return new WaitForSeconds(delay);
+            if (piece != null && !_pieceSet.Contains(piece))
+                piece.gameObject.SetActive(false);
         }
 
         /// <summary>준비완료 시 깃발과 기물의 물리 상태를 저장하고 파도를 시작한다.</summary>
@@ -1280,12 +1293,21 @@ namespace GuardWave
                 return;
             // Keep the flood coroutine and GPU particle buffers alive so
             // the wave continues flowing behind the failure popup.
-            _defenseFlag.SetActive(false);
             _stageTransitioning = false;
             _resolving = false;
             _awaitingStage = true;
             _finished = false;
             _status = "깃발이 파괴되었습니다. 확인을 누르면 준비완료 직전으로 돌아갑니다.";
+            StartCoroutine(DeactivateDefenseFlagAfterDelay());
+        }
+
+        /// <summary>파괴된 깃발도 일반 기물처럼 1초간 남기되 되돌린 깃발은 숨기지 않는다.</summary>
+        private IEnumerator DeactivateDefenseFlagAfterDelay()
+        {
+            WaveSnapshot failedWave = _waveSnapshot;
+            yield return new WaitForSeconds(BOUNDARY_DESTRUCTION_DELAY);
+            if (_awaitingStage && _waveSnapshot == failedWave)
+                _defenseFlag.SetActive(false);
         }
 
         /// <summary>준비완료 클릭 시점의 깃발, 기물, 씬 물리 오브젝트 및 배치 UI 상태를 기록한다.</summary>
