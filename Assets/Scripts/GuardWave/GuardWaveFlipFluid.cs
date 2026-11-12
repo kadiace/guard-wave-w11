@@ -138,6 +138,7 @@ namespace GuardWave
             public float SourceTime;
             public Vector3[] Linear;
             public Vector3[] Angular;
+            public Vector3[] DirectImpact;
             public float[] Waterline;
             public float[] FluidCoverage;
             public Vector2[] FlowXZ;
@@ -225,7 +226,8 @@ namespace GuardWave
             _pressureB = new ComputeBuffer(_gridCount, sizeof(float));
             _solid = new ComputeBuffer(_gridCount, sizeof(uint));
             _colliderBuffer = new ComputeBuffer(_settings.MaxColliders, Marshal.SizeOf<ColliderData>());
-            _impulses = new ComputeBuffer(_settings.MaxBodies * 2, sizeof(int) * 4);
+            // Per-body fluid sample, torque, and separately accumulated crest impact.
+            _impulses = new ComputeBuffer(_settings.MaxBodies * 3, sizeof(int) * 4);
             _waterSurface = new ComputeBuffer(_grid.x * _grid.z, sizeof(int));
             _smoothedWaterSurface = new ComputeBuffer(_grid.x * _grid.z, sizeof(int));
             // Unlike raw water columns, this history must survive fixed steps.
@@ -651,7 +653,7 @@ namespace GuardWave
             _gpuStep++;
             _compute.SetFloat("_Dt", dt);
             UpdateColliders();
-            Dispatch(_clearKernel, Mathf.Max(_gridCount, _bodies.Count * 2));
+            Dispatch(_clearKernel, Mathf.Max(_gridCount, _bodies.Count * 3));
             Dispatch(_clearWaterColumnsKernel, _grid.x * _grid.z);
             Dispatch(_classifyKernel, _gridCount);
             if (_ambientFlow) Dispatch(_driveInletKernel, _particleCount);
@@ -798,23 +800,27 @@ namespace GuardWave
                 return;
             }
             NativeArray<Int4> values = request.GetData<Int4>();
-            int bodyCount = Mathf.Min(requestedBodyCount, values.Length / 2);
+            int bodyCount = Mathf.Min(requestedBodyCount, values.Length / 3);
             ImpulseFrame frame = new ImpulseFrame
             {
                 SourceStep = sourceStep,
                 SourceTime = sourceTime,
                 Linear = new Vector3[bodyCount],
                 Angular = new Vector3[bodyCount],
+                DirectImpact = new Vector3[bodyCount],
                 Waterline = new float[bodyCount],
                 FluidCoverage = new float[bodyCount],
                 FlowXZ = new Vector2[bodyCount]
             };
             for (int i = 0; i < bodyCount; i++)
             {
-                Int4 force = values[i * 2];
-                Int4 torque = values[i * 2 + 1];
+                Int4 force = values[i * 3];
+                Int4 torque = values[i * 3 + 1];
+                Int4 impact = values[i * 3 + 2];
                 frame.Linear[i] = new Vector3(force.X, force.Y, force.Z) / IMPULSE_SCALE;
                 frame.Angular[i] = new Vector3(torque.X, torque.Y, torque.Z) / IMPULSE_SCALE;
+                frame.DirectImpact[i] =
+                    new Vector3(impact.X, impact.Y, impact.Z) / IMPULSE_SCALE;
                 // Both surface and current are summed with the same
                 // fixed-point wet-coverage weight. Their ratio is already in
                 // world units; do not divide by IMPULSE_SCALE again.
@@ -1100,6 +1106,11 @@ namespace GuardWave
                     }
                     appliedImpulse = Vector3.zero;
                 }
+                // A dry sampling frame still carries a real breaking-wave
+                // collision. Never discard that momentum with the stale
+                // buoyancy/flow cache; cap the final physical impulse as usual.
+                appliedImpulse = Vector3.ClampMagnitude(
+                    appliedImpulse + frame.DirectImpact[i], limit);
                 Vector3 appliedAngularImpulse = Vector3.ClampMagnitude(
                     frame.Angular[i], limit * _settings.AngularImpulseMultiplier);
                 body.AddForce(appliedImpulse, ForceMode.Impulse);
