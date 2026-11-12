@@ -168,7 +168,7 @@ FixedJoint:
   serializedVersion: 1
   m_ConnectedBody: {fileID: 0}
   m_ConnectedArticulationBody: {fileID: 0}
-  m_BreakForce: 38
+  m_BreakForce: 80
   m_BreakTorque: 1400
   m_EnableCollision: 0
   m_EnablePreprocessing: 1

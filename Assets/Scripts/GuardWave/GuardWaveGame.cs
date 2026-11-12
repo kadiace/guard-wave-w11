@@ -75,8 +75,8 @@ namespace GuardWave
         private bool _paintingMud;
 
         [Header("Mud adhesion")]
-        [SerializeField, Min(0f)] private float mudBreakForce = 35f;
-        [SerializeField, Min(0f)] private float mudBreakTorque = float.PositiveInfinity;
+        [SerializeField, Min(0f)] private float mudBreakForce = 80f;
+        [SerializeField, Min(0f)] private float mudBreakTorque = 1400f;
         private readonly HashSet<GuardWavePiece> _pieceSet = new HashSet<GuardWavePiece>();
         private readonly HashSet<GuardWavePiece> _scenePieces = new HashSet<GuardWavePiece>();
         private readonly List<SceneBodyState> _initialScenePieceStates = new List<SceneBodyState>();

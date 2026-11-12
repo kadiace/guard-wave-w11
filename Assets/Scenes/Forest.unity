@@ -2795,8 +2795,8 @@ MonoBehaviour:
     m_PreInfinity: 2
     m_PostInfinity: 2
     m_RotationOrder: 4
-  mudBreakForce: 35
-  mudBreakTorque: NaN
+  mudBreakForce: 80
+  mudBreakTorque: 1400
 --- !u!1 &3100000001
 GameObject:
   m_ObjectHideFlags: 0
@@ -31878,7 +31878,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: b7f1490a6bb24dc6ae5b1045869fb0c2, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWaveStickForceProbe
-  logInterval: 0.5
 --- !u!1001 &1762329492425469008
 PrefabInstance:
   m_ObjectHideFlags: 0

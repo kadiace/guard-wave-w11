@@ -10,12 +10,9 @@ namespace GuardWave
     [DisallowMultipleComponent]
     public sealed class GuardWaveStickForceProbe : MonoBehaviour
     {
-        [SerializeField, Min(0.1f)] private float logInterval = 0.5f;
-
         private static GuardWaveStickForceProbe _active;
         private Rigidbody _stick;
         private Joint _joint;
-        private float _elapsed;
         private float _sumImpulseMagnitudes;
         private float _peakImpulse;
         private float _peakAngularImpulse;
@@ -81,19 +78,15 @@ namespace GuardWave
                 _peakJointTorque = Mathf.Max(_peakJointTorque, _joint.currentTorque.magnitude);
             }
 
-            _elapsed += Time.fixedDeltaTime;
-            if (_elapsed < logInterval)
-                return;
-
             float step = Mathf.Max(Time.fixedDeltaTime, 0.0001f);
-            float averageFluidForce = _sumImpulseMagnitudes / _elapsed;
+            float averageFluidForce = _sumImpulseMagnitudes / step;
             float peakFluidForceEstimate = _peakImpulse / step;
             float peakFluidTorqueEstimate = _peakAngularImpulse / step;
             string breakForce = _joint != null ? _joint.breakForce.ToString("F2") : "no joint";
             string breakTorque = _joint != null ? _joint.breakTorque.ToString("F2") : "no joint";
 
             Debug.Log(
-                $"[GuardWave StickForce] Temp Wall/Stick over {_elapsed:F2}s, samples={_readbacks} | " +
+                $"[GuardWave StickForce] Temp Wall/Stick over {Time.fixedDeltaTime:F2}s, samples={_readbacks} | " +
                 $"fluid avg~{averageFluidForce:F2} N, peak~{peakFluidForceEstimate:F2} N " +
                 $"(peak impulse={_peakImpulse:F3} N*s, direction={_peakImpulseDirection}) | " +
                 $"fluid angular peak~{peakFluidTorqueEstimate:F2} N*m | " +
@@ -103,7 +96,6 @@ namespace GuardWave
                 "use joint peaks to tune break thresholds.",
                 _stick);
 
-            _elapsed = 0f;
             _readbacks = 0;
             _sumImpulseMagnitudes = 0f;
             _peakImpulse = 0f;
