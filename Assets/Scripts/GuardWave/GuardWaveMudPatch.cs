@@ -1,3 +1,4 @@
+using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
@@ -37,9 +38,38 @@ namespace GuardWave
         private Material _material;
         private Mesh _mesh;
         private bool _meshDirty;
+        private bool _isDry;
 
         public Collider SurfaceCollider => _surfaceCollider;
         public bool IsFull => _points.Count >= MaxSamples;
+        public bool IsDry => _isDry;
+
+        /// <summary>
+        /// Mud is a render mesh over trigger colliders, not a raycastable solid.
+        /// Hit-test the actual painted samples against the underlying surface
+        /// hit by the cursor, without making the mud obstruct physics rays.
+        /// </summary>
+        public bool TryGetDryingDistance(Collider collider, Vector3 hitPoint,
+            Vector3 hitNormal, out float distanceSqr)
+        {
+            distanceSqr = float.PositiveInfinity;
+            if (_isDry || collider == null || collider != _surfaceCollider ||
+                _points.Count == 0) return false;
+
+            for (int i = 0; i < _points.Count; i++)
+            {
+                Vector3 normal = transform.TransformDirection(_normals[i]).normalized;
+                if (Vector3.Dot(normal, hitNormal) < 0.45f) continue;
+                Vector3 delta = hitPoint - transform.TransformPoint(_points[i]);
+                float normalDistance = Vector3.Dot(delta, normal);
+                if (Mathf.Abs(normalDistance) > 0.18f) continue;
+                float lateralSqr = (delta - normal * normalDistance).sqrMagnitude;
+                if (lateralSqr > BrushRadius * BrushRadius) continue;
+                distanceSqr = Mathf.Min(distanceSqr, lateralSqr);
+            }
+            return !float.IsPositiveInfinity(distanceSqr);
+        }
+
 
         /// <summary>
         /// Only connect samples on the same nearby plane. Splitting on a sharp
@@ -312,7 +342,7 @@ namespace GuardWave
             if (material.HasProperty("_Smoothness"))
                 material.SetFloat("_Smoothness", preview ? 0.77f : 0.83f);
             if (material.HasProperty("_Metallic"))
-                material.SetFloat("_Metallic", 0f);
+                material.SetFloat("_Metallic", preview ? 0f : 0.08f);
             if (material.HasProperty("_SpecColor"))
                 material.SetColor("_SpecColor", new Color(0.30f, 0.24f, 0.17f, 1f));
 
@@ -362,12 +392,50 @@ namespace GuardWave
             return texture;
         }
 
+        /// <summary>
+        /// Dry exactly this painted stroke. Disable new adhesion immediately
+        /// and double only the FixedJoints that this stroke already created.
+        /// </summary>
+        public void Dry()
+        {
+            if (_isDry) return;
+            _isDry = true;
+            foreach (FixedJoint joint in _bonds.Values)
+            {
+                if (joint == null) continue;
+                joint.breakForce *= 2f;
+                joint.breakTorque *= 2f;
+            }
+            if (_material != null)
+                StartCoroutine(AnimateDryMaterial());
+        }
+
+        private IEnumerator AnimateDryMaterial()
+        {
+            const float duration = 0.1f;
+            bool smoothness = _material.HasProperty("_Smoothness");
+            bool metallic = _material.HasProperty("_Metallic");
+            float initialSmoothness = smoothness ? _material.GetFloat("_Smoothness") : 0f;
+            float initialMetallic = metallic ? _material.GetFloat("_Metallic") : 0f;
+            float elapsed = 0f;
+            while (elapsed < duration)
+            {
+                elapsed = Mathf.Min(duration, elapsed + Time.unscaledDeltaTime);
+                float t = elapsed / duration;
+                if (smoothness) _material.SetFloat("_Smoothness",
+                    Mathf.Lerp(initialSmoothness, 0.025f, t));
+                if (metallic) _material.SetFloat("_Metallic",
+                    Mathf.Lerp(initialMetallic, 0f, t));
+                yield return null;
+            }
+        }
+
         private void OnTriggerEnter(Collider other) => TryBond(other);
         private void OnTriggerStay(Collider other) => TryBond(other);
 
         private void TryBond(Collider other)
         {
-            if (_game == null) return;
+            if (_game == null || _isDry) return;
             GuardWavePiece piece = other.GetComponentInParent<GuardWavePiece>();
             if (piece == null || !_game.IsPlacedPiece(piece) ||
                 piece.Body == _surfaceBody || piece.Body.isKinematic ||
@@ -423,8 +491,11 @@ namespace GuardWave
             joint.connectedBody = _surfaceBody;
             joint.anchor = anchor;
             joint.connectedAnchor = connectedAnchor;
-            joint.breakForce = _breakForce;
-            joint.breakTorque = _breakTorque;
+            // Wave snapshot restoration recreates joints through this method.
+            // Keep cured adhesive twice as strong after restoring a failed wave.
+            float multiplier = _isDry ? 2f : 1f;
+            joint.breakForce = _breakForce * multiplier;
+            joint.breakTorque = _breakTorque * multiplier;
             joint.enableCollision = false;
             _bonds[piece] = joint;
         }

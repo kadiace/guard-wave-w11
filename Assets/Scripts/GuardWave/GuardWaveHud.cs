@@ -11,11 +11,11 @@ namespace GuardWave
     /// <summary>원본 2D GuardWave UI 프리팹을 3D 물리 게임의 상태와 연결한다.</summary>
     public sealed class GuardWaveHud : MonoBehaviour
     {
-        private readonly Button[] _cards = new Button[3];
-        private readonly Text[] _names = new Text[3];
-        private readonly Image[] _silhouettes = new Image[3];
-        private readonly Image[] _backgrounds = new Image[3];
-        private readonly string[] _shownIds = new string[3];
+        private readonly Button[] _cards = new Button[4];
+        private readonly Text[] _names = new Text[4];
+        private readonly Image[] _silhouettes = new Image[4];
+        private readonly Image[] _backgrounds = new Image[4];
+        private readonly string[] _shownIds = new string[4];
         private readonly Dictionary<string, Sprite> _generatedIcons = new Dictionary<string, Sprite>();
 
         private GuardWaveGame _game;
@@ -120,6 +120,8 @@ namespace GuardWave
             _tooltip.SetActive(false);
             _rulesBody.text = @"진흙을 선택하고 왼쪽 버튼으로 드래그하면 커서 아래 가장 가까운 물체 표면에 풀이 발립니다.
 바른 자국 위에 통나무나 조약돌이 떨어지면 부착됩니다.
+헤어 드라이기를 선택하고 젖은 진흙을 1초간 좌클릭하면 마릅니다.
+마른 진흙은 새 기물을 부착하지 않고, 이미 붙은 FixedJoint의 Break Force/Torque가 2배가 됩니다.
 통나무와 조약돌은 클릭 위치 위에서 떨어뜨려 무제한 배치할 수 있습니다.
 선택한 재료는 우클릭으로 해제하기 전까지 계속 사용할 수 있습니다.
 하단의 준비완료를 누르면 홍수가 밀려옵니다.
@@ -226,6 +228,9 @@ Q/E: 기물 회전 / 우클릭 또는 Esc: 선택 취소
                 GuardWaveMaterial info = _game.CurrentOffers[i];
                 if (info == null)
                 {
+                    // The shared HUD also serves Fog, which has only three offers.
+                    if (_cards[i].gameObject.activeSelf)
+                        _cards[i].gameObject.SetActive(false);
                     _shownIds[i] = null;
                     _names[i].text = "";
                     _silhouettes[i].sprite = null;
@@ -234,6 +239,8 @@ Q/E: 기물 회전 / 우클릭 또는 Esc: 선택 취소
                     _backgrounds[i].color = new Color(0.12f, 0.17f, 0.21f, 1f);
                     continue;
                 }
+                if (!_cards[i].gameObject.activeSelf)
+                    _cards[i].gameObject.SetActive(true);
                 if (_shownIds[i] != info.id)
                 {
                     _shownIds[i] = info.id;
@@ -276,6 +283,7 @@ Q/E: 기물 회전 / 우클릭 또는 Esc: 선택 취소
             texture.wrapMode = TextureWrapMode.Clamp;
             Material material = Resources.Load<Material>("Materials/" + info.id + "_Base");
             Color color = info.id == "mud" ? new Color(0.42f, 0.28f, 0.16f, 1f)
+                : info.id == "hair_dryer" ? new Color(0.87f, 0.79f, 0.61f, 1f)
                 : material == null ? Color.gray : material.color;
             Color shadow = new Color(color.r * 0.53f, color.g * 0.53f, color.b * 0.53f, 1f);
             int shape = Shape(info.id, info.category);
@@ -285,7 +293,11 @@ Q/E: 기물 회전 / 우클릭 또는 Esc: 선택 취소
                 {
                     float u = (x - 15.5f) / 14f;
                     float v = (y - 15.5f) / 14f;
-                    bool filled = shape == 7
+                    bool filled = shape == 8
+                        ? ((u > -0.48f && u < 0.55f && v > 0.12f && v < 0.53f) ||
+                           (u > -0.88f && u <= -0.48f && v > 0.19f && v < 0.46f) ||
+                           (u > 0.02f && u < 0.27f && v > -0.78f && v <= 0.12f))
+                        : shape == 7
                         ? u * u + v * v < 0.74f + 0.08f * Mathf.Sin(u * 12f) * Mathf.Cos(v * 9f)
                         : shape == 0 ? Mathf.Abs(u) < 0.28f && Mathf.Abs(v) < 0.85f
                         : shape == 1 ? Mathf.Abs(u) < 0.8f && Mathf.Abs(v) < 0.36f
@@ -308,6 +320,7 @@ Q/E: 기물 회전 / 우클릭 또는 Esc: 선택 취소
         private static int Shape(string id, string category)
         {
             if (id == "mud") return 7;
+            if (id == "hair_dryer") return 8;
             if (id == "tire" || id == "life_ring") return 2;
             if (id == "sunflower" || id == "living_tree" || id == "growing_vine") return 3;
             if (id == "branch" || id == "leafy_branch" || id == "vine") return 0;
@@ -344,7 +357,9 @@ Q/E: 기물 회전 / 우클릭 또는 Esc: 선택 취소
             if (!_game.CanShowItemInfo) return;
             GuardWaveMaterial material = _game.CurrentOffers[index];
             if (material == null) return;
-            string description = AbilityTooltip(material.id);
+            string description = material.id == "hair_dryer"
+                ? BuildCandidateDetails(material)
+                : AbilityTooltip(material.id);
             if (description == null) return;
             _hoveredCard = index;
             _hoveredPiece = null;

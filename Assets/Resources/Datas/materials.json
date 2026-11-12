@@ -8,6 +8,12 @@
       "abilities": ["아래로 사영한 표면에 바릅니다. 위에 떨어지는 기물을 부착시킵니다."]
     },
     {
+      "id": "hair_dryer",
+      "name": "헤어 드라이기",
+      "category": "도구",
+      "abilities": ["젖은 진흙 위를 좌클릭으로 1초간 계속 누르면 해당 진흙이 마릅니다. 마르면 새 부착이 중단되고 기존 FixedJoint의 Break Force와 Break Torque가 각각 2배가 됩니다."]
+    },
+    {
       "id": "foundation",
       "name": "기반",
       "category": "목재",

@@ -42,6 +42,9 @@ namespace GuardWave
         private GuardWaveMudPatch _activeMudStroke;
         private Vector2 _lastMudCursorScreen;
         private bool _paintingMud;
+        private GuardWaveMudPatch _dryingTarget;
+        private float _dryingHoldSeconds;
+        private const float MUD_DRY_HOLD_SECONDS = 1f;
 
         [Header("Mud adhesion")]
         [SerializeField, Min(0f)] private float mudBreakForce = 2000f;
@@ -51,7 +54,7 @@ namespace GuardWave
         private readonly List<SceneBodyState> _initialScenePieceStates = new List<SceneBodyState>();
         private readonly List<SceneParentActiveState> _initialSceneParentStates =
             new List<SceneParentActiveState>();
-        private readonly GuardWaveMaterial[] _offers = new GuardWaveMaterial[3];
+        private readonly GuardWaveMaterial[] _offers = new GuardWaveMaterial[4];
         private ForestSceneContext _sceneContext;
         private GuardWaveCatalog _catalog;
         private GuardWaveHud _hud;
@@ -120,7 +123,11 @@ namespace GuardWave
         private void Update()
         {
             if (!_initialized) return;
-            if (_sceneContext.PauseMenu != null && _sceneContext.PauseMenu.IsOpen) return;
+            if (_sceneContext.PauseMenu != null && _sceneContext.PauseMenu.IsOpen)
+            {
+                EndMudDrying();
+                return;
+            }
 
             if (Keyboard.current?.rKey.wasPressedThisFrame == true)
             {
@@ -147,6 +154,7 @@ namespace GuardWave
                 SetOutlineTargets(null);
             if (_resolving || _awaitingStage || _finished || _rulesOpen)
             {
+                EndMudDrying();
                 HideDropPreview();
                 return;
             }
@@ -167,6 +175,12 @@ namespace GuardWave
                 UpdateMudPainting(mouse);
                 return;
             }
+            if (_selected >= 0 && _offers[_selected]?.id == "hair_dryer")
+            {
+                UpdateMudDrying(mouse);
+                return;
+            }
+            EndMudDrying();
 
             if (mouse == null || !mouse.leftButton.wasPressedThisFrame ||
                 mouse.rightButton.isPressed || mouse.rightButton.wasReleasedThisFrame ||
@@ -192,6 +206,7 @@ namespace GuardWave
             if (_resolving || _awaitingStage || _finished || _rulesOpen) return;
             _paletteOpen = true;
             EndMudPainting();
+            EndMudDrying();
             _selected = -1;
             HideDropPreview();
             _status = "후보를 다시 선택하세요.";
@@ -332,6 +347,64 @@ namespace GuardWave
             _activeMudStroke = null;
         }
 
+        /// <summary>
+        /// Blowing must remain on the same visible wet stroke for one second.
+        /// Moving off the stroke, releasing the mouse or changing target resets
+        /// the timer. Each stroke dries once, independently.
+        /// </summary>
+        private void UpdateMudDrying(Mouse mouse)
+        {
+            if (mouse == null || !mouse.leftButton.isPressed ||
+                mouse.rightButton.isPressed || _rulesOpen || _resolving ||
+                !TryGetMudSurface(mouse.position.ReadValue(), out RaycastHit surface))
+            {
+                EndMudDrying();
+                return;
+            }
+
+            GuardWaveMudPatch target = null;
+            float shortestDistance = float.PositiveInfinity;
+            foreach (GuardWaveMudPatch patch in _mudPatches)
+            {
+                if (patch == null ||
+                    !patch.TryGetDryingDistance(surface.collider, surface.point,
+                        surface.normal, out float distanceSqr) ||
+                    distanceSqr >= shortestDistance) continue;
+                target = patch;
+                shortestDistance = distanceSqr;
+            }
+
+            if (target == null)
+            {
+                EndMudDrying();
+                return;
+            }
+
+            if (_dryingTarget != target)
+            {
+                _dryingTarget = target;
+                _dryingHoldSeconds = 0f;
+            }
+
+            _dryingHoldSeconds += Time.deltaTime;
+            if (_dryingHoldSeconds < MUD_DRY_HOLD_SECONDS)
+            {
+                _status = "진흙 건조 중… " +
+                    Mathf.FloorToInt(_dryingHoldSeconds / MUD_DRY_HOLD_SECONDS * 100f) + "%";
+                return;
+            }
+
+            target.Dry();
+            EndMudDrying();
+            _status = "진흙 건조 완료! 추가 부착 불가, 기존 접착력 2배.";
+        }
+
+        private void EndMudDrying()
+        {
+            _dryingTarget = null;
+            _dryingHoldSeconds = 0f;
+        }
+
         internal bool HasMudBond(GuardWavePiece piece)
         {
             foreach (GuardWaveMudPatch patch in _mudPatches)
@@ -360,6 +433,11 @@ namespace GuardWave
                 return;
             }
             if (_mudPreview != null) _mudPreview.SetActive(false);
+            if (_selected >= 0 && _offers[_selected]?.id == "hair_dryer")
+            {
+                HideDropPreview();
+                return;
+            }
             if (mouse == null || _selected < 0 || mouse.rightButton.isPressed ||
                 _offers[_selected] == null ||
                 !TryGetCursorXZ(mouse.position.ReadValue(), out Vector3 placement))
@@ -448,6 +526,7 @@ namespace GuardWave
             SetOutlineTargets(null);
             _dropPreview?.Dispose();
             EndMudPainting();
+            EndMudDrying();
             if (_mudPreview != null)
             {
                 Renderer renderer = _mudPreview.GetComponent<Renderer>();
@@ -580,6 +659,7 @@ namespace GuardWave
             if (!CanSelect || index < 0 || index >= _offers.Length) return;
             if (_offers[index] == null) return;
             EndMudPainting();
+            EndMudDrying();
             SetOutlineTargets(null);
             _selected = index;
             _status = _offers[index].name + " 선택";
@@ -588,7 +668,11 @@ namespace GuardWave
         /// <summary>규칙 창이 열려 있는 동안 게임의 배치 입력을 잠근다.</summary>
         public void SetRulesOpen(bool isOpen)
         {
-            if (isOpen) EndMudPainting();
+            if (isOpen)
+            {
+                EndMudPainting();
+                EndMudDrying();
+            }
             _rulesOpen = isOpen;
         }
 
@@ -721,6 +805,7 @@ namespace GuardWave
         private void ResetGame()
         {
             EndMudPainting();
+            EndMudDrying();
             SetOutlineTargets(null);
             if (_stageFloodRoutine != null)
             {
@@ -901,6 +986,7 @@ namespace GuardWave
             _offers[0] = _catalog.Get(fogScene ? "rubber_duck" : "mud");
             _offers[1] = _catalog.Get(fogScene ? "waste_bag_medium" : "log");
             _offers[2] = _catalog.Get(fogScene ? "large_stone" : "forest_pebble");
+            _offers[3] = fogScene ? null : _catalog.Get("hair_dryer");
             _selected = -1;
             _paletteOpen = true;
             HideDropPreview();
@@ -972,6 +1058,7 @@ namespace GuardWave
         {
             if (!CanReady) return;
             EndMudPainting();
+            EndMudDrying();
             SetOutlineTargets(null);
             HideDropPreview();
             _waveSnapshot = CaptureWaveSnapshot();
