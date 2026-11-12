@@ -843,6 +843,10 @@ namespace GuardWave
             if (prefab == null) throw new InvalidOperationException("Missing 3D prefab: " + material.id);
             GameObject instance = Instantiate(prefab, position, Quaternion.Euler(0f, _objectYaw, 0f));
             instance.name = material.name;
+            // Imported OBJ Mesh local IDs may be remapped by Unity 6. Ensure
+            // a Forest pebble is not an invisible Rigidbody with a null Mesh.
+            if (material.id == "forest_pebble")
+                GuardWaveForestPebbleMesh.EnsureMesh(instance);
             GuardWavePiece piece = instance.GetComponent<GuardWavePiece>();
             piece.Initialize(this);
             piece.Body.isKinematic = anchored;

@@ -91,6 +91,40 @@ namespace GuardWave
             }
         }
 
+        /// <summary>
+        /// Recreate only the visual hierarchy; no physics or gameplay
+        /// components are ever instantiated by the drop guide.
+        /// </summary>
+        private static void CopyVisualHierarchy(
+            Transform source, Transform destination, Mesh fallbackMesh)
+        {
+            MeshFilter sourceFilter = source.GetComponent<MeshFilter>();
+            MeshRenderer sourceRenderer = source.GetComponent<MeshRenderer>();
+            if (sourceFilter != null && sourceRenderer != null)
+            {
+                Mesh mesh = sourceFilter.sharedMesh != null
+                    ? sourceFilter.sharedMesh : fallbackMesh;
+                if (mesh != null)
+                {
+                    MeshFilter filter = destination.gameObject.AddComponent<MeshFilter>();
+                    filter.sharedMesh = mesh;
+                    MeshRenderer renderer = destination.gameObject.AddComponent<MeshRenderer>();
+                    renderer.sharedMaterials = sourceRenderer.sharedMaterials;
+                }
+            }
+
+            foreach (Transform child in source)
+            {
+                GameObject childVisual = new GameObject(child.name);
+                childVisual.transform.SetParent(destination, false);
+                childVisual.transform.localPosition = child.localPosition;
+                childVisual.transform.localRotation = child.localRotation;
+                childVisual.transform.localScale = child.localScale;
+                CopyVisualHierarchy(child, childVisual.transform, fallbackMesh);
+                childVisual.SetActive(child.gameObject.activeSelf);
+            }
+        }
+
         /// <summary>그리기용 프리팹만 복제하고 물리·게임 로직은 비활성화한다.</summary>
         private void Rebuild(GuardWaveMaterial info)
         {
@@ -102,56 +136,34 @@ namespace GuardWave
                 return;
             }
 
-            _instance = Object.Instantiate(prefab);
-            _instance.name = "Drop Preview - " + info.name;
-            // This is a disposable visual ghost, not an editable scene piece.
-            // Keeping it out of the Hierarchy prevents stale Inspector targets
-            // when the chosen offer changes and the preview gets destroyed.
+            // A preview is visual only: never instantiate a Rigidbody/
+            // GuardWavePiece/Collider just to destroy or disable it. This also
+            // avoids transient Rigidbody inspector targets in the Editor.
+            _instance = new GameObject("Drop Preview - " + info.name);
+            _instance.transform.localScale = prefab.transform.localScale;
+            Mesh fallbackMesh = info.id == "forest_pebble"
+                ? GuardWaveForestPebbleMesh.LoadImportedMesh()
+                : null;
+            CopyVisualHierarchy(prefab.transform, _instance.transform, fallbackMesh);
             _instance.hideFlags = HideFlags.HideInHierarchy;
-            _instance.SetActive(false);
             _materialId = info.id;
 
-            // Determine the actual base for either MeshCollider (log / rock)
-            // or BoxCollider prefabs before turning off preview physics.
-            // Bounds are measured relative to the prefab instance root,
-            // so the ghost can rest on the predicted impact surface.
+            // Measure the visual base after reconstructing mesh-only geometry.
             _colliderBottomY = 0f;
-            bool foundCollider = false;
-            foreach (Collider sourceCollider in _instance.GetComponentsInChildren<Collider>(true))
+            bool found = false;
+            foreach (Renderer sourceRenderer in _instance.GetComponentsInChildren<Renderer>(true))
             {
-                if (!sourceCollider.enabled) continue;
-                float bottom = sourceCollider.bounds.min.y - _instance.transform.position.y;
-                if (!foundCollider || bottom < _colliderBottomY)
+                if (sourceRenderer is MeshRenderer &&
+                    sourceRenderer.GetComponent<MeshFilter>()?.sharedMesh == null)
+                    continue;
+                float bottom = sourceRenderer.bounds.min.y - _instance.transform.position.y;
+                if (!found || bottom < _colliderBottomY)
                 {
                     _colliderBottomY = bottom;
-                    foundCollider = true;
+                    found = true;
                 }
             }
-            if (!foundCollider)
-            {
-                foreach (Renderer sourceRenderer in _instance.GetComponentsInChildren<Renderer>(true))
-                {
-                    float bottom = sourceRenderer.bounds.min.y - _instance.transform.position.y;
-                    if (!foundCollider || bottom < _colliderBottomY)
-                    {
-                        _colliderBottomY = bottom;
-                        foundCollider = true;
-                    }
-                }
-            }
-
-            // A preview must never push pieces, fall, start a barrel fuse,
-            // participate in contact scoring, or block the prediction Raycast.
-            foreach (Collider collider in _instance.GetComponentsInChildren<Collider>(true))
-                collider.enabled = false;
-            foreach (Rigidbody body in _instance.GetComponentsInChildren<Rigidbody>(true))
-            {
-                body.useGravity = false;
-                body.isKinematic = true;
-                body.detectCollisions = false;
-            }
-            foreach (GuardWavePiece piece in _instance.GetComponentsInChildren<GuardWavePiece>(true))
-                piece.enabled = false;
+            _instance.SetActive(false);
 
             foreach (Renderer renderer in _instance.GetComponentsInChildren<Renderer>(true))
             {
