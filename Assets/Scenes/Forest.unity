@@ -129,7 +129,11 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 3671430053963273706, guid: b453ff6303ef9484c9c0dbc03ec0653d, type: 3}
       propertyPath: m_Anchor.y
-      value: -0.5
+      value: -1
+      objectReference: {fileID: 0}
+    - target: {fileID: 5576235316683910146, guid: b453ff6303ef9484c9c0dbc03ec0653d, type: 3}
+      propertyPath: m_Size.y
+      value: 2
       objectReference: {fileID: 0}
     - target: {fileID: 3671430053963273706, guid: b453ff6303ef9484c9c0dbc03ec0653d, type: 3}
       propertyPath: m_XMotion
@@ -231,7 +235,11 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 3671430053963273706, guid: b453ff6303ef9484c9c0dbc03ec0653d, type: 3}
       propertyPath: m_Anchor.y
-      value: -0.5
+      value: -1
+      objectReference: {fileID: 0}
+    - target: {fileID: 5576235316683910146, guid: b453ff6303ef9484c9c0dbc03ec0653d, type: 3}
+      propertyPath: m_Size.y
+      value: 2
       objectReference: {fileID: 0}
     - target: {fileID: 3671430053963273706, guid: b453ff6303ef9484c9c0dbc03ec0653d, type: 3}
       propertyPath: m_XMotion
@@ -460,7 +468,11 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 3671430053963273706, guid: b453ff6303ef9484c9c0dbc03ec0653d, type: 3}
       propertyPath: m_Anchor.y
-      value: -0.5
+      value: -1
+      objectReference: {fileID: 0}
+    - target: {fileID: 5576235316683910146, guid: b453ff6303ef9484c9c0dbc03ec0653d, type: 3}
+      propertyPath: m_Size.y
+      value: 2
       objectReference: {fileID: 0}
     - target: {fileID: 3671430053963273706, guid: b453ff6303ef9484c9c0dbc03ec0653d, type: 3}
       propertyPath: m_XMotion
@@ -545,7 +557,11 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 3671430053963273706, guid: b453ff6303ef9484c9c0dbc03ec0653d, type: 3}
       propertyPath: m_Anchor.y
-      value: -0.5
+      value: -1
+      objectReference: {fileID: 0}
+    - target: {fileID: 5576235316683910146, guid: b453ff6303ef9484c9c0dbc03ec0653d, type: 3}
+      propertyPath: m_Size.y
+      value: 2
       objectReference: {fileID: 0}
     - target: {fileID: 3671430053963273706, guid: b453ff6303ef9484c9c0dbc03ec0653d, type: 3}
       propertyPath: m_XMotion
@@ -647,7 +663,11 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 3671430053963273706, guid: b453ff6303ef9484c9c0dbc03ec0653d, type: 3}
       propertyPath: m_Anchor.y
-      value: -0.5
+      value: -1
+      objectReference: {fileID: 0}
+    - target: {fileID: 5576235316683910146, guid: b453ff6303ef9484c9c0dbc03ec0653d, type: 3}
+      propertyPath: m_Size.y
+      value: 2
       objectReference: {fileID: 0}
     - target: {fileID: 3671430053963273706, guid: b453ff6303ef9484c9c0dbc03ec0653d, type: 3}
       propertyPath: m_XMotion
@@ -807,7 +827,11 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 3671430053963273706, guid: b453ff6303ef9484c9c0dbc03ec0653d, type: 3}
       propertyPath: m_Anchor.y
-      value: -0.5
+      value: -1
+      objectReference: {fileID: 0}
+    - target: {fileID: 5576235316683910146, guid: b453ff6303ef9484c9c0dbc03ec0653d, type: 3}
+      propertyPath: m_Size.y
+      value: 2
       objectReference: {fileID: 0}
     - target: {fileID: 3671430053963273706, guid: b453ff6303ef9484c9c0dbc03ec0653d, type: 3}
       propertyPath: m_XMotion
@@ -909,7 +933,11 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 3671430053963273706, guid: b453ff6303ef9484c9c0dbc03ec0653d, type: 3}
       propertyPath: m_Anchor.y
-      value: -0.5
+      value: -1
+      objectReference: {fileID: 0}
+    - target: {fileID: 5576235316683910146, guid: b453ff6303ef9484c9c0dbc03ec0653d, type: 3}
+      propertyPath: m_Size.y
+      value: 2
       objectReference: {fileID: 0}
     - target: {fileID: 3671430053963273706, guid: b453ff6303ef9484c9c0dbc03ec0653d, type: 3}
       propertyPath: m_XMotion
@@ -1011,7 +1039,11 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 3671430053963273706, guid: b453ff6303ef9484c9c0dbc03ec0653d, type: 3}
       propertyPath: m_Anchor.y
-      value: -0.5
+      value: -1
+      objectReference: {fileID: 0}
+    - target: {fileID: 5576235316683910146, guid: b453ff6303ef9484c9c0dbc03ec0653d, type: 3}
+      propertyPath: m_Size.y
+      value: 2
       objectReference: {fileID: 0}
     - target: {fileID: 3671430053963273706, guid: b453ff6303ef9484c9c0dbc03ec0653d, type: 3}
       propertyPath: m_XMotion
@@ -1113,7 +1145,11 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 3671430053963273706, guid: b453ff6303ef9484c9c0dbc03ec0653d, type: 3}
       propertyPath: m_Anchor.y
-      value: -0.5
+      value: -1
+      objectReference: {fileID: 0}
+    - target: {fileID: 5576235316683910146, guid: b453ff6303ef9484c9c0dbc03ec0653d, type: 3}
+      propertyPath: m_Size.y
+      value: 2
       objectReference: {fileID: 0}
     - target: {fileID: 3671430053963273706, guid: b453ff6303ef9484c9c0dbc03ec0653d, type: 3}
       propertyPath: m_XMotion
@@ -1215,7 +1251,11 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 3671430053963273706, guid: b453ff6303ef9484c9c0dbc03ec0653d, type: 3}
       propertyPath: m_Anchor.y
-      value: -0.5
+      value: -1
+      objectReference: {fileID: 0}
+    - target: {fileID: 5576235316683910146, guid: b453ff6303ef9484c9c0dbc03ec0653d, type: 3}
+      propertyPath: m_Size.y
+      value: 2
       objectReference: {fileID: 0}
     - target: {fileID: 3671430053963273706, guid: b453ff6303ef9484c9c0dbc03ec0653d, type: 3}
       propertyPath: m_XMotion
@@ -1322,7 +1362,11 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 3671430053963273706, guid: b453ff6303ef9484c9c0dbc03ec0653d, type: 3}
       propertyPath: m_Anchor.y
-      value: -0.5
+      value: -1
+      objectReference: {fileID: 0}
+    - target: {fileID: 5576235316683910146, guid: b453ff6303ef9484c9c0dbc03ec0653d, type: 3}
+      propertyPath: m_Size.y
+      value: 2
       objectReference: {fileID: 0}
     - target: {fileID: 3671430053963273706, guid: b453ff6303ef9484c9c0dbc03ec0653d, type: 3}
       propertyPath: m_XMotion
@@ -1516,7 +1560,11 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 3671430053963273706, guid: b453ff6303ef9484c9c0dbc03ec0653d, type: 3}
       propertyPath: m_Anchor.y
-      value: -0.5
+      value: -1
+      objectReference: {fileID: 0}
+    - target: {fileID: 5576235316683910146, guid: b453ff6303ef9484c9c0dbc03ec0653d, type: 3}
+      propertyPath: m_Size.y
+      value: 2
       objectReference: {fileID: 0}
     - target: {fileID: 3671430053963273706, guid: b453ff6303ef9484c9c0dbc03ec0653d, type: 3}
       propertyPath: m_XMotion
@@ -1618,7 +1666,11 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 3671430053963273706, guid: b453ff6303ef9484c9c0dbc03ec0653d, type: 3}
       propertyPath: m_Anchor.y
-      value: -0.5
+      value: -1
+      objectReference: {fileID: 0}
+    - target: {fileID: 5576235316683910146, guid: b453ff6303ef9484c9c0dbc03ec0653d, type: 3}
+      propertyPath: m_Size.y
+      value: 2
       objectReference: {fileID: 0}
     - target: {fileID: 3671430053963273706, guid: b453ff6303ef9484c9c0dbc03ec0653d, type: 3}
       propertyPath: m_XMotion

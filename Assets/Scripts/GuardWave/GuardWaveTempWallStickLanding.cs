@@ -31,16 +31,21 @@ namespace GuardWave
             }
 
             _joint = GetComponent<ConfigurableJoint>();
-            BoxCollider box = GetComponent<BoxCollider>();
-            if (_joint == null || box == null)
+            MeshFilter meshFilter = GetComponent<MeshFilter>();
+            Mesh mesh = meshFilter != null ? meshFilter.sharedMesh : null;
+            if (_joint == null || mesh == null)
             {
                 enabled = false;
                 return;
             }
 
-            // A Unity cube's bottom is local y=-0.5, not -1 (its center is 0).
-            // Keep this on the pre-authored joint, never add a new joint at runtime.
-            _joint.anchor = box.center + Vector3.down * (box.size.y * 0.5f);
+            // The prefab's built-in Cylinder mesh is 2 units tall in local space
+            // (min.y = -1). A BoxCollider with size.y = 1 incorrectly put the
+            // former anchor at -0.5, halfway up the actual Stick. Read the visual
+            // mesh bounds instead; TransformPoint applies the instance's scale.
+            Bounds meshBounds = mesh.bounds;
+            _joint.anchor = new Vector3(
+                meshBounds.center.x, meshBounds.min.y, meshBounds.center.z);
             _joint.connectedBody = null;
             _joint.autoConfigureConnectedAnchor = false;
             _joint.connectedAnchor = transform.TransformPoint(_joint.anchor);
