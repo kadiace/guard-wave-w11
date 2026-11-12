@@ -85,6 +85,8 @@ namespace GuardWave
         private readonly HashSet<GuardWavePiece> _pieceSet = new HashSet<GuardWavePiece>();
         private readonly HashSet<GuardWavePiece> _scenePieces = new HashSet<GuardWavePiece>();
         private readonly List<SceneBodyState> _initialScenePieceStates = new List<SceneBodyState>();
+        // The scene-authored Initial Wall uses world-anchored FixedJoints, not MudPatch bonds.
+        private readonly List<FixedJointState> _initialSceneJointStates = new List<FixedJointState>();
         private readonly List<SceneParentActiveState> _initialSceneParentStates =
             new List<SceneParentActiveState>();
         private readonly GuardWaveMaterial[] _offers = new GuardWaveMaterial[3];
@@ -140,6 +142,7 @@ namespace GuardWave
             if (_fluidSettings == null) throw new InvalidOperationException("Missing Resources/Datas/GuardWaveFluidSettings.asset");
             ConfigureScene();
             RegisterScenePieces();
+            CaptureNonMudFixedJoints(_initialSceneJointStates);
             RegisterSceneMudPatches();
             CreateHud();
             _dropPreview = new GuardWaveDropPreview();
@@ -887,6 +890,9 @@ namespace GuardWave
             _pieces.Clear();
             _pieceSet.Clear();
             RestoreInitialScenePieces();
+            // A full in-game restart must restore the original 13 wall-to-world
+            // joints as well as poses; broken joints are not repaired by resetting RBs.
+            RebuildFixedJoints(_initialSceneJointStates);
             _stage = 0;
             _selected = -1;
             _paletteOpen = true;
@@ -1367,19 +1373,9 @@ namespace GuardWave
             }
             snapshot.MudBondHistory.UnionWith(_everMudBonded);
 
-            // Preauthored wall joints can break during a wave. Rigidbody poses
-            // alone cannot recreate destroyed FixedJoint components.
-            HashSet<FixedJoint> mudJoints = new HashSet<FixedJoint>();
-            foreach (MudJointState bond in _activeMudJoints.Values)
-                if (bond.Joint != null) mudJoints.Add(bond.Joint);
-            foreach (FixedJoint joint in FindObjectsByType<FixedJoint>(
-                FindObjectsInactive.Include, FindObjectsSortMode.None))
-            {
-                if (joint == null || joint.gameObject.scene.handle != gameObject.scene.handle ||
-                    mudJoints.Contains(joint))
-                    continue;
-                snapshot.FixedJoints.Add(new FixedJointState(joint));
-            }
+            // Include the 13 preauthored Initial Wall joints. These are not
+            // MudPatch-created bonds and must be reconstructed separately.
+            CaptureNonMudFixedJoints(snapshot.FixedJoints);
 
             // Inactive authored sticks must also be snapshotted: their parent
             // may be activated later without restarting the Forest scene.
@@ -1402,6 +1398,37 @@ namespace GuardWave
             return snapshot;
         }
 
+        /// <summary>Capture scene-authored and other non-mud FixedJoints.</summary>
+        private void CaptureNonMudFixedJoints(List<FixedJointState> destination)
+        {
+            HashSet<FixedJoint> mudJoints = new HashSet<FixedJoint>();
+            foreach (MudJointState bond in _activeMudJoints.Values)
+                if (bond.Joint != null) mudJoints.Add(bond.Joint);
+            foreach (FixedJoint joint in FindObjectsByType<FixedJoint>(
+                FindObjectsInactive.Include, FindObjectsSortMode.None))
+            {
+                if (joint == null || joint.gameObject.scene.handle != gameObject.scene.handle ||
+                    mudJoints.Contains(joint))
+                    continue;
+                destination.Add(new FixedJointState(joint));
+            }
+        }
+
+        /// <summary>Recreate authored joints after they were destroyed by physics or a rollback.</summary>
+        private void RebuildFixedJoints(List<FixedJointState> states)
+        {
+            foreach (FixedJoint joint in FindObjectsByType<FixedJoint>(
+                FindObjectsInactive.Include, FindObjectsSortMode.None))
+            {
+                if (joint != null && joint.gameObject.scene.handle == gameObject.scene.handle)
+                    Destroy(joint);
+            }
+            // Destroy() is deferred until the end of this frame. Adding the new
+            // components here ensures they exist before the next physics tick.
+            foreach (FixedJointState state in states)
+                state.Restore();
+        }
+
         /// <summary>Undo와 파도 실패가 공유하는 단일 체크포인트 복원 경로.</summary>
         private void RestoreEditState(WaveSnapshot snapshot)
         {
@@ -1412,16 +1439,6 @@ namespace GuardWave
             // Clear live joints before changing active bodies/patches.
             foreach (GuardWaveMudPatch patch in _mudPatches)
                 if (patch != null) patch.ClearBonds();
-            // Destroy() is deferred, so disable broken/replaced joints immediately
-            // to avoid a frame with both the old joint and its replacement.
-            foreach (FixedJoint joint in FindObjectsByType<FixedJoint>(
-                FindObjectsInactive.Include, FindObjectsSortMode.None))
-            {
-                if (joint == null || joint.gameObject.scene.handle != gameObject.scene.handle)
-                    continue;
-                joint.enabled = false;
-                Destroy(joint);
-            }
             foreach (GuardWaveMudPatch patch in _mudPatches)
                 if (patch != null)
                     patch.gameObject.SetActive(snapshot.MudPatches.Contains(patch));
@@ -1452,10 +1469,9 @@ namespace GuardWave
             foreach (GuardWavePiece piece in snapshot.SelectableScenePieces)
                 if (piece != null) _pieceSet.Add(piece);
 
-            // Sync all saved poses before recreating fixed joints and motion.
+            // Restore preauthored bonds against the saved world-space poses.
             Physics.SyncTransforms();
-            foreach (FixedJointState state in snapshot.FixedJoints)
-                state.Restore();
+            RebuildFixedJoints(snapshot.FixedJoints);
             foreach (PieceState state in snapshot.Pieces)
                 if (state.Piece != null) state.Body.RestoreMotion(state.Piece.Body);
             snapshot.Flag.RestoreMotion(_flagBody);
@@ -1543,7 +1559,6 @@ namespace GuardWave
             private readonly Vector3 _anchor;
             private readonly Vector3 _connectedAnchor;
             private readonly Vector3 _axis;
-            private readonly Vector3 _secondaryAxis;
             private readonly bool _autoAnchor;
             private readonly bool _collision;
             private readonly bool _preprocessing;
@@ -1559,7 +1574,6 @@ namespace GuardWave
                 _anchor = joint.anchor;
                 _connectedAnchor = joint.connectedAnchor;
                 _axis = joint.axis;
-                _secondaryAxis = joint.secondaryAxis;
                 _autoAnchor = joint.autoConfigureConnectedAnchor;
                 _collision = joint.enableCollision;
                 _preprocessing = joint.enablePreprocessing;
@@ -1578,7 +1592,6 @@ namespace GuardWave
                 joint.anchor = _anchor;
                 joint.connectedAnchor = _connectedAnchor;
                 joint.axis = _axis;
-                joint.secondaryAxis = _secondaryAxis;
                 joint.breakForce = _breakForce;
                 joint.breakTorque = _breakTorque;
                 joint.enableCollision = _collision;
