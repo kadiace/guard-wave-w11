@@ -14,6 +14,7 @@
 #pragma kernel GridToParticle
 #pragma kernel PressureToBodies
 #pragma kernel BuildWaterColumns
+#pragma kernel SmoothWaterColumns
 #pragma kernel RelativeDensityToBodies
 #pragma kernel Waterfall
 
@@ -43,7 +44,8 @@ RWStructuredBuffer<uint> _FlowCounters; // [0] pending refill, [1] total refille
 RWStructuredBuffer<uint> _CrestMetrics; // active wave particles, peak height centimeters, released count
 RWStructuredBuffer<int4> _Accum;
 RWStructuredBuffer<int4> _BodyImpulses; // force impulse in xyz, torque in next xyz
-RWStructuredBuffer<int> _WaterSurface; // highest particle surface in XZ, 4096 units/m
+RWStructuredBuffer<int> _WaterSurface; // raw highest particle surface in XZ, 4096 units/m
+RWStructuredBuffer<int> _SmoothedWaterSurface; // persistent, temporally stable surface
 RWStructuredBuffer<int4> _WaterFlow; // summed local particle velocities x256, count in w
 RWStructuredBuffer<float3> _GridVelocity;
 RWStructuredBuffer<float3> _GridBefore;
@@ -65,6 +67,10 @@ float _CollisionResponse;
 float _CollisionSkin;
 float _FlowResponse;
 float _VerticalFlowResponseScale;
+float _FloatVerticalDamping;
+float _FloatTorqueScale;
+float _FloatMaxBuoyancyRatio;
+float _FloatUprightStrength;
 float _MaxFluidVelocity;
 float _FloorY;
 float _ExitZ;
@@ -533,7 +539,11 @@ void GridToParticle(uint id : SV_DispatchThreadID)
         p.velocity.xyz -= n * approaching * _CollisionResponse;
         p.position.xyz += n * (_CollisionSkin-d);
         int bi = (int)b.centerBody.w;
-        if (bi>=0 && bi<(int)_BodyCount)
+        // Floating pieces already receive coherent, distributed buoyancy and
+        // water-current drag. Per-particle reaction impulses cause violent
+        // kicks and torques, especially on small low-inertia toys.
+        if (bi>=0 && bi<(int)_BodyCount &&
+            !(b.fluidProperties.x > 0.0 && b.fluidProperties.x < 1.0))
         {
             float3 impulse = (before-p.velocity.xyz) * _ParticleMass;
             float3 torque = cross(r, impulse);
@@ -618,6 +628,47 @@ void BuildWaterColumns(uint id : SV_DispatchThreadID)
     InterlockedAdd(_WaterFlow[index].w, 1);
 }
 
+// Spatially average each water column and low-pass its height over time.
+// The raw maximum is very sensitive to one stray particle, which makes
+// floating Rigidbody objects jerk from one physics step to the next.
+// The persistent buffer is initialized to zero once, not reset each frame.
+[numthreads(128,1,1)]
+void SmoothWaterColumns(uint id : SV_DispatchThreadID)
+{
+    uint columns = (uint)(_GridSize.x * _GridSize.z);
+    if (id >= columns) return;
+    int4 ownFlow = _WaterFlow[id];
+    if (ownFlow.w <= 0)
+    {
+        _SmoothedWaterSurface[id] = 0;
+        return;
+    }
+    int2 cell = int2(id % _GridSize.x, id / _GridSize.x);
+    float weightedSurface = 0;
+    float totalWeight = 0;
+    [loop]
+    for (int z = -1; z <= 1; ++z)
+    [loop]
+    for (int x = -1; x <= 1; ++x)
+    {
+        int2 n = cell + int2(x, z);
+        if (any(n < 0) || n.x >= _GridSize.x || n.y >= _GridSize.z) continue;
+        uint index = (uint)(n.y * _GridSize.x + n.x);
+        if (_WaterFlow[index].w <= 0) continue;
+        float weight = x == 0 && z == 0 ? 3.0 : 1.0;
+        weightedSurface += weight * _WaterSurface[index];
+        totalWeight += weight;
+    }
+    float target = weightedSurface / max(totalWeight, 1.0);
+    int oldSurface = _SmoothedWaterSurface[id];
+    // Smooth changes but allow immediate first immersion after river reaches
+    // a previously empty column.
+    float response = 1.0 - exp(-8.0 * _Dt);
+    float nextSurface = oldSurface <= 0 ?
+        target : lerp((float)oldSurface, target, response);
+    _SmoothedWaterSurface[id] = (int)round(nextSurface);
+}
+
 // Sample a weighted neighborhood. Zero particles means zero influence.
 // Fluid occupancy is sampled independently of collider solid-cell masking.
 float SampleWater(float3 pos, out float surfaceY, out float3 waterVelocity)
@@ -640,7 +691,7 @@ float SampleWater(float3 pos, out float surfaceY, out float3 waterVelocity)
         if (any(c < 0) || c.x >= _GridSize.x || c.y >= _GridSize.z) continue;
         uint index = (uint)(c.y * _GridSize.x + c.x);
         int4 flow = _WaterFlow[index];
-        int top = _WaterSurface[index];
+        int top = _SmoothedWaterSurface[index];
         if (flow.w <= 0 || top <= 0) continue;
         float weight = (x == 0 ? 1.0 - f.x : f.x) *
             (z == 0 ? 1.0 - f.y : f.y);
@@ -708,10 +759,16 @@ void RelativeDensityToBodies(uint id : SV_DispatchThreadID)
         float surfaceY;
         float3 flow;
         float coverage = SampleWater(samplePosition, surfaceY, flow);
-        if (coverage <= 0.001 || samplePosition.y > surfaceY) continue;
-        wet += coverage;
+        if (coverage <= 0.001) continue;
+        // Soft volume integration avoids a whole sample toggling between
+        // wet/dry from a small height change on the coarse 0.6m FLIP grid.
+        float immersion = saturate((surfaceY - samplePosition.y) /
+            max(_CellSize * 0.25, 0.001) + 0.5);
+        float displaced = coverage * immersion;
+        if (displaced <= 0.0001) continue;
+        wet += displaced;
         float3 r = samplePosition - body.bodyCenter.xyz;
-        buoyancyTorque += coverage * cross(r, float3(0,1,0));
+        buoyancyTorque += displaced * cross(r, float3(0,1,0));
         float3 bodyPointVelocity = body.velocity.xyz + cross(body.angular.xyz,r);
         // Grounded heavy props follow a reduced target current, not merely
         // a weaker spring that would eventually reach full water speed.
@@ -719,15 +776,19 @@ void RelativeDensityToBodies(uint id : SV_DispatchThreadID)
         targetVelocity.xz *= saturate(body.fluidProperties.y);
         float3 relativeVelocity = targetVelocity - bodyPointVelocity;
         relativeVelocity.y *= _VerticalFlowResponseScale;
-        dragDelta += coverage * relativeVelocity;
-        dragTorque += coverage * cross(r, relativeVelocity);
+        dragDelta += displaced * relativeVelocity;
+        dragTorque += displaced * cross(r, relativeVelocity);
     }
     if (wet <= 0.001) return;
     float submerged = saturate(wet / samples);
     // Unity gravity remains active. At a submerged fraction equal to the
     // relative fluid density, upward buoyancy balances the object's weight.
-    float buoyancyImpulse = mass * _Gravity * _Dt * submerged / density;
-    float3 force = float3(0, buoyancyImpulse, 0);
+    bool floating = density < 1.0;
+    float buoyancyRatio = submerged / density;
+    // Objects below the free surface still rise, but a light 0.25-density
+    // object no longer gets a four-gravity impulse on one noisy frame.
+    if (floating) buoyancyRatio = min(buoyancyRatio, _FloatMaxBuoyancyRatio);
+    float3 force = float3(0, mass * _Gravity * _Dt * buoyancyRatio, 0);
     float3 torque = mass * _Gravity * _Dt / (density * samples)
         * buoyancyTorque;
 
@@ -739,6 +800,25 @@ void RelativeDensityToBodies(uint id : SV_DispatchThreadID)
     float dragScale = mass * following / wet;
     force += dragScale * dragDelta;
     torque += dragScale * dragTorque;
+    if (floating)
+    {
+        // Dissipate bobbing rather than reflecting every microscopic surface
+        // fluctuation into a vertical velocity jump.
+        float verticalDamping = (1.0 - exp(-_FloatVerticalDamping * _Dt))
+            * immersionFactor;
+        force.y -= mass * verticalDamping * body.velocity.y;
+        // Light box-shaped props (duck, bottle) gently self-right, while
+        // cylindrical logs remain free to roll with the flow.
+        if (shape < 0.5 && density < 0.5)
+        {
+            float3 worldUp = Rotate(body.rotation, float3(0,1,0));
+            torque += mass * _Dt * _FloatUprightStrength *
+                cross(worldUp, float3(0,1,0)) * immersionFactor;
+        }
+        // Waves can still tilt an object, but buoyancy and drag are not
+        // allowed to generate full-scale high-frequency rotational impulses.
+        torque *= _FloatTorqueScale;
+    }
     uint dst = (uint)bi * 2;
     InterlockedAdd(_BodyImpulses[dst].x, (int)round(force.x * SCALE));
     InterlockedAdd(_BodyImpulses[dst].y, (int)round(force.y * SCALE));
@@ -766,6 +846,11 @@ void PressureToBodies(uint id : SV_DispatchThreadID)
         FluidCollider body = _Colliders[i];
         int bi = (int)body.centerBody.w;
         if (bi < 0 || bi >= (int)_BodyCount) continue;
+        // Skip per-cell pressure reaction on floaters: their forces come
+        // from the smoothed displaced volume and averaged local current.
+        // Keep pressure impacts for submerged heavy pieces.
+        if (body.fluidProperties.x > 0.0 && body.fluidProperties.x < 1.0)
+            continue;
         float3 dr = pos - body.centerBody.xyz;
         float radius = body.velocity.w + _CellSize;
         if (dot(dr, dr) > radius * radius) continue;
