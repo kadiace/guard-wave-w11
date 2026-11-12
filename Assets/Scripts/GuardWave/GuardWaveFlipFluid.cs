@@ -842,9 +842,8 @@ namespace GuardWave
         /// when a floating body has already risen above the water surface.
         /// </summary>
         private static float CurrentSubmergedFraction(Collider collider, float waterline,
-            float cellSize, out float submergedSlope)
+            float cellSize)
         {
-            submergedSlope = 0f;
             Vector3 center;
             Vector3 halfSize;
             int shape = 0;
@@ -882,14 +881,8 @@ namespace GuardWave
                 return 0f;
 
             float sum = 0f;
-            float slopeSum = 0f;
             int count = 0;
             float softness = Mathf.Max(0.001f, cellSize * 0.25f);
-            // Derivative of the sampled immersed volume with respect to water
-            // height (equivalently, negative derivative with respect to body Y).
-            // The finite interval smooths the discrete 5x5x5 sample layers.
-            float derivativeRadius = Mathf.Max(0.05f, cellSize * 0.15f);
-            float derivativeStep = derivativeRadius / softness;
             for (int x = -2; x <= 2; ++x)
             for (int y = -2; y <= 2; ++y)
             for (int z = -2; z <= 2; ++z)
@@ -909,14 +902,9 @@ namespace GuardWave
                     center + Vector3.Scale(q, halfSize));
                 float relativeHeight = (waterline - point.y) / softness + 0.5f;
                 sum += Mathf.Clamp01(relativeHeight);
-                slopeSum += (Mathf.Clamp01(relativeHeight + derivativeStep) -
-                    Mathf.Clamp01(relativeHeight - derivativeStep)) /
-                    (2f * derivativeRadius);
                 ++count;
             }
-            if (count == 0) return 0f;
-            submergedSlope = slopeSum / count;
-            return sum / count;
+            return count > 0 ? sum / count : 0f;
         }
 
         /// <summary>
@@ -1001,7 +989,6 @@ namespace GuardWave
                 }
                 waterline = _smoothedBodyWaterline[i];
                 float immersed = 0f;
-                float submergedSlope = 0f;
                 int colliders = 0;
                 foreach (Collider collider in _bodySampleColliders[i])
                 {
@@ -1009,34 +996,22 @@ namespace GuardWave
                         !collider.gameObject.activeInHierarchy ||
                         collider.isTrigger || collider.attachedRigidbody != body)
                         continue;
-                    float colliderSlope;
-                    immersed += CurrentSubmergedFraction(collider, waterline,
-                        _cellSize, out colliderSlope);
-                    submergedSlope += colliderSlope;
+                    immersed += CurrentSubmergedFraction(collider, waterline, _cellSize);
                     ++colliders;
                 }
                 if (colliders == 0) continue;
                 // Same displaced-volume definition as the GPU torque path:
                 // submerged shape fraction times observed local water cover.
+                // Preserve the master's 3D water-coverage model.
                 immersed = immersed / colliders * fluidCoverage;
-                submergedSlope = submergedSlope / colliders * fluidCoverage;
                 if (immersed <= 0.0001f) continue;
 
                 float density = Mathf.Max(0.01f, piece.RelativeFluidDensity);
                 float buoyancyRatio = Mathf.Min(immersed / density,
                     _settings.FloatingMaxBuoyancyRatio);
                 float viscosity = Mathf.Clamp01(immersed / density);
-                // d(acceleration)/d(height) = -g * submergedSlope / density.
-                // The critical linear damping coefficient is 2 * sqrt(k).
-                // Add a little overdamping to avoid oscillation under slowly
-                // varying waterlines, while preserving natural floating.
-                float stiffness = gravity * submergedSlope / density;
-                float criticalDamping = 2f * Mathf.Sqrt(Mathf.Max(0f, stiffness));
-                float dampingRate = Mathf.Clamp(Mathf.Max(
-                    _settings.FloatingVerticalDamping,
-                    criticalDamping * _settings.FloatingEquilibriumDampingRatio),
-                    0f, 30f);
-                float damping = 1f - Mathf.Exp(-dampingRate * dt);
+                // Experiment: fixed vertical viscosity without pose-specific critical damping.
+                float damping = 1f - Mathf.Exp(-_settings.FloatingVerticalDamping * dt);
                 Vector3 velocity = body.linearVelocity;
                 if (_ambientFlow && !_crestEmitted && velocity.y > riseCap)
                 {
