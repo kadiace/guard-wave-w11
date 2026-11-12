@@ -91,6 +91,7 @@ namespace GuardWave
         private int _ambientColumns;
         private readonly int _gridCount;
         private readonly int _clearKernel;
+        private readonly int _clearWaterColumnsKernel;
         private readonly int _classifyKernel;
         private readonly int _spawnKernel;
         private readonly int _p2gKernel;
@@ -189,6 +190,7 @@ namespace GuardWave
             _crestMetrics.SetData(new uint[3]);
 
             _clearKernel = _compute.FindKernel("ClearGrid");
+            _clearWaterColumnsKernel = _compute.FindKernel("ClearWaterColumns");
             _classifyKernel = _compute.FindKernel("ClassifyGrid");
             _spawnKernel = _compute.FindKernel("Spawn");
             _initializeAmbientKernel = _compute.FindKernel("InitializeAmbient");
@@ -244,8 +246,8 @@ namespace GuardWave
             Bind(_clearKernel, "_PressureSrc", _pressureA);
             Bind(_clearKernel, "_PressureDst", _pressureB);
             Bind(_clearKernel, "_BodyImpulses", _impulses);
-            Bind(_clearKernel, "_WaterSurface", _waterSurface);
-            Bind(_clearKernel, "_WaterFlow", _waterFlow);
+            Bind(_clearWaterColumnsKernel, "_WaterSurface", _waterSurface);
+            Bind(_clearWaterColumnsKernel, "_WaterFlow", _waterFlow);
             Bind(_clearKernel, "_FlowCounters", _flowCounters);
             Bind(_clearKernel, "_CrestMetrics", _crestMetrics);
             Bind(_classifyKernel, "_Solid", _solid);
@@ -531,6 +533,7 @@ namespace GuardWave
             _compute.SetFloat("_Dt", dt);
             UpdateColliders();
             Dispatch(_clearKernel, Mathf.Max(_gridCount, _bodies.Count * 2));
+            Dispatch(_clearWaterColumnsKernel, _grid.x * _grid.z);
             Dispatch(_classifyKernel, _gridCount);
             if (_ambientFlow) Dispatch(_driveInletKernel, _particleCount);
 
