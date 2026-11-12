@@ -15,6 +15,9 @@ namespace GuardWave
     {
         private const int THREADS = 128;
         private const float IMPULSE_SCALE = 2048f;
+        // Keep all four int4 payload slots in a single ordered GPU readback.
+        // Two describe slow fluid support, two contain real contact momentum.
+        private const int BODY_IMPULSE_STRIDE = 4;
         // Leave an actual open-water buffer past the z=-15 lip, rather than
         // placing the pressure grid's solid boundary against the waterfall.
         private const int OUTFLOW_BUFFER_CELLS = 4;
@@ -138,6 +141,9 @@ namespace GuardWave
             public float SourceTime;
             public Vector3[] Linear;
             public Vector3[] Angular;
+            public Vector3[] ContactLinear;
+            public Vector3[] ContactAngular;
+            public float[] ContactNormalSpeed;
             public float[] Waterline;
             public float[] FluidCoverage;
             public Vector2[] FlowXZ;
@@ -225,7 +231,7 @@ namespace GuardWave
             _pressureB = new ComputeBuffer(_gridCount, sizeof(float));
             _solid = new ComputeBuffer(_gridCount, sizeof(uint));
             _colliderBuffer = new ComputeBuffer(_settings.MaxColliders, Marshal.SizeOf<ColliderData>());
-            _impulses = new ComputeBuffer(_settings.MaxBodies * 2, sizeof(int) * 4);
+            _impulses = new ComputeBuffer(_settings.MaxBodies * BODY_IMPULSE_STRIDE, sizeof(int) * 4);
             _waterSurface = new ComputeBuffer(_grid.x * _grid.z, sizeof(int));
             _smoothedWaterSurface = new ComputeBuffer(_grid.x * _grid.z, sizeof(int));
             // Unlike raw water columns, this history must survive fixed steps.
@@ -651,7 +657,7 @@ namespace GuardWave
             _gpuStep++;
             _compute.SetFloat("_Dt", dt);
             UpdateColliders();
-            Dispatch(_clearKernel, Mathf.Max(_gridCount, _bodies.Count * 2));
+            Dispatch(_clearKernel, Mathf.Max(_gridCount, _bodies.Count * BODY_IMPULSE_STRIDE));
             Dispatch(_clearWaterColumnsKernel, _grid.x * _grid.z);
             Dispatch(_classifyKernel, _gridCount);
             if (_ambientFlow) Dispatch(_driveInletKernel, _particleCount);
@@ -798,23 +804,34 @@ namespace GuardWave
                 return;
             }
             NativeArray<Int4> values = request.GetData<Int4>();
-            int bodyCount = Mathf.Min(requestedBodyCount, values.Length / 2);
+            int bodyCount = Mathf.Min(requestedBodyCount, values.Length / BODY_IMPULSE_STRIDE);
             ImpulseFrame frame = new ImpulseFrame
             {
                 SourceStep = sourceStep,
                 SourceTime = sourceTime,
                 Linear = new Vector3[bodyCount],
                 Angular = new Vector3[bodyCount],
+                ContactLinear = new Vector3[bodyCount],
+                ContactAngular = new Vector3[bodyCount],
+                ContactNormalSpeed = new float[bodyCount],
                 Waterline = new float[bodyCount],
                 FluidCoverage = new float[bodyCount],
                 FlowXZ = new Vector2[bodyCount]
             };
             for (int i = 0; i < bodyCount; i++)
             {
-                Int4 force = values[i * 2];
-                Int4 torque = values[i * 2 + 1];
+                int start = i * BODY_IMPULSE_STRIDE;
+                Int4 force = values[start];
+                Int4 torque = values[start + 1];
+                Int4 contactForce = values[start + 2];
+                Int4 contactTorque = values[start + 3];
                 frame.Linear[i] = new Vector3(force.X, force.Y, force.Z) / IMPULSE_SCALE;
                 frame.Angular[i] = new Vector3(torque.X, torque.Y, torque.Z) / IMPULSE_SCALE;
+                frame.ContactLinear[i] = new Vector3(
+                    contactForce.X, contactForce.Y, contactForce.Z) / IMPULSE_SCALE;
+                frame.ContactAngular[i] = new Vector3(
+                    contactTorque.X, contactTorque.Y, contactTorque.Z) / IMPULSE_SCALE;
+                frame.ContactNormalSpeed[i] = contactForce.W / IMPULSE_SCALE;
                 // Both surface and current are summed with the same
                 // fixed-point wet-coverage weight. Their ratio is already in
                 // world units; do not divide by IMPULSE_SCALE again.
@@ -1127,6 +1144,41 @@ namespace GuardWave
                 }
                 Vector3 appliedAngularImpulse = Vector3.ClampMagnitude(
                     frame.Angular[i], limit * _settings.AngularImpulseMultiplier);
+
+                // Unlike buoyancy, momentum from an actual collider hit does
+                // not require valid surrounding waterline samples. Preserve
+                // the dry-sample invalidation while restoring impacts on the
+                // upper/side faces of ALL <=1 relative-density pieces.
+                if (piece != null && piece.enabled &&
+                    piece.RelativeFluidDensity <= 1f &&
+                    frame.ContactNormalSpeed[i] > 0f)
+                {
+                    // A body cannot gain more translational speed from this
+                    // batched contact than the fastest closing fluid parcel.
+                    // Use physical incoming speed rather than a per-item
+                    // impulse boost or special case for the crest.
+                    float contactLimit = Mathf.Min(limit,
+                        body.mass * frame.ContactNormalSpeed[i]);
+                    Vector3 contactImpulse = Vector3.ClampMagnitude(
+                        frame.ContactLinear[i], contactLimit);
+
+                    // The same speed/mass bound applies to the angular
+                    // impulse about the body center using its actual extent.
+                    float leverArm = 0f;
+                    foreach (Collider collider in _bodySampleColliders[i])
+                    {
+                        if (collider == null || !collider.enabled ||
+                            collider.attachedRigidbody != body) continue;
+                        leverArm = Mathf.Max(leverArm,
+                            (collider.bounds.center - body.worldCenterOfMass).magnitude +
+                            collider.bounds.extents.magnitude);
+                    }
+                    Vector3 contactAngular = Vector3.ClampMagnitude(
+                        frame.ContactAngular[i], contactLimit * leverArm);
+                    appliedImpulse += contactImpulse;
+                    appliedAngularImpulse += contactAngular;
+                }
+
                 body.AddForce(appliedImpulse, ForceMode.Impulse);
                 body.AddTorque(appliedAngularImpulse, ForceMode.Impulse);
                 if (_initialLogJoints[i] != null)

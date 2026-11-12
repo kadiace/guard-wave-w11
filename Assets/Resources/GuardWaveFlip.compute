@@ -20,6 +20,9 @@
 
 #define SCALE 2048.0
 #define MAX_COLLIDERS 256
+// [0]: continuous hydrostatic/current data, [1]: hydrostatic torque/coverage
+// [2]: actual collision momentum, [3]: collision angular momentum
+#define BODY_IMPULSE_STRIDE 4
 
 struct FluidParticle
 {
@@ -43,7 +46,7 @@ RWStructuredBuffer<FluidParticle> _Particles;
 RWStructuredBuffer<uint> _FlowCounters; // [0] missing base water (initial + losses), [1] total supplied, [2] per-tick claims, [3] cliff exits
 RWStructuredBuffer<uint> _CrestMetrics; // active wave particles, peak height centimeters, released count
 RWStructuredBuffer<int4> _Accum;
-RWStructuredBuffer<int4> _BodyImpulses; // force impulse in xyz, torque in next xyz
+RWStructuredBuffer<int4> _BodyImpulses; // BODY_IMPULSE_STRIDE int4 entries per Rigidbody
 RWStructuredBuffer<int> _WaterSurface; // raw highest particle surface in XZ, 4096 units/m
 RWStructuredBuffer<int> _SmoothedWaterSurface; // persistent, temporally stable surface
 RWStructuredBuffer<int4> _WaterFlow; // summed local particle velocities x256, count in w
@@ -202,7 +205,7 @@ void ClearGrid(uint id : SV_DispatchThreadID)
         _PressureSrc[id] = 0;
         _PressureDst[id] = 0;
     }
-    if (id < _BodyCount * 2)
+    if (id < _BodyCount * BODY_IMPULSE_STRIDE)
         _BodyImpulses[id] = int4(0,0,0,0);
     if (id < 3)
         _CrestMetrics[id] = 0u;
@@ -580,21 +583,31 @@ void GridToParticle(uint id : SV_DispatchThreadID)
         p.velocity.xyz -= n * approaching * _CollisionResponse;
         p.position.xyz += n * (_CollisionSkin-d);
         int bi = (int)b.centerBody.w;
-        // Game pieces with relative density use displaced-volume buoyancy and
-        // coherent current drag instead of thousands of particle reactions.
-        // Particle/surface collision still happens on the liquid side.
-        // Non-piece bodies (the defense flag) retain the original impact.
-        if (bi>=0 && bi<(int)_BodyCount && b.fluidProperties.x <= 0.0)
+        // Hydrostatic support and direct collision are different phenomena.
+        // An incoming FLIP parcel can strike a light body's upper surface
+        // while ALL perimeter waterline probes report dry. Transfer only the
+        // observed change in parcel momentum; never fabricate water coverage.
+        // Existing dense piece drag/buoyancy is left unchanged.
+        if (bi >= 0 && bi < (int)_BodyCount && approaching < -0.001 &&
+            b.fluidProperties.x <= 1.0)
         {
-            float3 impulse = (before-p.velocity.xyz) * _ParticleMass;
-            float3 torque = cross(r, impulse);
-            uint dst = bi*2;
+            float3 impulse = (before - p.velocity.xyz) * _ParticleMass;
+            float3 angularImpulse = cross(r, impulse);
+            uint dst = (uint)bi * BODY_IMPULSE_STRIDE;
+            if (b.fluidProperties.x > 0.0)
+            {
+                // Keep actual contacts in separate slots from the float body's
+                // encoded waterline/current. Count only real approaching hits.
+                dst += 2;
+                InterlockedMax(_BodyImpulses[dst].w,
+                    (int)round(-approaching * SCALE));
+            }
             InterlockedAdd(_BodyImpulses[dst].x, (int)round(impulse.x*SCALE));
             InterlockedAdd(_BodyImpulses[dst].y, (int)round(impulse.y*SCALE));
             InterlockedAdd(_BodyImpulses[dst].z, (int)round(impulse.z*SCALE));
-            InterlockedAdd(_BodyImpulses[dst+1].x, (int)round(torque.x*SCALE));
-            InterlockedAdd(_BodyImpulses[dst+1].y, (int)round(torque.y*SCALE));
-            InterlockedAdd(_BodyImpulses[dst+1].z, (int)round(torque.z*SCALE));
+            InterlockedAdd(_BodyImpulses[dst+1].x, (int)round(angularImpulse.x*SCALE));
+            InterlockedAdd(_BodyImpulses[dst+1].y, (int)round(angularImpulse.y*SCALE));
+            InterlockedAdd(_BodyImpulses[dst+1].z, (int)round(angularImpulse.z*SCALE));
         }
     }
     // The temporary wave is a deformable volume, not a rigid mesh.
@@ -853,7 +866,7 @@ void RelativeDensityToBodies(uint id : SV_DispatchThreadID)
     // footprint ratio. The float-body linear Y slot is a sample count, not
     // a force; its force is evaluated on the current Rigidbody pose in Unity.
     if (density < 1.0)
-        InterlockedAdd(_BodyImpulses[(uint)bi * 2].y, (int)SCALE);
+        InterlockedAdd(_BodyImpulses[(uint)bi * BODY_IMPULSE_STRIDE].y, (int)SCALE);
     float shape = body.fluidProperties.w;
     float3 halfSize = body.extentType.xyz;
     if (body.extentType.w > 1.5)
@@ -927,7 +940,7 @@ void RelativeDensityToBodies(uint id : SV_DispatchThreadID)
     // dry ones), while the second W sums their actual fluid coverage.
     if (density < 1.0)
     {
-        uint bodySlot = (uint)bi * 2;
+        uint bodySlot = (uint)bi * BODY_IMPULSE_STRIDE;
         InterlockedAdd(_BodyImpulses[bodySlot].x,
             (int)round(current.x * fluidCoverage * SCALE));
         InterlockedAdd(_BodyImpulses[bodySlot].z,
@@ -1067,7 +1080,7 @@ void RelativeDensityToBodies(uint id : SV_DispatchThreadID)
         }
     }
 
-    uint dst = (uint)bi * 2;
+    uint dst = (uint)bi * BODY_IMPULSE_STRIDE;
     InterlockedAdd(_BodyImpulses[dst].x, (int)round(force.x * SCALE));
     InterlockedAdd(_BodyImpulses[dst].y, (int)round(force.y * SCALE));
     InterlockedAdd(_BodyImpulses[dst].z, (int)round(force.z * SCALE));
@@ -1109,7 +1122,7 @@ void PressureToBodies(uint id : SV_DispatchThreadID)
         float3 impulse = -normal * pressure * _HydroDensity * _Dt *
             _CellSize * _CellSize;
         float3 torque = cross(pos - body.bodyCenter.xyz, impulse);
-        uint index = (uint)bi * 2;
+        uint index = (uint)bi * BODY_IMPULSE_STRIDE;
         InterlockedAdd(_BodyImpulses[index].x, (int)round(impulse.x * SCALE));
         InterlockedAdd(_BodyImpulses[index].y, (int)round(impulse.y * SCALE));
         InterlockedAdd(_BodyImpulses[index].z, (int)round(impulse.z * SCALE));
