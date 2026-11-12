@@ -686,6 +686,8 @@ void SmoothWaterColumns(uint id : SV_DispatchThreadID)
     int2 cell = int2(id % _GridSize.x, id / _GridSize.x);
     float weightedSurface = 0;
     float totalWeight = 0;
+    float neighborhoodHeights[9];
+    int heightCount = 0;
     [loop]
     for (int z = -1; z <= 1; ++z)
     [loop]
@@ -695,11 +697,32 @@ void SmoothWaterColumns(uint id : SV_DispatchThreadID)
         if (any(n < 0) || n.x >= _GridSize.x || n.y >= _GridSize.z) continue;
         uint index = (uint)(n.y * _GridSize.x + n.x);
         if (_WaterFlow[index].w <= 0) continue;
+        float height = (float)_WaterSurface[index];
+        neighborhoodHeights[heightCount++] = height;
         float weight = x == 0 && z == 0 ? 3.0 : 1.0;
-        weightedSurface += weight * _WaterSurface[index];
+        weightedSurface += weight * height;
         totalWeight += weight;
     }
-    float target = weightedSurface / max(totalWeight, 1.0);
+    // A single flying FLIP parcel must not become the water surface of a
+    // whole floating Rigidbody. Keep the existing spatial average, but cap
+    // isolated upward spikes against the neighborhood median. Contiguous
+    // wave crests still raise the median and therefore the buoyancy waterline.
+    [loop]
+    for (int i = 1; i < heightCount; ++i)
+    {
+        float key = neighborhoodHeights[i];
+        int j = i - 1;
+        [loop]
+        while (j >= 0 && neighborhoodHeights[j] > key)
+        {
+            neighborhoodHeights[j + 1] = neighborhoodHeights[j];
+            --j;
+        }
+        neighborhoodHeights[j + 1] = key;
+    }
+    float median = neighborhoodHeights[(heightCount - 1) / 2];
+    float target = min(weightedSurface / max(totalWeight, 1.0),
+        median + _CellSize * 0.35 * 4096.0);
     int oldSurface = _SmoothedWaterSurface[id];
     // Smooth changes but allow immediate first immersion after river reaches
     // a previously empty column.
@@ -847,7 +870,13 @@ void RelativeDensityToBodies(uint id : SV_DispatchThreadID)
         float3 targetVelocity = current;
         targetVelocity.xz *= saturate(body.fluidProperties.y);
         float3 relativeVelocity = targetVelocity - bodyPointVelocity;
-        relativeVelocity.y *= _VerticalFlowResponseScale;
+        // Floating bodies get vertical lift from displaced volume, not from
+        // noisy upward velocities of individual FLIP water parcels. Follow
+        // horizontal currents normally; damp vertical movement toward rest.
+        // Dense bodies retain their original full 3D fluid response.
+        relativeVelocity.y = density < 1.0
+            ? -bodyPointVelocity.y
+            : relativeVelocity.y * _VerticalFlowResponseScale;
         dragDelta += displaced * relativeVelocity;
         dragTorque += displaced * cross(r, relativeVelocity);
     }
