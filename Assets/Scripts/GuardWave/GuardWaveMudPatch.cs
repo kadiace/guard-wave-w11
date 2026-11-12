@@ -58,7 +58,6 @@ namespace GuardWave
         private float _lastMeshRefresh = float.NegativeInfinity;
         private Mesh _mesh;
         private bool _meshDirty;
-        private bool _authored;
         private bool _isDry;
         private Material _instanceMaterial;
         private float _wetSmoothness;
@@ -165,7 +164,6 @@ namespace GuardWave
             _surfaceBody = surfaceBody;
             _breakForce = breakForce;
             _breakTorque = breakTorque;
-            _authored = true;
             // Scene-authored mud uses many rendered child meshes under one patch.
             // Cure all together without modifying the shared Mud.mat asset.
             MeshRenderer[] renderers = GetComponentsInChildren<MeshRenderer>(true);
@@ -536,6 +534,42 @@ namespace GuardWave
             _triggerSegment.AddComponent<GuardWaveMudTriggerRelay>().Initialize(this);
         }
 
+        /// <summary>
+        /// An existing joint is the result of a piece having already entered
+        /// painted mud. Adopt it into the same bond registry as runtime bonds,
+        /// instead of creating a second FixedJoint or a separate curing rule.
+        /// Matching is done on the mud's tangent plane, so authoring a log
+        /// slightly above the creek does not prevent registration.
+        /// </summary>
+        public bool TryAdoptExistingBond(GuardWavePiece piece, FixedJoint joint)
+        {
+            if (_game == null || _isDry || piece == null || joint == null ||
+                !piece.gameObject.activeInHierarchy || _points.Count == 0 ||
+                !_game.IsPlacedPiece(piece) ||
+                joint.connectedBody != _surfaceBody ||
+                _game.HasMudBond(piece) || _game.WasEverMudBonded(piece) ||
+                HasBond(piece))
+                return false;
+
+            Vector3 worldAnchor = piece.transform.TransformPoint(joint.anchor);
+            float radiusSqr = BrushRadius * BrushRadius;
+            bool touchesPaint = false;
+            for (int i = 0; i < _points.Count; i++)
+            {
+                Vector3 sample = transform.TransformPoint(_points[i]);
+                Vector3 normal = transform.TransformDirection(_normals[i]).normalized;
+                Vector3 lateral = Vector3.ProjectOnPlane(worldAnchor - sample, normal);
+                if (lateral.sqrMagnitude > radiusSqr) continue;
+                touchesPaint = true;
+                break;
+            }
+
+            if (!touchesPaint) return false;
+            _bonds.Add(piece, joint);
+            _game.RegisterMudBond(piece, joint);
+            return true;
+        }
+
         private void OnTriggerEnter(Collider other) => TryBond(other);
         private void OnTriggerStay(Collider other) => TryBond(other);
         internal void ProcessTrigger(Collider other) => TryBond(other);
@@ -560,7 +594,6 @@ namespace GuardWave
             if (piece == null || !_game.IsPlacedPiece(piece) ||
                 piece.Body == null || piece.Body.isKinematic ||
                 (!bindSourceToGround && piece.Body == _surfaceBody) ||
-                (_authored && _game.IsScenePiece(piece)) ||
                 _game.HasMudBond(piece) || _game.WasEverMudBonded(piece))
                 return false;
 

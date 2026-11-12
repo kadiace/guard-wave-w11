@@ -39,6 +39,8 @@ namespace GuardWave
         private readonly List<GuardWavePiece> _pieces = new List<GuardWavePiece>();
         private readonly List<GuardWaveMudPatch> _mudPatches = new List<GuardWaveMudPatch>();
         private readonly HashSet<GuardWaveMudPatch> _sceneMudPatches = new HashSet<GuardWaveMudPatch>();
+        private readonly List<GuardWaveMudPatch.MudBondState> _initialMudBondStates =
+            new List<GuardWaveMudPatch.MudBondState>();
         // A piece can form just one mud bond during an attempt. Breaking that bond
         // must never immediately re-attach it to this or another wet stroke.
         private readonly HashSet<GuardWavePiece> _everMudBonded = new HashSet<GuardWavePiece>();
@@ -146,6 +148,9 @@ namespace GuardWave
             _dropPreview = new GuardWaveDropPreview();
             _flipRenderer = new GuardWaveFlipRenderer(_fluidSettings);
             ResetGame();
+            RegisterExistingMudBonds();
+            foreach (GuardWaveMudPatch patch in _mudPatches)
+                if (patch != null) patch.CaptureBonds(_initialMudBondStates);
             _initialized = true;
         }
 
@@ -987,6 +992,11 @@ namespace GuardWave
             _pieces.Clear();
             _pieceSet.Clear();
             RestoreInitialScenePieces();
+            // Recreate initially adopted bonds through the normal patch
+            // snapshot pathway. This also restores broken scene joints on
+            // full restart, rather than leaving the wall unconnected.
+            foreach (GuardWaveMudPatch.MudBondState state in _initialMudBondStates)
+                if (state.Patch != null) state.Patch.RestoreBond(state);
             _stage = 0;
             _selected = -1;
             _paletteOpen = true;
@@ -1041,6 +1051,28 @@ namespace GuardWave
                     mudBreakForce, mudBreakTorque);
                 _sceneMudPatches.Add(patch);
                 _mudPatches.Add(patch);
+            }
+        }
+
+        /// <summary>
+        /// Pre-existing authored FixedJoints enter the ordinary mud bond
+        /// registry. The patch itself checks proximity and connected body:
+        /// no object names, manually paired lists, or initial-log dry logic.
+        /// </summary>
+        private void RegisterExistingMudBonds()
+        {
+            foreach (GuardWavePiece piece in _scenePieces)
+            {
+                if (!IsPlacedPiece(piece)) continue;
+                foreach (FixedJoint joint in piece.GetComponents<FixedJoint>())
+                {
+                    if (joint == null) continue;
+                    foreach (GuardWaveMudPatch patch in _mudPatches)
+                    {
+                        if (patch != null && patch.TryAdoptExistingBond(piece, joint))
+                            break;
+                    }
+                }
             }
         }
 
