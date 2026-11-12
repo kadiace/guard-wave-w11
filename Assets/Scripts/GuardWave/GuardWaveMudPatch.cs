@@ -21,6 +21,10 @@ namespace GuardWave
         private const float MaxTriggerDeviation = 0.12f;
         private const float MinTriggerNormalDot = 0.9f;
         private const float SampleCellSize = 0.6f;
+        // Contact offsets and curved meshes leave a small gap even when the
+        // Rigidbody appears to rest on the painted surface.
+        private const float MaxBondNormalGap = 0.30f;
+        private const float MaxBondInsideSurface = 0.18f;
         private const float MeshRefreshInterval = 0.065f;
         private const float SurfaceOffset = 0.012f;
         private const int CrossSections = 9;
@@ -32,6 +36,9 @@ namespace GuardWave
             new Dictionary<GuardWavePiece, FixedJoint>();
         private readonly Dictionary<Collider, float> _lastContactCheck =
             new Dictionary<Collider, float>();
+        // Brush-time queries catch pieces already in contact before a new
+        // trigger is installed, without performing a whole-scene scan.
+        private readonly Collider[] _nearbyColliders = new Collider[64];
         private readonly Dictionary<Vector2Int, List<int>> _sampleGrid =
             new Dictionary<Vector2Int, List<int>>();
         // Reuse mesh buffers: a long stroke should not allocate three large lists every update.
@@ -114,6 +121,9 @@ namespace GuardWave
             public readonly GuardWavePiece Piece;
             public readonly Vector3 Anchor;
             public readonly Vector3 ConnectedAnchor;
+            public readonly Rigidbody ConnectedBody;
+            public readonly float BreakForce;
+            public readonly float BreakTorque;
 
             public MudBondState(GuardWaveMudPatch patch, GuardWavePiece piece, FixedJoint joint)
             {
@@ -121,6 +131,9 @@ namespace GuardWave
                 Piece = piece;
                 Anchor = joint.anchor;
                 ConnectedAnchor = joint.connectedAnchor;
+                ConnectedBody = joint.connectedBody;
+                BreakForce = joint.breakForce;
+                BreakTorque = joint.breakTorque;
             }
         }
 
@@ -191,6 +204,9 @@ namespace GuardWave
             IndexSample(point, index);
             _meshDirty = true;
             UpdateTriggerSegment(index);
+            // Do not wait for OnTriggerEnter/Stay: painting over two surfaces
+            // that already touch must glue them immediately.
+            TryBondNearSample(worldPoint, worldNormal);
         }
 
         /// <summary>Throttle full mesh uploads while painting; always flush the final brush position.</summary>
@@ -524,49 +540,137 @@ namespace GuardWave
         private void OnTriggerStay(Collider other) => TryBond(other);
         internal void ProcessTrigger(Collider other) => TryBond(other);
 
+        /// <summary>
+        /// The other collider may belong to a dynamic piece or to the static
+        /// creek bed. A stroke painted on a piece must be able to join it to
+        /// the creek just as a stroke painted on the creek can capture a piece.
+        /// </summary>
+        private bool TryBondAt(Collider other, Vector3 paintedPoint, Vector3 paintedNormal)
+        {
+            if (_game == null || _isDry || other == null ||
+                other == _surfaceCollider || other.isTrigger) return false;
+
+            GuardWavePiece sourcePiece = _surfaceCollider == null
+                ? null : _surfaceCollider.GetComponentInParent<GuardWavePiece>();
+            GuardWavePiece otherPiece = other.GetComponentInParent<GuardWavePiece>();
+            bool bindSourceToGround = other == _game.CreekBedCollider &&
+                sourcePiece != null && _game.IsPlacedPiece(sourcePiece);
+            GuardWavePiece piece = bindSourceToGround ? sourcePiece : otherPiece;
+
+            if (piece == null || !_game.IsPlacedPiece(piece) ||
+                piece.Body == null || piece.Body.isKinematic ||
+                (!bindSourceToGround && piece.Body == _surfaceBody) ||
+                (_authored && _game.IsScenePiece(piece)) ||
+                _game.HasMudBond(piece) || _game.WasEverMudBonded(piece))
+                return false;
+
+            // The source may be a static bank: do not bind a piece to an
+            // unrelated static collider through a brush on another object.
+            if (otherPiece == null && !bindSourceToGround)
+                return false;
+
+            Vector3 normal = paintedNormal.normalized;
+            Vector3 closest = other.ClosestPoint(paintedPoint);
+            Vector3 offset = closest - paintedPoint;
+            float normalGap = Vector3.Dot(offset, normal);
+            float lateral = Vector3.ProjectOnPlane(offset, normal).magnitude;
+            if (normalGap < -MaxBondInsideSurface || normalGap > MaxBondNormalGap ||
+                lateral > BrushRadius * 1.05f)
+                return false;
+
+            // Midpoint anchors prevent a large solver impulse when convex
+            // meshes rest slightly above the painted point.
+            Vector3 anchor = (paintedPoint + closest) * 0.5f;
+            Rigidbody connectedBody = bindSourceToGround ? null : _surfaceBody;
+            Vector3 localAnchor = piece.transform.InverseTransformPoint(anchor);
+            Vector3 connectedAnchor = connectedBody == null ? anchor
+                : connectedBody.transform.InverseTransformPoint(anchor);
+            CreateBond(piece, localAnchor, connectedAnchor, connectedBody);
+            return HasBond(piece);
+        }
+
+        private void TryBondNearSample(Vector3 worldPoint, Vector3 worldNormal)
+        {
+            if (_game == null || _isDry) return;
+            int count = Physics.OverlapSphereNonAlloc(worldPoint,
+                BrushRadius + MaxBondNormalGap, _nearbyColliders,
+                Physics.DefaultRaycastLayers, QueryTriggerInteraction.Ignore);
+            for (int i = 0; i < count; i++)
+                TryBondAt(_nearbyColliders[i], worldPoint, worldNormal);
+        }
+
+        /// <summary>
+        /// A continuous brush gesture may cross from creek to an already
+        /// placed log (or the reverse). Each mesh is kept on its own moving
+        /// surface, but the joint is formed across the shared paint boundary.
+        /// </summary>
+        public void TryBridgeTo(Collider nextSurface, Vector3 worldPoint, Vector3 worldNormal)
+        {
+            TryBondAt(nextSurface, worldPoint, worldNormal);
+        }
+
+        public bool TryGetLastSurfaceSample(out Vector3 point, out Vector3 normal)
+        {
+            point = default;
+            normal = Vector3.up;
+            if (_points.Count == 0) return false;
+            int last = _points.Count - 1;
+            point = transform.TransformPoint(_points[last]);
+            normal = transform.TransformDirection(_normals[last]).normalized;
+            return true;
+        }
+
+        private void OnTriggerEnter(Collider other) => TryBond(other);
+        private void OnTriggerStay(Collider other) => TryBond(other);
+        internal void ProcessTrigger(Collider other) => TryBond(other);
+
         private void TryBond(Collider other)
         {
             if (_game == null || _isDry || other == null) return;
-            GuardWavePiece piece = other.GetComponentInParent<GuardWavePiece>();
-            if (piece == null || !_game.IsPlacedPiece(piece) ||
-                (_authored && _game.IsScenePiece(piece)) ||
-                piece.Body == _surfaceBody || piece.Body.isKinematic ||
-                _game.HasMudBond(piece) || _game.WasEverMudBonded(piece))
+            GuardWavePiece otherPiece = other.GetComponentInParent<GuardWavePiece>();
+            bool possibleCreek = other == _game.CreekBedCollider &&
+                _surfaceBody != null;
+            if (!possibleCreek && (otherPiece == null ||
+                !_game.IsPlacedPiece(otherPiece))) return;
+            // The creek AABB spans the entire channel. For this rare case,
+            // test the short patch directly instead of hashing thousands of
+            // empty world cells every physics step.
+            if (possibleCreek)
+            {
+                for (int i = 0; i < _points.Count; i++)
+                    if (TryBondAt(other, transform.TransformPoint(_points[i]),
+                        transform.TransformDirection(_normals[i]).normalized)) return;
                 return;
-
+            }
             if (_lastContactCheck.TryGetValue(other, out float checkedAt) &&
-                checkedAt == Time.fixedTime)
-                return;
+                checkedAt == Time.fixedTime) return;
             _lastContactCheck[other] = Time.fixedTime;
 
-            // Convert the expanded collider AABB into the brush's local plane.
-            // This also handles strokes attached to moving/rotating logs.
+            // The sample hash keeps each contact test proportional to nearby
+            // brush points rather than the full stroke length.
             Bounds bounds = other.bounds;
-            Vector3 pad = Vector3.one * (BrushRadius + 0.2f);
+            Vector3 pad = Vector3.one * (BrushRadius + MaxBondNormalGap);
             Vector3 low = bounds.min - pad;
             Vector3 high = bounds.max + pad;
-            Vector3 minimum = new Vector3(float.PositiveInfinity, 0f, float.PositiveInfinity);
-            Vector3 maximum = new Vector3(float.NegativeInfinity, 0f, float.NegativeInfinity);
+            Vector3 min = new Vector3(float.PositiveInfinity, 0f, float.PositiveInfinity);
+            Vector3 max = new Vector3(float.NegativeInfinity, 0f, float.NegativeInfinity);
             for (int corner = 0; corner < 8; corner++)
             {
-                Vector3 world = new Vector3((corner & 1) == 0 ? low.x : high.x,
+                Vector3 vertex = new Vector3(
+                    (corner & 1) == 0 ? low.x : high.x,
                     (corner & 2) == 0 ? low.y : high.y,
                     (corner & 4) == 0 ? low.z : high.z);
-                Vector3 local = transform.InverseTransformPoint(world);
-                minimum.x = Mathf.Min(minimum.x, local.x);
-                minimum.z = Mathf.Min(minimum.z, local.z);
-                maximum.x = Mathf.Max(maximum.x, local.x);
-                maximum.z = Mathf.Max(maximum.z, local.z);
+                Vector3 local = transform.InverseTransformPoint(vertex);
+                min.x = Mathf.Min(min.x, local.x);
+                min.z = Mathf.Min(min.z, local.z);
+                max.x = Mathf.Max(max.x, local.x);
+                max.z = Mathf.Max(max.z, local.z);
             }
 
-            float nearestDistance = float.PositiveInfinity;
-            Vector3 anchorPoint = default;
-            Vector3 centerOfMass = piece.Body.worldCenterOfMass;
-            Vector3 velocity = piece.Body.linearVelocity;
-            int x0 = Mathf.FloorToInt(minimum.x / SampleCellSize);
-            int x1 = Mathf.FloorToInt(maximum.x / SampleCellSize);
-            int z0 = Mathf.FloorToInt(minimum.z / SampleCellSize);
-            int z1 = Mathf.FloorToInt(maximum.z / SampleCellSize);
+            int x0 = Mathf.FloorToInt(min.x / SampleCellSize);
+            int x1 = Mathf.FloorToInt(max.x / SampleCellSize);
+            int z0 = Mathf.FloorToInt(min.z / SampleCellSize);
+            int z1 = Mathf.FloorToInt(max.z / SampleCellSize);
             for (int x = x0; x <= x1; x++)
             for (int z = z0; z <= z1; z++)
             {
@@ -574,44 +678,22 @@ namespace GuardWave
                     out List<int> indices)) continue;
                 foreach (int index in indices)
                 {
-                    Vector3 worldPoint = transform.TransformPoint(_points[index]);
-                    Vector3 worldNormal =
-                        transform.TransformDirection(_normals[index]).normalized;
-                    Vector3 closest = other.ClosestPoint(worldPoint);
-                    Vector3 difference = closest - worldPoint;
-                    float height = Vector3.Dot(difference, worldNormal);
-                    float lateral = Vector3.ProjectOnPlane(difference, worldNormal).magnitude;
-                    float distance = difference.sqrMagnitude;
-
-                    if (height < -0.16f || height > 0.085f ||
-                        lateral > BrushRadius * 1.05f ||
-                        Vector3.Dot(centerOfMass - worldPoint, worldNormal) < -0.12f ||
-                        Vector3.Dot(velocity, worldNormal) > 0.2f ||
-                        distance >= nearestDistance)
-                        continue;
-
-                    nearestDistance = distance;
-                    anchorPoint = worldPoint;
+                    Vector3 point = transform.TransformPoint(_points[index]);
+                    Vector3 normal = transform.TransformDirection(_normals[index]).normalized;
+                    if (TryBondAt(other, point, normal)) return;
                 }
             }
-
-            if (float.IsPositiveInfinity(nearestDistance)) return;
-            Vector3 anchor = piece.transform.InverseTransformPoint(anchorPoint);
-            Vector3 connectedAnchor = _surfaceBody == null ? anchorPoint
-                : _surfaceBody.transform.InverseTransformPoint(anchorPoint);
-            CreateBond(piece, anchor, connectedAnchor);
         }
 
         private void CreateBond(GuardWavePiece piece, Vector3 anchor,
-            Vector3 connectedAnchor)
+            Vector3 connectedAnchor, Rigidbody connectedBody)
         {
             if (piece == null || HasBond(piece)) return;
             FixedJoint joint = piece.gameObject.AddComponent<FixedJoint>();
             joint.autoConfigureConnectedAnchor = false;
-            joint.connectedBody = _surfaceBody;
+            joint.connectedBody = connectedBody;
             joint.anchor = anchor;
             joint.connectedAnchor = connectedAnchor;
-            // Recreated joints after rollback retain the cured strength.
             joint.breakForce = _breakForce * (_isDry ? 2f : 1f);
             joint.breakTorque = _breakTorque * (_isDry ? 2f : 1f);
             joint.enableCollision = false;
@@ -665,7 +747,13 @@ namespace GuardWave
         {
             if (state.Patch != this || state.Piece == null ||
                 !_game.IsPlacedPiece(state.Piece)) return;
-            CreateBond(state.Piece, state.Anchor, state.ConnectedAnchor);
+            CreateBond(state.Piece, state.Anchor, state.ConnectedAnchor,
+                state.ConnectedBody);
+            if (_bonds.TryGetValue(state.Piece, out FixedJoint joint) && joint != null)
+            {
+                joint.breakForce = state.BreakForce;
+                joint.breakTorque = state.BreakTorque;
+            }
         }
 
         private void OnDestroy()

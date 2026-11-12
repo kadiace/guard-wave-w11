@@ -401,9 +401,12 @@ Q/E: 기물 회전 / 우클릭 또는 Esc: 선택 취소
                 case "log":
                 case "forest_pebble":
                 case "default_flag":
-                case "hair_dryer":
-                    // GuardWaveCandidateHover -> ShowTooltip -> CandidateDescription.
                     return BuildCandidateDetails(material);
+                case "hair_dryer":
+                    // The dryer only needs a short sentence on hover.
+                    return material.abilities != null && material.abilities.Length > 0
+                        ? material.name + "\n\n" + material.abilities[0]
+                        : material.name;
                 default:
                     return AbilityTooltip(material.id);
             }

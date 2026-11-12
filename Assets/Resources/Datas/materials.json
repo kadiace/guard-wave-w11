@@ -18,7 +18,7 @@
       "id": "hair_dryer",
       "name": "헤어 드라이기",
       "category": "도구",
-      "abilities": ["젖은 진흙을 좌클릭으로 1초간 계속 누르면 해당 진흙이 마릅니다. 마른 진흙은 더 이상 새 기물을 붙이지 않고, 기존 FixedJoint의 Break Force와 Break Torque가 각각 2배가 됩니다."]
+      "abilities": ["진흙을 말려, 이미 붙어 있는 물체들을 더 단단하게 결합합니다."]
     },
     {
       "id": "foundation",

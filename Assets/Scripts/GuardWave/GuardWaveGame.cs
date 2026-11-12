@@ -74,6 +74,8 @@ namespace GuardWave
         private Vector2 _lastMudCursorScreen;
         private bool _paintingMud;
         private GuardWaveMudPatch _dryingTarget;
+        private GuardWaveDryerCoverage _dryerCoverage;
+        private Collider _creekBedCollider;
         private float _dryingHoldSeconds;
         private const float MUD_DRY_HOLD_SECONDS = 1f;
 
@@ -129,6 +131,7 @@ namespace GuardWave
         private GuardWavePiece _rightPressedPiece;
 
         internal float DestructionBoundaryZ => _sceneContext.DestructionBoundaryZ;
+        internal Collider CreekBedCollider => _creekBedCollider;
 
         private void Start()
         {
@@ -352,6 +355,21 @@ namespace GuardWave
 
         private void PaintMudAt(RaycastHit surface)
         {
+            // One held brush gesture may cross from a log to the creek floor.
+            // Give each surface its own moving mud mesh, but explicitly bond
+            // the surfaces at the brush boundary when they physically meet.
+            GuardWaveMudPatch previousPatch = _activeMudStroke != null &&
+                _activeMudStroke.SurfaceCollider != surface.collider
+                ? _activeMudStroke : null;
+            Vector3 lastPoint = default;
+            Vector3 lastNormal = Vector3.up;
+            bool hasPreviousPoint = previousPatch != null &&
+                previousPatch.TryGetLastSurfaceSample(
+                    out lastPoint, out lastNormal);
+            if (hasPreviousPoint && Vector3.Distance(lastPoint, surface.point) >
+                GuardWaveMudPatch.BrushRadius * 2.5f)
+                hasPreviousPoint = false;
+
             if (_activeMudStroke == null ||
                 _activeMudStroke.SurfaceCollider != surface.collider ||
                 _activeMudStroke.IsFull ||
@@ -371,7 +389,13 @@ namespace GuardWave
             }
 
             _activeMudStroke.AddPoint(surface.point, surface.normal);
-            _status = "진흙을 바르는 중… 커서 아래의 가장 가까운 표면에 도포됩니다.";
+            if (hasPreviousPoint)
+            {
+                previousPatch.TryBridgeTo(surface.collider, lastPoint, lastNormal);
+                _activeMudStroke.TryBridgeTo(previousPatch.SurfaceCollider,
+                    surface.point, surface.normal);
+            }
+            _status = "진흙을 바르는 중… 접촉한 표면을 고정합니다.";
         }
 
         private void EndMudPainting()
@@ -421,6 +445,10 @@ namespace GuardWave
             }
 
             _dryingHoldSeconds += Time.deltaTime;
+            if (_dryerCoverage == null)
+                _dryerCoverage = new GuardWaveDryerCoverage();
+            _dryerCoverage.Show(surface.point, surface.normal,
+                Mathf.Clamp01(_dryingHoldSeconds / MUD_DRY_HOLD_SECONDS));
             if (_dryingHoldSeconds < MUD_DRY_HOLD_SECONDS)
             {
                 _status = "진흙 건조 중… " +
@@ -437,6 +465,7 @@ namespace GuardWave
         {
             _dryingTarget = null;
             _dryingHoldSeconds = 0f;
+            _dryerCoverage?.Hide();
         }
 
         internal bool HasMudBond(GuardWavePiece piece) =>
@@ -642,6 +671,8 @@ namespace GuardWave
             _dropPreview?.Dispose();
             EndMudPainting();
             EndMudDrying();
+            _dryerCoverage?.Dispose();
+            _dryerCoverage = null;
             if (_mudPreview != null)
             {
                 MeshFilter filter = _mudPreview.GetComponent<MeshFilter>();
@@ -708,8 +739,9 @@ namespace GuardWave
             _flagBody = _defenseFlag.GetComponent<Rigidbody>();
             _flagCollider = _defenseFlag.GetComponent<BoxCollider>();
             _initialFlagState = new RigidbodyState(_flagBody);
-            _placementBounds = GameObject.Find("Flat Muddy Creek Bed")
-                .GetComponent<BoxCollider>().bounds;
+            _creekBedCollider = GameObject.Find("Flat Muddy Creek Bed")
+                .GetComponent<BoxCollider>();
+            _placementBounds = _creekBedCollider.bounds;
             _lowerCreekBounds = GameObject.Find("Flat Muddy Creek Bed After Cliff")
                 .GetComponent<BoxCollider>().bounds;
             _cameraTarget.y = _placementBounds.max.y + 2f;
