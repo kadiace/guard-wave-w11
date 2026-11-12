@@ -1128,9 +1128,8 @@ namespace GuardWave
                     }
                     else
                     {
-                        // No water in this sampled body footprint: discard
-                        // support immediately, without object-specific rules.
                         _recentFluidCoverage[i] = 0f;
+                        _recentWaterlineTime[i] = 0f;
                         _hasSmoothedBodyWaterline[i] = false;
                         _hasSmoothedBodyFlowXZ[i] = false;
                     }
