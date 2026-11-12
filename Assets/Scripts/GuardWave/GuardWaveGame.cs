@@ -38,14 +38,15 @@ namespace GuardWave
 
         private readonly List<GuardWavePiece> _pieces = new List<GuardWavePiece>();
         private readonly List<GuardWaveMudPatch> _mudPatches = new List<GuardWaveMudPatch>();
+        private readonly HashSet<GuardWaveMudPatch> _sceneMudPatches = new HashSet<GuardWaveMudPatch>();
         private GameObject _mudPreview;
         private GuardWaveMudPatch _activeMudStroke;
         private Vector2 _lastMudCursorScreen;
         private bool _paintingMud;
 
         [Header("Mud adhesion")]
-        [SerializeField, Min(0f)] private float mudBreakForce = 2000f;
-        [SerializeField, Min(0f)] private float mudBreakTorque = 1400f;
+        [SerializeField, Min(0f)] private float mudBreakForce = 35f;
+        [SerializeField, Min(0f)] private float mudBreakTorque = float.PositiveInfinity;
         private readonly HashSet<GuardWavePiece> _pieceSet = new HashSet<GuardWavePiece>();
         private readonly HashSet<GuardWavePiece> _scenePieces = new HashSet<GuardWavePiece>();
         private readonly List<SceneBodyState> _initialScenePieceStates = new List<SceneBodyState>();
@@ -104,6 +105,7 @@ namespace GuardWave
             if (_fluidSettings == null) throw new InvalidOperationException("Missing Resources/Datas/GuardWaveFluidSettings.asset");
             ConfigureScene();
             RegisterScenePieces();
+            RegisterSceneMudPatches();
             CreateHud();
             _dropPreview = new GuardWaveDropPreview();
             _flipRenderer = new GuardWaveFlipRenderer(_fluidSettings);
@@ -339,6 +341,9 @@ namespace GuardWave
             return false;
         }
 
+        /// <summary>씬에 원래 배치된 기물인지 판별한다.</summary>
+        internal bool IsScenePiece(GuardWavePiece piece) => _scenePieces.Contains(piece);
+
         /// <summary>커서 위치의 배치 가능 여부에 따라 실제 자재의 낙하 미리보기 색을 바꾼다.</summary>
         private void UpdateDropPreview()
         {
@@ -450,8 +455,6 @@ namespace GuardWave
             EndMudPainting();
             if (_mudPreview != null)
             {
-                Renderer renderer = _mudPreview.GetComponent<Renderer>();
-                if (renderer != null) Destroy(renderer.sharedMaterial);
                 MeshFilter filter = _mudPreview.GetComponent<MeshFilter>();
                 if (filter != null) Destroy(filter.sharedMesh);
                 SafeDestroySelectedObject(_mudPreview);
@@ -736,11 +739,13 @@ namespace GuardWave
             {
                 if (patch == null) continue;
                 patch.ClearBonds();
+                if (_sceneMudPatches.Contains(patch)) continue;
                 patch.gameObject.SetActive(false);
                 SafeDestroySelectedObject(patch.gameObject);
                 Destroy(patch.gameObject);
             }
             _mudPatches.Clear();
+            _mudPatches.AddRange(_sceneMudPatches);
             foreach (GuardWavePiece piece in _pieces)
             {
                 if (piece == null) continue;
@@ -790,6 +795,21 @@ namespace GuardWave
                 _initialScenePieceStates.Add(new SceneBodyState(body));
             }
             CaptureSceneParentActivation(_initialSceneParentStates);
+        }
+
+        /// <summary>씬에 배치된 진흙을 게임의 접착 및 되돌리기 대상에 포함한다.</summary>
+        private void RegisterSceneMudPatches()
+        {
+            Collider creekBed = GameObject.Find("Flat Muddy Creek Bed").GetComponent<Collider>();
+            foreach (GuardWaveMudPatch patch in FindObjectsByType<GuardWaveMudPatch>(
+                FindObjectsInactive.Include, FindObjectsSortMode.None))
+            {
+                if (patch.gameObject.scene.handle != gameObject.scene.handle) continue;
+                patch.InitializeAuthored(this, creekBed, creekBed.attachedRigidbody,
+                    mudBreakForce, mudBreakTorque);
+                _sceneMudPatches.Add(patch);
+                _mudPatches.Add(patch);
+            }
         }
 
         /// <summary>Captures parent activation so disabled Beaver Houses survive rollback.</summary>

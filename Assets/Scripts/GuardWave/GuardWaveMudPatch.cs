@@ -18,8 +18,7 @@ namespace GuardWave
         private const float ColliderSpacing = 0.5f;
         private const float SurfaceOffset = 0.012f;
         private const int CrossSections = 9;
-        private static Texture2D s_impastoTexture;
-        private static int s_impastoTextureUsers;
+        private static Material s_mudMaterial;
 
         private readonly List<Vector3> _points = new List<Vector3>();
         private readonly List<Vector3> _normals = new List<Vector3>();
@@ -34,9 +33,9 @@ namespace GuardWave
         private float _breakForce;
         private float _breakTorque;
         private Vector3 _lastTriggerPosition;
-        private Material _material;
         private Mesh _mesh;
         private bool _meshDirty;
+        private bool _authored;
 
         public Collider SurfaceCollider => _surfaceCollider;
         public bool IsFull => _points.Count >= MaxSamples;
@@ -89,10 +88,27 @@ namespace GuardWave
             _mesh = new Mesh { name = "Wet Mud Brush Stroke" };
             _mesh.MarkDynamic();
             filter.sharedMesh = _mesh;
-            _material = CreateMudMaterial(false);
-            renderer.sharedMaterial = _material;
+            renderer.sharedMaterial = MudMaterial;
             renderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
             renderer.receiveShadows = false;
+        }
+
+        /// <summary>씬에 배치된 진흙의 트리거 중심을 접착 표면 샘플로 등록한다.</summary>
+        public void InitializeAuthored(GuardWaveGame game, Collider surfaceCollider,
+            Rigidbody surfaceBody, float breakForce, float breakTorque)
+        {
+            _game = game;
+            _surfaceCollider = surfaceCollider;
+            _surfaceBody = surfaceBody;
+            _breakForce = breakForce;
+            _breakTorque = breakTorque;
+            _authored = true;
+
+            foreach (SphereCollider trigger in GetComponents<SphereCollider>())
+            {
+                _points.Add(trigger.center - Vector3.up * 0.24f);
+                _normals.Add(Vector3.up);
+            }
         }
 
         /// <summary>Appends a brush sample in the parented surface's local space.</summary>
@@ -291,76 +307,16 @@ namespace GuardWave
             mesh.RecalculateNormals();
             mesh.RecalculateBounds();
             filter.sharedMesh = mesh;
-            renderer.sharedMaterial = CreateMudMaterial(true);
+            renderer.sharedMaterial = MudMaterial;
             renderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
             renderer.receiveShadows = false;
             preview.hideFlags = HideFlags.HideInHierarchy;
             return preview;
         }
 
-        private static Material CreateMudMaterial(bool preview)
-        {
-            Shader shader = Shader.Find("Universal Render Pipeline/Lit");
-            if (shader == null) shader = Shader.Find("Standard");
-            Material material = new Material(shader);
-            material.name = preview ? "Impasto Brush Preview" : "Wet Impasto Adhesive";
-            Color tint = preview
-                ? new Color(0.75f, 0.51f, 0.29f, 1f)
-                : new Color(0.42f, 0.27f, 0.14f, 1f);
-            if (material.HasProperty("_BaseColor")) material.SetColor("_BaseColor", tint);
-            if (material.HasProperty("_Color")) material.SetColor("_Color", tint);
-            if (material.HasProperty("_Smoothness"))
-                material.SetFloat("_Smoothness", preview ? 0.77f : 0.83f);
-            if (material.HasProperty("_Metallic"))
-                material.SetFloat("_Metallic", 0f);
-            if (material.HasProperty("_SpecColor"))
-                material.SetColor("_SpecColor", new Color(0.30f, 0.24f, 0.17f, 1f));
-
-            // The texture has directional pigment/binder streaks, not splat
-            // circles. Share one readable texture among all paint strokes.
-            if (!preview)
-            {
-                if (s_impastoTexture == null)
-                    s_impastoTexture = CreateImpastoTexture();
-                s_impastoTextureUsers++;
-                if (material.HasProperty("_BaseMap"))
-                    material.SetTexture("_BaseMap", s_impastoTexture);
-                if (material.HasProperty("_MainTex"))
-                    material.SetTexture("_MainTex", s_impastoTexture);
-            }
-            return material;
-        }
-
-        private static Texture2D CreateImpastoTexture()
-        {
-            const int size = 96;
-            Texture2D texture = new Texture2D(
-                size, size, TextureFormat.RGBA32, true);
-            texture.name = "Impasto Pigment & Binder Striations";
-            texture.wrapMode = TextureWrapMode.Repeat;
-            texture.filterMode = FilterMode.Bilinear;
-
-            Color[] pixels = new Color[size * size];
-            for (int y = 0; y < size; y++)
-            {
-                float v = y / (float)size;
-                for (int x = 0; x < size; x++)
-                {
-                    float u = x / (float)(size - 1);
-                    float lengthwise = Mathf.PerlinNoise(u * 10.0f, v * 1.8f);
-                    float fine = Mathf.PerlinNoise(u * 34f + 2f, v * 5f);
-                    float streak = Mathf.Sin(u * 61f + v * 2.7f) * 0.036f;
-                    float pigment = Mathf.Clamp(
-                        0.69f + 0.19f * lengthwise + 0.13f * fine + streak,
-                        0.48f, 1f);
-                    pixels[y * size + x] = new Color(
-                        pigment, pigment * 0.94f, pigment * 0.87f, 1f);
-                }
-            }
-            texture.SetPixels(pixels);
-            texture.Apply(true, true);
-            return texture;
-        }
+        private static Material MudMaterial => s_mudMaterial != null
+            ? s_mudMaterial
+            : s_mudMaterial = Resources.Load<Material>("Materials/Mud");
 
         private void OnTriggerEnter(Collider other) => TryBond(other);
         private void OnTriggerStay(Collider other) => TryBond(other);
@@ -370,6 +326,7 @@ namespace GuardWave
             if (_game == null) return;
             GuardWavePiece piece = other.GetComponentInParent<GuardWavePiece>();
             if (piece == null || !_game.IsPlacedPiece(piece) ||
+                (_authored && _game.IsScenePiece(piece)) ||
                 piece.Body == _surfaceBody || piece.Body.isKinematic ||
                 _game.HasMudBond(piece))
                 return;
@@ -476,13 +433,7 @@ namespace GuardWave
         private void OnDestroy()
         {
             ClearBonds();
-            if (_material != null) Destroy(_material);
             if (_mesh != null) Destroy(_mesh);
-            if (s_impastoTextureUsers > 0 && --s_impastoTextureUsers == 0)
-            {
-                if (s_impastoTexture != null) Destroy(s_impastoTexture);
-                s_impastoTexture = null;
-            }
         }
     }
 }

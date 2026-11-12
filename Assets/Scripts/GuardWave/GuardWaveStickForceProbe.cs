@@ -3,7 +3,7 @@ using UnityEngine;
 namespace GuardWave
 {
     /// <summary>
-    /// Diagnostic probe for Forest/Temp Wall's FIRST child (Stick).
+    /// Diagnostic probe for Forest/Initial Wall's first child Rigidbody (Stick).
     /// Logs the actual impulses applied by GuardWaveFlipFluid and the joint's
     /// observed reaction loads. It never changes any physics settings.
     /// </summary>
@@ -15,8 +15,6 @@ namespace GuardWave
         private static GuardWaveStickForceProbe _active;
         private Rigidbody _stick;
         private Joint _joint;
-        private bool _monitoring;
-        private float _lastReadbackTime;
         private float _elapsed;
         private float _sumImpulseMagnitudes;
         private float _peakImpulse;
@@ -28,10 +26,10 @@ namespace GuardWave
 
         private void Awake()
         {
-            if (transform.childCount == 0 ||
-                !transform.GetChild(0).TryGetComponent(out _stick))
+            _stick = GetComponentInChildren<Rigidbody>();
+            if (_stick == null)
             {
-                Debug.LogWarning("[GuardWave StickForce] Temp Wall has no first-child Rigidbody.", this);
+                Debug.LogWarning("[GuardWave StickForce] Initial Wall has no child Rigidbody.", this);
                 enabled = false;
                 return;
             }
@@ -57,8 +55,6 @@ namespace GuardWave
             if (probe == null || probe._stick != body)
                 return;
 
-            probe._monitoring = true;
-            probe._lastReadbackTime = Time.time;
             probe._readbacks++;
 
             float magnitude = impulse.magnitude;
@@ -74,9 +70,6 @@ namespace GuardWave
 
         private void FixedUpdate()
         {
-            if (!_monitoring)
-                return;
-
             // Unity's Joint.currentForce/currentTorque are physics-solver reaction loads.
             // They are NOT the same as the external fluid force on the Rigidbody.
             // A failed attempt may recreate the joint on snapshot rollback.
@@ -119,9 +112,6 @@ namespace GuardWave
             _peakJointForce = 0f;
             _peakJointTorque = 0f;
 
-            // Stop logging when the wave/creek solver stops returning impulses.
-            if (Time.time - _lastReadbackTime > logInterval)
-                _monitoring = false;
         }
     }
 }
