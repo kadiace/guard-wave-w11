@@ -23,7 +23,7 @@ namespace GuardWave
     public sealed class GuardWaveStageTimer : MonoBehaviour
     {
         private const int WARNING_SECONDS = 10;
-        // Small markers every ten seconds, stronger ticks in the final nine, then three impact beats.
+        // Small markers every ten seconds until the final ten, then stronger second ticks and three impact beats.
         private const int TenSecondInterval = 10;
         private const float TenSecondPulseDuration = 0.35f;
         private const float WarningPulseDuration = 0.38f;
@@ -52,7 +52,6 @@ namespace GuardWave
         private float _pulseElapsed;
         private float _pulseDuration;
         private PulseKind _pulseKind;
-        private bool _pendingWarningPulse;
 
         /// <summary>씬 이름으로 StageInfo.json을 조회하여 재해 이름과 제한 시간을 초기화한다.</summary>
         public void Initialize(GuardWaveGame game, FogSceneController fogMode)
@@ -129,24 +128,28 @@ namespace GuardWave
             _disasterStarted = true;
         }
 
-        /// <summary>재해 종료, 실패 복원 또는 게임 재시작 시 30초 준비 시간을 재설정한다.</summary>
+        /// <summary>재해 종료, 실패 복원 또는 게임 재시작 시 해당 스테이지의 준비 시간을 재설정한다.</summary>
         private void ResetCountdown()
         {
             _remainingSeconds = _durationSeconds;
             _displayedHundredths = -1;
             _disasterStarted = false;
             _pulseKind = PulseKind.None;
-            _pendingWarningPulse = false;
             _pulseElapsed = 0f;
             RefreshCountdown();
-            // A fresh countdown is also a ten-second mark (e.g. 120, 40 or 30).
-            if (_displayedHundredths > 0 &&
-                _displayedHundredths % (TenSecondInterval * 100) == 0)
-                StartPulse(PulseKind.TenSecond);
+            // Include the initial boundary: 120s/40s/30s are ten-second marks.
+            // A countdown starting at 10s already belongs to the stronger warning.
+            if (_displayedHundredths > 0)
+            {
+                if (_displayedHundredths <= WARNING_SECONDS * 100)
+                    StartPulse(PulseKind.Warning);
+                else if (_displayedHundredths % (TenSecondInterval * 100) == 0)
+                    StartPulse(PulseKind.TenSecond);
+            }
             ApplyCountdownStyle();
         }
 
-        /// <summary>모든 10초 경계에서 약한 펄스를, 마지막 9초에는 매초 강한 펄스를 시작한다.</summary>
+        /// <summary>10초 전까지는 10초마다 주황색, 10초부터 1초마다 빨간색 펄스를 준다.</summary>
         private void RefreshCountdown()
         {
             int hundredths = Mathf.CeilToInt(_remainingSeconds * 100f);
@@ -160,36 +163,25 @@ namespace GuardWave
             {
                 if (hundredths == 0 && previousHundredths > 0)
                 {
-                    _pendingWarningPulse = false;
                     StartPulse(PulseKind.Impact);
                 }
                 else if (hundredths > 0)
                 {
-                    // Rounding can skip an exact :00 frame. Compare crossed boundaries
-                    // rather than relying on hundredths % 1000 == 0.
+                    // Use crossed boundaries so lower framerates do not skip the pulse
+                    // when a frame jumps past a value ending in :00.
                     int interval = TenSecondInterval * 100;
                     bool crossedTenSecondMark =
                         (hundredths + interval - 1) / interval <
                         (previousHundredths + interval - 1) / interval;
-                    bool enteredNewSecond = hundredths / 100 != previousHundredths / 100;
-                    bool finalNineSeconds = hundredths < WARNING_SECONDS * 100;
+                    bool crossedWholeSecond =
+                        (hundredths + 99) / 100 != (previousHundredths + 99) / 100;
+                    bool finalTenSeconds = hundredths <= WARNING_SECONDS * 100;
 
-                    if (crossedTenSecondMark)
-                    {
+                    // The 10:00 boundary is a red warning, not an orange marker.
+                    if (finalTenSeconds && crossedWholeSecond)
+                        StartPulse(PulseKind.Warning);
+                    else if (!finalTenSeconds && crossedTenSecondMark)
                         StartPulse(PulseKind.TenSecond);
-                        // Preserve the first single-digit warning even when a frame
-                        // crosses both the ten-second mark and the 9.xx boundary.
-                        if (finalNineSeconds)
-                            _pendingWarningPulse = true;
-                    }
-                    else if (finalNineSeconds && enteredNewSecond)
-                    {
-                        // At 10:00 the orange pulse gets its full duration.
-                        if (_pulseKind == PulseKind.TenSecond)
-                            _pendingWarningPulse = true;
-                        else
-                            StartPulse(PulseKind.Warning);
-                    }
                 }
             }
             ApplyCountdownStyle();
@@ -211,23 +203,16 @@ namespace GuardWave
             if (_pulseKind == PulseKind.None) return;
             _pulseElapsed = Mathf.Min(_pulseDuration, _pulseElapsed + Time.deltaTime);
             if (_pulseElapsed >= _pulseDuration)
-            {
                 _pulseKind = PulseKind.None;
-                if (_pendingWarningPulse)
-                {
-                    _pendingWarningPulse = false;
-                    StartPulse(PulseKind.Warning);
-                }
-            }
             ApplyCountdownStyle();
         }
 
         private void ApplyCountdownStyle()
         {
             bool expired = _remainingSeconds <= 0f;
-            bool singleDigit = _displayedHundredths > 0 &&
-                               _displayedHundredths < WARNING_SECONDS * 100;
-            _countdown.fontSize = _defaultFontSize + (expired ? 8 : singleDigit ? 5 : 0);
+            bool finalTenSeconds = _displayedHundredths > 0 &&
+                                   _displayedHundredths <= WARNING_SECONDS * 100;
+            _countdown.fontSize = _defaultFontSize + (expired ? 8 : finalTenSeconds ? 5 : 0);
 
             Color color = expired ? ImpactColor :
                 _remainingSeconds <= WARNING_SECONDS ? WarningColor : Color.white;
