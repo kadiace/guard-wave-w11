@@ -17,7 +17,9 @@ namespace GuardWave
         private const float IMPULSE_SCALE = 2048f;
         // Leave an actual open-water buffer past the z=-15 lip, rather than
         // placing the pressure grid's solid boundary against the waterfall.
-        private const int OUTFLOW_BUFFER_CELLS = 4;
+        // Connected liquid corridor ~7.2m beyond the cliff, with 3m drop.
+        private const int OUTFLOW_BUFFER_CELLS = 12;
+        private const float WATERFALL_COUPLING_DEPTH = 3f;
         private const int UPSTREAM_BUFFER_CELLS = 2;
         private readonly GuardWaveFluidSettings _settings;
         private readonly float _cellSize;
@@ -59,6 +61,7 @@ namespace GuardWave
         private readonly ComputeBuffer _particles;
         private readonly ComputeBuffer _accum;
         private readonly ComputeBuffer _velocity;
+        private readonly ComputeBuffer _faceVelocity;
         private readonly ComputeBuffer _before;
         private readonly ComputeBuffer _pressureA;
         private readonly ComputeBuffer _pressureB;
@@ -96,7 +99,9 @@ namespace GuardWave
         private readonly int _spawnKernel;
         private readonly int _p2gKernel;
         private readonly int _normalizeKernel;
+        private readonly int _buildFacesKernel;
         private readonly int _pressureKernel;
+        private readonly int _projectFacesKernel;
         private readonly int _projectKernel;
         private readonly int _g2pKernel;
         private readonly int _pressureBodyKernel;
@@ -155,10 +160,12 @@ namespace GuardWave
                     _settings.MinInletSpeed, _settings.MaxInletSpeed);
             _grid = new Vector3Int(
                 Mathf.CeilToInt((24f + _cellSize * 2f) / _cellSize),
-                Mathf.CeilToInt((9f + _cellSize) / _cellSize),
+                Mathf.CeilToInt((9f + WATERFALL_COUPLING_DEPTH +
+                    _cellSize * 2f) / _cellSize),
                 Mathf.CeilToInt((_startZ - _endZ +
                     _cellSize * (OUTFLOW_BUFFER_CELLS + UPSTREAM_BUFFER_CELLS)) / _cellSize));
-            _origin = new Vector3(-12f - _cellSize, groundY - _cellSize,
+            _origin = new Vector3(-12f - _cellSize,
+                groundY - WATERFALL_COUPLING_DEPTH - _cellSize,
                 _endZ - _cellSize * OUTFLOW_BUFFER_CELLS);
             _gridCount = _grid.x * _grid.y * _grid.z;
             // Include lower-cliff free-fall particles in procedural renderer culling.
@@ -172,6 +179,7 @@ namespace GuardWave
             _particles.SetData(new Particle[_settings.MaxParticles]);
             _accum = new ComputeBuffer(_gridCount, sizeof(int) * 4);
             _velocity = new ComputeBuffer(_gridCount, sizeof(float) * 3);
+            _faceVelocity = new ComputeBuffer(_gridCount, sizeof(float) * 3);
             _before = new ComputeBuffer(_gridCount, sizeof(float) * 3);
             _pressureA = new ComputeBuffer(_gridCount, sizeof(float));
             _pressureB = new ComputeBuffer(_gridCount, sizeof(float));
@@ -201,7 +209,9 @@ namespace GuardWave
             _emitCrestKernel = _compute.FindKernel("EmitCrest");
             _p2gKernel = _compute.FindKernel("ParticleToGrid");
             _normalizeKernel = _compute.FindKernel("NormalizeGrid");
+            _buildFacesKernel = _compute.FindKernel("BuildFaces");
             _pressureKernel = _compute.FindKernel("JacobiPressure");
+            _projectFacesKernel = _compute.FindKernel("ProjectFaces");
             _projectKernel = _compute.FindKernel("ProjectGrid");
             _g2pKernel = _compute.FindKernel("GridToParticle");
             _pressureBodyKernel = _compute.FindKernel("PressureToBodies");
@@ -212,7 +222,9 @@ namespace GuardWave
             _compute.SetFloat("_CellSize", _cellSize);
             _compute.SetFloat("_FloorY", groundY);
             _compute.SetFloat("_ExitZ", endZ);
-            _compute.SetInt("_LipCellZ", OUTFLOW_BUFFER_CELLS);
+            _compute.SetFloat("_CoupledOutletLength",
+                (OUTFLOW_BUFFER_CELLS-2)*_cellSize);
+            _compute.SetFloat("_CoupledOutletDepth", WATERFALL_COUPLING_DEPTH);
             _compute.SetFloat("_OutletParticleVolume", 0f);
             _compute.SetFloat("_WaterfallEndY", waterfallEndY);
             _compute.SetFloat("_HalfWidth", 12f);
@@ -267,13 +279,21 @@ namespace GuardWave
             Bind(_normalizeKernel, "_GridBefore", _before);
             Bind(_normalizeKernel, "_GridVelocity", _velocity);
             Bind(_normalizeKernel, "_Solid", _solid);
+            Bind(_buildFacesKernel, "_Accum", _accum);
+            Bind(_buildFacesKernel, "_Solid", _solid);
+            Bind(_buildFacesKernel, "_GridVelocity", _velocity);
+            Bind(_buildFacesKernel, "_FaceVelocity", _faceVelocity);
             Bind(_pressureKernel, "_Accum", _accum);
             Bind(_pressureKernel, "_Solid", _solid);
-            Bind(_pressureKernel, "_GridVelocity", _velocity);
-            Bind(_pressureKernel, "_LipFaceFluxRead", _lipFaceFlux);
+            Bind(_pressureKernel, "_FaceVelocity", _faceVelocity);
+            Bind(_projectFacesKernel, "_Accum", _accum);
+            Bind(_projectFacesKernel, "_Solid", _solid);
+            Bind(_projectFacesKernel, "_PressureSrc", _pressureA);
+            Bind(_projectFacesKernel, "_FaceVelocity", _faceVelocity);
             Bind(_projectKernel, "_Accum", _accum);
             Bind(_projectKernel, "_Solid", _solid);
             Bind(_projectKernel, "_GridVelocity", _velocity);
+            Bind(_projectKernel, "_FaceVelocity", _faceVelocity);
             Bind(_projectKernel, "_OutflowDiagnostics", _outflowDiagnostics);
             Bind(_g2pKernel, "_Particles", _particles);
             Bind(_g2pKernel, "_Accum", _accum);
@@ -531,6 +551,7 @@ namespace GuardWave
             _compute.SetInt("_ParticleCount", _particleCount);
             Dispatch(_p2gKernel, _particleCount);
             Dispatch(_normalizeKernel, _gridCount);
+            Dispatch(_buildFacesKernel, _gridCount);
 
             ComputeBuffer src = _pressureA;
             ComputeBuffer dst = _pressureB;
@@ -541,15 +562,16 @@ namespace GuardWave
                 Dispatch(_pressureKernel, _gridCount);
                 (src, dst) = (dst, src);
             }
-            _compute.SetBuffer(_projectKernel, "_PressureSrc", src);
+            _compute.SetBuffer(_projectFacesKernel, "_PressureSrc", src);
+            Dispatch(_projectFacesKernel, _gridCount);
             Dispatch(_projectKernel, _gridCount);
             _compute.SetBuffer(_pressureBodyKernel, "_PressureSrc", src);
             Dispatch(_pressureBodyKernel, _gridCount);
             // Continue pre-existing spray first; newly exited fluid starts falling next tick.
             Dispatch(_waterfallKernel, _particleCount);
             Dispatch(_g2pKernel, _particleCount);
-            // Finish sampling the departing parcels; pressure sees these
-            // filtered outlet face fluxes at the NEXT fixed-physics step.
+            // Continue independent lip-exit diagnostics; MAC face flux, not
+            // the sampled parcel count, is the pressure boundary flux.
             if (_ambientFlow)
                 Dispatch(_updateExitFluxKernel, _grid.x * _grid.y);
             if (_ambientFlow)
@@ -685,6 +707,7 @@ namespace GuardWave
             _particles.Release();
             _accum.Release();
             _velocity.Release();
+            _faceVelocity.Release();
             _before.Release();
             _pressureA.Release();
             _pressureB.Release();

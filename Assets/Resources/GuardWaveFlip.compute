@@ -8,7 +8,9 @@
 #pragma kernel EmitCrest
 #pragma kernel ParticleToGrid
 #pragma kernel NormalizeGrid
+#pragma kernel BuildFaces
 #pragma kernel JacobiPressure
+#pragma kernel ProjectFaces
 #pragma kernel ProjectGrid
 #pragma kernel GridToParticle
 #pragma kernel PressureToBodies
@@ -52,17 +54,18 @@ int _OutflowDiagnosticsEnabled;
 RWStructuredBuffer<int4> _Accum;
 RWStructuredBuffer<int4> _BodyImpulses; // force impulse in xyz, torque in next xyz
 RWStructuredBuffer<float3> _GridVelocity;
+// Staggered positive X/Y/Z faces; negative faces live in neighboring cells.
+RWStructuredBuffer<float3> _FaceVelocity;
 RWStructuredBuffer<float3> _GridBefore;
 StructuredBuffer<float3> _GridBeforeRead;
 RWStructuredBuffer<float> _PressureSrc;
 RWStructuredBuffer<float> _PressureDst;
 RWStructuredBuffer<uint> _Solid;
 StructuredBuffer<FluidCollider> _Colliders;
-// Filtered observed exit speed (positive magnitude, -Z outward) per XY lip face.
-// Read-only SRV for pressure kernel, RW UAV for separate end-of-step update kernel.
-StructuredBuffer<float> _LipFaceFluxRead;
+// Observed lip volume is diagnostic, not a second pressure sink.
 RWStructuredBuffer<float> _LipFaceFlux;
-int _LipCellZ;
+float _CoupledOutletLength;
+float _CoupledOutletDepth;
 float _OutletParticleVolume;
 int3 _GridSize;
 float3 _GridOrigin;
@@ -171,6 +174,10 @@ bool IsFluid(int3 c)
 float3 VelocityAt(int3 c)
 {
     return IsFluid(c) ? _GridVelocity[Flatten(c)] : 0;
+}
+float3 MacAt(int3 c)
+{
+    return Inside(c) ? _FaceVelocity[Flatten(c)] : float3(0,0,0);
 }
 float PressureAt(int3 c, float own)
 {
@@ -422,6 +429,41 @@ void NormalizeGrid(uint id : SV_DispatchThreadID)
     _GridVelocity[id] = _Solid[id] == 0 && sum.w > 0
         ? v + float3(0, -_Gravity * _Dt, 0) : 0;
 }
+// Assemble a staggered velocity field from existing APIC cell samples.
+// Liquid/solid faces are no-flow, liquid/air faces remain free.
+[numthreads(128,1,1)]
+void BuildFaces(uint id : SV_DispatchThreadID)
+{
+    uint cells = _GridSize.x * _GridSize.y * _GridSize.z;
+    if (id >= cells) return;
+    int3 c = int3(id % _GridSize.x,
+        (id / _GridSize.x) % _GridSize.y,
+        id / (_GridSize.x * _GridSize.y));
+    int3 ex = int3(1,0,0), ey = int3(0,1,0), ez = int3(0,0,1);
+    bool wet = IsFluid(c);
+    float3 own = wet ? _GridVelocity[id] : float3(0,0,0);
+    float3 face = float3(0,0,0);
+    int3 nx = c+ex, ny = c+ey, nz = c+ez;
+    if (!IsSolid(c) && !IsSolid(nx) && (wet || IsFluid(nx)))
+    {
+        bool other = IsFluid(nx);
+        face.x = wet && other ? 0.5*(own.x+_GridVelocity[Flatten(nx)].x) :
+            wet ? own.x : _GridVelocity[Flatten(nx)].x;
+    }
+    if (!IsSolid(c) && !IsSolid(ny) && (wet || IsFluid(ny)))
+    {
+        bool other = IsFluid(ny);
+        face.y = wet && other ? 0.5*(own.y+_GridVelocity[Flatten(ny)].y) :
+            wet ? own.y : _GridVelocity[Flatten(ny)].y;
+    }
+    if (!IsSolid(c) && !IsSolid(nz) && (wet || IsFluid(nz)))
+    {
+        bool other = IsFluid(nz);
+        face.z = wet && other ? 0.5*(own.z+_GridVelocity[Flatten(nz)].z) :
+            wet ? own.z : _GridVelocity[Flatten(nz)].z;
+    }
+    _FaceVelocity[id] = face;
+}
 [numthreads(128,1,1)]
 void JacobiPressure(uint id : SV_DispatchThreadID)
 {
@@ -432,39 +474,46 @@ void JacobiPressure(uint id : SV_DispatchThreadID)
         id / (_GridSize.x * _GridSize.y));
     if (!IsFluid(c)) { _PressureDst[id] = 0; return; }
     int3 ex = int3(1,0,0), ey = int3(0,1,0), ez = int3(0,0,1);
-    float div = (VelocityAt(c+ex).x-VelocityAt(c-ex).x +
-        VelocityAt(c+ey).y-VelocityAt(c-ey).y +
-        VelocityAt(c+ez).z-VelocityAt(c-ez).z) / (2*_CellSize);
-    // At the physical lip (between the last upstream cell and the 4-cell
-    // downstream buffer), use the *measured* previous-step particle flux as
-    // the downstream face velocity. Replace the old zero-velocity ghost term
-    // rather than adding a second sink on top of an already open boundary.
-    // The pressure solve remains collocated; this is a conservative boundary
-    // flux approximation, not a full staggered MAC projection.
-    if (_OutletParticleVolume > 0.0 && c.z == _LipCellZ && !IsFluid(c-ez))
-    {
-        uint face = (uint)(c.y * _GridSize.x + c.x);
-        float outwardSpeed = _LipFaceFluxRead[face];
-        if (outwardSpeed > 0.01)
-        {
-            float zDivOld = (VelocityAt(c+ez).z - VelocityAt(c-ez).z) /
-                (2.0 * _CellSize);
-            // Face-normal fluxes: upstream face - downstream face, each / cell size.
-            float upstreamFaceSpeed = 0.5 *
-                (_GridVelocity[id].z + VelocityAt(c+ez).z);
-            float zDivMeasured = (upstreamFaceSpeed + outwardSpeed) / _CellSize;
-            div += zDivMeasured - zDivOld;
-        }
-    }
-    float own = _PressureSrc[id];
-    float sum = PressureAt(c+ex,own)+PressureAt(c-ex,own)+
-        PressureAt(c+ey,own)+PressureAt(c-ey,own)+
-        PressureAt(c+ez,own)+PressureAt(c-ez,own);
-    // Solid neighbors contribute the current pressure (Neumann boundary).
-    // Therefore the Jacobi denominator remains six rather than six-minus-solids.
-    float n = 6.0;
-    // Unit density in the grid; pressure is a velocity potential.
-    _PressureDst[id] = (sum - div*_CellSize*_CellSize/max(_Dt,0.0001)) / max(n,1);
+    // MAC divergence and gradient are matched finite-volume operators.
+    float3 plus = MacAt(c);
+    float divergence = (plus.x-MacAt(c-ex).x +
+        plus.y-MacAt(c-ey).y + plus.z-MacAt(c-ez).z) / _CellSize;
+    float sum = 0.0, neighbors = 0.0;
+    int3 a;
+    a = c+ex; if (!IsSolid(a)) { neighbors += 1.0; sum += PressureAt(a,0.0); }
+    a = c-ex; if (!IsSolid(a)) { neighbors += 1.0; sum += PressureAt(a,0.0); }
+    a = c+ey; if (!IsSolid(a)) { neighbors += 1.0; sum += PressureAt(a,0.0); }
+    a = c-ey; if (!IsSolid(a)) { neighbors += 1.0; sum += PressureAt(a,0.0); }
+    a = c+ez; if (!IsSolid(a)) { neighbors += 1.0; sum += PressureAt(a,0.0); }
+    a = c-ez; if (!IsSolid(a)) { neighbors += 1.0; sum += PressureAt(a,0.0); }
+    _PressureDst[id] = neighbors > 0.0 ?
+        (sum-divergence*_CellSize*_CellSize/max(_Dt,0.0001))/neighbors : 0.0;
+}
+
+// Each shared face is pressure-corrected once; solids are impermeable,
+// free-surface pressure is zero, and the physical lip stays an interior face.
+[numthreads(128,1,1)]
+void ProjectFaces(uint id : SV_DispatchThreadID)
+{
+    uint cells = _GridSize.x * _GridSize.y * _GridSize.z;
+    if (id >= cells) return;
+    int3 c = int3(id % _GridSize.x,
+        (id / _GridSize.x) % _GridSize.y,
+        id / (_GridSize.x * _GridSize.y));
+    int3 ex = int3(1,0,0), ey = int3(0,1,0), ez = int3(0,0,1);
+    bool wet = IsFluid(c);
+    float p = wet ? _PressureSrc[id] : 0.0;
+    float3 face = _FaceVelocity[id];
+    int3 a = c+ex;
+    if (IsSolid(c) || IsSolid(a) || (!wet && !IsFluid(a))) face.x = 0.0;
+    else face.x -= (_Dt/_CellSize) * (PressureAt(a,0.0)-p);
+    a = c+ey;
+    if (IsSolid(c) || IsSolid(a) || (!wet && !IsFluid(a))) face.y = 0.0;
+    else face.y -= (_Dt/_CellSize) * (PressureAt(a,0.0)-p);
+    a = c+ez;
+    if (IsSolid(c) || IsSolid(a) || (!wet && !IsFluid(a))) face.z = 0.0;
+    else face.z -= (_Dt/_CellSize) * (PressureAt(a,0.0)-p);
+    _FaceVelocity[id] = clamp(face, -_MaxFluidVelocity, _MaxFluidVelocity);
 }
 [numthreads(128,1,1)]
 void ProjectGrid(uint id : SV_DispatchThreadID)
@@ -476,18 +525,13 @@ void ProjectGrid(uint id : SV_DispatchThreadID)
         id / (_GridSize.x * _GridSize.y));
     if (!IsFluid(c)) return;
     int3 ex = int3(1,0,0), ey = int3(0,1,0), ez = int3(0,0,1);
-    float p = _PressureSrc[id];
-    float3 grad = float3(
-        PressureAt(c+ex,p)-PressureAt(c-ex,p),
-        PressureAt(c+ey,p)-PressureAt(c-ey,p),
-        PressureAt(c+ez,p)-PressureAt(c-ez,p)) / (2*_CellSize);
+    // Sample the already-projected shared faces back onto the old PIC grid.
+    float3 face = MacAt(c);
     float3 beforeProjection = _GridVelocity[id];
-    float3 v = beforeProjection - _Dt*grad;
-    if (IsSolid(c+ex) && v.x>0 || IsSolid(c-ex) && v.x<0) v.x=0;
-    if (IsSolid(c+ey) && v.y>0 || IsSolid(c-ey) && v.y<0) v.y=0;
-    // The negative-Z open outlet must not zero the exiting velocity.
-    // IsSolid(c-ez) is false outside the outlet; upper inlet stays closed.
-    if ((IsSolid(c+ez) && v.z>0) || (IsSolid(c-ez) && v.z<0)) v.z=0;
+    float3 v = 0.5 * float3(
+        face.x + MacAt(c-ex).x,
+        face.y + MacAt(c-ey).y,
+        face.z + MacAt(c-ez).z);
     if (_OutflowDiagnosticsEnabled != 0 && InOutflowDiagnosticZone(Center(c)))
     {
         InterlockedAdd(_OutflowDiagnostics[0], 1u);
@@ -510,6 +554,7 @@ void GridToParticle(uint id : SV_DispatchThreadID)
     if (id >= _ParticleCount) return;
     FluidParticle p = _Particles[id];
     if (p.position.w != 1.0) return;
+    float3 previousPosition = p.position.xyz;
     float3 g = (p.position.xyz - _GridOrigin) / _CellSize - 0.5;
     int3 baseCell = (int3)floor(g);
     float3 f = frac(g);
@@ -544,7 +589,7 @@ void GridToParticle(uint id : SV_DispatchThreadID)
         // Preserve crest height and collision-release tag across APIC updates.
         p.affineX = float4(c0*scale,p.affineX.w);
         p.affineY = float4(c1*scale,p.affineY.w);
-        p.affineZ = float4(c2*scale,0);
+        p.affineZ = float4(c2*scale,p.affineZ.w); // preserve lip-crossing tag
     }
     else p.velocity.y -= _Gravity * _Dt;
     p.velocity.xyz = clamp(p.velocity.xyz, -_MaxFluidVelocity, _MaxFluidVelocity);
@@ -639,32 +684,36 @@ void GridToParticle(uint id : SV_DispatchThreadID)
             (uint)max(0.0, round((p.position.y - _FloorY) * 100.0)));
         if (p.affineY.w >= 0.5) InterlockedAdd(_CrestMetrics[2], 1u);
     }
-    if (p.position.z < _ExitZ)
+    // Count the FIRST physical lip crossing. The particle continues as
+    // incompressible FLIP water until it has actually begun falling.
+    if (previousPosition.z >= _ExitZ && p.position.z < _ExitZ &&
+        p.affineZ.w < 0.5)
     {
-        // Convert physical lip crossings to per-face volumetric outlet flow.
-        // These 2D bins use spare FlowCounters slots, avoiding an extra G2P UAV.
+        p.affineZ.w = 1.0;
         if (_OutletParticleVolume > 0.0)
         {
-            int x = clamp((int)floor((p.position.x - _GridOrigin.x) / _CellSize),
-                0, _GridSize.x - 1);
-            int y = clamp((int)floor((p.position.y - _GridOrigin.y) / _CellSize),
-                0, _GridSize.y - 1);
-            InterlockedAdd(_FlowCounters[4 + y * _GridSize.x + x], 1u);
+            int x = clamp((int)floor((p.position.x-_GridOrigin.x)/_CellSize),
+                0, _GridSize.x-1);
+            int y = clamp((int)floor((p.position.y-_GridOrigin.y)/_CellSize),
+                0, _GridSize.y-1);
+            InterlockedAdd(_FlowCounters[4+y*_GridSize.x+x],1u);
         }
         if (_OutflowDiagnosticsEnabled != 0 && abs(p.position.x) <= 8.0)
-            InterlockedAdd(_OutflowDiagnostics[8], 1u);
-        // Cross the *physical* lip and leave the pressure solver immediately.
-        // Start downward acceleration this tick, without advancing XZ twice:
-        // the next Waterfall dispatch continues the full ballistic integration.
-        p.position.w = 2;
-        p.velocity.y -= _Gravity * _Dt;
-        p.position.y += p.velocity.y * (0.5 * _Dt);
+            InterlockedAdd(_OutflowDiagnostics[8],1u);
         if (_AmbientEnabled != 0)
-        {
-            InterlockedAdd(_FlowCounters[3], 1u); // Total true cliff crossings.
-            if (p.velocity.w < 0.5)
-                InterlockedAdd(_FlowCounters[0], 1u);
-        }
+            InterlockedAdd(_FlowCounters[3],1u);
+    }
+    // Hand off to ballistic spray ONLY after fluid gravity and pressure
+    // have curved the stream below and beyond the cliff.
+    if (p.position.z < _ExitZ &&
+        (p.position.z <= _ExitZ-_CoupledOutletLength ||
+         p.position.y <= _FloorY-_CoupledOutletDepth))
+    {
+        p.position.w = 2.0;
+        // Keep refill mass conservation: debt is raised at handoff, not
+        // at initial lip crossing while the same parcel is still liquid.
+        if (_AmbientEnabled != 0 && p.velocity.w < 0.5)
+            InterlockedAdd(_FlowCounters[0],1u);
     }
     else if (p.position.y > _GridOrigin.y + _GridSize.y*_CellSize - 0.1)
     {
@@ -675,10 +724,9 @@ void GridToParticle(uint id : SV_DispatchThreadID)
     _Particles[id] = p;
 }
 
-// After G2P, reconstruct an *observed* normal outlet speed for next step's
-// pressure boundary. A reflected 1:2:1 X filter conserves the cross-sectional
-// count; EMA suppresses quantization jitter from particles crossing in bursts.
-// No velocities or particles are altered by this kernel.
+// Independently estimate the physical-lip particle outflow for diagnostics.
+// The staggered pressure solver uses its own face flux, not this delayed
+// measurement. The 1:2:1 lateral filter and EMA suppress counting noise.
 [numthreads(128,1,1)]
 void UpdateExitFlux(uint id : SV_DispatchThreadID)
 {

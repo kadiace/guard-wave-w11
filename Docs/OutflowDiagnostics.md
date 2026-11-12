@@ -47,3 +47,36 @@ it does **not** force all water to move downstream. Before judging the
 visual outcome, run Unity Play Mode/compute compilation on the target GPU,
 then compare central reverse-flow fraction, lip exit rate, outlet Q, and
 water levels with Ctrl+G before/after this commit.
+
+
+## MAC face projection and connected cliff waterfall
+
+The fluid no longer switches to ballistic mode at the instant it crosses
+z=-15. The GPU liquid domain now extends **7.2m beyond the lip**, with a
+**3m lower liquid region** below the upper creek bed. A parcel remains FLIP
+liquid until it has traveled 6m beyond the lip or fallen 3m below the bed.
+Only then is it switched to the existing ballistic `Waterfall` code.
+Gravity is integrated once per timestep, with no artificial suction.
+
+**Pressure solver:** APIC P2G still accumulates cell velocities, then
+`BuildFaces` constructs staggered +X/+Y/+Z normal velocities. The pressure
+Poisson divergence, solid/air boundary conditions and `ProjectFaces`
+gradient use matching discrete face operators; `ProjectGrid` reconstructs
+projected cell samples for the existing PIC/FLIP/G2P and the Ctrl+G overlay.
+The old collocated central-difference projection and the previous
+measured-exit-divergence override are removed. The Jacobi pressure solver
+runs 36 iterations (formerly 22) on the larger connected domain.
+
+**Accounting:** An otherwise-unused `affineZ.w` marker records each
+particle's first physical lip crossing, so the existing exit counters
+and the optional `filteredOutletQ` comparison measure real passages
+without counting a particle every frame as it falls. Ambient refill debt
+is issued only when the base-water parcel finally leaves the connected
+liquid solver. `filteredOutletQ` is now independent instrumentation,
+not a velocity or pressure constraint; the actual discharge is resolved
+by projected face fluxes across the physical lip.
+
+The same ambient 10m/s, crest speed/height, FLIP blend and collision
+response are retained. This is a **MAC pressure stage**, not a complete
+face-native APIC deposition; Unity ComputeShader/Play Mode validation and
+GPU profiling are still required. Ctrl+G visual diagnostics are retained.

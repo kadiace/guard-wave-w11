@@ -42,7 +42,7 @@ MonoBehaviour:
   _maxParticles: 64000
   _maxBodies: 384
   _maxColliders: 256
-  _pressureIterations: 22
+  _pressureIterations: 36
   _spawnInterval: 0.12
   _spawnRateMultiplier: 3
   _particleRenderRadius: 0.45
