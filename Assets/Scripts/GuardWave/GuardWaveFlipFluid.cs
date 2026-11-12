@@ -396,6 +396,32 @@ namespace GuardWave
                         _colliders.Add(collider);
         }
 
+        /// <summary>
+        /// The ambient creek is created before players place palette items.
+        /// Register newly spawned bodies immediately, otherwise they never reach
+        /// the GPU collider/impulse buffers and cannot receive buoyancy.
+        /// </summary>
+        public void RegisterPiece(GuardWavePiece piece)
+        {
+            if (_disposed || piece == null) return;
+            Rigidbody body = piece.Body;
+            if (body == null) return;
+
+            AddBody(body);
+            if (!_indices.ContainsKey(body)) return;
+
+            foreach (Collider collider in body.GetComponentsInChildren<Collider>(true))
+            {
+                if (collider == null || collider.isTrigger ||
+                    collider.attachedRigidbody != body ||
+                    _colliders.Contains(collider))
+                    continue;
+                // Prioritize current palette items if the collider GPU budget
+                // is crowded by scene-authored or inactive Beaver House sticks.
+                _colliders.Insert(0, collider);
+            }
+        }
+
         /// <summary>Registers a distinct Rigidbody and its impulse-buffer index.</summary>
         private void AddBody(Rigidbody body)
         {
@@ -409,6 +435,9 @@ namespace GuardWave
         private void UpdateColliders()
         {
             int count = 0;
+            // Destroyed runtime pieces must not accumulate stale collider slots.
+            for (int i = _colliders.Count - 1; i >= 0; i--)
+                if (_colliders[i] == null) _colliders.RemoveAt(i);
             foreach (Collider collider in _colliders)
             {
                 if (count >= _settings.MaxColliders) break;
@@ -625,7 +654,11 @@ namespace GuardWave
                 _pendingImpulseReadbacks < MAX_PENDING_IMPULSE_READBACKS)
             {
                 _pendingImpulseReadbacks++;
-                AsyncGPUReadback.Request(_impulses, OnImpulsesReady);
+                // A palette item may be registered while an older GPU snapshot
+                // is in flight. Never read uninitialized slots for that item.
+                int requestedBodyCount = _bodies.Count;
+                AsyncGPUReadback.Request(_impulses,
+                    request => OnImpulsesReady(request, requestedBodyCount));
             }
         }
 
@@ -658,12 +691,12 @@ namespace GuardWave
         }
 
         /// <summary>Applies bounded fluid reaction impulses to scene Rigidbodies on the main thread.</summary>
-        private void OnImpulsesReady(AsyncGPUReadbackRequest request)
+        private void OnImpulsesReady(AsyncGPUReadbackRequest request, int requestedBodyCount)
         {
             _pendingImpulseReadbacks = Mathf.Max(0, _pendingImpulseReadbacks - 1);
             if (_disposed || request.hasError) return;
             NativeArray<Int4> values = request.GetData<Int4>();
-            for (int i = 0; i < _bodies.Count; i++)
+            for (int i = 0; i < requestedBodyCount; i++)
             {
                 Rigidbody body = _bodies[i];
                 if (body == null || body.isKinematic || !body.gameObject.activeInHierarchy)
