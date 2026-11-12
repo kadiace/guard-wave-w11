@@ -56,10 +56,10 @@ float BoxDistance(float3 p, ObstacleBox box) {
     return length(max(q, 0.0)) + min(max(q.x, max(q.y,q.z)), 0.0);
 }
 
-// Six overlapping but asynchronous source puffs span x=-12..12.
+// Six overlapping but asynchronous source puffs cover all 8 lanes, x=-14..14.
 // Source radius, position and phase differ to avoid a uniform smoke curtain.
 float3 PuffCenter(int i) {
-    return float3(-10.0 + 4.0 * i, _FogBaseY + 1.55 + 0.42 * sin(i * 2.4),
+    return float3(-12.5 + 5.0 * i, _FogBaseY + 1.55 + 0.42 * sin(i * 2.4),
         _InletZ - 0.70 - 0.28 * (i % 3));
 }
 float Puff(float3 p, int i) {
@@ -70,13 +70,13 @@ float Puff(float3 p, int i) {
     return exp(-dot(d,d) * 1.5) * pulse * irregular;
 }
 float Emission(float3 p) {
-    if (abs(p.x) >= 12.0 || p.z < _InletZ - 6.0) return 0.0;
+    if (abs(p.x) >= 14.0 || p.z < _InletZ - 6.0) return 0.0;
     float result = 0.0;
     [unroll] for (int i=0; i<6; ++i) result = max(result, Puff(p, i));
     return result * _InletStrength;
 }
 float3 Expansion(float3 p) {
-    if (_InletStrength <= 0.0 || abs(p.x) > 13.5 || p.z < _InletZ - 5.5) return 0.0;
+    if (_InletStrength <= 0.0 || abs(p.x) > 16.0 || p.z < _InletZ - 5.5) return 0.0;
     float3 result = 0.0;
     [unroll] for (int i=0; i<6; ++i) {
         float3 offset = p - PuffCenter(i);
