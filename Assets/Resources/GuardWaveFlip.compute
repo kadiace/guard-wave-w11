@@ -35,7 +35,7 @@ struct FluidCollider
     float4 extentType; // xyz half-extents, w type: 0 box, 1 sphere, 2 capsule
     float4 rotation;
     float4 velocity;
-    float4 angular;
+    float4 angular; // xyz: angular velocity; w: flow alignment opt-in
     float4 bodyCenter;
     float4 fluidProperties; // density, grounded drag, mass share, sampling shape
 };
@@ -71,6 +71,8 @@ float _FloatVerticalDamping;
 float _FloatTorqueScale;
 float _FloatMaxBuoyancyRatio;
 float _FloatUprightStrength;
+float _FloatFlowAlignmentStrength;
+float _FloatFlowAlignmentFullSpeed;
 float _MaxFluidVelocity;
 float _FloorY;
 float _ExitZ;
@@ -903,6 +905,39 @@ void RelativeDensityToBodies(uint id : SV_DispatchThreadID)
                 cross(worldUp, float3(0,1,0)) * immersionFactor;
         }
     }
+    // Streamline only eligible floating pieces (logs and flag) when buoyancy
+    // supports them. Their existing high angular damping still suppresses
+    // particle-scale wobble; alignment is a separate, deliberate steering torque.
+    // For a box/cylinder, pointing its longest axis along the flow minimizes
+    // the frontal projected area. Nearly isotropic shapes receive no steering.
+    if (floating && body.angular.w > 0.0 && _FloatFlowAlignmentStrength > 0.0)
+    {
+        float flowSpeed = length(current);
+        float afloat = smoothstep(0.55, 0.95, submerged / density);
+        float fullSpeed = max(0.01, _FloatFlowAlignmentFullSpeed);
+        float major = axis == 0 ? halfSize.x : axis == 1 ? halfSize.y : halfSize.z;
+        float second = axis == 0 ? max(halfSize.y, halfSize.z) :
+            axis == 1 ? max(halfSize.x, halfSize.z) : max(halfSize.x, halfSize.y);
+        float anisotropy = saturate((major - second) / max(major, 0.001));
+        if (flowSpeed > 0.01 && afloat > 0.001 && anisotropy > 0.001)
+        {
+            float3 localLongAxis = axis == 0 ? float3(1,0,0) :
+                axis == 1 ? float3(0,1,0) : float3(0,0,1);
+            float3 worldLongAxis = Rotate(body.rotation, localLongAxis);
+            float3 flowDirection = current / flowSpeed;
+            // A rod has two equally streamlined ends. Choose the nearer one,
+            // but still exert full steering at 90 degrees (upright in a river).
+            if (dot(worldLongAxis, flowDirection) < 0.0)
+                flowDirection = -flowDirection;
+            float3 alignmentError = cross(worldLongAxis, flowDirection);
+            float flowWeight = saturate(flowSpeed / fullSpeed);
+            // Mass is already shared between a compound body's colliders.
+            // Apply AFTER _FloatTorqueScale, so jitter suppression stays intact.
+            torque += mass * _Dt * _FloatFlowAlignmentStrength *
+                anisotropy * afloat * flowWeight * alignmentError;
+        }
+    }
+
     uint dst = (uint)bi * 2;
     InterlockedAdd(_BodyImpulses[dst].x, (int)round(force.x * SCALE));
     InterlockedAdd(_BodyImpulses[dst].y, (int)round(force.y * SCALE));
