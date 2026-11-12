@@ -32470,7 +32470,7 @@ MonoBehaviour:
   settledBreakForce: 35
   firstContactForce: 1
   minimumProtectionSeconds: 0.8
-  settledForceCeiling: 32.5
+  maximumProtectionSeconds: 2
   settledDuration: 0.2
 --- !u!114 &3510000001
 MonoBehaviour:
@@ -32488,7 +32488,7 @@ MonoBehaviour:
   settledBreakForce: 35
   firstContactForce: 1
   minimumProtectionSeconds: 0.8
-  settledForceCeiling: 32.5
+  maximumProtectionSeconds: 2
   settledDuration: 0.2
 --- !u!114 &3510000002
 MonoBehaviour:
@@ -32506,7 +32506,7 @@ MonoBehaviour:
   settledBreakForce: 35
   firstContactForce: 1
   minimumProtectionSeconds: 0.8
-  settledForceCeiling: 32.5
+  maximumProtectionSeconds: 2
   settledDuration: 0.2
 --- !u!114 &3510000003
 MonoBehaviour:
@@ -32524,7 +32524,7 @@ MonoBehaviour:
   settledBreakForce: 35
   firstContactForce: 1
   minimumProtectionSeconds: 0.8
-  settledForceCeiling: 32.5
+  maximumProtectionSeconds: 2
   settledDuration: 0.2
 --- !u!114 &3510000004
 MonoBehaviour:
@@ -32542,7 +32542,7 @@ MonoBehaviour:
   settledBreakForce: 35
   firstContactForce: 1
   minimumProtectionSeconds: 0.8
-  settledForceCeiling: 32.5
+  maximumProtectionSeconds: 2
   settledDuration: 0.2
 --- !u!114 &3510000005
 MonoBehaviour:
@@ -32560,7 +32560,7 @@ MonoBehaviour:
   settledBreakForce: 35
   firstContactForce: 1
   minimumProtectionSeconds: 0.8
-  settledForceCeiling: 32.5
+  maximumProtectionSeconds: 2
   settledDuration: 0.2
 --- !u!114 &3510000006
 MonoBehaviour:
@@ -32578,7 +32578,7 @@ MonoBehaviour:
   settledBreakForce: 35
   firstContactForce: 1
   minimumProtectionSeconds: 0.8
-  settledForceCeiling: 32.5
+  maximumProtectionSeconds: 2
   settledDuration: 0.2
 --- !u!114 &3510000007
 MonoBehaviour:
@@ -32596,7 +32596,7 @@ MonoBehaviour:
   settledBreakForce: 35
   firstContactForce: 1
   minimumProtectionSeconds: 0.8
-  settledForceCeiling: 32.5
+  maximumProtectionSeconds: 2
   settledDuration: 0.2
 --- !u!114 &3510000008
 MonoBehaviour:
@@ -32614,7 +32614,7 @@ MonoBehaviour:
   settledBreakForce: 35
   firstContactForce: 1
   minimumProtectionSeconds: 0.8
-  settledForceCeiling: 32.5
+  maximumProtectionSeconds: 2
   settledDuration: 0.2
 --- !u!114 &3510000009
 MonoBehaviour:
@@ -32632,7 +32632,7 @@ MonoBehaviour:
   settledBreakForce: 35
   firstContactForce: 1
   minimumProtectionSeconds: 0.8
-  settledForceCeiling: 32.5
+  maximumProtectionSeconds: 2
   settledDuration: 0.2
 --- !u!114 &3510000010
 MonoBehaviour:
@@ -32650,7 +32650,7 @@ MonoBehaviour:
   settledBreakForce: 35
   firstContactForce: 1
   minimumProtectionSeconds: 0.8
-  settledForceCeiling: 32.5
+  maximumProtectionSeconds: 2
   settledDuration: 0.2
 --- !u!114 &3510000011
 MonoBehaviour:
@@ -32668,7 +32668,7 @@ MonoBehaviour:
   settledBreakForce: 35
   firstContactForce: 1
   minimumProtectionSeconds: 0.8
-  settledForceCeiling: 32.5
+  maximumProtectionSeconds: 2
   settledDuration: 0.2
 --- !u!114 &3510000012
 MonoBehaviour:
@@ -32686,5 +32686,5 @@ MonoBehaviour:
   settledBreakForce: 35
   firstContactForce: 1
   minimumProtectionSeconds: 0.8
-  settledForceCeiling: 32.5
+  maximumProtectionSeconds: 2
   settledDuration: 0.2

@@ -437,7 +437,11 @@ namespace GuardWave
             foreach (FixedJoint joint in _bonds.Values)
             {
                 if (joint == null) continue;
-                joint.breakForce *= 2f;
+                GuardWaveInitialLogJoint initialLog = joint.GetComponent<GuardWaveInitialLogJoint>();
+                if (initialLog != null)
+                    initialLog.SetDryness(true);
+                else
+                    joint.breakForce *= 2f;
                 joint.breakTorque *= 2f;
             }
             if (_instanceMaterial != null)
@@ -569,6 +573,10 @@ namespace GuardWave
             if (!touchesPaint) return false;
             _bonds.Add(piece, joint);
             _game.RegisterMudBond(piece, joint);
+            // The authored joint has the same wet/dry lifecycle as a painted bond.
+            GuardWaveInitialLogJoint initialLog = piece.GetComponent<GuardWaveInitialLogJoint>();
+            if (initialLog != null)
+                initialLog.Restart(joint, _isDry);
             return true;
         }
 
@@ -775,7 +783,7 @@ namespace GuardWave
             _lastContactCheck.Clear();
         }
 
-        public void RestoreBond(MudBondState state)
+        public void RestoreBond(MudBondState state, bool fromInitialDefinition = false)
         {
             if (state.Patch != this || state.Piece == null ||
                 !_game.IsPlacedPiece(state.Piece)) return;
@@ -783,8 +791,15 @@ namespace GuardWave
                 state.ConnectedBody);
             if (_bonds.TryGetValue(state.Piece, out FixedJoint joint) && joint != null)
             {
-                joint.breakForce = state.BreakForce;
-                joint.breakTorque = state.BreakTorque;
+                // Initial definitions are wet; restoring a missing authored
+                // bond into a dried patch must also restore its doubled torque.
+                float dryness = fromInitialDefinition && _isDry ? 2f : 1f;
+                joint.breakForce = state.BreakForce * dryness;
+                joint.breakTorque = state.BreakTorque * dryness;
+                GuardWaveInitialLogJoint initialLog =
+                    state.Piece.GetComponent<GuardWaveInitialLogJoint>();
+                if (initialLog != null)
+                    initialLog.Restart(joint, _isDry);
             }
         }
 

@@ -1608,10 +1608,27 @@ namespace GuardWave
                 if (joint != null && joint.gameObject.scene.handle == gameObject.scene.handle)
                     Destroy(joint);
             }
-            // Destroy() is deferred until the end of this frame. Adding the new
-            // components here ensures they exist before the next physics tick.
+            // Destroy() is deferred. Newly created joints are passed straight to
+            // GuardWaveInitialLogJoint.Restart, never found via GetComponent.
+            HashSet<GameObject> restoredInitialOwners = new HashSet<GameObject>();
             foreach (FixedJointState state in states)
+            {
+                if (state.IsInitialLog) restoredInitialOwners.Add(state.Owner);
                 state.Restore();
+            }
+
+            // A checkpoint taken after an Initial Wall joint broke has no
+            // saved joint. Restore that authored joint on the next rollback too.
+            foreach (FixedJointState state in _initialSceneJointStates)
+            {
+                if (!state.IsInitialLog || restoredInitialOwners.Contains(state.Owner) ||
+                    state.Owner == null || !state.Owner.activeInHierarchy)
+                    continue;
+                GuardWavePiece piece = state.Owner.GetComponent<GuardWavePiece>();
+                if (piece == null || !IsPlacedPiece(piece)) continue;
+                state.Restore();
+                restoredInitialOwners.Add(state.Owner);
+            }
         }
 
         /// <summary>Undo와 파도 실패가 공유하는 단일 체크포인트 복원 경로.</summary>
@@ -1672,6 +1689,18 @@ namespace GuardWave
             foreach (GuardWaveMudPatch.MudBondState bond in snapshot.MudBonds)
                 if (bond.Patch != null) bond.Patch.RestoreBond(bond);
 
+            // An authored log remains glued after rollback even if its joint
+            // broke before the checkpoint was recorded. Other removed pieces
+            // are not resurrected.
+            foreach (GuardWaveMudPatch.MudBondState bond in _initialMudBondStates)
+            {
+                if (bond.Patch == null || bond.Piece == null ||
+                    !bond.Patch.gameObject.activeInHierarchy ||
+                    !IsPlacedPiece(bond.Piece) || bond.Patch.HasBond(bond.Piece))
+                    continue;
+                bond.Patch.RestoreBond(bond, fromInitialDefinition: true);
+            }
+
             _selected = snapshot.SelectedOffer;
             _objectYaw = snapshot.ObjectYaw;
             _cameraTarget = snapshot.CameraTarget;
@@ -1715,7 +1744,11 @@ namespace GuardWave
             EndMudPainting();
             if (_editHistory.Count <= 1) return;
             _editHistory.RemoveAt(_editHistory.Count - 1);
+            // A fresh upstream inflow is part of an initial-impact retry:
+            // no old GPU particles may immediately hit the restored 80 N joint.
+            DisposeFluid();
             RestoreEditState(_editHistory[_editHistory.Count - 1]);
+            if (ambientFlowPreview) BeginAmbientCreekFlow();
             _status = "이전 배치 상태로 되돌렸습니다.";
         }
 
@@ -1747,6 +1780,9 @@ namespace GuardWave
         private readonly struct FixedJointState
         {
             private readonly GameObject _owner;
+            public GameObject Owner => _owner;
+            public bool IsInitialLog => _owner != null &&
+                _owner.GetComponent<GuardWaveInitialLogJoint>() != null;
             private readonly Rigidbody _connectedBody;
             private readonly Vector3 _anchor;
             private readonly Vector3 _connectedAnchor;
@@ -1791,6 +1827,10 @@ namespace GuardWave
                 joint.massScale = _massScale;
                 joint.connectedMassScale = _connectedMassScale;
                 joint.autoConfigureConnectedAnchor = _autoAnchor;
+                GuardWaveInitialLogJoint initialLog =
+                    _owner.GetComponent<GuardWaveInitialLogJoint>();
+                if (initialLog != null)
+                    initialLog.Restart(joint, false);
             }
         }
 
