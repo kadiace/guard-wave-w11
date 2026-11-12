@@ -798,7 +798,17 @@ void RelativeDensityToBodies(uint id : SV_DispatchThreadID)
     float following = (1.0 - exp(-_FlowResponse * _Dt)) *
         immersionFactor;
     float dragScale = mass * following / wet;
-    force += dragScale * dragDelta;
+    float3 dragImpulse = dragScale * dragDelta;
+    if (floating)
+    {
+        // A sudden change in a few FLIP particle velocities is not allowed
+        // to propel a toy by multiple meters per second in a single frame.
+        float horizontalMagnitude = length(dragImpulse.xz);
+        dragImpulse.xz *= min(1.0, (mass * 0.65) /
+            max(horizontalMagnitude, 0.00001));
+        dragImpulse.y = clamp(dragImpulse.y, -mass * 0.2, mass * 0.2);
+    }
+    force += dragImpulse;
     torque += dragScale * dragTorque;
     if (floating)
     {
@@ -807,17 +817,17 @@ void RelativeDensityToBodies(uint id : SV_DispatchThreadID)
         float verticalDamping = (1.0 - exp(-_FloatVerticalDamping * _Dt))
             * immersionFactor;
         force.y -= mass * verticalDamping * body.velocity.y;
-        // Light box-shaped props (duck, bottle) gently self-right, while
-        // cylindrical logs remain free to roll with the flow.
+        // Waves can still tilt an object, but buoyancy and drag are not
+        // allowed to generate full-scale high-frequency rotational impulses.
+        torque *= _FloatTorqueScale;
+        // Light box-shaped props (duck, bottle) gently self-right. Cylindrical
+        // logs are free to roll. Righting is added AFTER noisy torque scaling.
         if (shape < 0.5 && density < 0.5)
         {
             float3 worldUp = Rotate(body.rotation, float3(0,1,0));
             torque += mass * _Dt * _FloatUprightStrength *
                 cross(worldUp, float3(0,1,0)) * immersionFactor;
         }
-        // Waves can still tilt an object, but buoyancy and drag are not
-        // allowed to generate full-scale high-frequency rotational impulses.
-        torque *= _FloatTorqueScale;
     }
     uint dst = (uint)bi * 2;
     InterlockedAdd(_BodyImpulses[dst].x, (int)round(force.x * SCALE));
