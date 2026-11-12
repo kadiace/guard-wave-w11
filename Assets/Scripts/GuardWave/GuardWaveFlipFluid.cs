@@ -813,8 +813,11 @@ namespace GuardWave
                 Int4 torque = values[i * 2 + 1];
                 frame.Linear[i] = new Vector3(force.X, force.Y, force.Z) / IMPULSE_SCALE;
                 frame.Angular[i] = new Vector3(torque.X, torque.Y, torque.Z) / IMPULSE_SCALE;
+                // Both surface and current are summed with the same
+                // fixed-point wet-coverage weight. Their ratio is already in
+                // world units; do not divide by IMPULSE_SCALE again.
                 frame.Waterline[i] = torque.W > 0
-                    ? (float)force.W / (torque.W * IMPULSE_SCALE)
+                    ? (float)force.W / torque.W
                     : float.NaN;
                 frame.FlowXZ[i] = torque.W > 0
                     ? new Vector2((float)force.X / torque.W,
