@@ -272,10 +272,13 @@ namespace GuardWave
             _compute.SetFloat("_AmbientDepth", _settings.AmbientWaterDepth);
             _compute.SetFloat("_Gravity", Mathf.Abs(Physics.gravity.y) * _settings.GravityMultiplier);
             _compute.SetFloat("_FlipFraction", _settings.FlipFraction);
-            // Preview uses calm flow even if the saved wave profile has 100x impact tuning.
-            float forceScale = ambientFlow ? _settings.AmbientImpactScale : 1f;
+            // Increase physical pressure and collision response without altering
+            // the displacement-based buoyancy that defines relative density.
+            float forceScale = (ambientFlow ? _settings.AmbientImpactScale : 1f) *
+                _settings.FluidForceMultiplier;
             _compute.SetFloat("_ParticleMass", _settings.ParticleEffectiveMass * forceScale);
             _compute.SetFloat("_HydroDensity", _settings.HydroDensity * forceScale);
+            _compute.SetFloat("_FlowForceMultiplier", _settings.FluidForceMultiplier);
             _compute.SetFloat("_PressureClamp", _settings.PressureClamp);
             _compute.SetFloat("_PressureThreshold", _settings.PressureThreshold);
             _compute.SetFloat("_CollisionResponse", _settings.CollisionResponse);
@@ -1035,8 +1038,9 @@ namespace GuardWave
                 float responseRate = _settings.WaterFlowResponse * 2f;
                 float following = (1f - Mathf.Exp(-responseRate * dt)) * viscosity;
                 Vector2 flowImpulseXZ = body.mass * following *
-                    (currentXZ - bodyVelocityXZ);
-                flowImpulseXZ = Vector2.ClampMagnitude(flowImpulseXZ, body.mass * 0.65f);
+                    (currentXZ - bodyVelocityXZ) * _settings.FluidForceMultiplier;
+                flowImpulseXZ = Vector2.ClampMagnitude(flowImpulseXZ,
+                    body.mass * 0.65f * _settings.FluidForceMultiplier);
                 Vector3 flowImpulse = new Vector3(flowImpulseXZ.x, 0f, flowImpulseXZ.y);
                 body.AddForce(flowImpulse, ForceMode.Impulse);
                 if (_initialLogJoints[i] != null)

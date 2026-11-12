@@ -9,6 +9,8 @@ namespace GuardWave
         [Header("Rigidbodies - impact")]
         [SerializeField, Min(0.001f)] private float _particleEffectiveMass = 0.14f;
         [SerializeField, Min(0f)] private float _hydroDensity = 0.7f;
+        [Tooltip("Multiplier for water impact/drag, not density-based buoyancy.")]
+        [SerializeField, Min(0.01f)] private float _fluidForceMultiplier = 1f;
         [SerializeField, Min(0f)] private float _maxImpulsePerBodyMass = 3f;
         [SerializeField, Min(0f)] private float _minImpulseLimit = 0.25f;
         [SerializeField, Min(0f)] private float _angularImpulseMultiplier = 3f;
@@ -106,6 +108,7 @@ namespace GuardWave
 
         public float ParticleEffectiveMass => _particleEffectiveMass;
         public float HydroDensity => _hydroDensity;
+        public float FluidForceMultiplier => Mathf.Max(0.01f, _fluidForceMultiplier);
         public float MaxImpulsePerBodyMass => _maxImpulsePerBodyMass;
         public float MinImpulseLimit => _minImpulseLimit;
         public float AngularImpulseMultiplier => _angularImpulseMultiplier;

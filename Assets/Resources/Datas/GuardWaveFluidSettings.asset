@@ -14,6 +14,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWaveFluidSettings
   _particleEffectiveMass: 14
   _hydroDensity: 70
+  _fluidForceMultiplier: 5
   _maxImpulsePerBodyMass: 300
   _minImpulseLimit: 25
   _angularImpulseMultiplier: 3

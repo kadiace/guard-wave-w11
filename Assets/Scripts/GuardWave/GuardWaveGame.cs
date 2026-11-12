@@ -12,6 +12,13 @@ namespace GuardWave
     public sealed class GuardWaveGame : MonoBehaviour
     {
         private const int STAGE_COUNT = 5;
+        // Flow begins at Ready; the crest arrives five physics seconds later.
+        private const float CREEK_PREWAVE_SECONDS = 5f;
+        private const float FLAG_STILL_SECONDS = 5f;
+        private const float FLAG_MAX_LINEAR_SPEED = 0.1f;
+        private const float FLAG_MAX_ANGULAR_SPEED = 0.15f;
+        private const float FLAG_MAX_STILL_DRIFT = 0.1f;
+        private const float FLAG_MAX_STILL_ROTATION = 5f;
         private const float FLOOD_DURATION_INCREASE_PER_STAGE = 0.2f;
         private const float FLOOD_DEPTH_INCREASE_PER_STAGE = 0.5f;
         private const float CAMERA_DRAG_THRESHOLD_PIXELS = 6f;
@@ -126,6 +133,7 @@ namespace GuardWave
         private bool _paletteOpen = true;
         private bool _stageTransitioning;
         private bool _waveHasStarted;
+        private bool _ambientFlowRunning;
         private bool _resolving;
         private bool _awaitingStage;
         private bool _finished;
@@ -175,7 +183,7 @@ namespace GuardWave
             // Drain at most one completed GPU step per physics tick, before
             // dispatching the next simulation step.
             _fluid.ApplyPendingImpulses();
-            if (ambientFlowPreview)
+            if (ambientFlowPreview && _ambientFlowRunning)
                 _fluid.Step(Time.fixedDeltaTime, 0f);
         }
 
@@ -1011,6 +1019,7 @@ namespace GuardWave
             DisposeFluid();
             _stageTransitioning = false;
             _waveHasStarted = false;
+            _ambientFlowRunning = false;
             CommitWaveSnapshot();
 
             foreach (GuardWaveMudPatch patch in _mudPatches)
@@ -1173,9 +1182,10 @@ namespace GuardWave
             }
         }
 
-        /// <summary>Starts the persistent 1m creek at scene load; Ready adds one crest later.</summary>
+        /// <summary>Prepare a stationary creek at scene load; Ready starts the current.</summary>
         private void BeginAmbientCreekFlow()
         {
+            _ambientFlowRunning = false;
             try
             {
                 _fluid = new GuardWaveFlipFluid(_placementBounds.max.z,
@@ -1346,22 +1356,8 @@ namespace GuardWave
             _resolving = true;
             if (ambientFlowPreview)
             {
-                try
-                {
-                    // Ready adds only one 3m crest; the 10m/s creek continues unchanged.
-                    _fluid.EmitSingleCrest();
-                }
-                catch (Exception error)
-                {
-                    Debug.LogError("Unable to emit the 3m wave crest: " + error);
-                    _waveHasStarted = false;
-                    _stageTransitioning = false;
-                    _resolving = false;
-                    CommitWaveSnapshot();
-                    _status = "파봉 생성 실패: 입자 예산과 설정을 확인하세요.";
-                    return;
-                }
-                _status = "기본 강물과 3m 파봉이 동일한 유속으로 흐릅니다.";
+                _ambientFlowRunning = true;
+                _status = "물살이 시작되었습니다. 5초 뒤 파도가 옵니다.";
                 _stageFloodRoutine = StartCoroutine(ResolveAmbientWave());
                 return;
             }
@@ -1371,11 +1367,43 @@ namespace GuardWave
         }
 
         /// <summary>
-        /// Monitors exactly one upstream crest while FixedUpdate continuously
-        /// advances the same ambient creek, even during a failure popup.
+        /// Start the current at Ready, emit one crest after five seconds, then
+        /// require five consecutive seconds of a nearly motionless flag.
         /// </summary>
         private IEnumerator ResolveAmbientWave()
         {
+            float warmupElapsed = 0f;
+            while (warmupElapsed < CREEK_PREWAVE_SECONDS)
+            {
+                yield return new WaitForFixedUpdate();
+                if (_awaitingStage)
+                {
+                    _stageFloodRoutine = null;
+                    yield break;
+                }
+                warmupElapsed += Time.fixedDeltaTime;
+            }
+
+            try
+            {
+                // The current has already run for five seconds on the same
+                // FLIP simulation: do not construct a second liquid volume.
+                _fluid.EmitSingleCrest();
+            }
+            catch (Exception error)
+            {
+                Debug.LogError("Unable to emit the 3m wave crest: " + error);
+                _ambientFlowRunning = false;
+                _waveHasStarted = false;
+                _stageTransitioning = false;
+                _resolving = false;
+                CommitWaveSnapshot();
+                _stageFloodRoutine = null;
+                _status = "파봉 생성 실패: 입자 예산과 설정을 확인하세요.";
+                yield break;
+            }
+
+            _status = "파도가 이동 중입니다. 깃발을 지키세요.";
             float travel = (_placementBounds.size.z + _fluidSettings.WaveCrestLength) /
                 Mathf.Max(0.1f, _fluidSettings.WaveCrestSpeed);
             float elapsed = 0f;
@@ -1385,18 +1413,55 @@ namespace GuardWave
                 elapsed += Time.fixedDeltaTime;
                 if (_awaitingStage)
                 {
-                    // Do not dispose the ongoing liquid during the failure popup.
                     _stageFloodRoutine = null;
                     yield break;
                 }
             }
 
-            if (_awaitingStage)
+            // Stop driving the current now that the crest has passed.
+            // Continue Rigidbody physics while monitoring the surviving flag.
+            _ambientFlowRunning = false;
+            _status = "파도가 지나갔습니다. 깃발이 5초 동안 안정되면 클리어됩니다.";
+            float stillElapsed = 0f;
+            Vector3 stillPosition = _flagBody.position;
+            Quaternion stillRotation = _flagBody.rotation;
+            while (stillElapsed < FLAG_STILL_SECONDS)
             {
-                _stageFloodRoutine = null;
-                yield break;
+                yield return new WaitForFixedUpdate();
+                if (_awaitingStage)
+                {
+                    _stageFloodRoutine = null;
+                    yield break;
+                }
+                if (_defenseFlag == null || !_defenseFlag.activeInHierarchy ||
+                    _flagBody.position.z <= DestructionBoundaryZ)
+                {
+                    _stageFloodRoutine = null;
+                    DestroyDefenseFlag();
+                    yield break;
+                }
+
+                bool slow = _flagBody.IsSleeping() ||
+                    (_flagBody.linearVelocity.sqrMagnitude <=
+                        FLAG_MAX_LINEAR_SPEED * FLAG_MAX_LINEAR_SPEED &&
+                     _flagBody.angularVelocity.sqrMagnitude <=
+                        FLAG_MAX_ANGULAR_SPEED * FLAG_MAX_ANGULAR_SPEED);
+                bool inPlace = Vector3.Distance(_flagBody.position, stillPosition) <=
+                        FLAG_MAX_STILL_DRIFT &&
+                    Quaternion.Angle(_flagBody.rotation, stillRotation) <=
+                        FLAG_MAX_STILL_ROTATION;
+                if (slow && inPlace)
+                    stillElapsed += Time.fixedDeltaTime;
+                else
+                {
+                    stillElapsed = 0f;
+                    stillPosition = _flagBody.position;
+                    stillRotation = _flagBody.rotation;
+                }
             }
 
+            // The transition remains active throughout settling, so the
+            // next preparation countdown cannot restart before clearance.
             CommitWaveSnapshot();
             _stageTransitioning = false;
             _resolving = false;
@@ -1972,6 +2037,7 @@ namespace GuardWave
                 _stageFloodRoutine = null;
             }
             DisposeFluid();
+            _ambientFlowRunning = false;
             // Drop unsafe later edits if the pre-Ready failure selected an
             // earlier valid checkpoint.
             int checkpointIndex = _editHistory.IndexOf(_waveSnapshot);

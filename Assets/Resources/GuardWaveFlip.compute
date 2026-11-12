@@ -62,6 +62,7 @@ float _Gravity;
 float _FlipFraction;
 float _ParticleMass;
 float _HydroDensity;
+float _FlowForceMultiplier;
 float _PressureClamp;
 float _PressureThreshold;
 float _CollisionResponse;
@@ -1013,8 +1014,8 @@ void RelativeDensityToBodies(uint id : SV_DispatchThreadID)
     float dragScale = mass * following / wet;
     // Dense bodies continue to use GPU linear buoyancy and drag.
     // Float bodies return their sampled surface/current for live CPU forces.
-    if (!floating) force += dragScale * dragDelta;
-    torque += dragScale * dragTorque;
+    if (!floating) force += dragScale * dragDelta * _FlowForceMultiplier;
+    torque += dragScale * dragTorque * _FlowForceMultiplier;
     if (floating)
     {
         // Vertical damping is applied on the CPU using the present Rigidbody
