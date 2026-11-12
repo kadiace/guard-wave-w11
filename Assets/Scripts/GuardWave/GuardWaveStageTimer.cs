@@ -67,6 +67,8 @@ namespace GuardWave
 
             _disasterName = transform.Find("DisasterName").GetComponent<Text>();
             _countdown = transform.Find("Countdown").GetComponent<Text>();
+            // Enlarged digits must not be truncated by the prefab text rectangle.
+            _countdown.verticalOverflow = VerticalWrapMode.Overflow;
             _defaultFontSize = _countdown.fontSize;
             _defaultCountdownScale = _countdown.rectTransform.localScale;
             _disasterName.text = stage.disasterName + "가 오기까지";
