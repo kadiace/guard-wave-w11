@@ -831,6 +831,17 @@ void RelativeDensityToBodies(uint id : SV_DispatchThreadID)
     waterline /= available;
     current /= available;
 
+    // Reuse unused W lanes in the existing body-impulse buffer to return the
+    // local water surface to Unity. Recompute buoyancy from the CURRENT pose
+    // on the CPU rather than replaying an old vertical impulse.
+    if (density < 1.0)
+    {
+        uint bodySlot = (uint)bi * 2;
+        InterlockedAdd(_BodyImpulses[bodySlot].w,
+            (int)round(waterline * SCALE));
+        InterlockedAdd(_BodyImpulses[bodySlot + 1].w, 1);
+    }
+
     float wet = 0;
     float3 buoyancyTorque = 0;
     float3 dragDelta = 0;
@@ -921,6 +932,9 @@ void RelativeDensityToBodies(uint id : SV_DispatchThreadID)
         dragImpulse.y = 0.0;
     }
     force += dragImpulse;
+    // Buoyant pieces use the returned water surface to compute their lift at
+    // the current physics pose on the CPU. Preserve heavy-body buoyancy here.
+    if (floating) force.y = 0.0;
     torque += dragScale * dragTorque;
     if (floating)
     {
