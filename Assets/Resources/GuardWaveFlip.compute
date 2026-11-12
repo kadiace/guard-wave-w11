@@ -705,10 +705,9 @@ void SmoothWaterColumns(uint id : SV_DispatchThreadID)
         weightedSurface += weight * height;
         totalWeight += weight;
     }
-    // A temporarily empty 0.6m column inside a flowing river should not
-    // instantly lose buoyancy. Reconstruct its surface using at least three
-    // occupied neighboring columns; a genuinely dry region stays dry.
-    if (heightCount == 0 || (ownFlow.w <= 0 && heightCount < 3))
+    // Experiment: only particle-occupied columns have a water surface.
+    // Do not fill empty columns by looking at nearby fluid.
+    if (ownFlow.w <= 0)
     {
         _SmoothedWaterSurface[id] = 0;
         return;
@@ -778,10 +777,8 @@ float SampleWater(float3 pos, out float surfaceY, out float3 waterVelocity)
         uint index = (uint)(c.y * _GridSize.x + c.x);
         int4 flow = _WaterFlow[index];
         int top = _SmoothedWaterSurface[index];
-        // Neighbor-supported surface samples remain valid even when their
-        // individual particle count momentarily reaches zero. Their empty
-        // velocity is NOT treated as a real stationary current.
-        if (top <= 0) continue;
+        // Require real water particles in this sampled column.
+        if (flow.w <= 0 || top <= 0) continue;
         float weight = (x == 0 ? 1.0 - f.x : f.x) *
             (z == 0 ? 1.0 - f.y : f.y);
         coverage += weight;
