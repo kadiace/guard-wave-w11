@@ -118,8 +118,8 @@ namespace GuardWave
             _completePopup.SetActive(false);
             _rulesPopup.SetActive(false);
             _tooltip.SetActive(false);
-            _rulesBody.text = @"진흙을 선택해 클릭하면 아래로 사영한 표면에 진흙이 발립니다.
-진흙 위에 통나무 등의 물체가 떨어지면 부착됩니다.
+            _rulesBody.text = @"진흙을 선택하고 마우스 왼쪽 버튼을 누른 채 드래그해 표면에 풀을 펴 바르세요.
+바른 자국 위에 통나무 등 물체가 떨어지면 부착됩니다.
 통나무는 기존과 같이 클릭 위치에 떨어뜨려 무제한 배치할 수 있습니다.
 선택한 재료는 우클릭으로 해제하기 전까지 계속 사용할 수 있습니다.
 하단의 준비완료를 누르면 홍수가 밀려옵니다.

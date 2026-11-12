@@ -39,6 +39,9 @@ namespace GuardWave
         private readonly List<GuardWavePiece> _pieces = new List<GuardWavePiece>();
         private readonly List<GuardWaveMudPatch> _mudPatches = new List<GuardWaveMudPatch>();
         private GameObject _mudPreview;
+        private GuardWaveMudPatch _activeMudStroke;
+        private Vector3 _lastMudCursor;
+        private bool _paintingMud;
 
         [Header("Mud adhesion")]
         [SerializeField, Min(0f)] private float mudBreakForce = 2000f;
@@ -155,6 +158,14 @@ namespace GuardWave
 
             UpdateDropPreview();
 
+            // Unlike an ordinary object drop, painting continues throughout
+            // the held left-button gesture and emits brush samples as it moves.
+            if (_selected >= 0 && _offers[_selected]?.id == "mud")
+            {
+                UpdateMudPainting(mouse);
+                return;
+            }
+
             if (mouse == null || !mouse.leftButton.wasPressedThisFrame ||
                 mouse.rightButton.isPressed || mouse.rightButton.wasReleasedThisFrame ||
                 !_dropMouseReleased || _selected < 0 ||
@@ -169,16 +180,8 @@ namespace GuardWave
             _dropMouseReleased = false;
             _lastDropTime = Time.unscaledTime;
             HideDropPreview();
-            if (_offers[_selected].id == "mud")
-            {
-                if (TryGetMudSurface(placement, out RaycastHit surface))
-                    ApplyMud(surface);
-            }
-            else
-            {
-                StartCoroutine(DropAndResolve(_offers[_selected],
-                    new Vector3(placement.x, _placementBounds.max.y + dropHeight, placement.z)));
-            }
+            StartCoroutine(DropAndResolve(_offers[_selected],
+                new Vector3(placement.x, _placementBounds.max.y + dropHeight, placement.z)));
         }
 
         /// <summary>Esc 또는 우클릭으로 현재 기물 선택을 해제한다.</summary>
@@ -186,6 +189,7 @@ namespace GuardWave
         {
             if (_resolving || _awaitingStage || _finished || _rulesOpen) return;
             _paletteOpen = true;
+            EndMudPainting();
             _selected = -1;
             HideDropPreview();
             _status = "후보를 다시 선택하세요.";
@@ -235,19 +239,83 @@ namespace GuardWave
                    && hit.collider.GetComponentInParent<GuardWaveMudPatch>() == null;
         }
 
-        /// <summary>Paints a thin adhesive patch on the vertical projection hit.</summary>
-        private void ApplyMud(RaycastHit surface)
+        /// <summary>
+        /// Holds one brush stroke while the left mouse button is down.
+        /// Resamples long mouse movements so no visible gaps appear between
+        /// frames, including when the pointer moves quickly.
+        /// </summary>
+        private void UpdateMudPainting(Mouse mouse)
         {
-            GameObject patchObject = new GameObject("Mud Patch");
-            patchObject.transform.SetPositionAndRotation(
-                surface.point + surface.normal * 0.018f,
-                Quaternion.AngleAxis(_objectYaw, surface.normal)
-                    * Quaternion.FromToRotation(Vector3.up, surface.normal));
-            patchObject.transform.SetParent(surface.collider.transform, true);
-            GuardWaveMudPatch patch = patchObject.AddComponent<GuardWaveMudPatch>();
-            patch.Initialize(this, surface.rigidbody, mudBreakForce, mudBreakTorque);
-            _mudPatches.Add(patch);
-            _status = "진흙을 발랐습니다. 그 위에 통나무를 떨어뜨리면 부착됩니다.";
+            if (mouse == null || !mouse.leftButton.isPressed ||
+                mouse.rightButton.isPressed || _rulesOpen || _resolving)
+            {
+                EndMudPainting();
+                return;
+            }
+
+            if (!TryGetPlacementXZ(mouse.position.ReadValue(), out Vector3 position))
+            {
+                EndMudPainting();
+                return;
+            }
+
+            if (!_paintingMud)
+            {
+                if (!mouse.leftButton.wasPressedThisFrame || !_dropMouseReleased ||
+                    Time.unscaledTime - _lastDropTime < dropClickCooldown ||
+                    !TryGetMudSurface(position, out RaycastHit firstHit))
+                    return;
+
+                _paintingMud = true;
+                _dropMouseReleased = false;
+                _lastDropTime = Time.unscaledTime;
+                _lastMudCursor = position;
+                PaintMudAt(firstHit);
+                return;
+            }
+
+            float distance = Vector2.Distance(
+                new Vector2(_lastMudCursor.x, _lastMudCursor.z),
+                new Vector2(position.x, position.z));
+            int segments = Mathf.Clamp(
+                Mathf.CeilToInt(distance / GuardWaveMudPatch.SampleSpacing), 1, 64);
+
+            for (int i = 1; i <= segments; i++)
+            {
+                Vector3 sample = Vector3.Lerp(_lastMudCursor, position, i / (float)segments);
+                if (TryGetMudSurface(sample, out RaycastHit hit))
+                    PaintMudAt(hit);
+                else
+                    _activeMudStroke = null;
+            }
+            _lastMudCursor = position;
+        }
+
+        private void PaintMudAt(RaycastHit surface)
+        {
+            if (_activeMudStroke == null ||
+                _activeMudStroke.SurfaceCollider != surface.collider ||
+                _activeMudStroke.IsFull)
+            {
+                GameObject strokeObject = new GameObject("Painted Mud Stroke");
+                strokeObject.transform.SetPositionAndRotation(
+                    surface.point, Quaternion.FromToRotation(Vector3.up, surface.normal));
+                strokeObject.transform.SetParent(surface.collider.transform, true);
+
+                _activeMudStroke = strokeObject.AddComponent<GuardWaveMudPatch>();
+                _activeMudStroke.Initialize(this, surface.collider,
+                    surface.rigidbody, mudBreakForce, mudBreakTorque);
+                _mudPatches.Add(_activeMudStroke);
+            }
+
+            _activeMudStroke.AddPoint(surface.point, surface.normal);
+            _status = "진흙을 바르는 중… 마우스를 드래그해 풀을 펴 바르세요.";
+        }
+
+        private void EndMudPainting()
+        {
+            _paintingMud = false;
+            _activeMudStroke = null;
         }
 
         internal bool HasMudBond(GuardWavePiece piece)
@@ -322,6 +390,7 @@ namespace GuardWave
         {
             SetOutlineTargets(null);
             _dropPreview?.Dispose();
+            EndMudPainting();
             if (_mudPreview != null)
             {
                 Renderer renderer = _mudPreview.GetComponent<Renderer>();
@@ -446,6 +515,7 @@ namespace GuardWave
         {
             if (!CanSelect || index < 0 || index >= _offers.Length) return;
             if (_offers[index] == null) return;
+            EndMudPainting();
             _selected = index;
             _status = _offers[index].name + " 선택";
         }
@@ -453,6 +523,7 @@ namespace GuardWave
         /// <summary>규칙 창이 열려 있는 동안 게임의 배치 입력을 잠근다.</summary>
         public void SetRulesOpen(bool isOpen)
         {
+            if (isOpen) EndMudPainting();
             _rulesOpen = isOpen;
         }
 
@@ -574,6 +645,7 @@ namespace GuardWave
         /// <summary>모든 배치와 소모품 상태를 초기화하고 기본 발판을 배치한다.</summary>
         private void ResetGame()
         {
+            EndMudPainting();
             SetOutlineTargets(null);
             if (_stageFloodRoutine != null)
             {
@@ -805,6 +877,7 @@ namespace GuardWave
         public void Ready()
         {
             if (!CanReady) return;
+            EndMudPainting();
             SetOutlineTargets(null);
             HideDropPreview();
             _waveSnapshot = CaptureWaveSnapshot();
