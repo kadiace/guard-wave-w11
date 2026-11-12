@@ -16,6 +16,7 @@ GameObject:
   - component: {fileID: 5400173931167669494}
   - component: {fileID: 5576235316683910146}
   - component: {fileID: 3671430053963273706}
+  - component: {fileID: 6833331091962001111}
   m_Layer: 0
   m_Name: Stick
   m_TagString: Untagged
@@ -282,3 +283,16 @@ ConfigurableJoint:
   m_EnablePreprocessing: 1
   m_MassScale: 1
   m_ConnectedMassScale: 1
+
+--- !u!114 &6833331091962001111
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7227668231300462649}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: c8b33b11884f4cfcbbeab7e037fc9330, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWaveTempWallStickLanding

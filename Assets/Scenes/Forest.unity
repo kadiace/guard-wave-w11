@@ -128,6 +128,34 @@ PrefabInstance:
     m_TransformParent: {fileID: 1530301197}
     m_Modifications:
     - target: {fileID: 3671430053963273706, guid: b453ff6303ef9484c9c0dbc03ec0653d, type: 3}
+      propertyPath: m_Anchor.y
+      value: -0.5
+      objectReference: {fileID: 0}
+    - target: {fileID: 3671430053963273706, guid: b453ff6303ef9484c9c0dbc03ec0653d, type: 3}
+      propertyPath: m_XMotion
+      value: 2
+      objectReference: {fileID: 0}
+    - target: {fileID: 3671430053963273706, guid: b453ff6303ef9484c9c0dbc03ec0653d, type: 3}
+      propertyPath: m_YMotion
+      value: 2
+      objectReference: {fileID: 0}
+    - target: {fileID: 3671430053963273706, guid: b453ff6303ef9484c9c0dbc03ec0653d, type: 3}
+      propertyPath: m_ZMotion
+      value: 2
+      objectReference: {fileID: 0}
+    - target: {fileID: 3671430053963273706, guid: b453ff6303ef9484c9c0dbc03ec0653d, type: 3}
+      propertyPath: m_AngularXMotion
+      value: 2
+      objectReference: {fileID: 0}
+    - target: {fileID: 3671430053963273706, guid: b453ff6303ef9484c9c0dbc03ec0653d, type: 3}
+      propertyPath: m_AngularYMotion
+      value: 2
+      objectReference: {fileID: 0}
+    - target: {fileID: 3671430053963273706, guid: b453ff6303ef9484c9c0dbc03ec0653d, type: 3}
+      propertyPath: m_AngularZMotion
+      value: 2
+      objectReference: {fileID: 0}
+    - target: {fileID: 3671430053963273706, guid: b453ff6303ef9484c9c0dbc03ec0653d, type: 3}
       propertyPath: m_ConnectedAnchor.x
       value: 1.25
       objectReference: {fileID: 0}
@@ -201,6 +229,34 @@ PrefabInstance:
     serializedVersion: 3
     m_TransformParent: {fileID: 1530301197}
     m_Modifications:
+    - target: {fileID: 3671430053963273706, guid: b453ff6303ef9484c9c0dbc03ec0653d, type: 3}
+      propertyPath: m_Anchor.y
+      value: -0.5
+      objectReference: {fileID: 0}
+    - target: {fileID: 3671430053963273706, guid: b453ff6303ef9484c9c0dbc03ec0653d, type: 3}
+      propertyPath: m_XMotion
+      value: 2
+      objectReference: {fileID: 0}
+    - target: {fileID: 3671430053963273706, guid: b453ff6303ef9484c9c0dbc03ec0653d, type: 3}
+      propertyPath: m_YMotion
+      value: 2
+      objectReference: {fileID: 0}
+    - target: {fileID: 3671430053963273706, guid: b453ff6303ef9484c9c0dbc03ec0653d, type: 3}
+      propertyPath: m_ZMotion
+      value: 2
+      objectReference: {fileID: 0}
+    - target: {fileID: 3671430053963273706, guid: b453ff6303ef9484c9c0dbc03ec0653d, type: 3}
+      propertyPath: m_AngularXMotion
+      value: 2
+      objectReference: {fileID: 0}
+    - target: {fileID: 3671430053963273706, guid: b453ff6303ef9484c9c0dbc03ec0653d, type: 3}
+      propertyPath: m_AngularYMotion
+      value: 2
+      objectReference: {fileID: 0}
+    - target: {fileID: 3671430053963273706, guid: b453ff6303ef9484c9c0dbc03ec0653d, type: 3}
+      propertyPath: m_AngularZMotion
+      value: 2
+      objectReference: {fileID: 0}
     - target: {fileID: 3671430053963273706, guid: b453ff6303ef9484c9c0dbc03ec0653d, type: 3}
       propertyPath: m_ConnectedAnchor.x
       value: 0.5
@@ -402,6 +458,34 @@ PrefabInstance:
     serializedVersion: 3
     m_TransformParent: {fileID: 1530301197}
     m_Modifications:
+    - target: {fileID: 3671430053963273706, guid: b453ff6303ef9484c9c0dbc03ec0653d, type: 3}
+      propertyPath: m_Anchor.y
+      value: -0.5
+      objectReference: {fileID: 0}
+    - target: {fileID: 3671430053963273706, guid: b453ff6303ef9484c9c0dbc03ec0653d, type: 3}
+      propertyPath: m_XMotion
+      value: 2
+      objectReference: {fileID: 0}
+    - target: {fileID: 3671430053963273706, guid: b453ff6303ef9484c9c0dbc03ec0653d, type: 3}
+      propertyPath: m_YMotion
+      value: 2
+      objectReference: {fileID: 0}
+    - target: {fileID: 3671430053963273706, guid: b453ff6303ef9484c9c0dbc03ec0653d, type: 3}
+      propertyPath: m_ZMotion
+      value: 2
+      objectReference: {fileID: 0}
+    - target: {fileID: 3671430053963273706, guid: b453ff6303ef9484c9c0dbc03ec0653d, type: 3}
+      propertyPath: m_AngularXMotion
+      value: 2
+      objectReference: {fileID: 0}
+    - target: {fileID: 3671430053963273706, guid: b453ff6303ef9484c9c0dbc03ec0653d, type: 3}
+      propertyPath: m_AngularYMotion
+      value: 2
+      objectReference: {fileID: 0}
+    - target: {fileID: 3671430053963273706, guid: b453ff6303ef9484c9c0dbc03ec0653d, type: 3}
+      propertyPath: m_AngularZMotion
+      value: 2
+      objectReference: {fileID: 0}
     - target: {fileID: 7227668231300462649, guid: b453ff6303ef9484c9c0dbc03ec0653d, type: 3}
       propertyPath: m_Name
       value: Stick
@@ -459,6 +543,34 @@ PrefabInstance:
     serializedVersion: 3
     m_TransformParent: {fileID: 1530301197}
     m_Modifications:
+    - target: {fileID: 3671430053963273706, guid: b453ff6303ef9484c9c0dbc03ec0653d, type: 3}
+      propertyPath: m_Anchor.y
+      value: -0.5
+      objectReference: {fileID: 0}
+    - target: {fileID: 3671430053963273706, guid: b453ff6303ef9484c9c0dbc03ec0653d, type: 3}
+      propertyPath: m_XMotion
+      value: 2
+      objectReference: {fileID: 0}
+    - target: {fileID: 3671430053963273706, guid: b453ff6303ef9484c9c0dbc03ec0653d, type: 3}
+      propertyPath: m_YMotion
+      value: 2
+      objectReference: {fileID: 0}
+    - target: {fileID: 3671430053963273706, guid: b453ff6303ef9484c9c0dbc03ec0653d, type: 3}
+      propertyPath: m_ZMotion
+      value: 2
+      objectReference: {fileID: 0}
+    - target: {fileID: 3671430053963273706, guid: b453ff6303ef9484c9c0dbc03ec0653d, type: 3}
+      propertyPath: m_AngularXMotion
+      value: 2
+      objectReference: {fileID: 0}
+    - target: {fileID: 3671430053963273706, guid: b453ff6303ef9484c9c0dbc03ec0653d, type: 3}
+      propertyPath: m_AngularYMotion
+      value: 2
+      objectReference: {fileID: 0}
+    - target: {fileID: 3671430053963273706, guid: b453ff6303ef9484c9c0dbc03ec0653d, type: 3}
+      propertyPath: m_AngularZMotion
+      value: 2
+      objectReference: {fileID: 0}
     - target: {fileID: 3671430053963273706, guid: b453ff6303ef9484c9c0dbc03ec0653d, type: 3}
       propertyPath: m_ConnectedAnchor.x
       value: -1
@@ -534,6 +646,34 @@ PrefabInstance:
     m_TransformParent: {fileID: 1530301197}
     m_Modifications:
     - target: {fileID: 3671430053963273706, guid: b453ff6303ef9484c9c0dbc03ec0653d, type: 3}
+      propertyPath: m_Anchor.y
+      value: -0.5
+      objectReference: {fileID: 0}
+    - target: {fileID: 3671430053963273706, guid: b453ff6303ef9484c9c0dbc03ec0653d, type: 3}
+      propertyPath: m_XMotion
+      value: 2
+      objectReference: {fileID: 0}
+    - target: {fileID: 3671430053963273706, guid: b453ff6303ef9484c9c0dbc03ec0653d, type: 3}
+      propertyPath: m_YMotion
+      value: 2
+      objectReference: {fileID: 0}
+    - target: {fileID: 3671430053963273706, guid: b453ff6303ef9484c9c0dbc03ec0653d, type: 3}
+      propertyPath: m_ZMotion
+      value: 2
+      objectReference: {fileID: 0}
+    - target: {fileID: 3671430053963273706, guid: b453ff6303ef9484c9c0dbc03ec0653d, type: 3}
+      propertyPath: m_AngularXMotion
+      value: 2
+      objectReference: {fileID: 0}
+    - target: {fileID: 3671430053963273706, guid: b453ff6303ef9484c9c0dbc03ec0653d, type: 3}
+      propertyPath: m_AngularYMotion
+      value: 2
+      objectReference: {fileID: 0}
+    - target: {fileID: 3671430053963273706, guid: b453ff6303ef9484c9c0dbc03ec0653d, type: 3}
+      propertyPath: m_AngularZMotion
+      value: 2
+      objectReference: {fileID: 0}
+    - target: {fileID: 3671430053963273706, guid: b453ff6303ef9484c9c0dbc03ec0653d, type: 3}
       propertyPath: m_ConnectedAnchor.x
       value: -0.75
       objectReference: {fileID: 0}
@@ -608,6 +748,7 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 1530301197}
+  - component: {fileID: 3400001001}
   m_Layer: 0
   m_Name: Temp Wall
   m_TagString: Untagged
@@ -624,7 +765,7 @@ Transform:
   m_GameObject: {fileID: 1530301196}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0, y: -6, z: 6}
+  m_LocalPosition: {x: 0, y: -5, z: 6}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children:
@@ -643,6 +784,19 @@ Transform:
   - {fileID: 1562310890}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &3400001001
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1530301196}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: b7f1490a6bb24dc6ae5b1045869fb0c2, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWaveStickForceProbe
+  logInterval: 0.5
 --- !u!1001 &1538027813
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -651,6 +805,34 @@ PrefabInstance:
     serializedVersion: 3
     m_TransformParent: {fileID: 1530301197}
     m_Modifications:
+    - target: {fileID: 3671430053963273706, guid: b453ff6303ef9484c9c0dbc03ec0653d, type: 3}
+      propertyPath: m_Anchor.y
+      value: -0.5
+      objectReference: {fileID: 0}
+    - target: {fileID: 3671430053963273706, guid: b453ff6303ef9484c9c0dbc03ec0653d, type: 3}
+      propertyPath: m_XMotion
+      value: 2
+      objectReference: {fileID: 0}
+    - target: {fileID: 3671430053963273706, guid: b453ff6303ef9484c9c0dbc03ec0653d, type: 3}
+      propertyPath: m_YMotion
+      value: 2
+      objectReference: {fileID: 0}
+    - target: {fileID: 3671430053963273706, guid: b453ff6303ef9484c9c0dbc03ec0653d, type: 3}
+      propertyPath: m_ZMotion
+      value: 2
+      objectReference: {fileID: 0}
+    - target: {fileID: 3671430053963273706, guid: b453ff6303ef9484c9c0dbc03ec0653d, type: 3}
+      propertyPath: m_AngularXMotion
+      value: 2
+      objectReference: {fileID: 0}
+    - target: {fileID: 3671430053963273706, guid: b453ff6303ef9484c9c0dbc03ec0653d, type: 3}
+      propertyPath: m_AngularYMotion
+      value: 2
+      objectReference: {fileID: 0}
+    - target: {fileID: 3671430053963273706, guid: b453ff6303ef9484c9c0dbc03ec0653d, type: 3}
+      propertyPath: m_AngularZMotion
+      value: 2
+      objectReference: {fileID: 0}
     - target: {fileID: 3671430053963273706, guid: b453ff6303ef9484c9c0dbc03ec0653d, type: 3}
       propertyPath: m_ConnectedAnchor.x
       value: -1.25
@@ -726,6 +908,34 @@ PrefabInstance:
     m_TransformParent: {fileID: 1530301197}
     m_Modifications:
     - target: {fileID: 3671430053963273706, guid: b453ff6303ef9484c9c0dbc03ec0653d, type: 3}
+      propertyPath: m_Anchor.y
+      value: -0.5
+      objectReference: {fileID: 0}
+    - target: {fileID: 3671430053963273706, guid: b453ff6303ef9484c9c0dbc03ec0653d, type: 3}
+      propertyPath: m_XMotion
+      value: 2
+      objectReference: {fileID: 0}
+    - target: {fileID: 3671430053963273706, guid: b453ff6303ef9484c9c0dbc03ec0653d, type: 3}
+      propertyPath: m_YMotion
+      value: 2
+      objectReference: {fileID: 0}
+    - target: {fileID: 3671430053963273706, guid: b453ff6303ef9484c9c0dbc03ec0653d, type: 3}
+      propertyPath: m_ZMotion
+      value: 2
+      objectReference: {fileID: 0}
+    - target: {fileID: 3671430053963273706, guid: b453ff6303ef9484c9c0dbc03ec0653d, type: 3}
+      propertyPath: m_AngularXMotion
+      value: 2
+      objectReference: {fileID: 0}
+    - target: {fileID: 3671430053963273706, guid: b453ff6303ef9484c9c0dbc03ec0653d, type: 3}
+      propertyPath: m_AngularYMotion
+      value: 2
+      objectReference: {fileID: 0}
+    - target: {fileID: 3671430053963273706, guid: b453ff6303ef9484c9c0dbc03ec0653d, type: 3}
+      propertyPath: m_AngularZMotion
+      value: 2
+      objectReference: {fileID: 0}
+    - target: {fileID: 3671430053963273706, guid: b453ff6303ef9484c9c0dbc03ec0653d, type: 3}
       propertyPath: m_ConnectedAnchor.x
       value: -0.25
       objectReference: {fileID: 0}
@@ -799,6 +1009,34 @@ PrefabInstance:
     serializedVersion: 3
     m_TransformParent: {fileID: 1530301197}
     m_Modifications:
+    - target: {fileID: 3671430053963273706, guid: b453ff6303ef9484c9c0dbc03ec0653d, type: 3}
+      propertyPath: m_Anchor.y
+      value: -0.5
+      objectReference: {fileID: 0}
+    - target: {fileID: 3671430053963273706, guid: b453ff6303ef9484c9c0dbc03ec0653d, type: 3}
+      propertyPath: m_XMotion
+      value: 2
+      objectReference: {fileID: 0}
+    - target: {fileID: 3671430053963273706, guid: b453ff6303ef9484c9c0dbc03ec0653d, type: 3}
+      propertyPath: m_YMotion
+      value: 2
+      objectReference: {fileID: 0}
+    - target: {fileID: 3671430053963273706, guid: b453ff6303ef9484c9c0dbc03ec0653d, type: 3}
+      propertyPath: m_ZMotion
+      value: 2
+      objectReference: {fileID: 0}
+    - target: {fileID: 3671430053963273706, guid: b453ff6303ef9484c9c0dbc03ec0653d, type: 3}
+      propertyPath: m_AngularXMotion
+      value: 2
+      objectReference: {fileID: 0}
+    - target: {fileID: 3671430053963273706, guid: b453ff6303ef9484c9c0dbc03ec0653d, type: 3}
+      propertyPath: m_AngularYMotion
+      value: 2
+      objectReference: {fileID: 0}
+    - target: {fileID: 3671430053963273706, guid: b453ff6303ef9484c9c0dbc03ec0653d, type: 3}
+      propertyPath: m_AngularZMotion
+      value: 2
+      objectReference: {fileID: 0}
     - target: {fileID: 3671430053963273706, guid: b453ff6303ef9484c9c0dbc03ec0653d, type: 3}
       propertyPath: m_ConnectedAnchor.x
       value: 1.5
@@ -874,6 +1112,34 @@ PrefabInstance:
     m_TransformParent: {fileID: 1530301197}
     m_Modifications:
     - target: {fileID: 3671430053963273706, guid: b453ff6303ef9484c9c0dbc03ec0653d, type: 3}
+      propertyPath: m_Anchor.y
+      value: -0.5
+      objectReference: {fileID: 0}
+    - target: {fileID: 3671430053963273706, guid: b453ff6303ef9484c9c0dbc03ec0653d, type: 3}
+      propertyPath: m_XMotion
+      value: 2
+      objectReference: {fileID: 0}
+    - target: {fileID: 3671430053963273706, guid: b453ff6303ef9484c9c0dbc03ec0653d, type: 3}
+      propertyPath: m_YMotion
+      value: 2
+      objectReference: {fileID: 0}
+    - target: {fileID: 3671430053963273706, guid: b453ff6303ef9484c9c0dbc03ec0653d, type: 3}
+      propertyPath: m_ZMotion
+      value: 2
+      objectReference: {fileID: 0}
+    - target: {fileID: 3671430053963273706, guid: b453ff6303ef9484c9c0dbc03ec0653d, type: 3}
+      propertyPath: m_AngularXMotion
+      value: 2
+      objectReference: {fileID: 0}
+    - target: {fileID: 3671430053963273706, guid: b453ff6303ef9484c9c0dbc03ec0653d, type: 3}
+      propertyPath: m_AngularYMotion
+      value: 2
+      objectReference: {fileID: 0}
+    - target: {fileID: 3671430053963273706, guid: b453ff6303ef9484c9c0dbc03ec0653d, type: 3}
+      propertyPath: m_AngularZMotion
+      value: 2
+      objectReference: {fileID: 0}
+    - target: {fileID: 3671430053963273706, guid: b453ff6303ef9484c9c0dbc03ec0653d, type: 3}
       propertyPath: m_ConnectedAnchor.x
       value: -1.5
       objectReference: {fileID: 0}
@@ -947,6 +1213,34 @@ PrefabInstance:
     serializedVersion: 3
     m_TransformParent: {fileID: 1530301197}
     m_Modifications:
+    - target: {fileID: 3671430053963273706, guid: b453ff6303ef9484c9c0dbc03ec0653d, type: 3}
+      propertyPath: m_Anchor.y
+      value: -0.5
+      objectReference: {fileID: 0}
+    - target: {fileID: 3671430053963273706, guid: b453ff6303ef9484c9c0dbc03ec0653d, type: 3}
+      propertyPath: m_XMotion
+      value: 2
+      objectReference: {fileID: 0}
+    - target: {fileID: 3671430053963273706, guid: b453ff6303ef9484c9c0dbc03ec0653d, type: 3}
+      propertyPath: m_YMotion
+      value: 2
+      objectReference: {fileID: 0}
+    - target: {fileID: 3671430053963273706, guid: b453ff6303ef9484c9c0dbc03ec0653d, type: 3}
+      propertyPath: m_ZMotion
+      value: 2
+      objectReference: {fileID: 0}
+    - target: {fileID: 3671430053963273706, guid: b453ff6303ef9484c9c0dbc03ec0653d, type: 3}
+      propertyPath: m_AngularXMotion
+      value: 2
+      objectReference: {fileID: 0}
+    - target: {fileID: 3671430053963273706, guid: b453ff6303ef9484c9c0dbc03ec0653d, type: 3}
+      propertyPath: m_AngularYMotion
+      value: 2
+      objectReference: {fileID: 0}
+    - target: {fileID: 3671430053963273706, guid: b453ff6303ef9484c9c0dbc03ec0653d, type: 3}
+      propertyPath: m_AngularZMotion
+      value: 2
+      objectReference: {fileID: 0}
     - target: {fileID: 3671430053963273706, guid: b453ff6303ef9484c9c0dbc03ec0653d, type: 3}
       propertyPath: m_ConnectedAnchor.x
       value: 0.75
@@ -1026,6 +1320,34 @@ PrefabInstance:
     serializedVersion: 3
     m_TransformParent: {fileID: 1530301197}
     m_Modifications:
+    - target: {fileID: 3671430053963273706, guid: b453ff6303ef9484c9c0dbc03ec0653d, type: 3}
+      propertyPath: m_Anchor.y
+      value: -0.5
+      objectReference: {fileID: 0}
+    - target: {fileID: 3671430053963273706, guid: b453ff6303ef9484c9c0dbc03ec0653d, type: 3}
+      propertyPath: m_XMotion
+      value: 2
+      objectReference: {fileID: 0}
+    - target: {fileID: 3671430053963273706, guid: b453ff6303ef9484c9c0dbc03ec0653d, type: 3}
+      propertyPath: m_YMotion
+      value: 2
+      objectReference: {fileID: 0}
+    - target: {fileID: 3671430053963273706, guid: b453ff6303ef9484c9c0dbc03ec0653d, type: 3}
+      propertyPath: m_ZMotion
+      value: 2
+      objectReference: {fileID: 0}
+    - target: {fileID: 3671430053963273706, guid: b453ff6303ef9484c9c0dbc03ec0653d, type: 3}
+      propertyPath: m_AngularXMotion
+      value: 2
+      objectReference: {fileID: 0}
+    - target: {fileID: 3671430053963273706, guid: b453ff6303ef9484c9c0dbc03ec0653d, type: 3}
+      propertyPath: m_AngularYMotion
+      value: 2
+      objectReference: {fileID: 0}
+    - target: {fileID: 3671430053963273706, guid: b453ff6303ef9484c9c0dbc03ec0653d, type: 3}
+      propertyPath: m_AngularZMotion
+      value: 2
+      objectReference: {fileID: 0}
     - target: {fileID: 3671430053963273706, guid: b453ff6303ef9484c9c0dbc03ec0653d, type: 3}
       propertyPath: m_ConnectedAnchor.x
       value: 1
@@ -1193,6 +1515,34 @@ PrefabInstance:
     m_TransformParent: {fileID: 1530301197}
     m_Modifications:
     - target: {fileID: 3671430053963273706, guid: b453ff6303ef9484c9c0dbc03ec0653d, type: 3}
+      propertyPath: m_Anchor.y
+      value: -0.5
+      objectReference: {fileID: 0}
+    - target: {fileID: 3671430053963273706, guid: b453ff6303ef9484c9c0dbc03ec0653d, type: 3}
+      propertyPath: m_XMotion
+      value: 2
+      objectReference: {fileID: 0}
+    - target: {fileID: 3671430053963273706, guid: b453ff6303ef9484c9c0dbc03ec0653d, type: 3}
+      propertyPath: m_YMotion
+      value: 2
+      objectReference: {fileID: 0}
+    - target: {fileID: 3671430053963273706, guid: b453ff6303ef9484c9c0dbc03ec0653d, type: 3}
+      propertyPath: m_ZMotion
+      value: 2
+      objectReference: {fileID: 0}
+    - target: {fileID: 3671430053963273706, guid: b453ff6303ef9484c9c0dbc03ec0653d, type: 3}
+      propertyPath: m_AngularXMotion
+      value: 2
+      objectReference: {fileID: 0}
+    - target: {fileID: 3671430053963273706, guid: b453ff6303ef9484c9c0dbc03ec0653d, type: 3}
+      propertyPath: m_AngularYMotion
+      value: 2
+      objectReference: {fileID: 0}
+    - target: {fileID: 3671430053963273706, guid: b453ff6303ef9484c9c0dbc03ec0653d, type: 3}
+      propertyPath: m_AngularZMotion
+      value: 2
+      objectReference: {fileID: 0}
+    - target: {fileID: 3671430053963273706, guid: b453ff6303ef9484c9c0dbc03ec0653d, type: 3}
       propertyPath: m_ConnectedAnchor.x
       value: 0.25
       objectReference: {fileID: 0}
@@ -1266,6 +1616,34 @@ PrefabInstance:
     serializedVersion: 3
     m_TransformParent: {fileID: 1530301197}
     m_Modifications:
+    - target: {fileID: 3671430053963273706, guid: b453ff6303ef9484c9c0dbc03ec0653d, type: 3}
+      propertyPath: m_Anchor.y
+      value: -0.5
+      objectReference: {fileID: 0}
+    - target: {fileID: 3671430053963273706, guid: b453ff6303ef9484c9c0dbc03ec0653d, type: 3}
+      propertyPath: m_XMotion
+      value: 2
+      objectReference: {fileID: 0}
+    - target: {fileID: 3671430053963273706, guid: b453ff6303ef9484c9c0dbc03ec0653d, type: 3}
+      propertyPath: m_YMotion
+      value: 2
+      objectReference: {fileID: 0}
+    - target: {fileID: 3671430053963273706, guid: b453ff6303ef9484c9c0dbc03ec0653d, type: 3}
+      propertyPath: m_ZMotion
+      value: 2
+      objectReference: {fileID: 0}
+    - target: {fileID: 3671430053963273706, guid: b453ff6303ef9484c9c0dbc03ec0653d, type: 3}
+      propertyPath: m_AngularXMotion
+      value: 2
+      objectReference: {fileID: 0}
+    - target: {fileID: 3671430053963273706, guid: b453ff6303ef9484c9c0dbc03ec0653d, type: 3}
+      propertyPath: m_AngularYMotion
+      value: 2
+      objectReference: {fileID: 0}
+    - target: {fileID: 3671430053963273706, guid: b453ff6303ef9484c9c0dbc03ec0653d, type: 3}
+      propertyPath: m_AngularZMotion
+      value: 2
+      objectReference: {fileID: 0}
     - target: {fileID: 3671430053963273706, guid: b453ff6303ef9484c9c0dbc03ec0653d, type: 3}
       propertyPath: m_ConnectedAnchor.x
       value: -0.5
