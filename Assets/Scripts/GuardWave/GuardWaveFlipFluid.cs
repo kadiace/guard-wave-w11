@@ -1085,7 +1085,9 @@ namespace GuardWave
                 Vector3 velocity = body.linearVelocity;
                 float liftImpulse = body.mass * gravity * dt * buoyancyRatio;
                 float dragImpulse = -body.mass * damping * viscosity * velocity.y;
-                body.AddForce(Vector3.up * (liftImpulse + dragImpulse), ForceMode.Impulse);
+                Vector3 buoyancyImpulse = Vector3.up * liftImpulse;
+                Vector3 verticalDampingImpulse = Vector3.up * dragImpulse;
+                body.AddForce(buoyancyImpulse + verticalDampingImpulse, ForceMode.Impulse);
 
                 // A GPU readback may arrive every few physics steps. Follow
                 // the latest measured water current continuously using the
@@ -1115,6 +1117,8 @@ namespace GuardWave
                     body.mass * 0.65f * _settings.FluidForceMultiplier);
                 Vector3 flowImpulse = new Vector3(flowImpulseXZ.x, 0f, flowImpulseXZ.y);
                 body.AddForce(flowImpulse, ForceMode.Impulse);
+                GuardWaveStickForceProbe.RecordCpuImpulses(body, buoyancyImpulse,
+                    verticalDampingImpulse, flowImpulse);
                 if (_initialLogJoints[i] != null)
                     _initialLogJoints[i].ObserveFluidImpulse(flowImpulse);
             }

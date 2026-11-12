@@ -16,6 +16,13 @@ namespace GuardWave
             public float PeakImpulse;
             public float PeakAngularImpulse;
             public Vector3 PeakImpulseDirection;
+            // CPU buoyancy/current impulses are applied every FixedUpdate,
+            // outside the asynchronous GPU impulse callback.
+            public Vector3 CpuBuoyancyImpulse;
+            public Vector3 CpuVerticalDampingImpulse;
+            public Vector3 CpuFlowImpulse;
+            public float PeakCpuFlowImpulse;
+            public int CpuSamples;
             public float PeakJointForce;
             public float PeakJointTorque;
             public int Readbacks;
@@ -73,6 +80,23 @@ namespace GuardWave
             state.PeakAngularImpulse = Mathf.Max(state.PeakAngularImpulse, angularImpulse.magnitude);
         }
 
+        /// <summary>
+        /// Records the exact CPU-side impulses already applied to a body.
+        /// These are absent from GPU readback metrics, including for floating logs
+        /// whose GPU linear channel encodes a water-current sample, not force.
+        /// </summary>
+        internal static void RecordCpuImpulses(Rigidbody body, Vector3 buoyancyImpulse,
+            Vector3 verticalDampingImpulse, Vector3 flowImpulse)
+        {
+            if (_active == null || !_active._states.TryGetValue(body, out StickState state))
+                return;
+            state.CpuBuoyancyImpulse += buoyancyImpulse;
+            state.CpuVerticalDampingImpulse += verticalDampingImpulse;
+            state.CpuFlowImpulse += flowImpulse;
+            state.PeakCpuFlowImpulse = Mathf.Max(state.PeakCpuFlowImpulse, flowImpulse.magnitude);
+            state.CpuSamples++;
+        }
+
         private void FixedUpdate()
         {
             foreach (StickState state in _states.Values)
@@ -91,6 +115,12 @@ namespace GuardWave
                 float averageFluidForce = state.SumImpulseMagnitudes / step;
                 float peakFluidForceEstimate = state.PeakImpulse / step;
                 float peakFluidTorqueEstimate = state.PeakAngularImpulse / step;
+                float cpuBuoyancyForce = state.CpuBuoyancyImpulse.y / step;
+                float cpuVerticalDampingForce = state.CpuVerticalDampingImpulse.y / step;
+                Vector3 cpuFlowForce = state.CpuFlowImpulse / step;
+                Vector3 cpuNetForce = (state.CpuBuoyancyImpulse +
+                    state.CpuVerticalDampingImpulse + state.CpuFlowImpulse) / step;
+                float cpuFlowPeak = state.PeakCpuFlowImpulse / step;
                 string breakForce = state.Joint != null ? state.Joint.breakForce.ToString("F2") : "no joint";
                 string breakTorque = state.Joint != null ? state.Joint.breakTorque.ToString("F2") : "no joint";
 
@@ -102,6 +132,10 @@ namespace GuardWave
                     $"fluid avg~{averageFluidForce:F2} N, peak~{peakFluidForceEstimate:F2} N " +
                     $"(peak impulse={state.PeakImpulse:F3} N*s, direction={state.PeakImpulseDirection}) | " +
                     $"fluid angular peak~{peakFluidTorqueEstimate:F2} N*m | " +
+                    $"cpu samples={state.CpuSamples}, buoyancy={cpuBuoyancyForce:F2} N, " +
+                    $"vertical damping={cpuVerticalDampingForce:F2} N, " +
+                    $"flow={cpuFlowForce} N, flow peak~{cpuFlowPeak:F2} N, " +
+                    $"cpu net={cpuNetForce} N (magnitude={cpuNetForce.magnitude:F2} N) | " +
                     $"joint peak force={state.PeakJointForce:F2} N / breakForce={breakForce} N, " +
                     $"peak torque={state.PeakJointTorque:F2} N*m / breakTorque={breakTorque} N*m. " +
                     "Fluid peaks are impulse/fixedDeltaTime estimates (async GPU readback); " +
@@ -115,6 +149,11 @@ namespace GuardWave
                 state.PeakImpulse = 0f;
                 state.PeakAngularImpulse = 0f;
                 state.PeakImpulseDirection = Vector3.zero;
+                state.CpuBuoyancyImpulse = Vector3.zero;
+                state.CpuVerticalDampingImpulse = Vector3.zero;
+                state.CpuFlowImpulse = Vector3.zero;
+                state.PeakCpuFlowImpulse = 0f;
+                state.CpuSamples = 0;
                 state.PeakJointForce = 0f;
                 state.PeakJointTorque = 0f;
             }

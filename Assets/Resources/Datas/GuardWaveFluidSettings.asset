@@ -21,9 +21,9 @@ MonoBehaviour:
   _pressureClamp: 5000
   _pressureThreshold: 0.05
   _ambientWaterDepth: 1
-  _ambientFlowSpeed: 10
+  _ambientFlowSpeed: 20
   _ambientFlowVolumeMultiplier: 2
-  _ambientMaxSupplyParticlesPerSecond: 3700
+  _ambientMaxSupplyParticlesPerSecond: 7400
   _ambientImpactScale: 0.01
   _waterFlowResponse: 6
   _verticalFlowResponseScale: 0.35
