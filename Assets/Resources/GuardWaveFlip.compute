@@ -35,7 +35,7 @@ struct FluidCollider
     float4 bodyCenter;
 };
 RWStructuredBuffer<FluidParticle> _Particles;
-RWStructuredBuffer<uint> _FlowCounters; // [0] pending refill, [1] total refilled, [2] per-tick claims, [3] cliff exits
+RWStructuredBuffer<uint> _FlowCounters; // [0] missing base water (initial + losses), [1] total supplied, [2] per-tick claims, [3] cliff exits
 RWStructuredBuffer<uint> _CrestMetrics; // active wave particles, peak height centimeters, released count
 RWStructuredBuffer<int4> _Accum;
 RWStructuredBuffer<int4> _BodyImpulses; // force impulse in xyz, torque in next xyz
@@ -72,7 +72,6 @@ float _CrestForwardDamping;
 float _CrestReleaseDistance;
 uint _CrestSlotStart;
 int3 _AmbientGrid;
-uint _AmbientInitialCount;
 uint _AmbientEnabled;
 uint _AmbientRefillBudget;
 int3 _CrestGrid;
@@ -240,29 +239,17 @@ void Spawn(uint id : SV_DispatchThreadID)
     p.velocity = float4(0, 0, -_InletVelocity, 0);
     _Particles[index] = p;
 }
-// The initial 1m river is present before any Ready click.
+// The ambient creek starts dry. The shared supply debt fills it from upstream.
 [numthreads(128,1,1)]
 void InitializeAmbient(uint id : SV_DispatchThreadID)
 {
     if (id >= _ParticleCount) return;
-    FluidParticle p = (FluidParticle)0;
-    if (id < _AmbientInitialCount)
-    {
-        uint x = id % (uint)_AmbientGrid.x;
-        uint y = (id / (uint)_AmbientGrid.x) % (uint)_AmbientGrid.y;
-        uint z = id / (uint)(_AmbientGrid.x * _AmbientGrid.y);
-        p.position = float4(
-            -_HalfWidth + (x + 0.5) * (2.0 * _HalfWidth / _AmbientGrid.x),
-            _FloorY + (y + 0.5) * (_AmbientDepth / _AmbientGrid.y),
-            _ExitZ + (z + 0.5) * ((_InletZ + _CellSize - _ExitZ) / _AmbientGrid.z), 1.0);
-        p.velocity = float4(0, 0, -_InletVelocity, 0);
-    }
-    _Particles[id] = p;
+    _Particles[id] = (FluidParticle)0;
 }
 
-// Preserve refill debt until inactive slots become available, even while the
-// waterfall occupies the spare GPU particle slots. All refill accounting stays
-// on the GPU; a wave crest (velocity.w = 1) is never counted as base water.
+// Preserve the initial-fill and lost-water debt until inactive slots become
+// available, including while waterfall spray occupies the spare GPU slots.
+// Crest particles (velocity.w = 1) never count as baseline water.
 [numthreads(128,1,1)]
 void RecycleAmbient(uint id : SV_DispatchThreadID)
 {
@@ -272,9 +259,8 @@ void RecycleAmbient(uint id : SV_DispatchThreadID)
     FluidParticle p = _Particles[id];
     if (p.position.w != 0.0) return;
 
-    // A faster inlet supplies more particles per second, but each physics
-    // tick has a finite, speed-derived budget. Claim before withdrawing a
-    // lost-water ticket so we cannot flood the creek on a sudden backlog.
+    // The shared per-tick supply cap applies to startup filling and losses.
+    // Claim budget before withdrawing a missing-water ticket.
     uint claim;
     InterlockedAdd(_FlowCounters[2], 1u, claim);
     if (claim >= _AmbientRefillBudget) return;

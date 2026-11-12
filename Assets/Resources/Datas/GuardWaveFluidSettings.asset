@@ -22,6 +22,7 @@ MonoBehaviour:
   _ambientWaterDepth: 1
   _ambientFlowSpeed: 10
   _ambientFlowVolumeMultiplier: 2
+  _ambientMaxSupplyParticlesPerSecond: 3700
   _ambientImpactScale: 0.01
   _waveCrestAmplitude: 3
   _waveCrestWidth: 1.4
