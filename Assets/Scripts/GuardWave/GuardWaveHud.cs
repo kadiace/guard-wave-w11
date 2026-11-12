@@ -213,7 +213,7 @@ Q/E: 기물 회전 / 우클릭 또는 Esc: 선택 취소
             }
             if (_hoveredPiece != null && _hoveredCard < 0 && _tooltip.activeSelf)
             {
-                string description = AbilityTooltip(_hoveredPiece.MaterialId);
+                string description = PieceDescription(_hoveredPiece);
                 if (_tooltipText.text != description)
                 {
                     Mouse mouse = Mouse.current;
@@ -344,7 +344,7 @@ Q/E: 기물 회전 / 우클릭 또는 Esc: 선택 취소
             if (!_game.CanShowItemInfo) return;
             GuardWaveMaterial material = _game.CurrentOffers[index];
             if (material == null) return;
-            string description = AbilityTooltip(material.id);
+            string description = CandidateDescription(material);
             if (description == null) return;
             _hoveredCard = index;
             _hoveredPiece = null;
@@ -354,8 +354,9 @@ Q/E: 기물 회전 / 우클릭 또는 Esc: 선택 취소
         /// <summary>기물에 물리 레이캐스트가 적중하면 접촉 정보를 표시한다.</summary>
         public void SetHoveredPiece(GuardWavePiece piece, Vector2 screen)
         {
-            if (!_game.CanShowItemInfo || !_game.IsPlacedPiece(piece) ||
-                AbilityTooltip(piece.MaterialId) == null)
+            string description = piece != null && _game.IsPlacedPiece(piece)
+                ? PieceDescription(piece) : null;
+            if (!_game.CanShowItemInfo || description == null)
                 piece = null;
 
             if (piece != _hoveredPiece)
@@ -364,15 +365,38 @@ Q/E: 기물 회전 / 우클릭 또는 Esc: 선택 취소
                 if (_hoveredCard < 0)
                 {
                     if (piece == null) _tooltip.SetActive(false);
-                    else ShowDescription(AbilityTooltip(piece.MaterialId), screen);
+                    else ShowDescription(description, screen);
                 }
             }
             if (piece != null && _hoveredCard < 0)
             {
                 // The UI card exit can hide the shared tooltip after this piece is selected.
-                if (!_tooltip.activeSelf) ShowDescription(AbilityTooltip(piece.MaterialId), screen);
+                if (!_tooltip.activeSelf) ShowDescription(description, screen);
                 else MoveTooltip(screen);
             }
+        }
+
+        /// <summary>Shared candidate/piece text for the Forest palette and its objective.</summary>
+        private string CandidateDescription(GuardWaveMaterial material)
+        {
+            if (material == null) return null;
+            switch (material.id)
+            {
+                case "mud":
+                case "log":
+                case "forest_pebble":
+                case "default_flag":
+                    return BuildCandidateDetails(material);
+                default:
+                    return AbilityTooltip(material.id);
+            }
+        }
+
+        private string PieceDescription(GuardWavePiece piece)
+        {
+            if (piece == null) return null;
+            GuardWaveMaterial material = _game.GetPieceMaterial(piece);
+            return material != null ? CandidateDescription(material) : AbilityTooltip(piece.MaterialId);
         }
 
         /// <summary>접착제와 성장 기물에만 표시할 짧은 툴팁 문구를 반환한다.</summary>
