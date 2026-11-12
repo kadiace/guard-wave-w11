@@ -32,8 +32,11 @@ over inactive authored colliders when limited by the GPU collider budget.
 
 At every fixed step, `GuardWaveFlip.compute` reconstructs water columns from
 live particles after the FLIP update. The `RelativeDensityToBodies` kernel
-samples a 5x5x5 volume for each active collider; cylinder and sphere shapes
-discard outside samples. The submergence fraction `s` gives buoyant
+first samples the waterline/current at eight locations JUST OUTSIDE the
+collider footprint, then integrates a 5x5x5 volume INSIDE the collider against
+that external surface; cylinder and sphere shapes discard outside samples.
+Sampling water presence INSIDE the collider is incorrect: particles are
+displaced by the collider so occupied interior fluid cells disappear. The submergence fraction `s` gives buoyant
 acceleration `|g| * s / relativeDensity` upward, against Unity's normal
 gravity downward. Forces/torques are delivered through the existing
 Rigidbody impulse buffer.
@@ -42,7 +45,10 @@ Local current following uses `fluidVelocity - rigidbodyPointVelocity`.
 The flow does **not** rely on the collider surface normal; hence a log follows
 water both sideways and along its own axis. Static-ground contacts on sinking
 objects reduce the **target current** to 15%, not just the acceleration.
-The old collision/pressure impulses remain active.
+Raw particle and pressure reaction impulses remain active for non-piece
+bodies (e.g. the defense flag), while relative-density pieces instead receive
+coherent volumetric buoyancy and flow drag. The particles still collide with
+every piece and are deflected around the obstacle.
 
 ## Global tuning
 
@@ -74,12 +80,21 @@ waterline, so buoyancy does not linger below the cliff.
 
 ## Floating-object stability
 
-For bodies whose relative density is **below 1**, raw particle collision
-impulses and per-cell pressure reaction impulses are deliberately NOT delivered
-to Rigidbody. Fluid particles still collide against the object surface and
-continue to respond to the obstacle in FLIP. The body instead follows smoothed
-water height and local current, with damped buoyancy and limited current
-impulses. Heavy objects (density >= 1) retain the original impact behavior.
+For EVERY body with a relative fluid density field (including heavy rocks),
+raw particle collision impulses and per-cell pressure reaction impulses are
+deliberately NOT delivered to Rigidbody. These previously added unbounded
+positive-Y impacts to dense rocks. Fluid particles still collide against the
+object surface and respond to obstacles inside FLIP. The Rigidbody instead
+receives distributed buoyancy/current forces from the surrounding water.
+Non-piece bodies retain their original direct impact behavior.
+
+Critically, sampling water presence at the *interior* of a solid collider
+makes an immersed object seem dry: the FLIP particles have been pushed aside.
+The solver now probes eight sites outside the object's projected XZ footprint,
+then calculates submerged body volume against the surrounding free surface.
+This allows a rubber duck (density 0.25) to emerge from the creek bed and follow
+the flow. Floating current convergence is doubled but its per-step impulses
+remain capped.
 
 The `SmoothWaterColumns` kernel blends the highest water particle across
 neighboring columns, then smooths successive frames (about 8/s), without
@@ -100,7 +115,9 @@ Check the rubber duck at relative density 0.25: it should bob briefly and
 settle with most of its body above the water while moving downstream. Rotate
 it sideways before play and check that it returns roughly upright. Check
 that a large wave still carries the duck rather than shoving it one particle
-at a time; check a heavy rock still receives pressure and collision impacts.
+at a time; verify a heavy rock rests on the bed and only moves when the
+distributed flow is strong enough (it should not jump due to microscopic
+particle/pressure kicks).
 
 ## Approximation / caveats
 
