@@ -811,7 +811,8 @@ namespace GuardWave
                 else if (!rightButton.isPressed && !rightButton.wasReleasedThisFrame && !pointerOverUi)
                 {
                     _camera.orthographicSize = Mathf.Clamp(_camera.orthographicSize *
-                        Mathf.Exp(-scroll * 0.03f), 6f, 12.5f);
+                        Mathf.Exp(-scroll * 0.03f), 6f,
+                        GetComponent<FogSceneController>() != null ? 20.5f : 12.5f);
                 }
             }
 
@@ -918,7 +919,7 @@ namespace GuardWave
             DealOffers();
             if (ambientFlowPreview) BeginAmbientCreekFlow();
             _status = GetComponent<FogSceneController>() != null
-                ? "고무오리·쓰레기 봉투·큰 돌을 배치하세요."
+                ? "고층 건물 실외기는 +Z로 바람을 냅니다. 기물을 배치한 뒤 준비 완료를 누르세요."
                 : "진흙을 바르고 통나무 또는 조약돌을 배치하세요. 기물 우클릭: 제거, 빈 공간 우클릭: 선택 해제";
             // Initial state enables Ctrl+Z to undo the very first placement.
             SaveEditState(false);

@@ -75,7 +75,7 @@ namespace GuardWave
         {
             _running = true;
             _game.SetRulesOpen(true); // Existing placement UI and input become read-only.
-            _status = "짙은 연막이 상류에서 부풀어 오르고 있습니다.";
+            _status = "도시 도로로 밀려오는 안개를 건물 실외기 바람이 밀어내고 있습니다.";
             float ground = -2.25f;
             GameObject bed = GameObject.Find("Flat Muddy Creek Bed");
             if (bed != null)
