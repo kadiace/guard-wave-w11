@@ -23,9 +23,14 @@ namespace GuardWave
     public sealed class GuardWaveStageTimer : MonoBehaviour
     {
         private const int WARNING_SECONDS = 10;
-        // Each tick effect finishes before the next whole-second transition.
+        // Small markers every ten seconds, stronger ticks in the final nine, then three impact beats.
+        private const int TenSecondInterval = 10;
+        private const float TenSecondPulseDuration = 0.28f;
         private const float WarningPulseDuration = 0.38f;
-        private const float ImpactPulseDuration = 0.76f;
+        private const float ImpactPulseCycleDuration = 0.45f;
+        private const int ImpactPulseRepeats = 3;
+
+        private enum PulseKind { None, TenSecond, Warning, Impact }
         private static readonly Color ImpactColor = new Color(1f, 0.08f, 0.08f, 1f);
         private static readonly Color FlashColor = new Color(1f, 0.95f, 0.86f, 1f);
         private static readonly Color WarningColor = new Color(0.95f, 0.17f, 0.17f, 1f);
@@ -45,8 +50,8 @@ namespace GuardWave
         private Vector3 _defaultCountdownScale;
         private float _pulseElapsed;
         private float _pulseDuration;
-        private bool _pulseActive;
-        private bool _impactPulse;
+        private PulseKind _pulseKind;
+        private bool _pendingWarningPulse;
 
         /// <summary>씬 이름으로 StageInfo.json을 조회하여 재해 이름과 제한 시간을 초기화한다.</summary>
         public void Initialize(GuardWaveGame game, FogSceneController fogMode)
@@ -129,13 +134,18 @@ namespace GuardWave
             _remainingSeconds = _durationSeconds;
             _displayedHundredths = -1;
             _disasterStarted = false;
-            _pulseActive = false;
+            _pulseKind = PulseKind.None;
+            _pendingWarningPulse = false;
             _pulseElapsed = 0f;
             RefreshCountdown();
+            // A fresh countdown is also a ten-second mark (e.g. 120, 40 or 30).
+            if (_displayedHundredths > 0 &&
+                _displayedHundredths % (TenSecondInterval * 100) == 0)
+                StartPulse(PulseKind.TenSecond);
             ApplyCountdownStyle();
         }
 
-        /// <summary>SS:CC 표시의 초 자릿수가 바뀌는 시점마다 짧은 경고 펄스를 시작한다.</summary>
+        /// <summary>모든 10초 경계에서 약한 펄스를, 마지막 9초에는 매초 강한 펄스를 시작한다.</summary>
         private void RefreshCountdown()
         {
             int hundredths = Mathf.CeilToInt(_remainingSeconds * 100f);
@@ -148,29 +158,66 @@ namespace GuardWave
             if (previousHundredths >= 0)
             {
                 if (hundredths == 0 && previousHundredths > 0)
-                    StartPulse(true);
-                else if (hundredths > 0 && hundredths < WARNING_SECONDS * 100 &&
-                         hundredths / 100 != previousHundredths / 100)
-                    StartPulse(false);
+                {
+                    _pendingWarningPulse = false;
+                    StartPulse(PulseKind.Impact);
+                }
+                else if (hundredths > 0)
+                {
+                    // Rounding can skip an exact :00 frame. Compare crossed boundaries
+                    // rather than relying on hundredths % 1000 == 0.
+                    int interval = TenSecondInterval * 100;
+                    bool crossedTenSecondMark =
+                        (hundredths + interval - 1) / interval <
+                        (previousHundredths + interval - 1) / interval;
+                    bool enteredNewSecond = hundredths / 100 != previousHundredths / 100;
+                    bool finalNineSeconds = hundredths < WARNING_SECONDS * 100;
+
+                    if (crossedTenSecondMark)
+                    {
+                        StartPulse(PulseKind.TenSecond);
+                        // Preserve the first single-digit warning even when a frame
+                        // crosses both the ten-second mark and the 9.xx boundary.
+                        if (finalNineSeconds)
+                            _pendingWarningPulse = true;
+                    }
+                    else if (finalNineSeconds && enteredNewSecond)
+                    {
+                        // At 10:00 the subtle pulse gets its full 0.28s.
+                        if (_pulseKind == PulseKind.TenSecond)
+                            _pendingWarningPulse = true;
+                        else
+                            StartPulse(PulseKind.Warning);
+                    }
+                }
             }
             ApplyCountdownStyle();
         }
 
-        private void StartPulse(bool impact)
+        private void StartPulse(PulseKind kind)
         {
-            _impactPulse = impact;
+            _pulseKind = kind;
             _pulseElapsed = 0f;
-            _pulseDuration = impact ? ImpactPulseDuration : WarningPulseDuration;
-            _pulseActive = true;
+            _pulseDuration = kind == PulseKind.Impact
+                ? ImpactPulseCycleDuration * ImpactPulseRepeats
+                : kind == PulseKind.Warning ? WarningPulseDuration
+                : TenSecondPulseDuration;
         }
 
         /// <summary>게임 시간으로 연출을 진행하여 가이드/ESC 일시정지 중에는 정지한다.</summary>
         private void AnimateCountdown()
         {
-            if (!_pulseActive) return;
+            if (_pulseKind == PulseKind.None) return;
             _pulseElapsed = Mathf.Min(_pulseDuration, _pulseElapsed + Time.deltaTime);
             if (_pulseElapsed >= _pulseDuration)
-                _pulseActive = false;
+            {
+                _pulseKind = PulseKind.None;
+                if (_pendingWarningPulse)
+                {
+                    _pendingWarningPulse = false;
+                    StartPulse(PulseKind.Warning);
+                }
+            }
             ApplyCountdownStyle();
         }
 
@@ -184,15 +231,22 @@ namespace GuardWave
             Color color = expired ? ImpactColor :
                 _remainingSeconds <= WARNING_SECONDS ? WarningColor : Color.white;
             float scale = 1f;
-            if (_pulseActive)
+            if (_pulseKind != PulseKind.None)
             {
-                float t = Mathf.Clamp01(_pulseElapsed / _pulseDuration);
-                scale += (_impactPulse ? 0.30f : 0.16f) * Mathf.Sin(Mathf.PI * t);
-                // At zero, flash twice; in the final seconds, flash once.
-                float flashes = _impactPulse ? 2f : 1f;
-                float blink = Mathf.Pow(Mathf.Sin(flashes * Mathf.PI * t), 2f);
-                color = Color.Lerp(color, FlashColor, blink * (_impactPulse ? 0.90f : 0.75f));
-                color.a = 1f - blink * (_impactPulse ? 0.25f : 0.35f);
+                // Impact plays three complete expansion/flash/recovery cycles.
+                float t = _pulseKind == PulseKind.Impact
+                    ? (_pulseElapsed % ImpactPulseCycleDuration) / ImpactPulseCycleDuration
+                    : Mathf.Clamp01(_pulseElapsed / _pulseDuration);
+                float blink = Mathf.Sin(Mathf.PI * t);
+                float amplitude = _pulseKind == PulseKind.Impact ? 0.30f
+                    : _pulseKind == PulseKind.Warning ? 0.16f : 0.07f;
+                float flashStrength = _pulseKind == PulseKind.Impact ? 0.90f
+                    : _pulseKind == PulseKind.Warning ? 0.75f : 0.25f;
+                scale += amplitude * blink;
+                color = Color.Lerp(color, FlashColor, blink * blink * flashStrength);
+                if (_pulseKind != PulseKind.TenSecond)
+                    color.a = 1f - blink * blink *
+                        (_pulseKind == PulseKind.Impact ? 0.25f : 0.35f);
             }
             _countdown.rectTransform.localScale = _defaultCountdownScale * scale;
             _countdown.color = color;
