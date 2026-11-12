@@ -274,10 +274,7 @@ Q/E: 기물 회전 / 우클릭 또는 Esc: 선택 취소
             Texture2D texture = new Texture2D(size, size, TextureFormat.RGBA32, false);
             texture.filterMode = FilterMode.Point;
             texture.wrapMode = TextureWrapMode.Clamp;
-            // The new Forest-only pebble uses the existing stone palette
-            // color while retaining its own original mesh and prefab.
-            string materialId = info.id == "forest_pebble" ? "pebble" : info.id;
-            Material material = Resources.Load<Material>("Materials/" + materialId + "_Base");
+            Material material = Resources.Load<Material>("Materials/" + info.id + "_Base");
             Color color = info.id == "mud" ? new Color(0.42f, 0.28f, 0.16f, 1f)
                 : material == null ? Color.gray : material.color;
             Color shadow = new Color(color.r * 0.53f, color.g * 0.53f, color.b * 0.53f, 1f);
