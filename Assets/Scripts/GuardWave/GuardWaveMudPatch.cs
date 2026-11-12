@@ -620,9 +620,6 @@ namespace GuardWave
             return true;
         }
 
-        private void OnTriggerEnter(Collider other) => TryBond(other);
-        private void OnTriggerStay(Collider other) => TryBond(other);
-        internal void ProcessTrigger(Collider other) => TryBond(other);
 
         private void TryBond(Collider other)
         {
