@@ -15,7 +15,12 @@ namespace GuardWave
         public const float SampleSpacing = 0.16f;
 
         private const int MaxSamples = 512;
-        private const float ColliderSpacing = 0.5f;
+        // Runtime paint uses long, simplified trigger capsules; authored paint keeps its few existing spheres.
+        private const float MaxTriggerSegmentLength = 2.4f;
+        private const float MaxTriggerDeviation = 0.12f;
+        private const float MinTriggerNormalDot = 0.9f;
+        private const float SampleCellSize = 0.6f;
+        private const float MeshRefreshInterval = 0.065f;
         private const float SurfaceOffset = 0.012f;
         private const int CrossSections = 9;
         private static Material s_mudMaterial;
@@ -26,13 +31,23 @@ namespace GuardWave
             new Dictionary<GuardWavePiece, FixedJoint>();
         private readonly Dictionary<Collider, float> _lastContactCheck =
             new Dictionary<Collider, float>();
+        private readonly Dictionary<Vector2Int, List<int>> _sampleGrid =
+            new Dictionary<Vector2Int, List<int>>();
+        // Reuse mesh buffers: a long stroke should not allocate three large lists every update.
+        private readonly List<Vector3> _meshVertices = new List<Vector3>(256);
+        private readonly List<int> _meshTriangles = new List<int>(512);
+        private readonly List<Vector2> _meshUvs = new List<Vector2>(256);
+        private readonly float[] _lengths = new float[MaxSamples];
 
         private GuardWaveGame _game;
         private Collider _surfaceCollider;
         private Rigidbody _surfaceBody;
         private float _breakForce;
         private float _breakTorque;
-        private Vector3 _lastTriggerPosition;
+        private int _triggerSegmentFirstSample;
+        private GameObject _triggerSegment;
+        private CapsuleCollider _triggerCapsule;
+        private float _lastMeshRefresh = float.NegativeInfinity;
         private Mesh _mesh;
         private bool _meshDirty;
         private bool _authored;
@@ -106,8 +121,11 @@ namespace GuardWave
 
             foreach (SphereCollider trigger in GetComponents<SphereCollider>())
             {
-                _points.Add(trigger.center - Vector3.up * 0.24f);
+                Vector3 point = trigger.center - Vector3.up * 0.24f;
+                int index = _points.Count;
+                _points.Add(point);
                 _normals.Add(Vector3.up);
+                IndexSample(point, index);
             }
         }
 
@@ -121,26 +139,27 @@ namespace GuardWave
                 Vector3.Distance(_points[_points.Count - 1], point) < SampleSpacing * 0.65f)
                 return;
 
+            int index = _points.Count;
             _points.Add(point);
             _normals.Add(normal);
+            IndexSample(point, index);
             _meshDirty = true;
-
-            if (_points.Count == 1 ||
-                Vector3.Distance(_lastTriggerPosition, point) >= ColliderSpacing)
-            {
-                SphereCollider trigger = gameObject.AddComponent<SphereCollider>();
-                trigger.isTrigger = true;
-                trigger.radius = BrushRadius;
-                trigger.center = point + normal * 0.24f;
-                _lastTriggerPosition = point;
-            }
+            UpdateTriggerSegment(index);
         }
 
-        /// <summary>Rebuild only once per rendered frame, not for every interpolated point.</summary>
+        /// <summary>Throttle full mesh uploads while painting; always flush the final brush position.</summary>
         private void LateUpdate()
+        {
+            if (!_meshDirty || Time.unscaledTime - _lastMeshRefresh < MeshRefreshInterval)
+                return;
+            FlushStrokeMesh();
+        }
+
+        public void FlushStrokeMesh()
         {
             if (!_meshDirty) return;
             _meshDirty = false;
+            _lastMeshRefresh = Time.unscaledTime;
             RebuildStrokeMesh();
         }
 
@@ -156,10 +175,14 @@ namespace GuardWave
 
             int count = _points.Count;
             int rows = count + 4;
-            var vertices = new List<Vector3>(rows * CrossSections);
-            var triangles = new List<int>((rows - 1) * (CrossSections - 1) * 6);
-            var uv = new List<Vector2>(rows * CrossSections);
-            float[] lengths = new float[count];
+            _meshVertices.Clear();
+            _meshTriangles.Clear();
+            _meshUvs.Clear();
+            List<Vector3> vertices = _meshVertices;
+            List<int> triangles = _meshTriangles;
+            List<Vector2> uv = _meshUvs;
+            float[] lengths = _lengths;
+            lengths[0] = 0f;
             for (int i = 1; i < count; i++)
                 lengths[i] = lengths[i - 1] +
                     Vector3.Distance(_points[i - 1], _points[i]);
@@ -318,50 +341,149 @@ namespace GuardWave
             ? s_mudMaterial
             : s_mudMaterial = Resources.Load<Material>("Materials/Mud");
 
+        // Index brush samples on the paint's local tangent plane. A collision queries only
+        // cells overlapped by the body's AABB, avoiding ClosestPoint on every stroke sample.
+        private void IndexSample(Vector3 point, int index)
+        {
+            Vector2Int key = new Vector2Int(
+                Mathf.FloorToInt(point.x / SampleCellSize),
+                Mathf.FloorToInt(point.z / SampleCellSize));
+            if (!_sampleGrid.TryGetValue(key, out List<int> bucket))
+            {
+                bucket = new List<int>(4);
+                _sampleGrid.Add(key, bucket);
+            }
+            bucket.Add(index);
+        }
+
+        private Vector3 TriggerCenter(int index) =>
+            _points[index] + _normals[index] * 0.24f;
+
+        private void UpdateTriggerSegment(int sampleIndex)
+        {
+            if (_triggerCapsule == null)
+                CreateTriggerSegment(sampleIndex);
+
+            Vector3 start = TriggerCenter(_triggerSegmentFirstSample);
+            Vector3 end = TriggerCenter(sampleIndex);
+            Vector3 axis = end - start;
+            bool canExtend = axis.magnitude <= MaxTriggerSegmentLength;
+            if (canExtend && axis.sqrMagnitude > 0.000001f)
+            {
+                for (int i = _triggerSegmentFirstSample; i <= sampleIndex; i++)
+                {
+                    Vector3 current = TriggerCenter(i);
+                    float t = Mathf.Clamp01(Vector3.Dot(current - start, axis) /
+                        axis.sqrMagnitude);
+                    if (Vector3.Distance(current, start + axis * t) > MaxTriggerDeviation ||
+                        Vector3.Dot(_normals[i], _normals[_triggerSegmentFirstSample]) <
+                        MinTriggerNormalDot)
+                    {
+                        canExtend = false;
+                        break;
+                    }
+                }
+            }
+            if (!canExtend)
+            {
+                // Adjacent segments share an endpoint, leaving no unpainted collision gap.
+                CreateTriggerSegment(Mathf.Max(0, sampleIndex - 1));
+                start = TriggerCenter(_triggerSegmentFirstSample);
+                end = TriggerCenter(sampleIndex);
+                axis = end - start;
+            }
+            _triggerSegment.transform.localPosition = (start + end) * 0.5f;
+            _triggerSegment.transform.localRotation = axis.sqrMagnitude < 0.000001f
+                ? Quaternion.identity
+                : Quaternion.FromToRotation(Vector3.up, axis.normalized);
+            _triggerCapsule.height = axis.magnitude + BrushRadius * 2f;
+        }
+
+        private void CreateTriggerSegment(int firstSample)
+        {
+            _triggerSegmentFirstSample = firstSample;
+            _triggerSegment = new GameObject("Mud Trigger Segment");
+            _triggerSegment.transform.SetParent(transform, false);
+            _triggerCapsule = _triggerSegment.AddComponent<CapsuleCollider>();
+            _triggerCapsule.isTrigger = true;
+            _triggerCapsule.radius = BrushRadius;
+            _triggerCapsule.direction = 1;
+            _triggerSegment.AddComponent<GuardWaveMudTriggerRelay>().Initialize(this);
+        }
+
         private void OnTriggerEnter(Collider other) => TryBond(other);
         private void OnTriggerStay(Collider other) => TryBond(other);
+        internal void ProcessTrigger(Collider other) => TryBond(other);
 
         private void TryBond(Collider other)
         {
-            if (_game == null) return;
+            if (_game == null || other == null) return;
             GuardWavePiece piece = other.GetComponentInParent<GuardWavePiece>();
             if (piece == null || !_game.IsPlacedPiece(piece) ||
                 (_authored && _game.IsScenePiece(piece)) ||
                 piece.Body == _surfaceBody || piece.Body.isKinematic ||
-                _game.HasMudBond(piece))
+                _game.HasMudBond(piece) || _game.WasEverMudBonded(piece))
                 return;
 
-            // A stroke has multiple overlapping trigger segments. Scan the
-            // actual paint only once per collider per physics step, not once
-            // per trigger, even on a long stroke.
             if (_lastContactCheck.TryGetValue(other, out float checkedAt) &&
                 checkedAt == Time.fixedTime)
                 return;
             _lastContactCheck[other] = Time.fixedTime;
 
-            // Attach only when the actual object boundary reaches the paint,
-            // never while the object is still falling through the trigger volume.
+            // Convert the expanded collider AABB into the brush's local plane.
+            // This also handles strokes attached to moving/rotating logs.
+            Bounds bounds = other.bounds;
+            Vector3 pad = Vector3.one * (BrushRadius + 0.2f);
+            Vector3 low = bounds.min - pad;
+            Vector3 high = bounds.max + pad;
+            Vector3 minimum = new Vector3(float.PositiveInfinity, 0f, float.PositiveInfinity);
+            Vector3 maximum = new Vector3(float.NegativeInfinity, 0f, float.NegativeInfinity);
+            for (int corner = 0; corner < 8; corner++)
+            {
+                Vector3 world = new Vector3((corner & 1) == 0 ? low.x : high.x,
+                    (corner & 2) == 0 ? low.y : high.y,
+                    (corner & 4) == 0 ? low.z : high.z);
+                Vector3 local = transform.InverseTransformPoint(world);
+                minimum.x = Mathf.Min(minimum.x, local.x);
+                minimum.z = Mathf.Min(minimum.z, local.z);
+                maximum.x = Mathf.Max(maximum.x, local.x);
+                maximum.z = Mathf.Max(maximum.z, local.z);
+            }
+
             float nearestDistance = float.PositiveInfinity;
             Vector3 anchorPoint = default;
-            for (int i = 0; i < _points.Count; i++)
+            Vector3 centerOfMass = piece.Body.worldCenterOfMass;
+            Vector3 velocity = piece.Body.linearVelocity;
+            int x0 = Mathf.FloorToInt(minimum.x / SampleCellSize);
+            int x1 = Mathf.FloorToInt(maximum.x / SampleCellSize);
+            int z0 = Mathf.FloorToInt(minimum.z / SampleCellSize);
+            int z1 = Mathf.FloorToInt(maximum.z / SampleCellSize);
+            for (int x = x0; x <= x1; x++)
+            for (int z = z0; z <= z1; z++)
             {
-                Vector3 worldPoint = transform.TransformPoint(_points[i]);
-                Vector3 worldNormal = transform.TransformDirection(_normals[i]);
-                Vector3 closest = other.ClosestPoint(worldPoint);
-                Vector3 difference = closest - worldPoint;
-                float height = Vector3.Dot(difference, worldNormal);
-                float lateral = Vector3.ProjectOnPlane(difference, worldNormal).magnitude;
-                float distance = difference.sqrMagnitude;
+                if (!_sampleGrid.TryGetValue(new Vector2Int(x, z),
+                    out List<int> indices)) continue;
+                foreach (int index in indices)
+                {
+                    Vector3 worldPoint = transform.TransformPoint(_points[index]);
+                    Vector3 worldNormal =
+                        transform.TransformDirection(_normals[index]).normalized;
+                    Vector3 closest = other.ClosestPoint(worldPoint);
+                    Vector3 difference = closest - worldPoint;
+                    float height = Vector3.Dot(difference, worldNormal);
+                    float lateral = Vector3.ProjectOnPlane(difference, worldNormal).magnitude;
+                    float distance = difference.sqrMagnitude;
 
-                if (height < -0.16f || height > 0.085f ||
-                    lateral > BrushRadius * 1.05f ||
-                    Vector3.Dot(piece.Body.worldCenterOfMass - worldPoint, worldNormal) < -0.12f ||
-                    Vector3.Dot(piece.Body.linearVelocity, worldNormal) > 0.2f ||
-                    distance >= nearestDistance)
-                    continue;
+                    if (height < -0.16f || height > 0.085f ||
+                        lateral > BrushRadius * 1.05f ||
+                        Vector3.Dot(centerOfMass - worldPoint, worldNormal) < -0.12f ||
+                        Vector3.Dot(velocity, worldNormal) > 0.2f ||
+                        distance >= nearestDistance)
+                        continue;
 
-                nearestDistance = distance;
-                anchorPoint = worldPoint;
+                    nearestDistance = distance;
+                    anchorPoint = worldPoint;
+                }
             }
 
             if (float.IsPositiveInfinity(nearestDistance)) return;
@@ -384,6 +506,7 @@ namespace GuardWave
             joint.breakTorque = _breakTorque;
             joint.enableCollision = false;
             _bonds[piece] = joint;
+            _game?.RegisterMudBond(piece, joint);
         }
 
         public bool HasBond(GuardWavePiece piece)
@@ -391,6 +514,7 @@ namespace GuardWave
             if (piece == null || !_bonds.TryGetValue(piece, out FixedJoint joint))
                 return false;
             if (joint != null) return true;
+            _game?.ReleaseMudBond(piece, joint);
             _bonds.Remove(piece);
             return false;
         }
@@ -404,6 +528,7 @@ namespace GuardWave
                 return;
             }
             if (!_bonds.TryGetValue(piece, out FixedJoint joint)) return;
+            _game?.ReleaseMudBond(piece, joint);
             if (joint != null) Destroy(joint);
             _bonds.Remove(piece);
         }
@@ -417,8 +542,11 @@ namespace GuardWave
 
         public void ClearBonds()
         {
-            foreach (FixedJoint joint in _bonds.Values)
-                if (joint != null) Destroy(joint);
+            foreach (KeyValuePair<GuardWavePiece, FixedJoint> bond in _bonds)
+            {
+                _game?.ReleaseMudBond(bond.Key, bond.Value);
+                if (bond.Value != null) Destroy(bond.Value);
+            }
             _bonds.Clear();
             _lastContactCheck.Clear();
         }
@@ -435,5 +563,15 @@ namespace GuardWave
             ClearBonds();
             if (_mesh != null) Destroy(_mesh);
         }
+    }
+
+    /// <summary>Forwards child capsule trigger events to the single owning mud patch.</summary>
+    public sealed class GuardWaveMudTriggerRelay : MonoBehaviour
+    {
+        private GuardWaveMudPatch _owner;
+
+        public void Initialize(GuardWaveMudPatch owner) => _owner = owner;
+        private void OnTriggerEnter(Collider other) => _owner?.ProcessTrigger(other);
+        private void OnTriggerStay(Collider other) => _owner?.ProcessTrigger(other);
     }
 }

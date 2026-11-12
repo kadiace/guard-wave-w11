@@ -39,6 +39,36 @@ namespace GuardWave
         private readonly List<GuardWavePiece> _pieces = new List<GuardWavePiece>();
         private readonly List<GuardWaveMudPatch> _mudPatches = new List<GuardWaveMudPatch>();
         private readonly HashSet<GuardWaveMudPatch> _sceneMudPatches = new HashSet<GuardWaveMudPatch>();
+        // A piece can form just one mud bond during an attempt. Breaking that bond
+        // must never immediately re-attach it to this or another wet stroke.
+        private readonly HashSet<GuardWavePiece> _everMudBonded = new HashSet<GuardWavePiece>();
+        private readonly Dictionary<GuardWavePiece, MudJointState> _activeMudJoints =
+            new Dictionary<GuardWavePiece, MudJointState>();
+        private readonly Dictionary<Rigidbody, SolverOverride> _solverOverrides =
+            new Dictionary<Rigidbody, SolverOverride>();
+        private readonly List<GuardWavePiece> _expiredMudJoints = new List<GuardWavePiece>();
+        private const int MudSolverIterations = 16;
+        private const int MudSolverVelocityIterations = 8;
+
+        private readonly struct MudJointState
+        {
+            public readonly FixedJoint Joint;
+            public readonly Rigidbody PieceBody;
+            public readonly Rigidbody ConnectedBody;
+            public MudJointState(FixedJoint joint, Rigidbody pieceBody, Rigidbody connectedBody)
+            {
+                Joint = joint;
+                PieceBody = pieceBody;
+                ConnectedBody = connectedBody;
+            }
+        }
+
+        private struct SolverOverride
+        {
+            public int Count;
+            public int Iterations;
+            public int VelocityIterations;
+        }
         private GameObject _mudPreview;
         private GuardWaveMudPatch _activeMudStroke;
         private Vector2 _lastMudCursorScreen;
@@ -115,6 +145,7 @@ namespace GuardWave
 
         private void FixedUpdate()
         {
+            PruneDeadMudJoints();
             if (ambientFlowPreview && _fluid != null)
                 _fluid.Step(Time.fixedDeltaTime, 0f);
         }
@@ -331,14 +362,93 @@ namespace GuardWave
         private void EndMudPainting()
         {
             _paintingMud = false;
+            _activeMudStroke?.FlushStrokeMesh();
             _activeMudStroke = null;
         }
 
-        internal bool HasMudBond(GuardWavePiece piece)
+        internal bool HasMudBond(GuardWavePiece piece) =>
+            piece != null && _activeMudJoints.TryGetValue(piece, out MudJointState state) &&
+            state.Joint != null;
+
+        internal bool WasEverMudBonded(GuardWavePiece piece) =>
+            piece != null && _everMudBonded.Contains(piece);
+
+        internal void RegisterMudBond(GuardWavePiece piece, FixedJoint joint)
         {
-            foreach (GuardWaveMudPatch patch in _mudPatches)
-                if (patch != null && patch.HasBond(piece)) return true;
-            return false;
+            if (piece == null || joint == null) return;
+            if (_activeMudJoints.TryGetValue(piece, out MudJointState old))
+                ReleaseMudBond(piece, old.Joint);
+            _everMudBonded.Add(piece);
+            Rigidbody body = piece.Body;
+            Rigidbody connected = joint.connectedBody;
+            _activeMudJoints[piece] = new MudJointState(joint, body, connected);
+            RetainMudSolver(body);
+            RetainMudSolver(connected);
+        }
+
+        internal void ReleaseMudBond(GuardWavePiece piece, FixedJoint joint)
+        {
+            if (ReferenceEquals(piece, null) ||
+                !_activeMudJoints.TryGetValue(piece, out MudJointState state) ||
+                !ReferenceEquals(state.Joint, joint)) return;
+            ReleaseMudSolver(state.PieceBody);
+            ReleaseMudSolver(state.ConnectedBody);
+            _activeMudJoints.Remove(piece);
+        }
+
+        private void RetainMudSolver(Rigidbody body)
+        {
+            if (body == null) return;
+            if (_solverOverrides.TryGetValue(body, out SolverOverride value))
+            {
+                value.Count++;
+                _solverOverrides[body] = value;
+                return;
+            }
+            _solverOverrides[body] = new SolverOverride
+            {
+                Count = 1,
+                Iterations = body.solverIterations,
+                VelocityIterations = body.solverVelocityIterations
+            };
+            body.solverIterations = Mathf.Max(body.solverIterations, MudSolverIterations);
+            body.solverVelocityIterations =
+                Mathf.Max(body.solverVelocityIterations, MudSolverVelocityIterations);
+        }
+
+        private void ReleaseMudSolver(Rigidbody body)
+        {
+            if (ReferenceEquals(body, null) ||
+                !_solverOverrides.TryGetValue(body, out SolverOverride value)) return;
+            if (--value.Count > 0)
+            {
+                _solverOverrides[body] = value;
+                return;
+            }
+            if (body != null)
+            {
+                body.solverIterations = value.Iterations;
+                body.solverVelocityIterations = value.VelocityIterations;
+            }
+            _solverOverrides.Remove(body);
+        }
+
+        private void PruneDeadMudJoints()
+        {
+            if (_activeMudJoints.Count == 0) return;
+            _expiredMudJoints.Clear();
+            foreach (KeyValuePair<GuardWavePiece, MudJointState> entry in _activeMudJoints)
+            {
+                if (entry.Key == null || entry.Value.Joint == null ||
+                    !IsPlacedPiece(entry.Key))
+                    _expiredMudJoints.Add(entry.Key);
+            }
+            foreach (GuardWavePiece piece in _expiredMudJoints)
+            {
+                if (_activeMudJoints.TryGetValue(piece, out MudJointState state))
+                    ReleaseMudBond(piece, state.Joint);
+            }
+            _expiredMudJoints.Clear();
         }
 
         /// <summary>씬에 원래 배치된 기물인지 판별한다.</summary>
@@ -746,6 +856,7 @@ namespace GuardWave
             }
             _mudPatches.Clear();
             _mudPatches.AddRange(_sceneMudPatches);
+            _everMudBonded.Clear();
             foreach (GuardWavePiece piece in _pieces)
             {
                 if (piece == null) continue;
@@ -974,6 +1085,7 @@ namespace GuardWave
             if (piece == null || !_pieceSet.Remove(piece)) return 0;
             if (piece == _outlinedPiece) SetOutlineTargets(null);
             _pieces.Remove(piece);
+            _everMudBonded.Remove(piece);
             foreach (GuardWaveMudPatch patch in _mudPatches)
                 if (patch != null) patch.DetachPiece(piece);
             PublishChange(new GuardWaveChange(piece, piece, reason, 0, piece.transform.position));
@@ -1192,6 +1304,7 @@ namespace GuardWave
                 if (piece != null) snapshot.Pieces.Add(new PieceState(piece));
             foreach (GuardWaveMudPatch patch in _mudPatches)
                 if (patch != null) patch.CaptureBonds(snapshot.MudBonds);
+            snapshot.MudBondHistory.UnionWith(_everMudBonded);
 
             // Inactive authored sticks must also be snapshotted: their parent
             // may be activated later without restarting the Forest scene.
@@ -1258,6 +1371,8 @@ namespace GuardWave
             // Broken/moved joints are not restored by Rigidbody poses alone.
             foreach (GuardWaveMudPatch patch in _mudPatches)
                 if (patch != null) patch.ClearBonds();
+            _everMudBonded.Clear();
+            _everMudBonded.UnionWith(snapshot.MudBondHistory);
             foreach (GuardWaveMudPatch.MudBondState bond in snapshot.MudBonds)
                 if (bond.Patch != null) bond.Patch.RestoreBond(bond);
 
@@ -1293,6 +1408,8 @@ namespace GuardWave
             public readonly List<PieceState> Pieces = new List<PieceState>();
             public readonly List<GuardWaveMudPatch.MudBondState> MudBonds =
                 new List<GuardWaveMudPatch.MudBondState>();
+            public readonly HashSet<GuardWavePiece> MudBondHistory =
+                new HashSet<GuardWavePiece>();
             public readonly List<SceneBodyState> SceneBodies = new List<SceneBodyState>();
             public readonly List<SceneParentActiveState> SceneParents = new List<SceneParentActiveState>();
             public readonly HashSet<GuardWavePiece> SelectableScenePieces = new HashSet<GuardWavePiece>();
