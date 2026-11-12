@@ -827,7 +827,11 @@ void RelativeDensityToBodies(uint id : SV_DispatchThreadID)
     // Saturating by equilibrium submergence ensures even cork-like objects
     // follow the water while most of their volume stays above its surface.
     float immersionFactor = saturate(submerged / min(density, 1.0));
-    float following = (1.0 - exp(-_FlowResponse * _Dt)) *
+    // Floating objects should quickly approach the surrounding current,
+    // including flow along their long axis. Limit their instantaneous impulse
+    // below so faster convergence cannot bring back particle-like kicks.
+    float responseRate = _FlowResponse * (floating ? 2.0 : 1.0);
+    float following = (1.0 - exp(-responseRate * _Dt)) *
         immersionFactor;
     float dragScale = mass * following / wet;
     float3 dragImpulse = dragScale * dragDelta;
