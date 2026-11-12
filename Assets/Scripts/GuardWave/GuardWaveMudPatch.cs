@@ -412,17 +412,21 @@ namespace GuardWave
             return _instanceMaterial;
         }
 
-        /// <summary>Reset authored mud after a full restart, not a wave rollback.</summary>
-        public void ResetDryness()
+        /// <summary>Restore both the mud behavior and its visible cured state.</summary>
+        public void RestoreDryness(bool dry)
         {
             StopAllCoroutines();
-            _isDry = false;
+            _isDry = dry;
             if (_instanceMaterial == null) return;
             if (_instanceMaterial.HasProperty("_Smoothness"))
-                _instanceMaterial.SetFloat("_Smoothness", _wetSmoothness);
+                _instanceMaterial.SetFloat("_Smoothness", dry ? 0.025f : _wetSmoothness);
             if (_instanceMaterial.HasProperty("_Metallic"))
-                _instanceMaterial.SetFloat("_Metallic", _wetMetallic);
+                _instanceMaterial.SetFloat("_Metallic", dry ? 0f : _wetMetallic);
+            // Restored bonds carry their captured breakForce/breakTorque and
+            // must not be multiplied a second time here.
         }
+
+        public void ResetDryness() => RestoreDryness(false);
 
         /// <summary>
         /// Dry exactly this painted stroke. Disable new adhesion immediately
