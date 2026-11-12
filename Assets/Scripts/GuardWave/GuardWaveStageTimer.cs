@@ -23,6 +23,11 @@ namespace GuardWave
     public sealed class GuardWaveStageTimer : MonoBehaviour
     {
         private const int WARNING_SECONDS = 10;
+        // Each tick effect finishes before the next whole-second transition.
+        private const float WarningPulseDuration = 0.38f;
+        private const float ImpactPulseDuration = 0.76f;
+        private static readonly Color ImpactColor = new Color(1f, 0.08f, 0.08f, 1f);
+        private static readonly Color FlashColor = new Color(1f, 0.95f, 0.86f, 1f);
         private static readonly Color WarningColor = new Color(0.95f, 0.17f, 0.17f, 1f);
 
         private GuardWaveGame _game;
@@ -36,6 +41,12 @@ namespace GuardWave
         private bool _wasAwaitingFailure;
         private bool _wasFinished;
         private bool _initialized;
+        private int _defaultFontSize;
+        private Vector3 _defaultCountdownScale;
+        private float _pulseElapsed;
+        private float _pulseDuration;
+        private bool _pulseActive;
+        private bool _impactPulse;
 
         /// <summary>씬 이름으로 StageInfo.json을 조회하여 재해 이름과 제한 시간을 초기화한다.</summary>
         public void Initialize(GuardWaveGame game, FogSceneController fogMode)
@@ -56,6 +67,8 @@ namespace GuardWave
 
             _disasterName = transform.Find("DisasterName").GetComponent<Text>();
             _countdown = transform.Find("Countdown").GetComponent<Text>();
+            _defaultFontSize = _countdown.fontSize;
+            _defaultCountdownScale = _countdown.rectTransform.localScale;
             _disasterName.text = stage.disasterName + "가 오기까지";
             _durationSeconds = stage.countdownSeconds;
             ResetCountdown();
@@ -84,6 +97,7 @@ namespace GuardWave
             if (_disasterStarted)
             {
                 if (CanReady) ResetCountdown();
+                else AnimateCountdown();
                 return;
             }
 
@@ -91,6 +105,7 @@ namespace GuardWave
             RefreshCountdown();
             // A rules modal can keep Ready unavailable; trigger once it closes.
             if (_remainingSeconds <= 0f && CanReady) Ready();
+            AnimateCountdown();
         }
 
         private bool CanReady => _fogMode == null ? _game.CanReady : _fogMode.CanReady;
@@ -112,17 +127,73 @@ namespace GuardWave
             _remainingSeconds = _durationSeconds;
             _displayedHundredths = -1;
             _disasterStarted = false;
+            _pulseActive = false;
+            _pulseElapsed = 0f;
             RefreshCountdown();
+            ApplyCountdownStyle();
         }
 
-        /// <summary>남은 시간을 SS:CC로 표시하고 10초 이하이면 빨간색으로 바꾼다.</summary>
+        /// <summary>SS:CC 표시의 초 자릿수가 바뀌는 시점마다 짧은 경고 펄스를 시작한다.</summary>
         private void RefreshCountdown()
         {
             int hundredths = Mathf.CeilToInt(_remainingSeconds * 100f);
             if (hundredths == _displayedHundredths) return;
+
+            int previousHundredths = _displayedHundredths;
             _displayedHundredths = hundredths;
             _countdown.text = $"{hundredths / 100:00}:{hundredths % 100:00}";
-            _countdown.color = _remainingSeconds <= WARNING_SECONDS ? WarningColor : Color.white;
+
+            if (previousHundredths >= 0)
+            {
+                if (hundredths == 0 && previousHundredths > 0)
+                    StartPulse(true);
+                else if (hundredths > 0 && hundredths < WARNING_SECONDS * 100 &&
+                         hundredths / 100 != previousHundredths / 100)
+                    StartPulse(false);
+            }
+            ApplyCountdownStyle();
+        }
+
+        private void StartPulse(bool impact)
+        {
+            _impactPulse = impact;
+            _pulseElapsed = 0f;
+            _pulseDuration = impact ? ImpactPulseDuration : WarningPulseDuration;
+            _pulseActive = true;
+        }
+
+        /// <summary>게임 시간으로 연출을 진행하여 가이드/ESC 일시정지 중에는 정지한다.</summary>
+        private void AnimateCountdown()
+        {
+            if (!_pulseActive) return;
+            _pulseElapsed = Mathf.Min(_pulseDuration, _pulseElapsed + Time.deltaTime);
+            if (_pulseElapsed >= _pulseDuration)
+                _pulseActive = false;
+            ApplyCountdownStyle();
+        }
+
+        private void ApplyCountdownStyle()
+        {
+            bool expired = _remainingSeconds <= 0f;
+            bool singleDigit = _displayedHundredths > 0 &&
+                               _displayedHundredths < WARNING_SECONDS * 100;
+            _countdown.fontSize = _defaultFontSize + (expired ? 8 : singleDigit ? 5 : 0);
+
+            Color color = expired ? ImpactColor :
+                _remainingSeconds <= WARNING_SECONDS ? WarningColor : Color.white;
+            float scale = 1f;
+            if (_pulseActive)
+            {
+                float t = Mathf.Clamp01(_pulseElapsed / _pulseDuration);
+                scale += (_impactPulse ? 0.30f : 0.16f) * Mathf.Sin(Mathf.PI * t);
+                // At zero, flash twice; in the final seconds, flash once.
+                float flashes = _impactPulse ? 2f : 1f;
+                float blink = Mathf.Pow(Mathf.Sin(flashes * Mathf.PI * t), 2f);
+                color = Color.Lerp(color, FlashColor, blink * (_impactPulse ? 0.90f : 0.75f));
+                color.a = 1f - blink * (_impactPulse ? 0.25f : 0.35f);
+            }
+            _countdown.rectTransform.localScale = _defaultCountdownScale * scale;
+            _countdown.color = color;
         }
     }
 }
