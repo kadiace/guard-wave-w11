@@ -1212,7 +1212,6 @@ namespace GuardWave
             _stageTransitioning = false;
             _resolving = false;
             _stageFloodRoutine = null;
-            StartNewEditSequence();
             _stage++;
             if (_stage == STAGE_COUNT)
             {
@@ -1305,7 +1304,6 @@ namespace GuardWave
             _stageTransitioning = false;
             _stageFloodRoutine = null;
             _resolving = false;
-            StartNewEditSequence();
             _stage++;
             if (_stage == STAGE_COUNT) { _finished = true; yield break; }
             _status = "홍수가 지나갔습니다. 계속 배치하거나 준비완료를 누르세요.";
@@ -1487,34 +1485,6 @@ namespace GuardWave
             _editHistory.RemoveAt(_editHistory.Count - 1);
             RestoreEditState(_editHistory[_editHistory.Count - 1]);
             _status = "이전 배치 상태로 되돌렸습니다.";
-        }
-
-        /// <summary>성공한 파도 이후에는 현재 구조물을 새로운 편집 기준점으로 삼는다.</summary>
-        private void StartNewEditSequence()
-        {
-            _editHistory.Clear();
-            _playerPlacementCount = 0;
-            // No saved state references discarded runtime objects after success.
-            foreach (GuardWavePiece piece in _runtimePieces.ToArray())
-            {
-                if (piece != null && _pieceSet.Contains(piece)) continue;
-                if (piece != null)
-                {
-                    SafeDestroySelectedObject(piece.gameObject);
-                    Destroy(piece.gameObject);
-                }
-                _runtimePieces.Remove(piece);
-            }
-            foreach (GuardWaveMudPatch patch in _mudPatches.ToArray())
-            {
-                if (patch == null || _sceneMudPatches.Contains(patch) ||
-                    patch.gameObject.activeSelf) continue;
-                patch.ClearBonds();
-                SafeDestroySelectedObject(patch.gameObject);
-                Destroy(patch.gameObject);
-                _mudPatches.Remove(patch);
-            }
-            SaveEditState(false);
         }
 
         private sealed class WaveSnapshot
