@@ -16,11 +16,15 @@ namespace GuardWave
         public const float SampleSpacing = 0.16f;
 
         private const int MaxSamples = 512;
-        private const float ColliderSpacing = 0.5f;
+        // Runtime paint uses long, simplified trigger capsules; authored paint keeps its few existing spheres.
+        private const float MaxTriggerSegmentLength = 2.4f;
+        private const float MaxTriggerDeviation = 0.12f;
+        private const float MinTriggerNormalDot = 0.9f;
+        private const float SampleCellSize = 0.6f;
+        private const float MeshRefreshInterval = 0.065f;
         private const float SurfaceOffset = 0.012f;
         private const int CrossSections = 9;
-        private static Texture2D s_impastoTexture;
-        private static int s_impastoTextureUsers;
+        private static Material s_mudMaterial;
 
         private readonly List<Vector3> _points = new List<Vector3>();
         private readonly List<Vector3> _normals = new List<Vector3>();
@@ -28,17 +32,30 @@ namespace GuardWave
             new Dictionary<GuardWavePiece, FixedJoint>();
         private readonly Dictionary<Collider, float> _lastContactCheck =
             new Dictionary<Collider, float>();
+        private readonly Dictionary<Vector2Int, List<int>> _sampleGrid =
+            new Dictionary<Vector2Int, List<int>>();
+        // Reuse mesh buffers: a long stroke should not allocate three large lists every update.
+        private readonly List<Vector3> _meshVertices = new List<Vector3>(256);
+        private readonly List<int> _meshTriangles = new List<int>(512);
+        private readonly List<Vector2> _meshUvs = new List<Vector2>(256);
+        private readonly float[] _lengths = new float[MaxSamples];
 
         private GuardWaveGame _game;
         private Collider _surfaceCollider;
         private Rigidbody _surfaceBody;
         private float _breakForce;
         private float _breakTorque;
-        private Vector3 _lastTriggerPosition;
-        private Material _material;
+        private int _triggerSegmentFirstSample;
+        private GameObject _triggerSegment;
+        private CapsuleCollider _triggerCapsule;
+        private float _lastMeshRefresh = float.NegativeInfinity;
         private Mesh _mesh;
         private bool _meshDirty;
+        private bool _authored;
         private bool _isDry;
+        private Material _instanceMaterial;
+        private float _wetSmoothness;
+        private float _wetMetallic;
 
         public Collider SurfaceCollider => _surfaceCollider;
         public bool IsFull => _points.Count >= MaxSamples;
@@ -69,6 +86,8 @@ namespace GuardWave
             }
             return !float.IsPositiveInfinity(distanceSqr);
         }
+
+
 
 
         /// <summary>
@@ -119,10 +138,41 @@ namespace GuardWave
             _mesh = new Mesh { name = "Wet Mud Brush Stroke" };
             _mesh.MarkDynamic();
             filter.sharedMesh = _mesh;
-            _material = CreateMudMaterial(false);
-            renderer.sharedMaterial = _material;
+            renderer.sharedMaterial = CreateInstanceMaterial(MudMaterial);
             renderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
             renderer.receiveShadows = false;
+        }
+
+        /// <summary>씬에 배치된 진흙의 트리거 중심을 접착 표면 샘플로 등록한다.</summary>
+        public void InitializeAuthored(GuardWaveGame game, Collider surfaceCollider,
+            Rigidbody surfaceBody, float breakForce, float breakTorque)
+        {
+            _game = game;
+            _surfaceCollider = surfaceCollider;
+            _surfaceBody = surfaceBody;
+            _breakForce = breakForce;
+            _breakTorque = breakTorque;
+            _authored = true;
+            // Scene-authored mud uses many rendered child meshes under one patch.
+            // Cure all together without modifying the shared Mud.mat asset.
+            MeshRenderer[] renderers = GetComponentsInChildren<MeshRenderer>(true);
+            Material source = renderers.Length > 0 && renderers[0].sharedMaterial != null
+                ? renderers[0].sharedMaterial : MudMaterial;
+            if (source != null && renderers.Length > 0)
+            {
+                Material privateMaterial = CreateInstanceMaterial(source);
+                foreach (MeshRenderer renderer in renderers)
+                    renderer.sharedMaterial = privateMaterial;
+            }
+
+            foreach (SphereCollider trigger in GetComponents<SphereCollider>())
+            {
+                Vector3 point = trigger.center - Vector3.up * 0.24f;
+                int index = _points.Count;
+                _points.Add(point);
+                _normals.Add(Vector3.up);
+                IndexSample(point, index);
+            }
         }
 
         /// <summary>Appends a brush sample in the parented surface's local space.</summary>
@@ -135,26 +185,27 @@ namespace GuardWave
                 Vector3.Distance(_points[_points.Count - 1], point) < SampleSpacing * 0.65f)
                 return;
 
+            int index = _points.Count;
             _points.Add(point);
             _normals.Add(normal);
+            IndexSample(point, index);
             _meshDirty = true;
-
-            if (_points.Count == 1 ||
-                Vector3.Distance(_lastTriggerPosition, point) >= ColliderSpacing)
-            {
-                SphereCollider trigger = gameObject.AddComponent<SphereCollider>();
-                trigger.isTrigger = true;
-                trigger.radius = BrushRadius;
-                trigger.center = point + normal * 0.24f;
-                _lastTriggerPosition = point;
-            }
+            UpdateTriggerSegment(index);
         }
 
-        /// <summary>Rebuild only once per rendered frame, not for every interpolated point.</summary>
+        /// <summary>Throttle full mesh uploads while painting; always flush the final brush position.</summary>
         private void LateUpdate()
+        {
+            if (!_meshDirty || Time.unscaledTime - _lastMeshRefresh < MeshRefreshInterval)
+                return;
+            FlushStrokeMesh();
+        }
+
+        public void FlushStrokeMesh()
         {
             if (!_meshDirty) return;
             _meshDirty = false;
+            _lastMeshRefresh = Time.unscaledTime;
             RebuildStrokeMesh();
         }
 
@@ -170,10 +221,14 @@ namespace GuardWave
 
             int count = _points.Count;
             int rows = count + 4;
-            var vertices = new List<Vector3>(rows * CrossSections);
-            var triangles = new List<int>((rows - 1) * (CrossSections - 1) * 6);
-            var uv = new List<Vector2>(rows * CrossSections);
-            float[] lengths = new float[count];
+            _meshVertices.Clear();
+            _meshTriangles.Clear();
+            _meshUvs.Clear();
+            List<Vector3> vertices = _meshVertices;
+            List<int> triangles = _meshTriangles;
+            List<Vector2> uv = _meshUvs;
+            float[] lengths = _lengths;
+            lengths[0] = 0f;
             for (int i = 1; i < count; i++)
                 lengths[i] = lengths[i - 1] +
                     Vector3.Distance(_points[i - 1], _points[i]);
@@ -321,75 +376,38 @@ namespace GuardWave
             mesh.RecalculateNormals();
             mesh.RecalculateBounds();
             filter.sharedMesh = mesh;
-            renderer.sharedMaterial = CreateMudMaterial(true);
+            renderer.sharedMaterial = MudMaterial;
             renderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
             renderer.receiveShadows = false;
             preview.hideFlags = HideFlags.HideInHierarchy;
             return preview;
         }
 
-        private static Material CreateMudMaterial(bool preview)
-        {
-            Shader shader = Shader.Find("Universal Render Pipeline/Lit");
-            if (shader == null) shader = Shader.Find("Standard");
-            Material material = new Material(shader);
-            material.name = preview ? "Impasto Brush Preview" : "Wet Impasto Adhesive";
-            Color tint = preview
-                ? new Color(0.75f, 0.51f, 0.29f, 1f)
-                : new Color(0.42f, 0.27f, 0.14f, 1f);
-            if (material.HasProperty("_BaseColor")) material.SetColor("_BaseColor", tint);
-            if (material.HasProperty("_Color")) material.SetColor("_Color", tint);
-            if (material.HasProperty("_Smoothness"))
-                material.SetFloat("_Smoothness", preview ? 0.77f : 0.83f);
-            if (material.HasProperty("_Metallic"))
-                material.SetFloat("_Metallic", preview ? 0f : 0.08f);
-            if (material.HasProperty("_SpecColor"))
-                material.SetColor("_SpecColor", new Color(0.30f, 0.24f, 0.17f, 1f));
+        private static Material MudMaterial => s_mudMaterial != null
+            ? s_mudMaterial
+            : s_mudMaterial = Resources.Load<Material>("Materials/Mud");
 
-            // The texture has directional pigment/binder streaks, not splat
-            // circles. Share one readable texture among all paint strokes.
-            if (!preview)
-            {
-                if (s_impastoTexture == null)
-                    s_impastoTexture = CreateImpastoTexture();
-                s_impastoTextureUsers++;
-                if (material.HasProperty("_BaseMap"))
-                    material.SetTexture("_BaseMap", s_impastoTexture);
-                if (material.HasProperty("_MainTex"))
-                    material.SetTexture("_MainTex", s_impastoTexture);
-            }
-            return material;
+        private Material CreateInstanceMaterial(Material source)
+        {
+            if (source == null) return null;
+            _instanceMaterial = new Material(source) { name = source.name + " (Mud Patch)" };
+            _wetSmoothness = _instanceMaterial.HasProperty("_Smoothness")
+                ? _instanceMaterial.GetFloat("_Smoothness") : 0f;
+            _wetMetallic = _instanceMaterial.HasProperty("_Metallic")
+                ? _instanceMaterial.GetFloat("_Metallic") : 0f;
+            return _instanceMaterial;
         }
 
-        private static Texture2D CreateImpastoTexture()
+        /// <summary>Reset authored mud after a full restart, not a wave rollback.</summary>
+        public void ResetDryness()
         {
-            const int size = 96;
-            Texture2D texture = new Texture2D(
-                size, size, TextureFormat.RGBA32, true);
-            texture.name = "Impasto Pigment & Binder Striations";
-            texture.wrapMode = TextureWrapMode.Repeat;
-            texture.filterMode = FilterMode.Bilinear;
-
-            Color[] pixels = new Color[size * size];
-            for (int y = 0; y < size; y++)
-            {
-                float v = y / (float)size;
-                for (int x = 0; x < size; x++)
-                {
-                    float u = x / (float)(size - 1);
-                    float lengthwise = Mathf.PerlinNoise(u * 10.0f, v * 1.8f);
-                    float fine = Mathf.PerlinNoise(u * 34f + 2f, v * 5f);
-                    float streak = Mathf.Sin(u * 61f + v * 2.7f) * 0.036f;
-                    float pigment = Mathf.Clamp(
-                        0.69f + 0.19f * lengthwise + 0.13f * fine + streak,
-                        0.48f, 1f);
-                    pixels[y * size + x] = new Color(
-                        pigment, pigment * 0.94f, pigment * 0.87f, 1f);
-                }
-            }
-            texture.SetPixels(pixels);
-            texture.Apply(true, true);
-            return texture;
+            StopAllCoroutines();
+            _isDry = false;
+            if (_instanceMaterial == null) return;
+            if (_instanceMaterial.HasProperty("_Smoothness"))
+                _instanceMaterial.SetFloat("_Smoothness", _wetSmoothness);
+            if (_instanceMaterial.HasProperty("_Metallic"))
+                _instanceMaterial.SetFloat("_Metallic", _wetMetallic);
         }
 
         /// <summary>
@@ -406,73 +424,175 @@ namespace GuardWave
                 joint.breakForce *= 2f;
                 joint.breakTorque *= 2f;
             }
-            if (_material != null)
+            if (_instanceMaterial != null)
                 StartCoroutine(AnimateDryMaterial());
         }
 
         private IEnumerator AnimateDryMaterial()
         {
             const float duration = 0.1f;
-            bool smoothness = _material.HasProperty("_Smoothness");
-            bool metallic = _material.HasProperty("_Metallic");
-            float initialSmoothness = smoothness ? _material.GetFloat("_Smoothness") : 0f;
-            float initialMetallic = metallic ? _material.GetFloat("_Metallic") : 0f;
+            bool smoothness = _instanceMaterial.HasProperty("_Smoothness");
+            bool metallic = _instanceMaterial.HasProperty("_Metallic");
+            float initialSmoothness = smoothness ? _instanceMaterial.GetFloat("_Smoothness") : 0f;
+            float initialMetallic = metallic ? _instanceMaterial.GetFloat("_Metallic") : 0f;
             float elapsed = 0f;
             while (elapsed < duration)
             {
                 elapsed = Mathf.Min(duration, elapsed + Time.unscaledDeltaTime);
                 float t = elapsed / duration;
-                if (smoothness) _material.SetFloat("_Smoothness",
+                if (smoothness) _instanceMaterial.SetFloat("_Smoothness",
                     Mathf.Lerp(initialSmoothness, 0.025f, t));
-                if (metallic) _material.SetFloat("_Metallic",
+                if (metallic) _instanceMaterial.SetFloat("_Metallic",
                     Mathf.Lerp(initialMetallic, 0f, t));
                 yield return null;
             }
         }
 
+
+
+        // Index brush samples on the paint's local tangent plane. A collision queries only
+        // cells overlapped by the body's AABB, avoiding ClosestPoint on every stroke sample.
+        private void IndexSample(Vector3 point, int index)
+        {
+            Vector2Int key = new Vector2Int(
+                Mathf.FloorToInt(point.x / SampleCellSize),
+                Mathf.FloorToInt(point.z / SampleCellSize));
+            if (!_sampleGrid.TryGetValue(key, out List<int> bucket))
+            {
+                bucket = new List<int>(4);
+                _sampleGrid.Add(key, bucket);
+            }
+            bucket.Add(index);
+        }
+
+        private Vector3 TriggerCenter(int index) =>
+            _points[index] + _normals[index] * 0.24f;
+
+        private void UpdateTriggerSegment(int sampleIndex)
+        {
+            if (_triggerCapsule == null)
+                CreateTriggerSegment(sampleIndex);
+
+            Vector3 start = TriggerCenter(_triggerSegmentFirstSample);
+            Vector3 end = TriggerCenter(sampleIndex);
+            Vector3 axis = end - start;
+            bool canExtend = axis.magnitude <= MaxTriggerSegmentLength;
+            if (canExtend && axis.sqrMagnitude > 0.000001f)
+            {
+                for (int i = _triggerSegmentFirstSample; i <= sampleIndex; i++)
+                {
+                    Vector3 current = TriggerCenter(i);
+                    float t = Mathf.Clamp01(Vector3.Dot(current - start, axis) /
+                        axis.sqrMagnitude);
+                    if (Vector3.Distance(current, start + axis * t) > MaxTriggerDeviation ||
+                        Vector3.Dot(_normals[i], _normals[_triggerSegmentFirstSample]) <
+                        MinTriggerNormalDot)
+                    {
+                        canExtend = false;
+                        break;
+                    }
+                }
+            }
+            if (!canExtend)
+            {
+                // Adjacent segments share an endpoint, leaving no unpainted collision gap.
+                CreateTriggerSegment(Mathf.Max(0, sampleIndex - 1));
+                start = TriggerCenter(_triggerSegmentFirstSample);
+                end = TriggerCenter(sampleIndex);
+                axis = end - start;
+            }
+            _triggerSegment.transform.localPosition = (start + end) * 0.5f;
+            _triggerSegment.transform.localRotation = axis.sqrMagnitude < 0.000001f
+                ? Quaternion.identity
+                : Quaternion.FromToRotation(Vector3.up, axis.normalized);
+            _triggerCapsule.height = axis.magnitude + BrushRadius * 2f;
+        }
+
+        private void CreateTriggerSegment(int firstSample)
+        {
+            _triggerSegmentFirstSample = firstSample;
+            _triggerSegment = new GameObject("Mud Trigger Segment");
+            _triggerSegment.transform.SetParent(transform, false);
+            _triggerCapsule = _triggerSegment.AddComponent<CapsuleCollider>();
+            _triggerCapsule.isTrigger = true;
+            _triggerCapsule.radius = BrushRadius;
+            _triggerCapsule.direction = 1;
+            _triggerSegment.AddComponent<GuardWaveMudTriggerRelay>().Initialize(this);
+        }
+
         private void OnTriggerEnter(Collider other) => TryBond(other);
         private void OnTriggerStay(Collider other) => TryBond(other);
+        internal void ProcessTrigger(Collider other) => TryBond(other);
 
         private void TryBond(Collider other)
         {
-            if (_game == null || _isDry) return;
+            if (_game == null || _isDry || other == null) return;
             GuardWavePiece piece = other.GetComponentInParent<GuardWavePiece>();
             if (piece == null || !_game.IsPlacedPiece(piece) ||
+                (_authored && _game.IsScenePiece(piece)) ||
                 piece.Body == _surfaceBody || piece.Body.isKinematic ||
-                _game.HasMudBond(piece))
+                _game.HasMudBond(piece) || _game.WasEverMudBonded(piece))
                 return;
 
-            // A stroke has multiple overlapping trigger segments. Scan the
-            // actual paint only once per collider per physics step, not once
-            // per trigger, even on a long stroke.
             if (_lastContactCheck.TryGetValue(other, out float checkedAt) &&
                 checkedAt == Time.fixedTime)
                 return;
             _lastContactCheck[other] = Time.fixedTime;
 
-            // Attach only when the actual object boundary reaches the paint,
-            // never while the object is still falling through the trigger volume.
+            // Convert the expanded collider AABB into the brush's local plane.
+            // This also handles strokes attached to moving/rotating logs.
+            Bounds bounds = other.bounds;
+            Vector3 pad = Vector3.one * (BrushRadius + 0.2f);
+            Vector3 low = bounds.min - pad;
+            Vector3 high = bounds.max + pad;
+            Vector3 minimum = new Vector3(float.PositiveInfinity, 0f, float.PositiveInfinity);
+            Vector3 maximum = new Vector3(float.NegativeInfinity, 0f, float.NegativeInfinity);
+            for (int corner = 0; corner < 8; corner++)
+            {
+                Vector3 world = new Vector3((corner & 1) == 0 ? low.x : high.x,
+                    (corner & 2) == 0 ? low.y : high.y,
+                    (corner & 4) == 0 ? low.z : high.z);
+                Vector3 local = transform.InverseTransformPoint(world);
+                minimum.x = Mathf.Min(minimum.x, local.x);
+                minimum.z = Mathf.Min(minimum.z, local.z);
+                maximum.x = Mathf.Max(maximum.x, local.x);
+                maximum.z = Mathf.Max(maximum.z, local.z);
+            }
+
             float nearestDistance = float.PositiveInfinity;
             Vector3 anchorPoint = default;
-            for (int i = 0; i < _points.Count; i++)
+            Vector3 centerOfMass = piece.Body.worldCenterOfMass;
+            Vector3 velocity = piece.Body.linearVelocity;
+            int x0 = Mathf.FloorToInt(minimum.x / SampleCellSize);
+            int x1 = Mathf.FloorToInt(maximum.x / SampleCellSize);
+            int z0 = Mathf.FloorToInt(minimum.z / SampleCellSize);
+            int z1 = Mathf.FloorToInt(maximum.z / SampleCellSize);
+            for (int x = x0; x <= x1; x++)
+            for (int z = z0; z <= z1; z++)
             {
-                Vector3 worldPoint = transform.TransformPoint(_points[i]);
-                Vector3 worldNormal = transform.TransformDirection(_normals[i]);
-                Vector3 closest = other.ClosestPoint(worldPoint);
-                Vector3 difference = closest - worldPoint;
-                float height = Vector3.Dot(difference, worldNormal);
-                float lateral = Vector3.ProjectOnPlane(difference, worldNormal).magnitude;
-                float distance = difference.sqrMagnitude;
+                if (!_sampleGrid.TryGetValue(new Vector2Int(x, z),
+                    out List<int> indices)) continue;
+                foreach (int index in indices)
+                {
+                    Vector3 worldPoint = transform.TransformPoint(_points[index]);
+                    Vector3 worldNormal =
+                        transform.TransformDirection(_normals[index]).normalized;
+                    Vector3 closest = other.ClosestPoint(worldPoint);
+                    Vector3 difference = closest - worldPoint;
+                    float height = Vector3.Dot(difference, worldNormal);
+                    float lateral = Vector3.ProjectOnPlane(difference, worldNormal).magnitude;
+                    float distance = difference.sqrMagnitude;
 
-                if (height < -0.16f || height > 0.085f ||
-                    lateral > BrushRadius * 1.05f ||
-                    Vector3.Dot(piece.Body.worldCenterOfMass - worldPoint, worldNormal) < -0.12f ||
-                    Vector3.Dot(piece.Body.linearVelocity, worldNormal) > 0.2f ||
-                    distance >= nearestDistance)
-                    continue;
+                    if (height < -0.16f || height > 0.085f ||
+                        lateral > BrushRadius * 1.05f ||
+                        Vector3.Dot(centerOfMass - worldPoint, worldNormal) < -0.12f ||
+                        Vector3.Dot(velocity, worldNormal) > 0.2f ||
+                        distance >= nearestDistance)
+                        continue;
 
-                nearestDistance = distance;
-                anchorPoint = worldPoint;
+                    nearestDistance = distance;
+                    anchorPoint = worldPoint;
+                }
             }
 
             if (float.IsPositiveInfinity(nearestDistance)) return;
@@ -491,13 +611,12 @@ namespace GuardWave
             joint.connectedBody = _surfaceBody;
             joint.anchor = anchor;
             joint.connectedAnchor = connectedAnchor;
-            // Wave snapshot restoration recreates joints through this method.
-            // Keep cured adhesive twice as strong after restoring a failed wave.
-            float multiplier = _isDry ? 2f : 1f;
-            joint.breakForce = _breakForce * multiplier;
-            joint.breakTorque = _breakTorque * multiplier;
+            // Recreated joints after rollback retain the cured strength.
+            joint.breakForce = _breakForce * (_isDry ? 2f : 1f);
+            joint.breakTorque = _breakTorque * (_isDry ? 2f : 1f);
             joint.enableCollision = false;
             _bonds[piece] = joint;
+            _game?.RegisterMudBond(piece, joint);
         }
 
         public bool HasBond(GuardWavePiece piece)
@@ -505,6 +624,7 @@ namespace GuardWave
             if (piece == null || !_bonds.TryGetValue(piece, out FixedJoint joint))
                 return false;
             if (joint != null) return true;
+            _game?.ReleaseMudBond(piece, joint);
             _bonds.Remove(piece);
             return false;
         }
@@ -518,6 +638,7 @@ namespace GuardWave
                 return;
             }
             if (!_bonds.TryGetValue(piece, out FixedJoint joint)) return;
+            _game?.ReleaseMudBond(piece, joint);
             if (joint != null) Destroy(joint);
             _bonds.Remove(piece);
         }
@@ -531,8 +652,11 @@ namespace GuardWave
 
         public void ClearBonds()
         {
-            foreach (FixedJoint joint in _bonds.Values)
-                if (joint != null) Destroy(joint);
+            foreach (KeyValuePair<GuardWavePiece, FixedJoint> bond in _bonds)
+            {
+                _game?.ReleaseMudBond(bond.Key, bond.Value);
+                if (bond.Value != null) Destroy(bond.Value);
+            }
             _bonds.Clear();
             _lastContactCheck.Clear();
         }
@@ -547,13 +671,9 @@ namespace GuardWave
         private void OnDestroy()
         {
             ClearBonds();
-            if (_material != null) Destroy(_material);
+            if (_instanceMaterial != null) Destroy(_instanceMaterial);
             if (_mesh != null) Destroy(_mesh);
-            if (s_impastoTextureUsers > 0 && --s_impastoTextureUsers == 0)
-            {
-                if (s_impastoTexture != null) Destroy(s_impastoTexture);
-                s_impastoTexture = null;
-            }
         }
     }
+
 }

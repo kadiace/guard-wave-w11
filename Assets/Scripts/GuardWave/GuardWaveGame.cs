@@ -38,6 +38,37 @@ namespace GuardWave
 
         private readonly List<GuardWavePiece> _pieces = new List<GuardWavePiece>();
         private readonly List<GuardWaveMudPatch> _mudPatches = new List<GuardWaveMudPatch>();
+        private readonly HashSet<GuardWaveMudPatch> _sceneMudPatches = new HashSet<GuardWaveMudPatch>();
+        // A piece can form just one mud bond during an attempt. Breaking that bond
+        // must never immediately re-attach it to this or another wet stroke.
+        private readonly HashSet<GuardWavePiece> _everMudBonded = new HashSet<GuardWavePiece>();
+        private readonly Dictionary<GuardWavePiece, MudJointState> _activeMudJoints =
+            new Dictionary<GuardWavePiece, MudJointState>();
+        private readonly Dictionary<Rigidbody, SolverOverride> _solverOverrides =
+            new Dictionary<Rigidbody, SolverOverride>();
+        private readonly List<GuardWavePiece> _expiredMudJoints = new List<GuardWavePiece>();
+        private const int MudSolverIterations = 16;
+        private const int MudSolverVelocityIterations = 8;
+
+        private readonly struct MudJointState
+        {
+            public readonly FixedJoint Joint;
+            public readonly Rigidbody PieceBody;
+            public readonly Rigidbody ConnectedBody;
+            public MudJointState(FixedJoint joint, Rigidbody pieceBody, Rigidbody connectedBody)
+            {
+                Joint = joint;
+                PieceBody = pieceBody;
+                ConnectedBody = connectedBody;
+            }
+        }
+
+        private struct SolverOverride
+        {
+            public int Count;
+            public int Iterations;
+            public int VelocityIterations;
+        }
         private GameObject _mudPreview;
         private GuardWaveMudPatch _activeMudStroke;
         private Vector2 _lastMudCursorScreen;
@@ -47,7 +78,7 @@ namespace GuardWave
         private const float MUD_DRY_HOLD_SECONDS = 1f;
 
         [Header("Mud adhesion")]
-        [SerializeField, Min(0f)] private float mudBreakForce = 2000f;
+        [SerializeField, Min(0f)] private float mudBreakForce = 80f;
         [SerializeField, Min(0f)] private float mudBreakTorque = 1400f;
         private readonly HashSet<GuardWavePiece> _pieceSet = new HashSet<GuardWavePiece>();
         private readonly HashSet<GuardWavePiece> _scenePieces = new HashSet<GuardWavePiece>();
@@ -107,6 +138,7 @@ namespace GuardWave
             if (_fluidSettings == null) throw new InvalidOperationException("Missing Resources/Datas/GuardWaveFluidSettings.asset");
             ConfigureScene();
             RegisterScenePieces();
+            RegisterSceneMudPatches();
             CreateHud();
             _dropPreview = new GuardWaveDropPreview();
             _flipRenderer = new GuardWaveFlipRenderer(_fluidSettings);
@@ -116,6 +148,7 @@ namespace GuardWave
 
         private void FixedUpdate()
         {
+            PruneDeadMudJoints();
             if (ambientFlowPreview && _fluid != null)
                 _fluid.Step(Time.fixedDeltaTime, 0f);
         }
@@ -344,6 +377,7 @@ namespace GuardWave
         private void EndMudPainting()
         {
             _paintingMud = false;
+            _activeMudStroke?.FlushStrokeMesh();
             _activeMudStroke = null;
         }
 
@@ -405,12 +439,93 @@ namespace GuardWave
             _dryingHoldSeconds = 0f;
         }
 
-        internal bool HasMudBond(GuardWavePiece piece)
+        internal bool HasMudBond(GuardWavePiece piece) =>
+            piece != null && _activeMudJoints.TryGetValue(piece, out MudJointState state) &&
+            state.Joint != null;
+
+        internal bool WasEverMudBonded(GuardWavePiece piece) =>
+            piece != null && _everMudBonded.Contains(piece);
+
+        internal void RegisterMudBond(GuardWavePiece piece, FixedJoint joint)
         {
-            foreach (GuardWaveMudPatch patch in _mudPatches)
-                if (patch != null && patch.HasBond(piece)) return true;
-            return false;
+            if (piece == null || joint == null) return;
+            if (_activeMudJoints.TryGetValue(piece, out MudJointState old))
+                ReleaseMudBond(piece, old.Joint);
+            _everMudBonded.Add(piece);
+            Rigidbody body = piece.Body;
+            Rigidbody connected = joint.connectedBody;
+            _activeMudJoints[piece] = new MudJointState(joint, body, connected);
+            RetainMudSolver(body);
+            RetainMudSolver(connected);
         }
+
+        internal void ReleaseMudBond(GuardWavePiece piece, FixedJoint joint)
+        {
+            if (ReferenceEquals(piece, null) ||
+                !_activeMudJoints.TryGetValue(piece, out MudJointState state) ||
+                !ReferenceEquals(state.Joint, joint)) return;
+            ReleaseMudSolver(state.PieceBody);
+            ReleaseMudSolver(state.ConnectedBody);
+            _activeMudJoints.Remove(piece);
+        }
+
+        private void RetainMudSolver(Rigidbody body)
+        {
+            if (body == null) return;
+            if (_solverOverrides.TryGetValue(body, out SolverOverride value))
+            {
+                value.Count++;
+                _solverOverrides[body] = value;
+                return;
+            }
+            _solverOverrides[body] = new SolverOverride
+            {
+                Count = 1,
+                Iterations = body.solverIterations,
+                VelocityIterations = body.solverVelocityIterations
+            };
+            body.solverIterations = Mathf.Max(body.solverIterations, MudSolverIterations);
+            body.solverVelocityIterations =
+                Mathf.Max(body.solverVelocityIterations, MudSolverVelocityIterations);
+        }
+
+        private void ReleaseMudSolver(Rigidbody body)
+        {
+            if (ReferenceEquals(body, null) ||
+                !_solverOverrides.TryGetValue(body, out SolverOverride value)) return;
+            if (--value.Count > 0)
+            {
+                _solverOverrides[body] = value;
+                return;
+            }
+            if (body != null)
+            {
+                body.solverIterations = value.Iterations;
+                body.solverVelocityIterations = value.VelocityIterations;
+            }
+            _solverOverrides.Remove(body);
+        }
+
+        private void PruneDeadMudJoints()
+        {
+            if (_activeMudJoints.Count == 0) return;
+            _expiredMudJoints.Clear();
+            foreach (KeyValuePair<GuardWavePiece, MudJointState> entry in _activeMudJoints)
+            {
+                if (entry.Key == null || entry.Value.Joint == null ||
+                    !IsPlacedPiece(entry.Key))
+                    _expiredMudJoints.Add(entry.Key);
+            }
+            foreach (GuardWavePiece piece in _expiredMudJoints)
+            {
+                if (_activeMudJoints.TryGetValue(piece, out MudJointState state))
+                    ReleaseMudBond(piece, state.Joint);
+            }
+            _expiredMudJoints.Clear();
+        }
+
+        /// <summary>씬에 원래 배치된 기물인지 판별한다.</summary>
+        internal bool IsScenePiece(GuardWavePiece piece) => _scenePieces.Contains(piece);
 
         /// <summary>커서 위치의 배치 가능 여부에 따라 실제 자재의 낙하 미리보기 색을 바꾼다.</summary>
         private void UpdateDropPreview()
@@ -529,8 +644,6 @@ namespace GuardWave
             EndMudDrying();
             if (_mudPreview != null)
             {
-                Renderer renderer = _mudPreview.GetComponent<Renderer>();
-                if (renderer != null) Destroy(renderer.sharedMaterial);
                 MeshFilter filter = _mudPreview.GetComponent<MeshFilter>();
                 if (filter != null) Destroy(filter.sharedMesh);
                 SafeDestroySelectedObject(_mudPreview);
@@ -821,11 +934,18 @@ namespace GuardWave
             {
                 if (patch == null) continue;
                 patch.ClearBonds();
+                if (_sceneMudPatches.Contains(patch))
+                {
+                    patch.ResetDryness();
+                    continue;
+                }
                 patch.gameObject.SetActive(false);
                 SafeDestroySelectedObject(patch.gameObject);
                 Destroy(patch.gameObject);
             }
             _mudPatches.Clear();
+            _mudPatches.AddRange(_sceneMudPatches);
+            _everMudBonded.Clear();
             foreach (GuardWavePiece piece in _pieces)
             {
                 if (piece == null) continue;
@@ -857,7 +977,7 @@ namespace GuardWave
             if (ambientFlowPreview) BeginAmbientCreekFlow();
             _status = GetComponent<FogSceneController>() != null
                 ? "고무오리·쓰레기 봉투·큰 돌을 배치하세요."
-                : "진흙을 바르고 통나무 또는 조약돌을 배치하세요. 기물 우클릭: 제거, 빈 공간 우클릭: 선택 해제";
+                : "진흙을 바르고 드라이기로 말려 접착력을 강화하세요. 기물 우클릭: 제거, 빈 공간 우클릭: 선택 해제";
         }
 
         /// <summary>Registers authored Forest objects as selectable without creating runtime scene objects.</summary>
@@ -875,6 +995,21 @@ namespace GuardWave
                 _initialScenePieceStates.Add(new SceneBodyState(body));
             }
             CaptureSceneParentActivation(_initialSceneParentStates);
+        }
+
+        /// <summary>씬에 배치된 진흙을 게임의 접착 및 되돌리기 대상에 포함한다.</summary>
+        private void RegisterSceneMudPatches()
+        {
+            Collider creekBed = GameObject.Find("Flat Muddy Creek Bed").GetComponent<Collider>();
+            foreach (GuardWaveMudPatch patch in FindObjectsByType<GuardWaveMudPatch>(
+                FindObjectsInactive.Include, FindObjectsSortMode.None))
+            {
+                if (patch.gameObject.scene.handle != gameObject.scene.handle) continue;
+                patch.InitializeAuthored(this, creekBed, creekBed.attachedRigidbody,
+                    mudBreakForce, mudBreakTorque);
+                _sceneMudPatches.Add(patch);
+                _mudPatches.Add(patch);
+            }
         }
 
         /// <summary>Captures parent activation so disabled Beaver Houses survive rollback.</summary>
@@ -1040,17 +1175,31 @@ namespace GuardWave
             if (piece == null || !_pieceSet.Remove(piece)) return 0;
             if (piece == _outlinedPiece) SetOutlineTargets(null);
             _pieces.Remove(piece);
+            _everMudBonded.Remove(piece);
             foreach (GuardWaveMudPatch patch in _mudPatches)
                 if (patch != null) patch.DetachPiece(piece);
             PublishChange(new GuardWaveChange(piece, piece, reason, 0, piece.transform.position));
             if (_scenePieces.Contains(piece) || _waveSnapshot != null)
-                piece.gameObject.SetActive(false);
+            {
+                if (destructionDelay > 0f)
+                    StartCoroutine(DeactivateRemovedPieceAfterDelay(piece, destructionDelay));
+                else
+                    piece.gameObject.SetActive(false);
+            }
             else
             {
                 SafeDestroySelectedObject(piece.gameObject);
                 Destroy(piece.gameObject, destructionDelay);
             }
             return 1;
+        }
+
+        /// <summary>경계 밖 씬 기물을 지연 비활성화하되, 그동안 복원되었다면 유지한다.</summary>
+        private IEnumerator DeactivateRemovedPieceAfterDelay(GuardWavePiece piece, float delay)
+        {
+            yield return new WaitForSeconds(delay);
+            if (piece != null && !_pieceSet.Contains(piece))
+                piece.gameObject.SetActive(false);
         }
 
         /// <summary>준비완료 시 깃발과 기물의 물리 상태를 저장하고 파도를 시작한다.</summary>
@@ -1235,12 +1384,21 @@ namespace GuardWave
                 return;
             // Keep the flood coroutine and GPU particle buffers alive so
             // the wave continues flowing behind the failure popup.
-            _defenseFlag.SetActive(false);
             _stageTransitioning = false;
             _resolving = false;
             _awaitingStage = true;
             _finished = false;
             _status = "깃발이 파괴되었습니다. 확인을 누르면 준비완료 직전으로 돌아갑니다.";
+            StartCoroutine(DeactivateDefenseFlagAfterDelay());
+        }
+
+        /// <summary>파괴된 깃발도 일반 기물처럼 1초간 남기되 되돌린 깃발은 숨기지 않는다.</summary>
+        private IEnumerator DeactivateDefenseFlagAfterDelay()
+        {
+            WaveSnapshot failedWave = _waveSnapshot;
+            yield return new WaitForSeconds(BOUNDARY_DESTRUCTION_DELAY);
+            if (_awaitingStage && _waveSnapshot == failedWave)
+                _defenseFlag.SetActive(false);
         }
 
         /// <summary>준비완료 클릭 시점의 깃발, 기물, 씬 물리 오브젝트 및 배치 UI 상태를 기록한다.</summary>
@@ -1259,6 +1417,7 @@ namespace GuardWave
                 if (piece != null) snapshot.Pieces.Add(new PieceState(piece));
             foreach (GuardWaveMudPatch patch in _mudPatches)
                 if (patch != null) patch.CaptureBonds(snapshot.MudBonds);
+            snapshot.MudBondHistory.UnionWith(_everMudBonded);
 
             // Inactive authored sticks must also be snapshotted: their parent
             // may be activated later without restarting the Forest scene.
@@ -1325,6 +1484,8 @@ namespace GuardWave
             // Broken/moved joints are not restored by Rigidbody poses alone.
             foreach (GuardWaveMudPatch patch in _mudPatches)
                 if (patch != null) patch.ClearBonds();
+            _everMudBonded.Clear();
+            _everMudBonded.UnionWith(snapshot.MudBondHistory);
             foreach (GuardWaveMudPatch.MudBondState bond in snapshot.MudBonds)
                 if (bond.Patch != null) bond.Patch.RestoreBond(bond);
 
@@ -1360,6 +1521,8 @@ namespace GuardWave
             public readonly List<PieceState> Pieces = new List<PieceState>();
             public readonly List<GuardWaveMudPatch.MudBondState> MudBonds =
                 new List<GuardWaveMudPatch.MudBondState>();
+            public readonly HashSet<GuardWavePiece> MudBondHistory =
+                new HashSet<GuardWavePiece>();
             public readonly List<SceneBodyState> SceneBodies = new List<SceneBodyState>();
             public readonly List<SceneParentActiveState> SceneParents = new List<SceneParentActiveState>();
             public readonly HashSet<GuardWavePiece> SelectableScenePieces = new HashSet<GuardWavePiece>();
