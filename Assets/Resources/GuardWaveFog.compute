@@ -15,6 +15,10 @@
 
 struct ObstacleBox { float4 center; float4 halfExtent; float4 rotation; };
 StructuredBuffer<ObstacleBox> _ObstacleBoxes;
+struct WindVent { float4 positionRange; float4 directionAcceleration; float4 radius; };
+StructuredBuffer<WindVent> _WindVents;
+int _WindVentCount;
+float _PeakFanSpeed;
 int _ObstacleCount;
 int3 _GridSize;
 float3 _WorldMin;
@@ -172,7 +176,26 @@ void ApplyFogForces(uint3 id : SV_DispatchThreadID) {
     float concentration=saturate(density*3.0+temperature*1.2+Emission(p));
     v+=_Dt*_TurbulenceStrength*swirl*(0.22+0.78*concentration);
     v+=_Dt*Expansion(p);
-    float maxSpeed=max(4.0,_WindSpeed*2.35);
+    // AC jets operate continuously, including during the first gas inlet frame.
+    // Wide, tapered acceleration keeps the displaced fog visibly coherent at
+    // 0.75m voxel resolution instead of kicking isolated grid cells.
+    [loop] for (int i=0; i<_WindVentCount; ++i) {
+        WindVent fan = _WindVents[i];
+        float3 axis = normalize(fan.directionAcceleration.xyz);
+        float3 delta = p - fan.positionRange.xyz;
+        float forward = dot(delta, axis);
+        float reach = fan.positionRange.w;
+        if (forward < -_CellSize || forward > reach) continue;
+        float radius = fan.radius.x + max(forward, 0.0) * 0.22;
+        float radial = length(delta - forward * axis);
+        if (radial > radius) continue;
+        float radialFalloff = 1.0 - smoothstep(radius * 0.50, radius, radial);
+        float longitudinal = (1.0 - smoothstep(reach * 0.65, reach, max(forward,0.0)))
+            * smoothstep(-_CellSize, _CellSize * 0.7, forward);
+        float strength = radialFalloff * longitudinal;
+        v += axis * (_Dt * fan.directionAcceleration.w * strength);
+    }
+    float maxSpeed=max(max(4.0,_WindSpeed*2.35),_PeakFanSpeed*1.12);
     v*=min(1.0,maxSpeed/max(length(v),0.0001));
     // Slip tangent to the SDF normal rather than penetrating a prop.
     if (Solid(c)<_CellSize*1.5) {
