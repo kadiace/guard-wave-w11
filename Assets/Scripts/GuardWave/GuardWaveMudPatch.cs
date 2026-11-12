@@ -15,7 +15,7 @@ namespace GuardWave
         public const float SampleSpacing = 0.16f;
 
         private const int MaxSamples = 512;
-        private const float ColliderSpacing = 0.3f;
+        private const float ColliderSpacing = 0.5f;
         private const float SurfaceOffset = 0.018f;
         private const int CapSides = 12;
 
@@ -23,6 +23,8 @@ namespace GuardWave
         private readonly List<Vector3> _normals = new List<Vector3>();
         private readonly Dictionary<GuardWavePiece, FixedJoint> _bonds =
             new Dictionary<GuardWavePiece, FixedJoint>();
+        private readonly Dictionary<Collider, float> _lastContactCheck =
+            new Dictionary<Collider, float>();
 
         private GuardWaveGame _game;
         private Collider _surfaceCollider;
@@ -243,6 +245,14 @@ namespace GuardWave
                 _game.HasMudBond(piece))
                 return;
 
+            // A stroke has multiple overlapping trigger segments. Scan the
+            // actual paint only once per collider per physics step, not once
+            // per trigger, even on a long stroke.
+            if (_lastContactCheck.TryGetValue(other, out float checkedAt) &&
+                checkedAt == Time.fixedTime)
+                return;
+            _lastContactCheck[other] = Time.fixedTime;
+
             // Attach only when the actual object boundary reaches the paint,
             // never while the object is still falling through the trigger volume.
             float nearestDistance = float.PositiveInfinity;
@@ -324,6 +334,7 @@ namespace GuardWave
             foreach (FixedJoint joint in _bonds.Values)
                 if (joint != null) Destroy(joint);
             _bonds.Clear();
+            _lastContactCheck.Clear();
         }
 
         public void RestoreBond(MudBondState state)
