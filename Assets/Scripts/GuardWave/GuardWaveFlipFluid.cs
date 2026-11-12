@@ -63,6 +63,7 @@ namespace GuardWave
         private readonly List<GuardWavePiece> _bodyPieces = new List<GuardWavePiece>();
         private readonly List<Collider[]> _bodySampleColliders = new List<Collider[]>();
         private readonly float[] _recentWaterline;
+        private readonly float[] _recentFluidCoverage;
         private readonly float[] _recentWaterlineTime;
         private readonly float[] _smoothedBodyWaterline;
         private readonly bool[] _hasSmoothedBodyWaterline;
@@ -138,6 +139,7 @@ namespace GuardWave
             public Vector3[] Linear;
             public Vector3[] Angular;
             public float[] Waterline;
+            public float[] FluidCoverage;
             public Vector2[] FlowXZ;
         }
         private readonly Dictionary<long, ImpulseFrame> _completedImpulseFrames =
@@ -176,6 +178,7 @@ namespace GuardWave
             _colliderData = new ColliderData[_settings.MaxColliders];
             _bodyColliderCounts = new int[_settings.MaxBodies];
             _recentWaterline = new float[_settings.MaxBodies];
+            _recentFluidCoverage = new float[_settings.MaxBodies];
             _recentWaterlineTime = new float[_settings.MaxBodies];
             _smoothedBodyWaterline = new float[_settings.MaxBodies];
             _hasSmoothedBodyWaterline = new bool[_settings.MaxBodies];
@@ -801,6 +804,7 @@ namespace GuardWave
                 Linear = new Vector3[bodyCount],
                 Angular = new Vector3[bodyCount],
                 Waterline = new float[bodyCount],
+                FluidCoverage = new float[bodyCount],
                 FlowXZ = new Vector2[bodyCount]
             };
             for (int i = 0; i < bodyCount; i++)
@@ -813,9 +817,16 @@ namespace GuardWave
                     ? (float)force.W / (torque.W * IMPULSE_SCALE)
                     : float.NaN;
                 frame.FlowXZ[i] = torque.W > 0
-                    ? new Vector2((float)force.X / (torque.W * IMPULSE_SCALE),
-                        (float)force.Z / (torque.W * IMPULSE_SCALE))
+                    ? new Vector2((float)force.X / torque.W,
+                        (float)force.Z / torque.W)
                     : Vector2.zero;
+                // For float bodies, force.Y counts ALL collider footprints,
+                // including entirely dry colliders. torque.W sums wet
+                // fractions, so their quotient is the true body-wide
+                // observed water coverage (zero on a dry GPU readback).
+                frame.FluidCoverage[i] = force.Y > 0
+                    ? Mathf.Clamp01((float)torque.W / force.Y)
+                    : 0f;
             }
             _completedImpulseFrames.Add(requestFrame, frame);
         }
@@ -937,6 +948,7 @@ namespace GuardWave
                 // momentum unchanged.
                 if (body.worldCenterOfMass.z <= _endZ)
                 {
+                    _recentFluidCoverage[i] = 0f;
                     _recentWaterlineTime[i] = 0f;
                     _hasSmoothedBodyWaterline[i] = false;
                     _hasSmoothedBodyFlowXZ[i] = false;
@@ -953,6 +965,15 @@ namespace GuardWave
                     continue;
                 }
 
+                // Zero measured water coverage disables ALL fluid-driven
+                // linear motion, regardless of past surface height or flow.
+                float fluidCoverage = _recentFluidCoverage[i];
+                if (fluidCoverage <= 0f)
+                {
+                    _hasSmoothedBodyWaterline[i] = false;
+                    _hasSmoothedBodyFlowXZ[i] = false;
+                    continue;
+                }
                 float waterline = _recentWaterline[i];
                 if (!_hasSmoothedBodyWaterline[i])
                 {
@@ -990,8 +1011,10 @@ namespace GuardWave
                     ++colliders;
                 }
                 if (colliders == 0) continue;
-                immersed /= colliders;
-                submergedSlope /= colliders;
+                // Same displaced-volume definition as the GPU torque path:
+                // submerged shape fraction times observed local water cover.
+                immersed = immersed / colliders * fluidCoverage;
+                submergedSlope = submergedSlope / colliders * fluidCoverage;
                 if (immersed <= 0.0001f) continue;
 
                 float density = Mathf.Max(0.01f, piece.RelativeFluidDensity);
@@ -1090,11 +1113,21 @@ namespace GuardWave
                     // linear buoyancy/drag is computed from live pose/speed
                     // once per FixedUpdate in ApplyLiveFloatingBuoyancy().
                     float waterline = frame.Waterline[i];
-                    if (!float.IsNaN(waterline) && !float.IsInfinity(waterline))
+                    _recentFluidCoverage[i] = frame.FluidCoverage[i];
+                    if (_recentFluidCoverage[i] > 0f &&
+                        !float.IsNaN(waterline) && !float.IsInfinity(waterline))
                     {
                         _recentWaterline[i] = waterline;
                         _recentFlowXZ[i] = frame.FlowXZ[i];
                         _recentWaterlineTime[i] = Time.fixedTime;
+                    }
+                    else
+                    {
+                        // No water in this sampled body footprint: discard
+                        // support immediately, without object-specific rules.
+                        _recentFluidCoverage[i] = 0f;
+                        _hasSmoothedBodyWaterline[i] = false;
+                        _hasSmoothedBodyFlowXZ[i] = false;
                     }
                     appliedImpulse = Vector3.zero;
                 }

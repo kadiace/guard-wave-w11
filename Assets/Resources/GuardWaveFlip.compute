@@ -815,6 +815,12 @@ void RelativeDensityToBodies(uint id : SV_DispatchThreadID)
     float density = max(0.01, body.fluidProperties.x);
     float mass = max(0, body.fluidProperties.z);
     if (mass <= 0) return;
+    // For every buoyant collider, record one full sampling footprint, even
+    // when no water is found. This is the denominator of the actual wetted
+    // footprint ratio. The float-body linear Y slot is a sample count, not
+    // a force; its force is evaluated on the current Rigidbody pose in Unity.
+    if (density < 1.0)
+        InterlockedAdd(_BodyImpulses[(uint)bi * 2].y, (int)SCALE);
     float shape = body.fluidProperties.w;
     float3 halfSize = body.extentType.xyz;
     if (body.extentType.w > 1.5)
@@ -860,23 +866,28 @@ void RelativeDensityToBodies(uint id : SV_DispatchThreadID)
         current += localCurrent * presence;
     }
     if (available <= 0.001) return;
+    // SampleWater returns a bilinear fraction of real water-bearing columns.
+    // Account for ALL eight perimeter probes, not just the wet probes.
+    // Otherwise one wet corner can become a fictitious full river around an
+    // otherwise dry object. Apply the same support fraction to every piece.
+    float fluidCoverage = saturate(available / 8.0);
     waterline /= available;
     current /= available;
 
-    // For floating pieces the GPU reports surface height and horizontal
-    // current, not a delayed linear impulse. Both are averaged over matching
-    // collider samples using the existing second-slot W count.
-    // Unity computes current-pose buoyancy and XZ following each FixedUpdate.
+    // For float bodies, return coverage-weighted surface and current through
+    // the existing readback lanes. Y counts all sampled colliders (including
+    // dry ones), while the second W sums their actual fluid coverage.
     if (density < 1.0)
     {
         uint bodySlot = (uint)bi * 2;
         InterlockedAdd(_BodyImpulses[bodySlot].x,
-            (int)round(current.x * SCALE));
+            (int)round(current.x * fluidCoverage * SCALE));
         InterlockedAdd(_BodyImpulses[bodySlot].z,
-            (int)round(current.z * SCALE));
+            (int)round(current.z * fluidCoverage * SCALE));
         InterlockedAdd(_BodyImpulses[bodySlot].w,
-            (int)round(waterline * SCALE));
-        InterlockedAdd(_BodyImpulses[bodySlot + 1].w, 1);
+            (int)round(waterline * fluidCoverage * SCALE));
+        InterlockedAdd(_BodyImpulses[bodySlot + 1].w,
+            (int)round(fluidCoverage * SCALE));
     }
 
     float wet = 0;
@@ -931,7 +942,9 @@ void RelativeDensityToBodies(uint id : SV_DispatchThreadID)
         dragTorque += displaced * cross(r, relativeVelocity);
     }
     if (wet <= 0.001) return;
-    float submerged = saturate(wet / samples);
+    // All fluid forces share the estimated truly wetted volume fraction:
+    // fraction below the free surface * fraction of nearby space with water.
+    float submerged = saturate(wet / samples) * fluidCoverage;
     // Unity gravity remains active. At a submerged fraction equal to the
     // relative fluid density, upward buoyancy balances the object's weight.
     bool floating = density < 1.0;
@@ -941,7 +954,7 @@ void RelativeDensityToBodies(uint id : SV_DispatchThreadID)
     if (floating) buoyancyRatio = min(buoyancyRatio, _FloatMaxBuoyancyRatio);
     float3 force = float3(0, mass * _Gravity * _Dt * buoyancyRatio, 0);
     float3 torque = mass * _Gravity * _Dt / (density * samples)
-        * buoyancyTorque;
+        * buoyancyTorque * fluidCoverage;
 
     // Saturating by equilibrium submergence ensures even cork-like objects
     // follow the water while most of their volume stays above its surface.
