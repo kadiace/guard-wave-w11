@@ -20,6 +20,7 @@ public class ForestSceneContext : MonoBehaviour
     public float DestructionBoundaryZ => _destructionBoundaryZ;
     public GameObject DefenseFlag => _defenseFlag;
     public GuardWaveHud Hud { get; private set; }
+    public StagePauseMenu PauseMenu { get; private set; }
 
     private void Awake()
     {
@@ -27,6 +28,11 @@ public class ForestSceneContext : MonoBehaviour
         if (hudPrefab == null)
             throw new System.InvalidOperationException("Missing Resources/Prefabs/UIs/GuardWaveHud prefab.");
         Hud = Instantiate(hudPrefab);
+
+        StagePauseMenu pausePrefab = Resources.Load<StagePauseMenu>("Prefabs/UIs/StagePauseMenu");
+        if (pausePrefab == null)
+            throw new System.InvalidOperationException("Missing Resources/Prefabs/UIs/StagePauseMenu prefab.");
+        PauseMenu = Instantiate(pausePrefab);
     }
 
     private void Start()

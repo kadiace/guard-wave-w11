@@ -110,6 +110,7 @@ namespace GuardWave
         private void Update()
         {
             if (!_initialized) return;
+            if (_sceneContext.PauseMenu != null && _sceneContext.PauseMenu.IsOpen) return;
 
             if (Keyboard.current?.rKey.wasPressedThisFrame == true)
             {
@@ -142,8 +143,6 @@ namespace GuardWave
             Keyboard keyboard = Keyboard.current;
             if (keyboard != null)
             {
-                if (keyboard.escapeKey.wasPressedThisFrame)
-                    OpenCandidatePalette();
                 if (keyboard.qKey.isPressed) _objectYaw -= RotationSpeed * Time.deltaTime;
                 if (keyboard.eKey.isPressed) _objectYaw += RotationSpeed * Time.deltaTime;
             }
