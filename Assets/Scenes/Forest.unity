@@ -1424,6 +1424,8 @@ MonoBehaviour:
     m_PreInfinity: 2
     m_PostInfinity: 2
     m_RotationOrder: 4
+  mudBreakForce: 2000
+  mudBreakTorque: 1400
 --- !u!1 &3100000001
 GameObject:
   m_ObjectHideFlags: 0
