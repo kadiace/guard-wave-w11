@@ -792,6 +792,9 @@ void RelativeDensityToBodies(uint id : SV_DispatchThreadID)
     FluidCollider body = _Colliders[id];
     int bi = (int)body.centerBody.w;
     if (bi < 0 || bi >= (int)_BodyCount || body.fluidProperties.x <= 0) return;
+    // No FLIP forces after the body's center crosses the waterfall lip,
+    // even if some upstream probe samples still find water behind it.
+    if (body.bodyCenter.z <= _ExitZ) return;
     float density = max(0.01, body.fluidProperties.x);
     float mass = max(0, body.fluidProperties.z);
     if (mass <= 0) return;
@@ -843,12 +846,17 @@ void RelativeDensityToBodies(uint id : SV_DispatchThreadID)
     waterline /= available;
     current /= available;
 
-    // Reuse unused W lanes in the existing body-impulse buffer to return the
-    // local water surface to Unity. Recompute buoyancy from the CURRENT pose
-    // on the CPU rather than replaying an old vertical impulse.
+    // For floating pieces the GPU reports surface height and horizontal
+    // current, not a delayed linear impulse. Both are averaged over matching
+    // collider samples using the existing second-slot W count.
+    // Unity computes current-pose buoyancy and XZ following each FixedUpdate.
     if (density < 1.0)
     {
         uint bodySlot = (uint)bi * 2;
+        InterlockedAdd(_BodyImpulses[bodySlot].x,
+            (int)round(current.x * SCALE));
+        InterlockedAdd(_BodyImpulses[bodySlot].z,
+            (int)round(current.z * SCALE));
         InterlockedAdd(_BodyImpulses[bodySlot].w,
             (int)round(waterline * SCALE));
         InterlockedAdd(_BodyImpulses[bodySlot + 1].w, 1);
@@ -944,9 +952,11 @@ void RelativeDensityToBodies(uint id : SV_DispatchThreadID)
         dragImpulse.y = 0.0;
     }
     force += dragImpulse;
-    // Buoyant pieces use the returned water surface to compute their lift at
-    // the current physics pose on the CPU. Preserve heavy-body buoyancy here.
-    if (floating) force.y = 0.0;
+    // Floating bodies send ONLY sampled current/waterline through the
+    // special readback lanes above. Prevent stale GPU drag or lift impulses
+    // from alternately accelerating and braking the live Rigidbody.
+    // Heavy bodies retain their original full GPU linear impulse.
+    if (floating) force = 0.0;
     torque += dragScale * dragTorque;
     if (floating)
     {
