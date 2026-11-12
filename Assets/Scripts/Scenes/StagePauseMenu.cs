@@ -14,6 +14,7 @@ public sealed class StagePauseMenu : MonoBehaviour
     [SerializeField] private GameObject _modalRoot;
     [SerializeField] private Button _resumeButton;
     [SerializeField] private Button _returnButton;
+    private GuardWaveHud _hud;
 
     public bool IsOpen { get; private set; }
 
@@ -24,6 +25,12 @@ public sealed class StagePauseMenu : MonoBehaviour
         _returnButton.onClick.AddListener(ReturnToStages);
     }
 
+    /// <summary>현재 스테이지의 HUD를 받아 ESC와 가이드 메뉴를 상호 배타적으로 제어한다.</summary>
+    public void Initialize(GuardWaveHud hud)
+    {
+        _hud = hud;
+    }
+
     private void Update()
     {
         Keyboard keyboard = Keyboard.current;
@@ -31,6 +38,7 @@ public sealed class StagePauseMenu : MonoBehaviour
             return;
 
         if (IsOpen) Resume();
+        else if (_hud != null && _hud.IsRulesOpen) _hud.HideRules();
         else Open();
     }
 

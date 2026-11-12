@@ -20,6 +20,7 @@ namespace GuardWave
 
         private GuardWaveGame _game;
         private FogSceneController _fogMode;
+        private GuardWaveStageTimer _stageTimer;
         private Text _detail;
         private Text _stageTitle;
         private Text _stageBody;
@@ -52,6 +53,8 @@ namespace GuardWave
         {
             _game = game;
             _fogMode = game.GetComponent<FogSceneController>();
+            _stageTimer = transform.Find("DisasterCountdown").GetComponent<GuardWaveStageTimer>();
+            _stageTimer.Initialize(game, _fogMode);
             _detail = FindText("PlacementDetailPanel/DetailText");
             _stagePopup = transform.Find("StageResultPopup").gameObject;
             _stageTitle = FindText("StageResultPopup/Heading/TitleText");
@@ -108,8 +111,7 @@ namespace GuardWave
             rulesButton.onClick.AddListener(ShowRules);
             _readyButton = transform.Find("CandidateSelectionRow/CandidateActions/ReadyButton").GetComponent<Button>();
             _readyLabel = _readyButton.transform.Find("Label").GetComponent<Text>();
-            if (_fogMode == null) _readyButton.onClick.AddListener(_game.Ready);
-            else _readyButton.onClick.AddListener(_fogMode.Ready);
+            _readyButton.onClick.AddListener(_stageTimer.Ready);
             transform.Find("RulesPopup/CloseButton").GetComponent<Button>().onClick.AddListener(HideRules);
             Button confirmButton = transform.Find("StageResultPopup/CloseButton").GetComponent<Button>();
             confirmButton.onClick.AddListener(_game.ConfirmFailure);
@@ -184,6 +186,7 @@ Ctrl+Z: 최근 기물 배치, 진흙 붓질 또는 수동 제거 되돌리기
 
         private void OnDestroy()
         {
+            if (_rulesPopup != null && _rulesPopup.activeSelf) Time.timeScale = 1f;
             foreach (Sprite sprite in _generatedIcons.Values)
             {
                 if (sprite == null) continue;
@@ -197,6 +200,9 @@ Ctrl+Z: 최근 기물 배치, 진흙 붓질 또는 수동 제거 되돌리기
         private Text FindText(string path) => transform.Find(path).GetComponent<Text>();
 
         /// <summary>상단 스테이지 정보, 하단 카드, 버튼, 팝업을 현재 게임 상태로 갱신한다.</summary>
+        /// <summary>ESC 메뉴가 가이드를 먼저 닫도록 현재 표시 상태를 공개한다.</summary>
+        public bool IsRulesOpen => _rulesPopup != null && _rulesPopup.activeSelf;
+
         private void Refresh()
         {
             if (_game.IsPaletteHidden && _hoveredCard >= 0)
@@ -337,21 +343,25 @@ Ctrl+Z: 최근 기물 배치, 진흙 붓질 또는 수동 제거 되돌리기
         /// <summary>원본 규칙 팝업을 표시한다.</summary>
         private void ShowRules()
         {
+            if (_rulesPopup.activeSelf || _game.GetComponent<ForestSceneContext>().PauseMenu.IsOpen) return;
             _hoveredPiece = null;
             _hoveredCard = -1;
             _tooltip.SetActive(false);
             _game.SetRulesOpen(true);
             _rulesPopup.SetActive(true);
+            Time.timeScale = 0f;
         }
 
         /// <summary>원본 규칙 팝업을 닫는다.</summary>
-        private void HideRules()
+        public void HideRules()
         {
+            if (!_rulesPopup.activeSelf) return;
             _rulesPopup.SetActive(false);
             _hoveredPiece = null;
             _hoveredCard = -1;
             _tooltip.SetActive(false);
             _game.SetRulesOpen(_fogMode != null && _fogMode.IsComing);
+            Time.timeScale = 1f;
         }
 
         /// <summary>원본의 후보 자재 설명 형식을 사용해 커서 옆 툴팁을 표시한다.</summary>
