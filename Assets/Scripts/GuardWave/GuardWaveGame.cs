@@ -654,10 +654,16 @@ namespace GuardWave
             _flagBody = _defenseFlag.GetComponent<Rigidbody>();
             _flagCollider = _defenseFlag.GetComponent<BoxCollider>();
             _initialFlagState = new RigidbodyState(_flagBody);
-            _placementBounds = GameObject.Find("Flat Muddy Creek Bed")
-                .GetComponent<BoxCollider>().bounds;
-            _lowerCreekBounds = GameObject.Find("Flat Muddy Creek Bed After Cliff")
-                .GetComponent<BoxCollider>().bounds;
+            // Fog is an independent urban stage, not a resized Forest creek.
+            bool urbanFog = GetComponent<FogSceneController>() != null;
+            string groundName = urbanFog ? "Fog Asphalt Ground" : "Flat Muddy Creek Bed";
+            GameObject ground = GameObject.Find(groundName);
+            if (ground == null)
+                throw new InvalidOperationException("Missing scene ground: " + groundName);
+            _placementBounds = ground.GetComponent<BoxCollider>().bounds;
+            _lowerCreekBounds = urbanFog ? _placementBounds
+                : GameObject.Find("Flat Muddy Creek Bed After Cliff")
+                    .GetComponent<BoxCollider>().bounds;
             _cameraTarget.y = _placementBounds.max.y + 2f;
         }
 
@@ -812,7 +818,7 @@ namespace GuardWave
                 {
                     _camera.orthographicSize = Mathf.Clamp(_camera.orthographicSize *
                         Mathf.Exp(-scroll * 0.03f), 6f,
-                        GetComponent<FogSceneController>() != null ? 20.5f : 12.5f);
+                        GetComponent<FogSceneController>() != null ? 32f : 12.5f);
                 }
             }
 
@@ -910,7 +916,8 @@ namespace GuardWave
             _resolving = false;
             _awaitingStage = false;
             _finished = false;
-            _cameraTarget = new Vector3(0f, _placementBounds.max.y + 2f, 0f);
+            _cameraTarget = new Vector3(0f, _placementBounds.max.y +
+                (GetComponent<FogSceneController>() != null ? 7f : 2f), 0f);
             _rightGestureActive = false;
             _rightGestureStartedWithOffer = false;
             _rightPressedPiece = null;
@@ -945,7 +952,9 @@ namespace GuardWave
         /// <summary>씬에 배치된 진흙을 게임의 접착 및 되돌리기 대상에 포함한다.</summary>
         private void RegisterSceneMudPatches()
         {
-            Collider creekBed = GameObject.Find("Flat Muddy Creek Bed").GetComponent<Collider>();
+            string groundName = GetComponent<FogSceneController>() != null
+                ? "Fog Asphalt Ground" : "Flat Muddy Creek Bed";
+            Collider creekBed = GameObject.Find(groundName).GetComponent<Collider>();
             foreach (GuardWaveMudPatch patch in FindObjectsByType<GuardWaveMudPatch>(
                 FindObjectsInactive.Include, FindObjectsSortMode.None))
             {
