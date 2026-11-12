@@ -993,11 +993,11 @@ void RelativeDensityToBodies(uint id : SV_DispatchThreadID)
     // Unity gravity remains active. At a submerged fraction equal to the
     // relative fluid density, upward buoyancy balances the object's weight.
     bool floating = density < 1.0;
-    float buoyancyRatio = submerged / density;
-    // Objects below the free surface still rise, but a light 0.25-density
-    // object no longer gets a four-gravity impulse on one noisy frame.
-    if (floating) buoyancyRatio = min(buoyancyRatio, _FloatMaxBuoyancyRatio);
-    float3 force = float3(0, mass * _Gravity * _Dt * buoyancyRatio, 0);
+    // Floating-body buoyancy uses the live Rigidbody pose on the CPU.
+    // Do not compute a linear GPU impulse that will be discarded on readback.
+    float3 force = 0.0;
+    if (!floating)
+        force.y = mass * _Gravity * _Dt * submerged / density;
     float3 torque = mass * _Gravity * _Dt / (density * samples)
         * buoyancyTorque * fluidCoverage;
 
@@ -1011,27 +1011,9 @@ void RelativeDensityToBodies(uint id : SV_DispatchThreadID)
     float following = (1.0 - exp(-responseRate * _Dt)) *
         immersionFactor;
     float dragScale = mass * following / wet;
-    float3 dragImpulse = dragScale * dragDelta;
-    if (floating)
-    {
-        // A sudden change in a few FLIP particle velocities is not allowed
-        // to propel a toy by multiple meters per second in a single frame.
-        float horizontalMagnitude = length(dragImpulse.xz);
-        dragImpulse.xz *= min(1.0, (mass * 0.65) /
-            max(horizontalMagnitude, 0.00001));
-        // Vertical FLIP drag used a GPU-snapshot body velocity. Applying
-        // that stale impulse several physics steps later can accelerate a
-        // body in the wrong direction and cause periodic airborne hops.
-        // Buoyant vertical viscosity is now evaluated against the CURRENT
-        // Unity Rigidbody velocity when the readback is played back.
-        dragImpulse.y = 0.0;
-    }
-    force += dragImpulse;
-    // Floating bodies send ONLY sampled current/waterline through the
-    // special readback lanes above. Prevent stale GPU drag or lift impulses
-    // from alternately accelerating and braking the live Rigidbody.
-    // Heavy bodies retain their original full GPU linear impulse.
-    if (floating) force = 0.0;
+    // Dense bodies continue to use GPU linear buoyancy and drag.
+    // Float bodies return their sampled surface/current for live CPU forces.
+    if (!floating) force += dragScale * dragDelta;
     torque += dragScale * dragTorque;
     if (floating)
     {
