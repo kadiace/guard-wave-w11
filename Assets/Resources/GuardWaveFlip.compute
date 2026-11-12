@@ -698,14 +698,14 @@ void RelativeDensityToBodies(uint id : SV_DispatchThreadID)
             float2 radial = axis == 0 ? q.yz : axis == 1 ? q.xz : q.xy;
             if (dot(radial,radial) > 1.001) continue;
         }
-        float3 point = body.centerBody.xyz +
+        float3 samplePosition = body.centerBody.xyz +
             Rotate(body.rotation, q * halfSize);
         float surfaceY;
         float3 flow;
-        float coverage = SampleWater(point, surfaceY, flow);
-        if (coverage <= 0.001 || point.y > surfaceY) continue;
+        float coverage = SampleWater(samplePosition, surfaceY, flow);
+        if (coverage <= 0.001 || samplePosition.y > surfaceY) continue;
         wet += coverage;
-        float3 r = point - body.bodyCenter.xyz;
+        float3 r = samplePosition - body.bodyCenter.xyz;
         buoyancyTorque += coverage * cross(r, float3(0,1,0));
         float3 bodyPointVelocity = body.velocity.xyz + cross(body.angular.xyz,r);
         // Grounded heavy props follow a reduced target current, not merely
