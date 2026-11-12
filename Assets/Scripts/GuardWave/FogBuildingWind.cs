@@ -25,6 +25,8 @@ namespace GuardWave
         [SerializeField, Min(0.1f)] private float outletRadius = 16f;
 
         [Header("Visible airflow (cosmetic only)")]
+        [Tooltip("Seconds each particle lives. Particle speed is computed as GPU wind reach / lifetime.")]
+        [SerializeField, Min(0.05f)] private float particleLifetime = 1.15f;
         [SerializeField, Min(0f)] private float particlesPerSecond = 32f;
         [SerializeField] private Color particleTint = new Color(0.77f, 0.92f, 1f, 0.85f);
 
@@ -129,18 +131,19 @@ namespace GuardWave
                 main.loop = true;
                 main.playOnAwake = false;
                 main.simulationSpace = ParticleSystemSimulationSpace.World;
-                main.startLifetime = new ParticleSystem.MinMaxCurve(0.85f, 1.45f);
-                // Keep the cosmetic wind streak speed proportional to the real GPU wind force.
-                float visualSpeedScale = WindAcceleration / 28f;
-                main.startSpeed = new ParticleSystem.MinMaxCurve(
-                    3.5f * visualSpeedScale, 5.5f * visualSpeedScale);
+                // The GPU applies each fan up to Reach metres along its axis.
+                // With a fixed lifetime, speed * lifetime = that same distance.
+                // WindAcceleration controls GPU force intensity, not GPU reach.
+                float lifetime = Mathf.Max(0.05f, particleLifetime);
+                main.startLifetime = lifetime;
+                main.startSpeed = WindAcceleration > 0f ? Reach / lifetime : 0f;
                 main.startSize = new ParticleSystem.MinMaxCurve(0.11f, 0.25f);
                 main.startColor = particleTint;
                 main.maxParticles = 128;
 
                 ParticleSystem.EmissionModule emission = system.emission;
                 emission.enabled = true;
-                emission.rateOverTime = particlesPerSecond;
+                emission.rateOverTime = WindAcceleration > 0f ? particlesPerSecond : 0f;
 
                 ParticleSystem.ShapeModule shape = system.shape;
                 shape.enabled = true;
