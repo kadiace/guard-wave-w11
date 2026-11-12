@@ -1,5 +1,6 @@
 // GuardWave 3D particle-in-cell solver. All fluid state stays on the GPU.
 #pragma kernel ClearGrid
+#pragma kernel ClearWaterColumns
 #pragma kernel ClassifyGrid
 #pragma kernel Spawn
 #pragma kernel InitializeAmbient
@@ -177,16 +178,20 @@ void ClearGrid(uint id : SV_DispatchThreadID)
     }
     if (id < _BodyCount * 2)
         _BodyImpulses[id] = int4(0,0,0,0);
-    if (id < (uint)(_GridSize.x * _GridSize.z))
-    {
-        _WaterSurface[id] = 0;
-        _WaterFlow[id] = int4(0,0,0,0);
-    }
     if (id < 3)
         _CrestMetrics[id] = 0u;
     // Keep pending refill debt and its global sequence across physics ticks.
     if (id == 0 && _AmbientEnabled != 0)
         _FlowCounters[2] = 0u;
+}
+// Separate the 2D surface/current clear from ClearGrid to keep each
+// D3D11 compute kernel within the maximum of eight writable UAV slots.
+[numthreads(128,1,1)]
+void ClearWaterColumns(uint id : SV_DispatchThreadID)
+{
+    if (id >= (uint)(_GridSize.x * _GridSize.z)) return;
+    _WaterSurface[id] = 0;
+    _WaterFlow[id] = int4(0,0,0,0);
 }
 [numthreads(128,1,1)]
 void ClassifyGrid(uint id : SV_DispatchThreadID)
