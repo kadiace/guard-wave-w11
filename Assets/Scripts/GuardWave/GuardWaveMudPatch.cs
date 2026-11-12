@@ -39,6 +39,22 @@ namespace GuardWave
         public Collider SurfaceCollider => _surfaceCollider;
         public bool IsFull => _points.Count >= MaxSamples;
 
+        /// <summary>
+        /// Only connect samples on the same nearby plane. Splitting on a sharp
+        /// normal change prevents paint from bridging between a log's top
+        /// and the creek floor, or across two faces of the same mesh.
+        /// </summary>
+        public bool CanContinueAt(Vector3 worldPoint, Vector3 worldNormal)
+        {
+            if (_points.Count == 0) return true;
+            int last = _points.Count - 1;
+            Vector3 previousPoint = transform.TransformPoint(_points[last]);
+            Vector3 previousNormal =
+                transform.TransformDirection(_normals[last]).normalized;
+            return Vector3.Distance(previousPoint, worldPoint) <= BrushRadius * 1.8f &&
+                   Vector3.Dot(previousNormal, worldNormal.normalized) > 0.85f;
+        }
+
         public readonly struct MudBondState
         {
             public readonly GuardWaveMudPatch Patch;

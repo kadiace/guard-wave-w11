@@ -40,7 +40,7 @@ namespace GuardWave
         private readonly List<GuardWaveMudPatch> _mudPatches = new List<GuardWaveMudPatch>();
         private GameObject _mudPreview;
         private GuardWaveMudPatch _activeMudStroke;
-        private Vector3 _lastMudCursor;
+        private Vector2 _lastMudCursorScreen;
         private bool _paintingMud;
 
         [Header("Mud adhesion")]
@@ -228,11 +228,26 @@ namespace GuardWave
         }
 
         /// <summary>
-        /// The cursor already maps directly to this XZ plane. Mud uses that
-        /// point, never an additional downward raycast to colliders below it.
+        /// Pick the first real collider along the camera's mouse ray, rather
+        /// than projecting onto an XZ plane or raycasting down in -Y. A log
+        /// in front of the riverbed must receive the paint, not the riverbed.
+        /// Painted patches are triggers and are ignored by the raycast.
         /// </summary>
-        private Vector3 GetMudPoint(Vector3 cursorXZ) =>
-            new Vector3(cursorXZ.x, _placementBounds.max.y, cursorXZ.z);
+        private bool TryGetMudSurface(Vector2 screen, out RaycastHit surface)
+        {
+            surface = default;
+            if (_camera == null ||
+                screen.x < 0f || screen.y < 0f ||
+                screen.x >= Screen.width || screen.y >= Screen.height ||
+                (EventSystem.current != null &&
+                 EventSystem.current.IsPointerOverGameObject()))
+                return false;
+
+            Ray ray = _camera.ScreenPointToRay(screen);
+            return Physics.Raycast(ray, out surface, 300f,
+                       Physics.DefaultRaycastLayers, QueryTriggerInteraction.Ignore) &&
+                   CanPlaceAt(surface.point);
+        }
 
         /// <summary>
         /// Holds one brush stroke while the left mouse button is down.
@@ -248,62 +263,66 @@ namespace GuardWave
                 return;
             }
 
-            if (!TryGetPlacementXZ(mouse.position.ReadValue(), out Vector3 position))
-            {
-                EndMudPainting();
-                return;
-            }
-
+            Vector2 cursorScreen = mouse.position.ReadValue();
             if (!_paintingMud)
             {
                 if (!mouse.leftButton.wasPressedThisFrame || !_dropMouseReleased ||
                     Time.unscaledTime - _lastDropTime < dropClickCooldown ||
-                    !CanPlaceAt(position))
+                    !TryGetMudSurface(cursorScreen, out RaycastHit firstHit))
                     return;
 
                 _paintingMud = true;
                 _dropMouseReleased = false;
                 _lastDropTime = Time.unscaledTime;
-                _lastMudCursor = position;
-                PaintMudAt(GetMudPoint(position));
+                _lastMudCursorScreen = cursorScreen;
+                PaintMudAt(firstHit);
                 return;
             }
 
-            float distance = Vector2.Distance(
-                new Vector2(_lastMudCursor.x, _lastMudCursor.z),
-                new Vector2(position.x, position.z));
+            // Interpolate in screen space, not in projected XZ world space.
+            // Each sample gets its own camera ray, so an intervening log
+            // occludes the ground even during a quick mouse drag.
+            float worldUnitsPerPixel = 2f * _camera.orthographicSize /
+                Mathf.Max(Screen.height, 1);
+            float travel = Vector2.Distance(_lastMudCursorScreen, cursorScreen);
             int segments = Mathf.Clamp(
-                Mathf.CeilToInt(distance / GuardWaveMudPatch.SampleSpacing), 1, 64);
+                Mathf.CeilToInt(travel * worldUnitsPerPixel /
+                    GuardWaveMudPatch.SampleSpacing), 1, 64);
 
             for (int i = 1; i <= segments; i++)
             {
-                Vector3 sample = Vector3.Lerp(_lastMudCursor, position, i / (float)segments);
-                if (CanPlaceAt(sample))
-                    PaintMudAt(GetMudPoint(sample));
+                Vector2 screenSample = Vector2.Lerp(
+                    _lastMudCursorScreen, cursorScreen, i / (float)segments);
+                if (TryGetMudSurface(screenSample, out RaycastHit hit))
+                    PaintMudAt(hit);
                 else
                     _activeMudStroke = null;
             }
-            _lastMudCursor = position;
+            _lastMudCursorScreen = cursorScreen;
         }
 
-        private void PaintMudAt(Vector3 worldPoint)
+        private void PaintMudAt(RaycastHit surface)
         {
-            if (_activeMudStroke == null || _activeMudStroke.IsFull)
+            if (_activeMudStroke == null ||
+                _activeMudStroke.SurfaceCollider != surface.collider ||
+                _activeMudStroke.IsFull ||
+                !_activeMudStroke.CanContinueAt(surface.point, surface.normal))
             {
                 GameObject strokeObject = new GameObject("Painted Mud Stroke");
                 strokeObject.transform.SetPositionAndRotation(
-                    worldPoint, Quaternion.identity);
-
+                    surface.point, Quaternion.FromToRotation(Vector3.up, surface.normal));
+                // Keep paint attached to the surface as it moves or rotates.
+                // On terrain, the FixedJoint connects to the world; on a log,
+                // the joint connects to the log's Rigidbody.
+                strokeObject.transform.SetParent(surface.collider.transform, true);
                 _activeMudStroke = strokeObject.AddComponent<GuardWaveMudPatch>();
-                // The brush draws on a fixed world XZ plane, not onto a
-                // detected surface or a Rigidbody beneath the cursor.
-                _activeMudStroke.Initialize(this, null, null,
-                    mudBreakForce, mudBreakTorque);
+                _activeMudStroke.Initialize(this, surface.collider,
+                    surface.rigidbody, mudBreakForce, mudBreakTorque);
                 _mudPatches.Add(_activeMudStroke);
             }
 
-            _activeMudStroke.AddPoint(worldPoint, Vector3.up);
-            _status = "진흙을 바르는 중… 마우스를 드래그해 XZ 평면에 풀을 펴 바르세요.";
+            _activeMudStroke.AddPoint(surface.point, surface.normal);
+            _status = "진흙을 바르는 중… 커서 아래의 가장 가까운 표면에 도포됩니다.";
         }
 
         private void EndMudPainting()
@@ -328,12 +347,12 @@ namespace GuardWave
                 _dropPreview.Hide();
                 _hud.HideDropGuide();
                 if (!mouse.rightButton.isPressed &&
-                    TryGetPlacementXZ(mouse.position.ReadValue(), out Vector3 mudXZ))
+                    TryGetMudSurface(mouse.position.ReadValue(), out RaycastHit surface))
                 {
                     if (_mudPreview == null) _mudPreview = GuardWaveMudPatch.CreatePreview();
                     _mudPreview.transform.SetPositionAndRotation(
-                        GetMudPoint(mudXZ) + Vector3.up * 0.034f,
-                        Quaternion.identity);
+                        surface.point + surface.normal * 0.034f,
+                        Quaternion.FromToRotation(Vector3.up, surface.normal));
                     _mudPreview.SetActive(true);
                 }
                 else if (_mudPreview != null) _mudPreview.SetActive(false);

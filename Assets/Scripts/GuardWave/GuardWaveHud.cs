@@ -118,7 +118,7 @@ namespace GuardWave
             _completePopup.SetActive(false);
             _rulesPopup.SetActive(false);
             _tooltip.SetActive(false);
-            _rulesBody.text = @"진흙을 선택하고 마우스 왼쪽 버튼을 누른 채 드래그해 XZ 평면에 풀을 펴 바르세요.
+            _rulesBody.text = @"진흙을 선택하고 왼쪽 버튼으로 드래그하면 커서 아래 가장 가까운 물체 표면에 풀이 발립니다.
 바른 자국 위에 통나무나 조약돌이 떨어지면 부착됩니다.
 통나무와 조약돌은 클릭 위치 위에서 떨어뜨려 무제한 배치할 수 있습니다.
 선택한 재료는 우클릭으로 해제하기 전까지 계속 사용할 수 있습니다.
