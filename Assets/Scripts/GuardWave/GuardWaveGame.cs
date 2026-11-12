@@ -14,11 +14,10 @@ namespace GuardWave
         private const int STAGE_COUNT = 5;
         // Flow begins at Ready; the crest arrives five physics seconds later.
         private const float CREEK_PREWAVE_SECONDS = 5f;
-        private const float FLAG_STILL_SECONDS = 5f;
-        private const float FLAG_MAX_LINEAR_SPEED = 0.1f;
-        private const float FLAG_MAX_ANGULAR_SPEED = 0.15f;
-        private const float FLAG_MAX_STILL_DRIFT = 0.1f;
-        private const float FLAG_MAX_STILL_ROTATION = 5f;
+        private const float FLAG_SURVIVAL_CHECK_SECONDS = 5f;
+        // Removing dozens of logs and mud joints in one physics tick stalls
+        // the main thread; drain only a small batch per fixed step.
+        private const int MAX_OUTFLOW_REMOVALS_PER_FIXED_STEP = 4;
         private const float FLOOD_DURATION_INCREASE_PER_STAGE = 0.2f;
         private const float FLOOD_DEPTH_INCREASE_PER_STAGE = 0.5f;
         private const float CAMERA_DRAG_THRESHOLD_PIXELS = 6f;
@@ -46,6 +45,10 @@ namespace GuardWave
         private readonly List<GuardWavePiece> _pieces = new List<GuardWavePiece>();
         // Keep removed/undone runtime objects alive so older checkpoints can restore them.
         private readonly HashSet<GuardWavePiece> _runtimePieces = new HashSet<GuardWavePiece>();
+        private readonly Queue<GuardWavePiece> _pendingOutflowRemovals =
+            new Queue<GuardWavePiece>();
+        private readonly HashSet<GuardWavePiece> _queuedOutflowRemovals =
+            new HashSet<GuardWavePiece>();
         private readonly List<WaveSnapshot> _editHistory = new List<WaveSnapshot>();
         private int _playerPlacementCount;
         private readonly List<GuardWaveMudPatch> _mudPatches = new List<GuardWaveMudPatch>();
@@ -179,6 +182,18 @@ namespace GuardWave
         private void FixedUpdate()
         {
             PruneDeadMudJoints();
+            // Process crossing debris in bounded batches, keeping the normal
+            // 2-second visual fall and checkpoint/undo behavior intact.
+            int removals = MAX_OUTFLOW_REMOVALS_PER_FIXED_STEP;
+            while (removals-- > 0 && _pendingOutflowRemovals.Count > 0)
+            {
+                GuardWavePiece candidate = _pendingOutflowRemovals.Dequeue();
+                _queuedOutflowRemovals.Remove(candidate);
+                if (candidate != null && IsPlacedPiece(candidate) &&
+                    candidate.transform.position.z <= DestructionBoundaryZ)
+                    RemovePiece(candidate, GuardWaveChangeKind.Destroyed,
+                        BOUNDARY_DESTRUCTION_DELAY);
+            }
             if (_fluid == null) return;
             // Drain at most one completed GPU step per physics tick, before
             // dispatching the next simulation step.
@@ -216,6 +231,10 @@ namespace GuardWave
                 _defenseFlag != null && _defenseFlag.activeSelf &&
                 _defenseFlag.transform.position.z <= DestructionBoundaryZ)
                 DestroyDefenseFlag();
+            // Shader variants are compiled in small, mutation-free batches
+            // during preparation, not all at the 00:00 trigger.
+            if (ambientFlowPreview && !_ambientFlowRunning)
+                _fluid?.PrewarmOneKernel();
             _flipRenderer.Render(_fluid);
             Mouse mouse = Mouse.current;
             // Track releases while pieces are falling or a popup is open.
@@ -827,7 +846,8 @@ namespace GuardWave
         public float RotationSpeed { get; set; } = 90f;
         public float CameraYawPerScrollStep { get; set; } = 5f;
         public bool IsPaletteHidden => false;
-        public bool CanReady => (!ambientFlowPreview || _fluid != null) &&
+        public bool CanReady => (!ambientFlowPreview ||
+            (_fluid != null && _fluid.IsShaderPrewarmed)) &&
             !_stageTransitioning && !_resolving && !_awaitingStage
             && !_finished && !_rulesOpen && _defenseFlag != null
             && _defenseFlag.activeInHierarchy;
@@ -1017,6 +1037,8 @@ namespace GuardWave
                 _stageFloodRoutine = null;
             }
             DisposeFluid();
+            _pendingOutflowRemovals.Clear();
+            _queuedOutflowRemovals.Clear();
             _stageTransitioning = false;
             _waveHasStarted = false;
             _ambientFlowRunning = false;
@@ -1288,7 +1310,9 @@ namespace GuardWave
         /// </summary>
         internal void RemoveOutsideBoundary(GuardWavePiece piece)
         {
-            RemovePiece(piece, GuardWaveChangeKind.Destroyed, BOUNDARY_DESTRUCTION_DELAY);
+            if (piece == null || !IsPlacedPiece(piece) ||
+                !_queuedOutflowRemovals.Add(piece)) return;
+            _pendingOutflowRemovals.Enqueue(piece);
         }
 
         /// <summary>A completed right-click removes the selected object only, never its neighbors.</summary>
@@ -1368,7 +1392,7 @@ namespace GuardWave
 
         /// <summary>
         /// Start the current at Ready, emit one crest after five seconds, then
-        /// require five consecutive seconds of a nearly motionless flag.
+        /// check whether the flag survives five more seconds after the crest passes.
         /// </summary>
         private IEnumerator ResolveAmbientWave()
         {
@@ -1418,14 +1442,11 @@ namespace GuardWave
                 }
             }
 
-            // Stop driving the current now that the crest has passed.
-            // Continue Rigidbody physics while monitoring the surviving flag.
-            _ambientFlowRunning = false;
-            _status = "파도가 지나갔습니다. 깃발이 5초 동안 안정되면 클리어됩니다.";
-            float stillElapsed = 0f;
-            Vector3 stillPosition = _flagBody.position;
-            Quaternion stillRotation = _flagBody.rotation;
-            while (stillElapsed < FLAG_STILL_SECONDS)
+            // Preserve the creek's FLIP steps and Rigidbody forces throughout
+            // this five-second survival window; movement never resets the clock.
+            _status = "파도가 지나갔습니다. 5초 후 깃발 생존 여부를 판정합니다.";
+            float checkElapsed = 0f;
+            while (checkElapsed < FLAG_SURVIVAL_CHECK_SECONDS)
             {
                 yield return new WaitForFixedUpdate();
                 if (_awaitingStage)
@@ -1440,29 +1461,13 @@ namespace GuardWave
                     DestroyDefenseFlag();
                     yield break;
                 }
-
-                bool slow = _flagBody.IsSleeping() ||
-                    (_flagBody.linearVelocity.sqrMagnitude <=
-                        FLAG_MAX_LINEAR_SPEED * FLAG_MAX_LINEAR_SPEED &&
-                     _flagBody.angularVelocity.sqrMagnitude <=
-                        FLAG_MAX_ANGULAR_SPEED * FLAG_MAX_ANGULAR_SPEED);
-                bool inPlace = Vector3.Distance(_flagBody.position, stillPosition) <=
-                        FLAG_MAX_STILL_DRIFT &&
-                    Quaternion.Angle(_flagBody.rotation, stillRotation) <=
-                        FLAG_MAX_STILL_ROTATION;
-                if (slow && inPlace)
-                    stillElapsed += Time.fixedDeltaTime;
-                else
-                {
-                    stillElapsed = 0f;
-                    stillPosition = _flagBody.position;
-                    stillRotation = _flagBody.rotation;
-                }
+                checkElapsed += Time.fixedDeltaTime;
             }
 
             // The transition remains active throughout settling, so the
             // next preparation countdown cannot restart before clearance.
             CommitWaveSnapshot();
+            _ambientFlowRunning = false;
             _stageTransitioning = false;
             _resolving = false;
             _stageFloodRoutine = null;
@@ -1720,6 +1725,8 @@ namespace GuardWave
         private void RestoreEditState(WaveSnapshot snapshot)
         {
             if (snapshot == null) return;
+            _pendingOutflowRemovals.Clear();
+            _queuedOutflowRemovals.Clear();
             SetOutlineTargets(null);
             HideDropPreview();
 

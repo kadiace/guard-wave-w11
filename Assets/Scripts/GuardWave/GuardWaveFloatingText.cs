@@ -47,6 +47,7 @@ namespace GuardWave
 
         private readonly List<Entry> _active = new List<Entry>();
         private readonly Stack<Entry> _available = new Stack<Entry>();
+        private const int MAX_VISIBLE_DESTRUCTION_LABELS = 8;
         private Camera _camera;
         private RectTransform _canvasRect;
         private TMP_FontAsset _font;
@@ -74,6 +75,17 @@ namespace GuardWave
         /// <summary>변화별 독립적인 레이블을 풀에서 꺼내 위치와 메시지를 설정한다.</summary>
         public void Show(GuardWaveChange change)
         {
+            // A falling wall can cross the cliff in a single physics step.
+            // Avoid creating hundreds of simultaneous TMP components and
+            // regenerating their meshes/Canvas geometry for invisible clutter.
+            if (change.Kind == GuardWaveChangeKind.Destroyed)
+            {
+                int visibleDestructions = 0;
+                foreach (Entry active in _active)
+                    if (active.Kind == GuardWaveChangeKind.Destroyed &&
+                        ++visibleDestructions >= MAX_VISIBLE_DESTRUCTION_LABELS)
+                        return;
+            }
             Entry entry;
             if (_available.Count > 0)
             {
