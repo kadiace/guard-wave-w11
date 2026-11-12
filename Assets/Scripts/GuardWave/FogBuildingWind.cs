@@ -14,7 +14,7 @@ namespace GuardWave
         [SerializeField] private string materialId = "building";
 
         [Header("Outdoor AC: local +Z wall")]
-        [SerializeField] private Vector3 outletLocalPosition = new Vector3(0f, 4f, 4.5f);
+        [SerializeField] private Vector3 outletLocalPosition = new Vector3(0f, 4f, 3.55f);
         [SerializeField] private Vector3 outletLocalDirection = Vector3.forward;
         [SerializeField, Min(0f)] private float windAcceleration = 28f;
         [SerializeField, Min(0.1f)] private float reach = 14f;
