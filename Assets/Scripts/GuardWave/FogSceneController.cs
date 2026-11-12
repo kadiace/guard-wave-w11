@@ -112,9 +112,15 @@ namespace GuardWave
             float travel = _fluid.WorldBounds.size.z / Mathf.Max(0.5f, _windSpeed);
             float total = _inletDuration + travel + 4f;
             float elapsed = 0f, accumulator = 0f;
+            bool failed = false;
             while (elapsed < total)
             {
                 yield return new WaitForFixedUpdate();
+                if (_game.AwaitingFailure)
+                {
+                    failed = true;
+                    break;
+                }
                 float dt = Time.fixedDeltaTime;
                 elapsed += dt;
                 accumulator += dt;
@@ -137,7 +143,17 @@ namespace GuardWave
             DisposeFog();
             _running = false;
             _game.SetRulesOpen(false);
-            _status = "안개가 지나갔습니다. 다시 준비 완료를 누를 수 있습니다.";
+            if (!failed && !_game.AwaitingFailure)
+            {
+                _game.CompleteStage();
+                _status = _game.IsFinished
+                    ? "안개가 지나갔습니다. 깃발을 지켜냈습니다."
+                    : _game.StatusMessage;
+            }
+            else
+            {
+                _status = "방어에 실패했습니다. 배치 상태를 복원하고 다시 시도하세요.";
+            }
         }
 
         private void RenderVolume()

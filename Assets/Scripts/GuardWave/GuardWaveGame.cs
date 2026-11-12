@@ -1401,13 +1401,7 @@ namespace GuardWave
             _stageTransitioning = false;
             _resolving = false;
             _stageFloodRoutine = null;
-            _stage++;
-            if (_stage == STAGE_COUNT)
-            {
-                _finished = true;
-                yield break;
-            }
-            _status = "파봉이 지나갔습니다. 기본 강물은 계속 흐릅니다.";
+            CompleteStage();
         }
 
         /// <summary>
@@ -1493,9 +1487,25 @@ namespace GuardWave
             _stageTransitioning = false;
             _stageFloodRoutine = null;
             _resolving = false;
-            _stage++;
-            if (_stage == STAGE_COUNT) { _finished = true; yield break; }
-            _status = "홍수가 지나갔습니다. 계속 배치하거나 준비완료를 누르세요.";
+            CompleteStage();
+        }
+
+        /// <summary>재해 종료 시 방어 깃발의 생존 여부를 판정하고 이번 실행의 클리어를 기록한다.</summary>
+        public void CompleteStage()
+        {
+            if (_finished || _awaitingStage) return;
+            if (_defenseFlag == null || !_defenseFlag.activeInHierarchy ||
+                _defenseFlag.transform.position.z <= DestructionBoundaryZ)
+            {
+                DestroyDefenseFlag();
+                return;
+            }
+
+            _stageTransitioning = false;
+            _resolving = false;
+            _finished = true;
+            _status = "재해가 지나갔습니다. 깃발을 지켜냈습니다.";
+            StageClearSession.MarkCleared(Managers.Scene.CurrentScene);
         }
 
         /// <summary>Releases all GPU fluid resources before reset, rollback or stage exit.</summary>

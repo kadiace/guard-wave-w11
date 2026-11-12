@@ -1,3 +1,4 @@
+using System.Collections;
 using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.InputSystem;
@@ -45,6 +46,11 @@ public sealed class OutGameStageSelect : MonoBehaviour, IBeginDragHandler, IDrag
 
     private readonly Color _activeFrame = new Color(0.95f, 0.78f, 0.50f, 1f);
     private readonly Color _inactiveFrame = new Color(0.38f, 0.46f, 0.43f, 1f);
+    private readonly Color _nominatedColor = new Color(0.62f, 0.66f, 0.68f, 1f);
+    private readonly Color _awardedColor = new Color(0.98f, 0.78f, 0.43f, 1f);
+    private RectTransform[] _awardRoots;
+    private Image[] _awardImages;
+    private Text[] _awardLabels;
     private int _selected;
     private float _animatedIndex;
     private float _ignoreClickUntil;
@@ -66,11 +72,20 @@ public sealed class OutGameStageSelect : MonoBehaviour, IBeginDragHandler, IDrag
             return;
         }
 
+        Scene recentStage = StageClearSession.RecentlyCleared;
+        for (int i = 0; i < Destinations.Length; i++)
+        {
+            if (Destinations[i] == recentStage) _selected = i;
+        }
+        _animatedIndex = _selected;
+        CreateAwardBadges();
+
         for (int i = 0; i < _posterButtons.Length; i++)
         {
             int index = i;
             _posterButtons[i].onClick.AddListener(() => OnPosterClicked(index));
         }
+        _posters[_selected].SetAsLastSibling();
 
         _previousButton.onClick.AddListener(SelectPrevious);
         _nextButton.onClick.AddListener(SelectNext);
@@ -86,6 +101,8 @@ public sealed class OutGameStageSelect : MonoBehaviour, IBeginDragHandler, IDrag
         Time.timeScale = 1f;
         Cursor.lockState = CursorLockMode.None;
         Cursor.visible = true;
+        if (StageClearSession.RecentlyCleared != Scene.Unknown)
+            StartCoroutine(RevealRecentAward());
     }
 
     private void Update()
@@ -126,6 +143,110 @@ public sealed class OutGameStageSelect : MonoBehaviour, IBeginDragHandler, IDrag
         _animatedIndex = Mathf.Lerp(_animatedIndex, _selected, blend);
         if (Mathf.Abs(_animatedIndex - _selected) < 0.0005f) _animatedIndex = _selected;
         ApplyPosterPoses();
+    }
+
+    /// <summary>포스터 우하단에 회색 후보/금색 수상 배지를 배치한다.</summary>
+    private void CreateAwardBadges()
+    {
+        Sprite sprite = Resources.Load<Sprite>("Badges/LaurelAward");
+        if (sprite == null)
+            throw new System.InvalidOperationException("Missing Resources/Badges/LaurelAward.png");
+
+        _awardRoots = new RectTransform[_posters.Length];
+        _awardImages = new Image[_posters.Length];
+        _awardLabels = new Text[_posters.Length];
+
+        for (int i = 0; i < _posters.Length; i++)
+        {
+            RectTransform root = CreateAwardRect("FestivalAwardBadge", _posters[i]);
+            root.anchorMin = root.anchorMax = new Vector2(1f, 0f);
+            root.pivot = new Vector2(1f, 0f);
+            root.anchoredPosition = new Vector2(-17f, 17f);
+            root.sizeDelta = new Vector2(148f, 152f);
+            Image backdrop = root.gameObject.AddComponent<Image>();
+            backdrop.color = new Color(0.04f, 0.06f, 0.07f, 0.72f);
+            backdrop.raycastTarget = false;
+            CanvasGroup group = root.gameObject.AddComponent<CanvasGroup>();
+            group.blocksRaycasts = false;
+            group.interactable = false;
+            _awardRoots[i] = root;
+
+            RectTransform art = CreateAwardRect("LaurelWomanStatuette", root);
+            art.anchorMin = art.anchorMax = new Vector2(0.5f, 1f);
+            art.pivot = new Vector2(0.5f, 1f);
+            art.anchoredPosition = new Vector2(0f, -5f);
+            art.sizeDelta = new Vector2(104f, 112f);
+            Image icon = art.gameObject.AddComponent<Image>();
+            icon.sprite = sprite;
+            icon.preserveAspect = true;
+            icon.raycastTarget = false;
+            _awardImages[i] = icon;
+
+            RectTransform textRect = CreateAwardRect("AwardStatus", root);
+            textRect.anchorMin = new Vector2(0f, 0f);
+            textRect.anchorMax = new Vector2(1f, 0f);
+            textRect.pivot = new Vector2(0.5f, 0f);
+            textRect.anchoredPosition = new Vector2(0f, 8f);
+            textRect.sizeDelta = new Vector2(-6f, 28f);
+            Text label = textRect.gameObject.AddComponent<Text>();
+            label.font = _titleLabel.font;
+            label.fontSize = 18;
+            label.fontStyle = FontStyle.Bold;
+            label.alignment = TextAnchor.MiddleCenter;
+            label.raycastTarget = false;
+            _awardLabels[i] = label;
+
+            bool newlyCleared = StageClearSession.RecentlyCleared == Destinations[i];
+            SetAwardState(i, StageClearSession.IsCleared(Destinations[i]) && !newlyCleared);
+        }
+    }
+
+    /// <summary>uGUI 이미지·텍스트를 위한 자식 RectTransform을 생성한다.</summary>
+    private static RectTransform CreateAwardRect(string name, Transform parent)
+    {
+        GameObject child = new GameObject(name, typeof(RectTransform));
+        RectTransform rect = child.GetComponent<RectTransform>();
+        rect.SetParent(parent, false);
+        return rect;
+    }
+
+    /// <summary>후보/수상 문구와 배지 색상을 세션 클리어 여부로 동기화한다.</summary>
+    private void SetAwardState(int index, bool awarded)
+    {
+        Color color = awarded ? _awardedColor : _nominatedColor;
+        _awardImages[index].color = color;
+        _awardLabels[index].color = color;
+        _awardLabels[index].text = awarded ? "AWARDED" : "NOMINATED";
+    }
+
+    /// <summary>클리어 직후 돌아온 포스터를 선택하고 배지를 회전시켜 수상을 드러낸다.</summary>
+    private IEnumerator RevealRecentAward()
+    {
+        int index = System.Array.IndexOf(Destinations, StageClearSession.RecentlyCleared);
+        if (index < 0) yield break;
+
+        yield return new WaitForSecondsRealtime(0.35f);
+        RectTransform badge = _awardRoots[index];
+        float elapsed = 0f;
+        bool revealed = false;
+        const float duration = 0.76f;
+        while (elapsed < duration)
+        {
+            elapsed += Time.unscaledDeltaTime;
+            float t = Mathf.Clamp01(elapsed / duration);
+            float width = Mathf.Max(0.025f, Mathf.Abs(Mathf.Cos(Mathf.PI * t)));
+            float bounce = 1f + 0.13f * Mathf.Sin(Mathf.PI * t);
+            badge.localScale = new Vector3(width, bounce, 1f);
+            if (t >= 0.5f && !revealed)
+            {
+                SetAwardState(index, true);
+                revealed = true;
+            }
+            yield return null;
+        }
+        badge.localScale = Vector3.one;
+        SetAwardState(index, true);
+        StageClearSession.ConsumeRecentClear(Destinations[index]);
     }
 
     private void ApplyPosterPoses()

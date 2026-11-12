@@ -24,6 +24,7 @@ namespace GuardWave
         private Text _detail;
         private Text _stageTitle;
         private Text _stageBody;
+        private Text _completeTitle;
         private Text _completeBody;
         private Text _rulesBody;
         private Text _tooltipText;
@@ -60,6 +61,7 @@ namespace GuardWave
             _stageTitle = FindText("StageResultPopup/Heading/TitleText");
             _stageBody = FindText("StageResultPopup/Contents/BodyText");
             _completePopup = transform.Find("RunCompletePopup").gameObject;
+            _completeTitle = FindText("RunCompletePopup/Heading/TitleText");
             _completeBody = FindText("RunCompletePopup/Contents/BodyText");
             _rulesPopup = transform.Find("RulesPopup").gameObject;
             _rulesBody = FindText("RulesPopup/Contents/BodyText");
@@ -116,7 +118,10 @@ namespace GuardWave
             Button confirmButton = transform.Find("StageResultPopup/CloseButton").GetComponent<Button>();
             confirmButton.onClick.AddListener(_game.ConfirmFailure);
             confirmButton.GetComponentInChildren<Text>().text = "확인";
-            transform.Find("RunCompletePopup/CloseButton").GetComponent<Button>().onClick.AddListener(_game.Restart);
+            _completeTitle.text = "스테이지 클리어";
+            Button returnButton = transform.Find("RunCompletePopup/CloseButton").GetComponent<Button>();
+            returnButton.onClick.AddListener(ReturnToStageSelection);
+            returnButton.GetComponentInChildren<Text>().text = "돌아가기";
 
             _stagePopup.SetActive(false);
             _completePopup.SetActive(false);
@@ -143,7 +148,7 @@ Ctrl+Z: 최근 기물 배치, 진흙 붓질 또는 수동 제거 되돌리기
             if (_fogMode != null)
                 _rulesBody.text = "기물을 배치한 후 준비 완료를 누르면 안개가 상류에서 몰려옵니다.\n"
                     + "안개는 건물과 기물을 돌아 -Z 방향으로 흐르며 옆으로 확산됩니다.\n"
-                    + "안개가 지나가면 다시 준비 완료를 누를 수 있습니다.\n\n"
+                    + "안개가 지나간 뒤 깃발이 살아 있다면 스테이지를 클리어합니다.\n\n"
                     + "우클릭 드래그: 카메라 이동 / 스크롤: 확대 / Q/E: 기물 회전";
             Refresh();
         }
@@ -271,6 +276,8 @@ Ctrl+Z: 최근 기물 배치, 진흙 붓질 또는 수동 제거 되돌리기
                 _tooltip.SetActive(false);
             }
             _stagePopup.SetActive(_game.AwaitingFailure && !_game.IsFinished);
+            if (_game.IsFinished && !_completePopup.activeSelf)
+                Time.timeScale = 0f;
             _completePopup.SetActive(_game.IsFinished);
             if (_game.AwaitingFailure)
             {
@@ -278,8 +285,17 @@ Ctrl+Z: 최근 기물 배치, 진흙 붓질 또는 수동 제거 되돌리기
                 _stageBody.text = _game.StatusMessage ?? "";
             }
             if (_game.IsFinished)
-                _completeBody.text = "자재 " + _game.PieceCount + "개가 남았습니다.\n"
-                    + "닫기 버튼을 누르면 다시 시작합니다.";
+                _completeBody.text = "재해가 지나갔습니다.\n"
+                    + "깃발을 지켜냈습니다!\n\n"
+                    + "돌아가기를 누르면 스테이지 선택 화면으로 이동합니다.";
+        }
+
+        /// <summary>승리 팝업에서 세션 클리어 상태를 보존한 채 Game 씬으로 복귀한다.</summary>
+        private void ReturnToStageSelection()
+        {
+            Time.timeScale = 1f;
+            Managers.Clear();
+            Managers.Scene.Load(Scene.Game);
         }
 
         /// <summary>원본의 후보 이미지 영역에 표시할 저해상도 픽셀 실루엣을 생성한다.</summary>
