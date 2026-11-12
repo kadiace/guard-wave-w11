@@ -104,12 +104,25 @@ namespace GuardWave
         private void FixedUpdate()
         {
             if (ambientFlowPreview && _fluid != null)
+            {
+                _fluid.OutflowDiagnosticsEnabled = GuardWaveFlipRenderer.OutflowDebugEnabled;
                 _fluid.Step(Time.fixedDeltaTime, 0f);
+            }
         }
 
         private void Update()
         {
             if (!_initialized) return;
+
+            if (Keyboard.current?.f7Key.wasPressedThisFrame == true)
+            {
+                GuardWaveFlipRenderer.OutflowDebugEnabled =
+                    !GuardWaveFlipRenderer.OutflowDebugEnabled;
+                Debug.Log("[GuardWave Outflow] F7 diagnostics " +
+                    (GuardWaveFlipRenderer.OutflowDebugEnabled ? "ON" : "OFF") +
+                    " (red=+Z reverse, blue=-Z flow, yellow=near zero; " +
+                    "one GPU sample log per second).");
+            }
 
             if (Keyboard.current?.rKey.wasPressedThisFrame == true)
             {

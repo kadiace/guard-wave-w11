@@ -75,6 +75,10 @@ namespace GuardWave
         private readonly bool _ambientFlow;
         private readonly ComputeBuffer _flowCounters;
         private readonly ComputeBuffer _crestMetrics;
+        private readonly ComputeBuffer _outflowDiagnostics;
+        private bool _outflowReadbackPending;
+        private float _outflowReadbackClock;
+        public bool OutflowDiagnosticsEnabled { get; set; }
         private readonly int _initializeAmbientKernel;
         private readonly int _recycleAmbientKernel;
         private readonly int _driveInletKernel;
@@ -110,6 +114,7 @@ namespace GuardWave
         public ComputeBuffer Particles => _particles;
         public int ParticleCount => _particleCount;
         public float InletSpeed { get; }
+        public float ExitZ => _endZ;
         public Bounds RenderBounds { get; }
         // GPU flow measurements; refreshed at most once per second without logs.
         public uint TotalCliffExits { get; private set; }
@@ -174,6 +179,9 @@ namespace GuardWave
             _flowCounters.SetData(new uint[4]);
             _crestMetrics = new ComputeBuffer(3, sizeof(uint));
             _crestMetrics.SetData(new uint[3]);
+            _outflowDiagnostics = new ComputeBuffer(12, sizeof(uint));
+            _outflowDiagnostics.SetData(new uint[12]);
+            _compute.SetInt("_OutflowDiagnosticsEnabled", 0);
 
             _clearKernel = _compute.FindKernel("ClearGrid");
             _classifyKernel = _compute.FindKernel("ClassifyGrid");
@@ -229,6 +237,7 @@ namespace GuardWave
             Bind(_clearKernel, "_BodyImpulses", _impulses);
             Bind(_clearKernel, "_FlowCounters", _flowCounters);
             Bind(_clearKernel, "_CrestMetrics", _crestMetrics);
+            Bind(_clearKernel, "_OutflowDiagnostics", _outflowDiagnostics);
             Bind(_classifyKernel, "_Solid", _solid);
             Bind(_classifyKernel, "_Colliders", _colliderBuffer);
             Bind(_spawnKernel, "_Particles", _particles);
@@ -250,6 +259,7 @@ namespace GuardWave
             Bind(_projectKernel, "_Accum", _accum);
             Bind(_projectKernel, "_Solid", _solid);
             Bind(_projectKernel, "_GridVelocity", _velocity);
+            Bind(_projectKernel, "_OutflowDiagnostics", _outflowDiagnostics);
             Bind(_g2pKernel, "_Particles", _particles);
             Bind(_g2pKernel, "_Accum", _accum);
             Bind(_g2pKernel, "_Solid", _solid);
@@ -259,6 +269,7 @@ namespace GuardWave
             Bind(_g2pKernel, "_BodyImpulses", _impulses);
             Bind(_g2pKernel, "_FlowCounters", _flowCounters);
             Bind(_g2pKernel, "_CrestMetrics", _crestMetrics);
+            Bind(_g2pKernel, "_OutflowDiagnostics", _outflowDiagnostics);
             Bind(_pressureBodyKernel, "_Accum", _accum);
             Bind(_pressureBodyKernel, "_Solid", _solid);
             Bind(_pressureBodyKernel, "_Colliders", _colliderBuffer);
@@ -471,6 +482,7 @@ namespace GuardWave
             if (_disposed) return;
             _elapsed += dt;
             _compute.SetFloat("_Dt", dt);
+            _compute.SetInt("_OutflowDiagnosticsEnabled", OutflowDiagnosticsEnabled ? 1 : 0);
             UpdateColliders();
             Dispatch(_clearKernel, Mathf.Max(_gridCount, _bodies.Count * 2));
             Dispatch(_classifyKernel, _gridCount);
@@ -556,6 +568,18 @@ namespace GuardWave
                     AsyncGPUReadback.Request(_flowCounters, OnFlowCountersReady);
                 }
             }
+            // Capture one completed GPU frame per second; never log every physics tick.
+            if (OutflowDiagnosticsEnabled)
+            {
+                _outflowReadbackClock += dt;
+                if (_outflowReadbackClock >= 1f && !_outflowReadbackPending)
+                {
+                    _outflowReadbackClock = 0f;
+                    _outflowReadbackPending = true;
+                    AsyncGPUReadback.Request(_outflowDiagnostics, OnOutflowDiagnosticsReady);
+                }
+            }
+            else _outflowReadbackClock = 0f;
             if (!_pendingReadback && _bodies.Count > 0)
             {
                 _pendingReadback = true;
@@ -583,6 +607,20 @@ namespace GuardWave
             PendingAmbientRefills = values[0];
             TotalAmbientRefills = values[1];
             TotalCliffExits = values[3];
+        }
+
+        /// <summary>Summarizes the central +/-8m strip from exitZ through exitZ+6m.</summary>
+        private void OnOutflowDiagnosticsReady(AsyncGPUReadbackRequest request)
+        {
+            _outflowReadbackPending = false;
+            if (_disposed || !OutflowDiagnosticsEnabled || request.hasError) return;
+            NativeArray<uint> d = request.GetData<uint>();
+            Debug.Log($"[GuardWave Outflow] z=[{_endZ:F1},{_endZ + 6f:F1}] x=+-8 " +
+                $"grid={d[0]} reverse(pre/post)={d[1]}/{d[2]} " +
+                $"projectionNewReverse={d[3]} gridMax+Z(pre/post)={d[9] / 1000f:F2}/{d[10] / 1000f:F2}m/s " +
+                $"particles={d[4]} reverse(preCollision/post)={d[5]}/{d[6]} " +
+                $"collisionNewReverse={d[7]} particleMax+Z={d[11] / 1000f:F2}m/s " +
+                $"cliffExitsThisStep={d[8]}");
         }
 
         /// <summary>Runs the selected compute kernel with 128 threads per workgroup.</summary>
@@ -629,6 +667,7 @@ namespace GuardWave
             _impulses.Release();
             _flowCounters.Release();
             _crestMetrics.Release();
+            _outflowDiagnostics.Release();
             UnityEngine.Object.Destroy(_compute);
         }
     }

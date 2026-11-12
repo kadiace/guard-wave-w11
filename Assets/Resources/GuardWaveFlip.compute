@@ -37,6 +37,14 @@ struct FluidCollider
 RWStructuredBuffer<FluidParticle> _Particles;
 RWStructuredBuffer<uint> _FlowCounters; // [0] pending refill, [1] total refilled, [2] per-tick claims, [3] cliff exits
 RWStructuredBuffer<uint> _CrestMetrics; // active wave particles, peak height centimeters, released count
+// Per-step outflow diagnostics, disabled unless F7 is enabled.
+// 0 fluid grid cells, 1 reverse pre-projection, 2 reverse post-projection,
+// 3 projection sign flips, 4 particles sampled, 5 reverse before collision,
+// 6 reverse after collision/crest, 7 collision sign flips, 8 cliff exits,
+// 9/10 maximum +Z grid speed (millimeters/s) before/after projection,
+// 11 maximum +Z particle speed (millimeters/s).
+RWStructuredBuffer<uint> _OutflowDiagnostics;
+int _OutflowDiagnosticsEnabled;
 RWStructuredBuffer<int4> _Accum;
 RWStructuredBuffer<int4> _BodyImpulses; // force impulse in xyz, torque in next xyz
 RWStructuredBuffer<float3> _GridVelocity;
@@ -140,6 +148,11 @@ bool IsSolid(int3 c)
     if (!Inside(c)) return true;
     return _Solid[Flatten(c)] != 0;
 }
+// Limit diagnostic atomics and markers to the central strip directly before the lip.
+bool InOutflowDiagnosticZone(float3 p)
+{
+    return abs(p.x) <= 8.0 && p.z >= _ExitZ && p.z <= _ExitZ + 6.0;
+}
 bool IsFluid(int3 c)
 {
     return Inside(c) && !IsSolid(c) && _Accum[Flatten(c)].w > (int)(SCALE * 0.01);
@@ -172,6 +185,8 @@ void ClearGrid(uint id : SV_DispatchThreadID)
         _BodyImpulses[id] = int4(0,0,0,0);
     if (id < 3)
         _CrestMetrics[id] = 0u;
+    if (_OutflowDiagnosticsEnabled != 0 && id < 12)
+        _OutflowDiagnostics[id] = 0u;
     // Keep pending refill debt and its global sequence across physics ticks.
     if (id == 0 && _AmbientEnabled != 0)
         _FlowCounters[2] = 0u;
@@ -427,12 +442,27 @@ void ProjectGrid(uint id : SV_DispatchThreadID)
         PressureAt(c+ex,p)-PressureAt(c-ex,p),
         PressureAt(c+ey,p)-PressureAt(c-ey,p),
         PressureAt(c+ez,p)-PressureAt(c-ez,p)) / (2*_CellSize);
-    float3 v = _GridVelocity[id] - _Dt*grad;
+    float3 beforeProjection = _GridVelocity[id];
+    float3 v = beforeProjection - _Dt*grad;
     if (IsSolid(c+ex) && v.x>0 || IsSolid(c-ex) && v.x<0) v.x=0;
     if (IsSolid(c+ey) && v.y>0 || IsSolid(c-ey) && v.y<0) v.y=0;
     // The negative-Z open outlet must not zero the exiting velocity.
     // IsSolid(c-ez) is false outside the outlet; upper inlet stays closed.
     if ((IsSolid(c+ez) && v.z>0) || (IsSolid(c-ez) && v.z<0)) v.z=0;
+    if (_OutflowDiagnosticsEnabled != 0 && InOutflowDiagnosticZone(Center(c)))
+    {
+        InterlockedAdd(_OutflowDiagnostics[0], 1u);
+        if (beforeProjection.z > 0.1)
+            InterlockedAdd(_OutflowDiagnostics[1], 1u);
+        if (v.z > 0.1)
+            InterlockedAdd(_OutflowDiagnostics[2], 1u);
+        if (beforeProjection.z <= 0.1 && v.z > 0.1)
+            InterlockedAdd(_OutflowDiagnostics[3], 1u);
+        InterlockedMax(_OutflowDiagnostics[9],
+            (uint)round(max(0.0, beforeProjection.z) * 1000.0));
+        InterlockedMax(_OutflowDiagnostics[10],
+            (uint)round(max(0.0, v.z) * 1000.0));
+    }
     _GridVelocity[id] = v;
 }
 [numthreads(128,1,1)]
@@ -496,6 +526,15 @@ void GridToParticle(uint id : SV_DispatchThreadID)
         p.position.y = _FloorY + 0.05;
         p.velocity.y = max(p.velocity.y, 0);
     }
+    bool diagnosticsHere = _OutflowDiagnosticsEnabled != 0 &&
+        InOutflowDiagnosticZone(p.position.xyz);
+    float preCollisionZ = p.velocity.z;
+    if (diagnosticsHere)
+    {
+        InterlockedAdd(_OutflowDiagnostics[4], 1u);
+        if (preCollisionZ > 0.1)
+            InterlockedAdd(_OutflowDiagnostics[5], 1u);
+    }
     [loop]
     for (uint i=0; i<_ColliderCount; i++)
     {
@@ -545,6 +584,15 @@ void GridToParticle(uint id : SV_DispatchThreadID)
         p.velocity.z = lerp(p.velocity.z, -_CrestSpeed,
             saturate(_CrestForwardDamping * _Dt));
     }
+    if (diagnosticsHere)
+    {
+        if (p.velocity.z > 0.1)
+            InterlockedAdd(_OutflowDiagnostics[6], 1u);
+        if (preCollisionZ <= 0.1 && p.velocity.z > 0.1)
+            InterlockedAdd(_OutflowDiagnostics[7], 1u);
+        InterlockedMax(_OutflowDiagnostics[11],
+            (uint)round(max(0.0, p.velocity.z) * 1000.0));
+    }
     if (_AmbientEnabled != 0 && p.velocity.w > 0.5 && p.position.w == 1.0)
     {
         InterlockedAdd(_CrestMetrics[0], 1u);
@@ -554,6 +602,8 @@ void GridToParticle(uint id : SV_DispatchThreadID)
     }
     if (p.position.z < _ExitZ)
     {
+        if (_OutflowDiagnosticsEnabled != 0 && abs(p.position.x) <= 8.0)
+            InterlockedAdd(_OutflowDiagnostics[8], 1u);
         // Cross the *physical* lip and leave the pressure solver immediately.
         // Start downward acceleration this tick, without advancing XZ twice:
         // the next Waterfall dispatch continues the full ballistic integration.

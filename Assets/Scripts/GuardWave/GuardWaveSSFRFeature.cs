@@ -74,6 +74,7 @@ namespace GuardWave
                 if (resources.isActiveTargetBackBuffer) return;
 
                 _material.SetBuffer(PARTICLES, fluid.Particles);
+                _material.SetFloat("_DebugExitZ", fluid.ExitZ);
                 _material.SetFloat("_Radius",
                     settings.ParticleRenderRadius * settings.SsfrRadiusScale);
                 _material.SetFloat("_ThicknessScale", settings.SsfrThicknessScale);
@@ -137,6 +138,26 @@ namespace GuardWave
                         context.cmd.DrawProcedural(Matrix4x4.identity, p.Material,
                             p.ShaderPass, MeshTopology.Triangles, p.VertexCount,
                             p.InstanceCount));
+                }
+
+                if (GuardWaveFlipRenderer.OutflowDebugEnabled)
+                {
+                    using (IRasterRenderGraphBuilder builder =
+                        graph.AddRasterRenderPass<PassData>("GuardWave Outflow Velocity Debug",
+                            out PassData data))
+                    {
+                        data.Material = _material;
+                        data.ShaderPass = 5;
+                        data.VertexCount = 6;
+                        data.InstanceCount = fluid.ParticleCount;
+                        builder.UseTexture(resources.cameraDepthTexture, AccessFlags.Read);
+                        builder.SetRenderAttachment(resources.activeColorTexture, 0,
+                            AccessFlags.ReadWrite);
+                        builder.SetRenderFunc(static (PassData p, RasterGraphContext context) =>
+                            context.cmd.DrawProcedural(Matrix4x4.identity, p.Material,
+                                p.ShaderPass, MeshTopology.Triangles, p.VertexCount,
+                                p.InstanceCount));
+                    }
                 }
             }
 

@@ -13,6 +13,7 @@ namespace GuardWave
 
         internal static GuardWaveFlipFluid ActiveFluid { get; private set; }
         internal static GuardWaveFluidSettings ActiveSettings { get; private set; }
+        internal static bool OutflowDebugEnabled { get; set; }
 
         /// <summary>Retains the shared fluid appearance and quality settings.</summary>
         public GuardWaveFlipRenderer(GuardWaveFluidSettings settings)
@@ -32,6 +33,7 @@ namespace GuardWave
         {
             ActiveFluid = null;
             ActiveSettings = null;
+            OutflowDebugEnabled = false;
         }
     }
 }

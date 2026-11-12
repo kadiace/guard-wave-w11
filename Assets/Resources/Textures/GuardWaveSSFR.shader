@@ -29,6 +29,7 @@ Shader "Hidden/GuardWave/SSFR"
         TEXTURE2D_X(_SsfrDepthHorizontal);
         TEXTURE2D_X(_SsfrSmoothDepth);
         float _Radius, _ThicknessScale, _BlurRadius, _DepthSigma;
+        float _DebugExitZ;
         float _Absorption, _Refraction, _Opacity;
         float4 _ShallowColor, _DeepColor, _SsfrTexelSize;
 
@@ -38,6 +39,8 @@ Shader "Hidden/GuardWave/SSFR"
             float2 disc : TEXCOORD0;
             float centerEyeDepth : TEXCOORD1;
             float alive : TEXCOORD2;
+            float diagnosticSpeed : TEXCOORD3;
+            float diagnosticZone : TEXCOORD4;
         };
 
         ParticleVaryings ParticleVert(uint vid : SV_VertexID, uint iid : SV_InstanceID)
@@ -55,6 +58,9 @@ Shader "Hidden/GuardWave/SSFR"
             o.disc = corner;
             o.centerEyeDepth = -centerVS.z;
             o.alive = p.position.w;
+            o.diagnosticSpeed = p.velocity.z;
+            o.diagnosticZone = p.position.w == 1.0 && abs(p.position.x) <= 8.0 &&
+                p.position.z >= _DebugExitZ && p.position.z <= _DebugExitZ + 6.0 ? 1.0 : 0.0;
             return o;
         }
 
@@ -172,6 +178,17 @@ Shader "Hidden/GuardWave/SSFR"
             float alpha = saturate((1.0-exp(-thickness*_Absorption))*_Opacity);
             return half4(water,alpha);
         }
+        half4 OutflowDebugFrag(ParticleVaryings i) : SV_Target
+        {
+            clip(i.diagnosticZone - 0.5);
+            clip(1.0 - dot(i.disc, i.disc));
+            float2 screenUV = GetNormalizedScreenSpaceUV(i.positionCS);
+            clip(SceneEyeDepth(screenUV) - i.centerEyeDepth + 0.1);
+            float3 color = i.diagnosticSpeed > 0.1 ? float3(1.0,0.20,0.10) :
+                i.diagnosticSpeed < -0.1 ? float3(0.10,0.70,1.0) :
+                float3(1.0,0.85,0.12);
+            return half4(color, 0.78);
+        }
         ENDHLSL
 
         Pass
@@ -226,6 +243,17 @@ Shader "Hidden/GuardWave/SSFR"
             #pragma target 4.5
             #pragma vertex FullscreenVert
             #pragma fragment CompositeFrag
+            ENDHLSL
+        }
+        Pass
+        {
+            Name "OutflowVelocityDebug"
+            ZWrite Off ZTest Always
+            Blend SrcAlpha OneMinusSrcAlpha
+            HLSLPROGRAM
+            #pragma target 4.5
+            #pragma vertex ParticleVert
+            #pragma fragment OutflowDebugFrag
             ENDHLSL
         }
     }
