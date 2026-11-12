@@ -39,6 +39,10 @@ namespace GuardWave
 
         [Header("Floating body stabilization")]
         [SerializeField, Min(0f)] private float _floatingVerticalDamping = 7f;
+        [Tooltip("Critical vertical damping multiplier based on immersed-volume stiffness. Values >= 1 settle without bobbing.")]
+        [SerializeField, Range(0.5f, 2f)] private float _floatingEquilibriumDampingRatio = 1.25f;
+        [Tooltip("Low-pass rate for the floating body's measured free surface. Higher values follow faster water changes.")]
+        [SerializeField, Min(0.5f)] private float _floatingSurfaceSmoothingRate = 6f;
         [SerializeField, Range(0f, 1f)] private float _floatingTorqueScale = 0.12f;
         [SerializeField, Min(1f)] private float _floatingMaxBuoyancyRatio = 1.5f;
         [SerializeField, Min(0f)] private float _floatingUprightStrength = 1.5f;
@@ -48,6 +52,8 @@ namespace GuardWave
         [Tooltip("Flow speed (m/s) where the alignment torque reaches full strength.")]
         [SerializeField, Min(0.1f)] private float _floatingFlowAlignmentFullSpeed = 4f;
         public float FloatingVerticalDamping => _floatingVerticalDamping;
+        public float FloatingEquilibriumDampingRatio => _floatingEquilibriumDampingRatio;
+        public float FloatingSurfaceSmoothingRate => _floatingSurfaceSmoothingRate;
         public float FloatingTorqueScale => _floatingTorqueScale;
         public float FloatingMaxBuoyancyRatio => _floatingMaxBuoyancyRatio;
         public float FloatingUprightStrength => _floatingUprightStrength;
