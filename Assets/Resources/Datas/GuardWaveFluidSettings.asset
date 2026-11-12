@@ -32,6 +32,8 @@ MonoBehaviour:
   _floatingMaxBuoyancyRatio: 1.5
   _floatingUprightStrength: 1.5
   _floatingAngularDamping: 5
+  _floatingFlowAlignmentStrength: 10
+  _floatingFlowAlignmentFullSpeed: 4
   _waveCrestAmplitude: 3
   _waveCrestWidth: 1.4
   _waveCrestLength: 8

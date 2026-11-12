@@ -260,6 +260,8 @@ namespace GuardWave
             _compute.SetFloat("_FloatTorqueScale", _settings.FloatingTorqueScale);
             _compute.SetFloat("_FloatMaxBuoyancyRatio", _settings.FloatingMaxBuoyancyRatio);
             _compute.SetFloat("_FloatUprightStrength", _settings.FloatingUprightStrength);
+            _compute.SetFloat("_FloatFlowAlignmentStrength", _settings.FloatingFlowAlignmentStrength);
+            _compute.SetFloat("_FloatFlowAlignmentFullSpeed", _settings.FloatingFlowAlignmentFullSpeed);
             _compute.SetFloat("_MaxFluidVelocity", _settings.MaxParticleSpeed);
             _compute.SetFloat("_CrestHeightStiffness", _settings.CrestHeightStiffness);
             _compute.SetFloat("_CrestHeightDamping", _settings.CrestHeightDamping);
@@ -560,6 +562,12 @@ namespace GuardWave
                             piece.MaterialId == "beaver_stick" ? 1f : 0f;
                         data.FluidProperties = new Vector4(piece.RelativeFluidDensity,
                             grounded, body.mass, shape);
+                        // Only logs/sticks and the flag seek a low projected-area
+                        // attitude in moving water. Do not tip ducks/other props.
+                        if (piece.MaterialId == "log" ||
+                            piece.MaterialId == "beaver_stick" ||
+                            piece.MaterialId == "default_flag")
+                            data.Angular.w = 1f;
                         if (piece.RelativeFluidDensity < 1f)
                             body.angularDamping = Mathf.Max(body.angularDamping,
                                 _settings.FloatingAngularDamping);
