@@ -33,6 +33,7 @@ public class ForestSceneContext : MonoBehaviour
         if (pausePrefab == null)
             throw new System.InvalidOperationException("Missing Resources/Prefabs/UIs/StagePauseMenu prefab.");
         PauseMenu = Instantiate(pausePrefab);
+        PauseMenu.Initialize(Hud);
     }
 
     private void Start()
