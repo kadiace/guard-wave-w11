@@ -41,6 +41,9 @@ namespace GuardWave
             public Vector4 Velocity;
             public Vector4 Angular;
             public Vector4 BodyCenter;
+            // x density (0 = not a buoyant piece), y grounded flow factor,
+            // z Rigidbody mass share, w sampling shape (box=0, cylinder=1, sphere=2).
+            public Vector4 FluidProperties;
         }
 
         [StructLayout(LayoutKind.Sequential)]
@@ -56,6 +59,7 @@ namespace GuardWave
         private readonly List<Collider> _colliders = new List<Collider>();
         private readonly Dictionary<Rigidbody, int> _indices = new Dictionary<Rigidbody, int>();
         private readonly ColliderData[] _colliderData;
+        private readonly int[] _bodyColliderCounts;
         private readonly ComputeBuffer _particles;
         private readonly ComputeBuffer _accum;
         private readonly ComputeBuffer _velocity;
@@ -65,6 +69,8 @@ namespace GuardWave
         private readonly ComputeBuffer _solid;
         private readonly ComputeBuffer _colliderBuffer;
         private readonly ComputeBuffer _impulses;
+        private readonly ComputeBuffer _waterSurface;
+        private readonly ComputeBuffer _waterFlow;
         private readonly ComputeShader _compute;
         private readonly Vector3Int _grid;
         private readonly Vector3 _origin;
@@ -93,6 +99,8 @@ namespace GuardWave
         private readonly int _projectKernel;
         private readonly int _g2pKernel;
         private readonly int _pressureBodyKernel;
+        private readonly int _waterColumnsKernel;
+        private readonly int _buoyancyBodyKernel;
         private readonly int _waterfallKernel;
         private float _spawnClock;
         private float _elapsed;
@@ -100,7 +108,9 @@ namespace GuardWave
         private double _ambientRefillFraction;
         private int _particleCount;
         private int _seed;
-        private bool _pendingReadback;
+        // Multiple in-flight snapshots preserve continuous forces across fixed steps.
+        private int _pendingImpulseReadbacks;
+        private const int MAX_PENDING_IMPULSE_READBACKS = 8;
         private bool _flowReadbackPending;
         private float _flowReadbackClock;
         private bool _crestMetricsReadbackPending;
@@ -129,6 +139,7 @@ namespace GuardWave
             _ambientFlow = ambientFlow;
             _cellSize = _settings.CellSize;
             _colliderData = new ColliderData[_settings.MaxColliders];
+            _bodyColliderCounts = new int[_settings.MaxBodies];
             if (!SystemInfo.supportsComputeShaders)
                 throw new NotSupportedException("GPU FLIP water requires compute shader support.");
 
@@ -170,6 +181,8 @@ namespace GuardWave
             _solid = new ComputeBuffer(_gridCount, sizeof(uint));
             _colliderBuffer = new ComputeBuffer(_settings.MaxColliders, Marshal.SizeOf<ColliderData>());
             _impulses = new ComputeBuffer(_settings.MaxBodies * 2, sizeof(int) * 4);
+            _waterSurface = new ComputeBuffer(_grid.x * _grid.z, sizeof(int));
+            _waterFlow = new ComputeBuffer(_grid.x * _grid.z, sizeof(int) * 4);
             _flowCounters = new ComputeBuffer(4, sizeof(uint));
             _flowCounters.SetData(new uint[4]);
             _crestMetrics = new ComputeBuffer(3, sizeof(uint));
@@ -188,6 +201,8 @@ namespace GuardWave
             _projectKernel = _compute.FindKernel("ProjectGrid");
             _g2pKernel = _compute.FindKernel("GridToParticle");
             _pressureBodyKernel = _compute.FindKernel("PressureToBodies");
+            _waterColumnsKernel = _compute.FindKernel("BuildWaterColumns");
+            _buoyancyBodyKernel = _compute.FindKernel("RelativeDensityToBodies");
             _waterfallKernel = _compute.FindKernel("Waterfall");
 
             _compute.SetInts("_GridSize", _grid.x, _grid.y, _grid.z);
@@ -212,6 +227,8 @@ namespace GuardWave
             _compute.SetFloat("_PressureThreshold", _settings.PressureThreshold);
             _compute.SetFloat("_CollisionResponse", _settings.CollisionResponse);
             _compute.SetFloat("_CollisionSkin", _settings.CollisionSkin);
+            _compute.SetFloat("_FlowResponse", _settings.WaterFlowResponse);
+            _compute.SetFloat("_VerticalFlowResponseScale", _settings.VerticalFlowResponseScale);
             _compute.SetFloat("_MaxFluidVelocity", _settings.MaxParticleSpeed);
             _compute.SetFloat("_CrestHeightStiffness", _settings.CrestHeightStiffness);
             _compute.SetFloat("_CrestHeightDamping", _settings.CrestHeightDamping);
@@ -227,6 +244,8 @@ namespace GuardWave
             Bind(_clearKernel, "_PressureSrc", _pressureA);
             Bind(_clearKernel, "_PressureDst", _pressureB);
             Bind(_clearKernel, "_BodyImpulses", _impulses);
+            Bind(_clearKernel, "_WaterSurface", _waterSurface);
+            Bind(_clearKernel, "_WaterFlow", _waterFlow);
             Bind(_clearKernel, "_FlowCounters", _flowCounters);
             Bind(_clearKernel, "_CrestMetrics", _crestMetrics);
             Bind(_classifyKernel, "_Solid", _solid);
@@ -263,6 +282,13 @@ namespace GuardWave
             Bind(_pressureBodyKernel, "_Solid", _solid);
             Bind(_pressureBodyKernel, "_Colliders", _colliderBuffer);
             Bind(_pressureBodyKernel, "_BodyImpulses", _impulses);
+            Bind(_waterColumnsKernel, "_Particles", _particles);
+            Bind(_waterColumnsKernel, "_WaterSurface", _waterSurface);
+            Bind(_waterColumnsKernel, "_WaterFlow", _waterFlow);
+            Bind(_buoyancyBodyKernel, "_Colliders", _colliderBuffer);
+            Bind(_buoyancyBodyKernel, "_WaterSurface", _waterSurface);
+            Bind(_buoyancyBodyKernel, "_WaterFlow", _waterFlow);
+            Bind(_buoyancyBodyKernel, "_BodyImpulses", _impulses);
             Bind(_waterfallKernel, "_Particles", _particles);
             CollectBodies(pieces, flagBody);
             UpdateColliders();
@@ -456,9 +482,41 @@ namespace GuardWave
                 }
                 if (body == null || body.isKinematic)
                     data.Velocity.w = bounds.extents.magnitude + _cellSize;
+                if (index >= 0)
+                {
+                    GuardWavePiece piece = body.GetComponent<GuardWavePiece>();
+                    if (piece != null && piece.enabled)
+                    {
+                        float grounded = piece.IsRestingOnGround
+                            && piece.RelativeFluidDensity >= 1f
+                            ? _settings.GroundedFlowMultiplier : 1f;
+                        float shape = collider is SphereCollider ? 2f :
+                            collider is CapsuleCollider ||
+                            piece.MaterialId == "beaver_stick" ? 1f : 0f;
+                        data.FluidProperties = new Vector4(piece.RelativeFluidDensity,
+                            grounded, body.mass, shape);
+                    }
+                }
                 Vector3 bodyCenter = body != null ? body.worldCenterOfMass : center;
                 data.BodyCenter = new Vector4(bodyCenter.x, bodyCenter.y, bodyCenter.z, 0f);
                 _colliderData[count++] = data;
+            }
+            // A compound Rigidbody should receive one mass-equivalent total
+            // buoyancy, not an independent body-mass force for each collider.
+            Array.Clear(_bodyColliderCounts, 0, _bodies.Count);
+            for (int i = 0; i < count; i++)
+            {
+                int bi = (int)_colliderData[i].CenterBody.w;
+                if (bi >= 0 && _colliderData[i].FluidProperties.x > 0f)
+                    _bodyColliderCounts[bi]++;
+            }
+            for (int i = 0; i < count; i++)
+            {
+                ColliderData data = _colliderData[i];
+                int bi = (int)data.CenterBody.w;
+                if (bi < 0 || data.FluidProperties.x <= 0f) continue;
+                data.FluidProperties.z /= Mathf.Max(1, _bodyColliderCounts[bi]);
+                _colliderData[i] = data;
             }
             if (count > 0) _colliderBuffer.SetData(_colliderData, 0, 0, count);
             _compute.SetInt("_ColliderCount", count);
@@ -515,6 +573,10 @@ namespace GuardWave
             // Continue pre-existing spray first; newly exited fluid starts falling next tick.
             Dispatch(_waterfallKernel, _particleCount);
             Dispatch(_g2pKernel, _particleCount);
+            // Real particle heights and velocities, not the editor's static water plane.
+            Dispatch(_waterColumnsKernel, _particleCount);
+            if (_bodies.Count > 0)
+                Dispatch(_buoyancyBodyKernel, _settings.MaxColliders);
             if (_ambientFlow)
             {
                 // Q = cross-sectional area * velocity. With fixed particle
@@ -556,9 +618,10 @@ namespace GuardWave
                     AsyncGPUReadback.Request(_flowCounters, OnFlowCountersReady);
                 }
             }
-            if (!_pendingReadback && _bodies.Count > 0)
+            if (_bodies.Count > 0 &&
+                _pendingImpulseReadbacks < MAX_PENDING_IMPULSE_READBACKS)
             {
-                _pendingReadback = true;
+                _pendingImpulseReadbacks++;
                 AsyncGPUReadback.Request(_impulses, OnImpulsesReady);
             }
         }
@@ -594,7 +657,7 @@ namespace GuardWave
         /// <summary>Applies bounded fluid reaction impulses to scene Rigidbodies on the main thread.</summary>
         private void OnImpulsesReady(AsyncGPUReadbackRequest request)
         {
-            _pendingReadback = false;
+            _pendingImpulseReadbacks = Mathf.Max(0, _pendingImpulseReadbacks - 1);
             if (_disposed || request.hasError) return;
             NativeArray<Int4> values = request.GetData<Int4>();
             for (int i = 0; i < _bodies.Count; i++)
@@ -627,6 +690,8 @@ namespace GuardWave
             _solid.Release();
             _colliderBuffer.Release();
             _impulses.Release();
+            _waterSurface.Release();
+            _waterFlow.Release();
             _flowCounters.Release();
             _crestMetrics.Release();
             UnityEngine.Object.Destroy(_compute);

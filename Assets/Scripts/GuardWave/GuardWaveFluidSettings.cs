@@ -27,6 +27,14 @@ namespace GuardWave
         public float AmbientFlowVolumeMultiplier => _ambientFlowVolumeMultiplier;
         public float AmbientImpactScale => _ambientImpactScale;
 
+        [Header("Relative-density buoyancy and current")]
+        [SerializeField, Min(0.05f)] private float _waterFlowResponse = 6f;
+        [SerializeField, Range(0f, 1f)] private float _verticalFlowResponseScale = 0.35f;
+        [SerializeField, Range(0f, 1f)] private float _groundedFlowMultiplier = 0.15f;
+        public float WaterFlowResponse => _waterFlowResponse;
+        public float VerticalFlowResponseScale => _verticalFlowResponseScale;
+        public float GroundedFlowMultiplier => _groundedFlowMultiplier;
+
         [Header("One-shot wave crest above ambient water")]
         [SerializeField, Min(0.1f)] private float _waveCrestAmplitude = 3f;
         [SerializeField, Min(0.5f)] private float _waveCrestWidth = 1.4f;

@@ -23,6 +23,9 @@ MonoBehaviour:
   _ambientFlowSpeed: 10
   _ambientFlowVolumeMultiplier: 2
   _ambientImpactScale: 0.01
+  _waterFlowResponse: 6
+  _verticalFlowResponseScale: 0.35
+  _groundedFlowMultiplier: 0.15
   _waveCrestAmplitude: 3
   _waveCrestWidth: 1.4
   _waveCrestLength: 8

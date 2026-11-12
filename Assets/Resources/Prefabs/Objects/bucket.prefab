@@ -81,6 +81,7 @@ MonoBehaviour:
   m_Name:
   m_EditorClassIdentifier: Assembly-CSharp::RestoreCastle3D.CastlePiece3D
   materialId: bucket
+  relativeFluidDensity: 1.1
 --- !u!1 &10000
 GameObject:
   m_ObjectHideFlags: 0

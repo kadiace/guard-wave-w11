@@ -12,6 +12,8 @@
 #pragma kernel ProjectGrid
 #pragma kernel GridToParticle
 #pragma kernel PressureToBodies
+#pragma kernel BuildWaterColumns
+#pragma kernel RelativeDensityToBodies
 #pragma kernel Waterfall
 
 #define SCALE 2048.0
@@ -33,12 +35,15 @@ struct FluidCollider
     float4 velocity;
     float4 angular;
     float4 bodyCenter;
+    float4 fluidProperties; // density, grounded drag, mass share, sampling shape
 };
 RWStructuredBuffer<FluidParticle> _Particles;
 RWStructuredBuffer<uint> _FlowCounters; // [0] pending refill, [1] total refilled, [2] per-tick claims, [3] cliff exits
 RWStructuredBuffer<uint> _CrestMetrics; // active wave particles, peak height centimeters, released count
 RWStructuredBuffer<int4> _Accum;
 RWStructuredBuffer<int4> _BodyImpulses; // force impulse in xyz, torque in next xyz
+RWStructuredBuffer<int> _WaterSurface; // highest particle surface in XZ, 4096 units/m
+RWStructuredBuffer<int4> _WaterFlow; // summed local particle velocities x256, count in w
 RWStructuredBuffer<float3> _GridVelocity;
 RWStructuredBuffer<float3> _GridBefore;
 RWStructuredBuffer<float> _PressureSrc;
@@ -57,6 +62,8 @@ float _PressureClamp;
 float _PressureThreshold;
 float _CollisionResponse;
 float _CollisionSkin;
+float _FlowResponse;
+float _VerticalFlowResponseScale;
 float _MaxFluidVelocity;
 float _FloorY;
 float _ExitZ;
@@ -170,6 +177,11 @@ void ClearGrid(uint id : SV_DispatchThreadID)
     }
     if (id < _BodyCount * 2)
         _BodyImpulses[id] = int4(0,0,0,0);
+    if (id < (uint)(_GridSize.x * _GridSize.z))
+    {
+        _WaterSurface[id] = 0;
+        _WaterFlow[id] = int4(0,0,0,0);
+    }
     if (id < 3)
         _CrestMetrics[id] = 0u;
     // Keep pending refill debt and its global sequence across physics ticks.
@@ -574,6 +586,161 @@ void GridToParticle(uint id : SV_DispatchThreadID)
             InterlockedAdd(_FlowCounters[0], 1u);
     }
     _Particles[id] = p;
+}
+
+
+ 
+// Aggregate live water particles into a coarse XZ surface and current map.
+// This uses actual particle velocities after FLIP/obstacle interactions,
+// so a log follows lateral/return currents rather than a hardcoded -Z push.
+[numthreads(128,1,1)]
+void BuildWaterColumns(uint id : SV_DispatchThreadID)
+{
+    if (id >= _ParticleCount) return;
+    FluidParticle p = _Particles[id];
+    if (p.position.w != 1.0) return; // falling waterfall particles are not a pool
+    int2 cell = (int2)floor((p.position.xz - _GridOrigin.xz) / _CellSize);
+    if (any(cell < 0) || cell.x >= _GridSize.x || cell.y >= _GridSize.z) return;
+    uint index = (uint)(cell.y * _GridSize.x + cell.x);
+    // A particle center lies below the rendered free surface; use a small
+    // effective particle radius to reconstruct the waterline.
+    int height = max(1, (int)round((p.position.y - _FloorY +
+        0.35 * _CellSize) * 4096.0));
+    InterlockedMax(_WaterSurface[index], height);
+    InterlockedAdd(_WaterFlow[index].x, (int)round(p.velocity.x * 256.0));
+    InterlockedAdd(_WaterFlow[index].y, (int)round(p.velocity.y * 256.0));
+    InterlockedAdd(_WaterFlow[index].z, (int)round(p.velocity.z * 256.0));
+    InterlockedAdd(_WaterFlow[index].w, 1);
+}
+
+// Sample a weighted neighborhood. Zero particles means zero influence.
+// Fluid occupancy is sampled independently of collider solid-cell masking.
+float SampleWater(float3 pos, out float surfaceY, out float3 waterVelocity)
+{
+    surfaceY = _FloorY;
+    waterVelocity = 0;
+    if (pos.z < _ExitZ || abs(pos.x) >= _HalfWidth) return 0.0;
+    float2 grid = (pos.xz - _GridOrigin.xz) / _CellSize - 0.5;
+    int2 baseCell = (int2)floor(grid);
+    float2 f = frac(grid);
+    float coverage = 0.0;
+    float sumHeight = 0.0;
+    float3 sumVelocity = 0;
+    [unroll]
+    for (int z = 0; z < 2; z++)
+    [unroll]
+    for (int x = 0; x < 2; x++)
+    {
+        int2 c = baseCell + int2(x,z);
+        if (any(c < 0) || c.x >= _GridSize.x || c.y >= _GridSize.z) continue;
+        uint index = (uint)(c.y * _GridSize.x + c.x);
+        int4 flow = _WaterFlow[index];
+        int top = _WaterSurface[index];
+        if (flow.w <= 0 || top <= 0) continue;
+        float weight = (x == 0 ? 1.0 - f.x : f.x) *
+            (z == 0 ? 1.0 - f.y : f.y);
+        coverage += weight;
+        sumHeight += weight * ((float)top / 4096.0);
+        sumVelocity += weight * (float3(flow.xyz) / (256.0 * flow.w));
+    }
+    if (coverage <= 0.001) return 0.0;
+    surfaceY = _FloorY + sumHeight / coverage;
+    waterVelocity = sumVelocity / coverage;
+    return saturate(coverage);
+}
+
+// Per-collider 3D volume sampling. Each sample contributes equally to total
+// immersed volume. Upward buoyancy is mass * gravity * (immersed/density);
+// current following depends on actual sampled fluid velocity, not face normal.
+[numthreads(128,1,1)]
+void RelativeDensityToBodies(uint id : SV_DispatchThreadID)
+{
+    if (id >= _ColliderCount) return;
+    FluidCollider body = _Colliders[id];
+    int bi = (int)body.centerBody.w;
+    if (bi < 0 || bi >= (int)_BodyCount || body.fluidProperties.x <= 0) return;
+    float density = max(0.01, body.fluidProperties.x);
+    float mass = max(0, body.fluidProperties.z);
+    if (mass <= 0) return;
+    float shape = body.fluidProperties.w;
+    float3 halfSize = body.extentType.xyz;
+    if (body.extentType.w > 1.5)
+        halfSize = float3(body.extentType.x,
+            body.extentType.y + body.extentType.x, body.extentType.x);
+    else if (body.extentType.w > 0.5)
+        halfSize = float3(body.extentType.x,
+            body.extentType.x, body.extentType.x);
+    int axis = halfSize.y >= halfSize.x && halfSize.y >= halfSize.z ? 1 :
+        halfSize.x >= halfSize.z ? 0 : 2;
+    // 5x5x5 regular samples; cylinder and sphere discard outside points.
+    float samples = shape > 1.5 ? 81.0 : shape > 0.5 ? 105.0 : 125.0;
+    float wet = 0;
+    float3 buoyancyTorque = 0;
+    float3 dragDelta = 0;
+    float3 dragTorque = 0;
+    [loop]
+    for (int a = 0; a < 5; a++)
+    [loop]
+    for (int u = 0; u < 5; u++)
+    [loop]
+    for (int v = 0; v < 5; v++)
+    {
+        float t = ((float)a - 2.0) * 0.4;
+        float h = ((float)u - 2.0) * 0.4;
+        float k = ((float)v - 2.0) * 0.4;
+        float3 q;
+        if (axis == 0) q = float3(t, h, k);
+        else if (axis == 1) q = float3(h, t, k);
+        else q = float3(h, k, t);
+        if (shape > 1.5 && dot(q, q) > 1.001) continue;
+        if (shape > 0.5 && shape < 1.5)
+        {
+            float2 radial = axis == 0 ? q.yz : axis == 1 ? q.xz : q.xy;
+            if (dot(radial,radial) > 1.001) continue;
+        }
+        float3 point = body.centerBody.xyz +
+            Rotate(body.rotation, q * halfSize);
+        float surfaceY;
+        float3 flow;
+        float coverage = SampleWater(point, surfaceY, flow);
+        if (coverage <= 0.001 || point.y > surfaceY) continue;
+        wet += coverage;
+        float3 r = point - body.bodyCenter.xyz;
+        buoyancyTorque += coverage * cross(r, float3(0,1,0));
+        float3 bodyPointVelocity = body.velocity.xyz + cross(body.angular.xyz,r);
+        // Grounded heavy props follow a reduced target current, not merely
+        // a weaker spring that would eventually reach full water speed.
+        float3 targetVelocity = flow;
+        targetVelocity.xz *= saturate(body.fluidProperties.y);
+        float3 relativeVelocity = targetVelocity - bodyPointVelocity;
+        relativeVelocity.y *= _VerticalFlowResponseScale;
+        dragDelta += coverage * relativeVelocity;
+        dragTorque += coverage * cross(r, relativeVelocity);
+    }
+    if (wet <= 0.001) return;
+    float submerged = saturate(wet / samples);
+    // Unity gravity remains active. At a submerged fraction equal to the
+    // relative fluid density, upward buoyancy balances the object's weight.
+    float buoyancyImpulse = mass * _Gravity * _Dt * submerged / density;
+    float3 force = float3(0, buoyancyImpulse, 0);
+    float3 torque = mass * _Gravity * _Dt / (density * samples)
+        * buoyancyTorque;
+
+    // Saturating by equilibrium submergence ensures even cork-like objects
+    // follow the water while most of their volume stays above its surface.
+    float immersionFactor = saturate(submerged / min(density, 1.0));
+    float following = (1.0 - exp(-_FlowResponse * _Dt)) *
+        immersionFactor;
+    float dragScale = mass * following / wet;
+    force += dragScale * dragDelta;
+    torque += dragScale * dragTorque;
+    uint dst = (uint)bi * 2;
+    InterlockedAdd(_BodyImpulses[dst].x, (int)round(force.x * SCALE));
+    InterlockedAdd(_BodyImpulses[dst].y, (int)round(force.y * SCALE));
+    InterlockedAdd(_BodyImpulses[dst].z, (int)round(force.z * SCALE));
+    InterlockedAdd(_BodyImpulses[dst + 1].x, (int)round(torque.x * SCALE));
+    InterlockedAdd(_BodyImpulses[dst + 1].y, (int)round(torque.y * SCALE));
+    InterlockedAdd(_BodyImpulses[dst + 1].z, (int)round(torque.z * SCALE));
 }
 
 [numthreads(128,1,1)]
