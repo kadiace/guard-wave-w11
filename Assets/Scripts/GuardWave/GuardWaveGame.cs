@@ -157,6 +157,8 @@ namespace GuardWave
             _flipRenderer = new GuardWaveFlipRenderer(_fluidSettings);
             ResetGame();
             RegisterExistingMudBonds();
+            _initialSceneJointStates.Clear();
+            CaptureNonMudFixedJoints(_initialSceneJointStates);
             foreach (GuardWaveMudPatch patch in _mudPatches)
                 if (patch != null) patch.CaptureBonds(_initialMudBondStates);
             _initialized = true;
@@ -1022,7 +1024,8 @@ namespace GuardWave
             RestoreInitialScenePieces();
             // A full in-game restart must restore the original 13 wall-to-world
             // joints as well as poses; broken joints are not repaired by resetting RBs.
-            RebuildFixedJoints(_initialSceneJointStates);
+            if (_initialized)
+                RebuildFixedJoints(_initialSceneJointStates);
             // Recreate initially adopted bonds through the normal patch
             // snapshot pathway. This also restores broken scene joints on
             // full restart, rather than leaving the wall unconnected.

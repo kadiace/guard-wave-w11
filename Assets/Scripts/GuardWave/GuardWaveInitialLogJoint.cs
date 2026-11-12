@@ -44,6 +44,8 @@ namespace GuardWave
         /// <summary>Called on the physics tick that applies the GPU fluid impulse.</summary>
         internal void ObserveFluidImpulse(Vector3 impulse)
         {
+            if (_joint == null)
+                _joint = GetComponent<FixedJoint>();
             if (_settled || _firstContactTime >= 0f || _joint == null)
                 return;
             float force = impulse.magnitude / Mathf.Max(Time.fixedDeltaTime, 0.0001f);
@@ -53,6 +55,8 @@ namespace GuardWave
 
         private void FixedUpdate()
         {
+            if (_joint == null)
+                _joint = GetComponent<FixedJoint>();
             if (_settled || _firstContactTime < 0f || _joint == null)
                 return;
             if (Time.fixedTime - _firstContactTime < minimumProtectionSeconds)
@@ -69,7 +73,9 @@ namespace GuardWave
             if (_stableTime < settledDuration)
                 return;
 
-            _joint.breakForce = settledBreakForce;
+            _joint.breakForce = initialBreakForce > 0f
+                ? _joint.breakForce * settledBreakForce / initialBreakForce
+                : settledBreakForce;
             _settled = true;
         }
     }
