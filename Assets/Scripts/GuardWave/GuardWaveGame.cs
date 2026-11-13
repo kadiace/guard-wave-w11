@@ -14,6 +14,7 @@ namespace GuardWave
         private const int STAGE_COUNT = 5;
         // Flow begins at Ready; the crest arrives five physics seconds later.
         private const float CREEK_PREWAVE_SECONDS = 5f;
+        private const float SECOND_CREST_DELAY_SECONDS = 3f;
         private const float FLAG_SURVIVAL_CHECK_SECONDS = 5f;
         private const float FLOOD_DURATION_INCREASE_PER_STAGE = 0.2f;
         private const float FLOOD_DEPTH_INCREASE_PER_STAGE = 0.5f;
@@ -1646,8 +1647,8 @@ namespace GuardWave
         }
 
         /// <summary>
-        /// Start the current at Ready, emit one crest after five seconds, then
-        /// check whether the flag survives five more seconds after the crest passes.
+        /// Start the current at Ready, emit a crest after five seconds and a second
+        /// three seconds later, then check flag survival after both waves pass.
         /// </summary>
         private IEnumerator ResolveAmbientWave()
         {
@@ -1682,7 +1683,39 @@ namespace GuardWave
                 yield break;
             }
 
-            _status = "파도가 이동 중입니다. 깃발을 지키세요.";
+            _status = "1차 파도가 이동 중입니다. 3초 후 2차 파도가 발생합니다.";
+            float secondCrestElapsed = 0f;
+            while (secondCrestElapsed < SECOND_CREST_DELAY_SECONDS)
+            {
+                yield return new WaitForFixedUpdate();
+                if (_awaitingStage)
+                {
+                    _stageFloodRoutine = null;
+                    yield break;
+                }
+                secondCrestElapsed += Time.fixedDeltaTime;
+            }
+
+            try
+            {
+                // A separate GPU reservation keeps the first wave intact.
+                _fluid.EmitSingleCrest();
+            }
+            catch (Exception error)
+            {
+                Debug.LogError("Unable to emit the second 3m wave crest: " + error);
+                _ambientFlowRunning = false;
+                _waveHasStarted = false;
+                _stageTransitioning = false;
+                _resolving = false;
+                CommitWaveSnapshot();
+                _stageFloodRoutine = null;
+                _status = "2차 파봉 생성 실패: GPU 입자 예산과 설정을 확인하세요.";
+                yield break;
+            }
+
+            _status = "2차 파도가 이동 중입니다. 깃발을 지키세요.";
+            // Wait for the SECOND crest's transit before the final survival check.
             float travel = (_placementBounds.size.z + _fluidSettings.WaveCrestLength) /
                 Mathf.Max(0.1f, _fluidSettings.WaveCrestSpeed);
             float elapsed = 0f;

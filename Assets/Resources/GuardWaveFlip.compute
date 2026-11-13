@@ -94,6 +94,7 @@ float _CrestHeightDamping;
 float _CrestForwardDamping;
 float _CrestReleaseDistance;
 uint _CrestSlotStart;
+uint _CrestEmissionIndex;
 int3 _AmbientGrid;
 uint _AmbientEnabled;
 uint _AmbientRefillBudget;
@@ -363,8 +364,10 @@ void EmitCrest(uint id : SV_DispatchThreadID)
     uint width = (uint)_CrestGrid.x;
     uint layers = (uint)_CrestGrid.y;
     uint rows = (uint)_CrestGrid.z;
-    if (id >= width * layers * rows) return;
-    uint slot = _CrestSlotStart + id;
+    uint crestSize = width * layers * rows;
+    if (id >= crestSize) return;
+    // Separate banks protect the first crest from the second dispatch.
+    uint slot = _CrestSlotStart + _CrestEmissionIndex * crestSize + id;
     if (slot >= _ParticleCount) return;
 
     uint x = id % width;

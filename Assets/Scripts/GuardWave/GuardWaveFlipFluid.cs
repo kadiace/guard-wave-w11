@@ -20,6 +20,7 @@ namespace GuardWave
         private const int OUTFLOW_BUFFER_CELLS = 4;
         private const int UPSTREAM_BUFFER_CELLS = 2;
         private const float AMBIENT_SUPPLY_RATE_MULTIPLIER = 1f;
+        private const int RESERVED_CREST_COUNT = 2;
         private readonly GuardWaveFluidSettings _settings;
         private readonly float _cellSize;
 
@@ -109,6 +110,7 @@ namespace GuardWave
         private readonly int _emitCrestKernel;
         private int _crestSlotStart;
         private int _crestCandidateCount;
+        private int _crestEmissionCount;
         private bool _crestEmitted;
         private int _ambientTargetCount;
         private int _ambientColumns;
@@ -436,14 +438,16 @@ namespace GuardWave
                 _settings.WaveCrestLength / spacing *
                 _settings.AmbientFlowVolumeMultiplier));
             long crestCandidates = (long)columns * crestLayers * crestRows;
-            // Reserve the full wave lattice for the lifetime of this creek.
-            // Waterfall and ambient refills use only the preceding slots.
+            // Reserve two disjoint crest lattices. Neither background refill
+            // nor waterfall spray may overwrite either wave's reserved bank.
+            long totalCrestSlots = crestCandidates * RESERVED_CREST_COUNT;
             if (crestCandidates > int.MaxValue ||
-                targetCount + crestCandidates >= _settings.MaxParticles)
+                requested + totalCrestSlots >= _settings.MaxParticles)
                 throw new InvalidOperationException(
-                    "GPU particle capacity cannot fit both the base river and reserved crest.");
+                    "GPU particle capacity cannot fit the base creek and both wave crests.");
             _crestCandidateCount = (int)crestCandidates;
-            _crestSlotStart = _settings.MaxParticles - _crestCandidateCount;
+            _crestSlotStart = _settings.MaxParticles - (int)totalCrestSlots;
+            _crestEmissionCount = 0;
             _compute.SetInt("_CrestSlotStart", _crestSlotStart);
             _ambientTargetCount = targetCount;
             // Each live particle represents a fixed slice of the designed
@@ -464,13 +468,15 @@ namespace GuardWave
         }
 
         /// <summary>
-        /// Adds a single additional crest above the already-filled 1m creek.
-        /// Only inactive GPU particle slots are used. No new solver is constructed.
+        /// Adds one 3m crest above the 1m creek in its dedicated GPU slot bank.
+        /// Supports two emissions per solver without overwriting the first.
         /// </summary>
         public void EmitSingleCrest()
         {
             if (_disposed || !_ambientFlow)
                 throw new InvalidOperationException("A wave crest requires a running ambient FLIP creek.");
+            if (_crestEmissionCount >= RESERVED_CREST_COUNT)
+                throw new InvalidOperationException("Both reserved crests have already been emitted.");
 
             float amplitude = _settings.WaveCrestAmplitude;
             float spacing = _cellSize * 0.85f;
@@ -486,6 +492,7 @@ namespace GuardWave
                 throw new InvalidOperationException(
                     "Reserved crest slot count does not match the wave lattice.");
             _compute.SetInts("_CrestGrid", columns, layers, rows);
+            _compute.SetInt("_CrestEmissionIndex", _crestEmissionCount);
             _compute.SetFloat("_CrestAmplitude", amplitude);
             _compute.SetFloat("_CrestSpeed", InletSpeed);
             _compute.SetFloat("_CrestWidth", _settings.WaveCrestWidth);
@@ -494,6 +501,7 @@ namespace GuardWave
                 _startZ - _cellSize - _settings.WaveCrestLength * 0.5f);
             // Dispatch only the reserved lattice indices, not random free slots.
             Dispatch(_emitCrestKernel, _crestCandidateCount);
+            _crestEmissionCount++;
             _crestEmitted = true;
         }
 
