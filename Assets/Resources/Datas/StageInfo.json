@@ -1,6 +1,38 @@
 {
   "stages": [
-    { "sceneName": "Forest", "disasterName": "파도", "countdownSeconds": 120 },
-    { "sceneName": "Fog", "disasterName": "독안개", "countdownSeconds": 40 }
+    {
+      "sceneName": "Forest",
+      "disasterName": "파도",
+      "countdownSeconds": 120,
+      "palette": [
+        {
+          "materialId": "mud",
+          "placementLimit": -1
+        },
+        {
+          "materialId": "log",
+          "placementLimit": 100
+        },
+        {
+          "materialId": "forest_pebble",
+          "placementLimit": 100
+        },
+        {
+          "materialId": "hair_dryer",
+          "placementLimit": -1
+        }
+      ]
+    },
+    {
+      "sceneName": "Fog",
+      "disasterName": "독안개",
+      "countdownSeconds": 40,
+      "palette": [
+        {
+          "materialId": "building",
+          "placementLimit": 10
+        }
+      ]
+    }
   ]
 }

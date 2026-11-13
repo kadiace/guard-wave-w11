@@ -3315,6 +3315,7 @@ GameObject:
   - component: {fileID: 3100000002}
   - component: {fileID: 3100000004}
   - component: {fileID: 3100000005}
+  - component: {fileID: 3100000006}
   m_Layer: 0
   m_Name: Defense Flag
   m_TagString: Untagged
@@ -3331,7 +3332,7 @@ Transform:
   m_GameObject: {fileID: 3100000001}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0, y: -4.8, z: 4}
+  m_LocalPosition: {x: 0, y: -4.8, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children:
@@ -3382,6 +3383,22 @@ MonoBehaviour:
   materialId: default_flag
   removeOutsideBoundary: 1
   relativeFluidDensity: 0.6
+--- !u!114 &3100000006
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3100000001}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: e5c74d12a36445c589b74f0d1368c8ec, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWaveBuoyancyProbe
+  reportIntervalSeconds: 1
+  includeNearbyFloatingPieces: 1
+  nearbyRadius: 25
+  maxNearbyPieces: 8
 --- !u!1 &3100000101
 GameObject:
   m_ObjectHideFlags: 0
