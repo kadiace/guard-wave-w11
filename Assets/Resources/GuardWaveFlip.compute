@@ -20,7 +20,7 @@
 
 #define SCALE 2048.0
 #define MAX_COLLIDERS 256
-#define BUOYANCY_MAX_VERTICAL_LAYERS 16
+#define BUOYANCY_MAX_VERTICAL_LAYERS 8
 
 struct FluidParticle
 {
@@ -900,36 +900,17 @@ void RelativeDensityToBodies(uint id : SV_DispatchThreadID)
     float bodyBottom = body.centerBody.y - bodyHalfHeight;
     float bodyTop = body.centerBody.y + bodyHalfHeight;
 
-    // Compute each of the 8 horizontal column surfaces only once.
-    float2 probeXZ[8];
-    float probeWaterline[8];
-    float3 probeCurrent[8];
-    float probePresence[8];
-    [unroll]
-    for (int i = 0; i < 8; ++i)
-    {
-        float dx = (i == 0 || i == 4 || i == 5) ? 1.0 :
-            ((i == 1 || i == 6 || i == 7) ? -1.0 : 0.0);
-        float dz = (i == 2 || i == 4 || i == 6) ? 1.0 :
-            ((i == 3 || i == 5 || i == 7) ? -1.0 : 0.0);
-        probeXZ[i] = body.centerBody.xz +
-            float2(dx * outside.x, dz * outside.y);
-        float localHeight = 0.0;
-        float3 localCurrent = 0.0;
-        probePresence[i] = SampleWater(
-            float3(probeXZ[i].x, body.centerBody.y, probeXZ[i].y),
-            localHeight, localCurrent);
-        probeWaterline[i] = localHeight;
-        probeCurrent[i] = localCurrent;
-    }
-
-    // A layer spans at most one cell (up to 16 layers per collider).
-    // Its eight-point mean represents neighboring fluid at THAT height.
+    // Sample eight fixed-height bands around the FULL collider height.
+    // Do not use dynamically indexed local arrays: some Unity HLSL backends
+    // fail compiling large compute kernels with nested variable-index arrays.
     int layerCount = clamp(
         (int)ceil((bodyTop - bodyBottom) / max(_CellSize, 0.001)),
         2, BUOYANCY_MAX_VERTICAL_LAYERS);
     float layerHeight = (bodyTop - bodyBottom) / (float)layerCount;
-    float layerCoverage[BUOYANCY_MAX_VERTICAL_LAYERS];
+    float coverage0 = 0.0, coverage1 = 0.0;
+    float coverage2 = 0.0, coverage3 = 0.0;
+    float coverage4 = 0.0, coverage5 = 0.0;
+    float coverage6 = 0.0, coverage7 = 0.0;
     float waterline = 0.0;
     float3 current = 0.0;
     float available = 0.0;
@@ -941,22 +922,37 @@ void RelativeDensityToBodies(uint id : SV_DispatchThreadID)
         [unroll]
         for (int i = 0; i < 8; ++i)
         {
-            if (probePresence[i] <= 0.0) continue;
-            // Gradual cutoff at the surface, including partial top cells.
+            float dx = (i == 0 || i == 4 || i == 5) ? 1.0 :
+                ((i == 1 || i == 6 || i == 7) ? -1.0 : 0.0);
+            float dz = (i == 2 || i == 4 || i == 6) ? 1.0 :
+                ((i == 3 || i == 5 || i == 7) ? -1.0 : 0.0);
+            float3 point = body.centerBody.xyz +
+                float3(dx * outside.x, 0, dz * outside.y);
+            point.y = sampleY;
+            float localHeight = 0.0;
+            float3 localCurrent = 0.0;
+            float presence = SampleWater(point, localHeight, localCurrent);
+            if (presence <= 0.0) continue;
             float beneathSurface = saturate(
-                (probeWaterline[i] - sampleY) /
+                (localHeight - sampleY) /
                 max(_CellSize * 0.5, 0.001) + 0.5);
             if (beneathSurface <= 0.0) continue;
-            float3 point = float3(probeXZ[i].x, sampleY, probeXZ[i].y);
-            float presence = probePresence[i] * beneathSurface *
-                SampleFluidOccupancy3D(point);
+            presence *= beneathSurface * SampleFluidOccupancy3D(point);
             if (presence <= 0.0) continue;
             support += presence;
             available += presence;
-            waterline += probeWaterline[i] * presence;
-            current += probeCurrent[i] * presence;
+            waterline += localHeight * presence;
+            current += localCurrent * presence;
         }
-        layerCoverage[layer] = saturate(support / 8.0);
+        float coverage = saturate(support / 8.0);
+        if (layer == 0) coverage0 = coverage;
+        else if (layer == 1) coverage1 = coverage;
+        else if (layer == 2) coverage2 = coverage;
+        else if (layer == 3) coverage3 = coverage;
+        else if (layer == 4) coverage4 = coverage;
+        else if (layer == 5) coverage5 = coverage;
+        else if (layer == 6) coverage6 = coverage;
+        else coverage7 = coverage;
     }
     if (available <= 0.001) return;
     waterline /= available;
@@ -1000,8 +996,16 @@ void RelativeDensityToBodies(uint id : SV_DispatchThreadID)
         int lower = clamp((int)floor(layerCoord), 0, layerCount - 1);
         int upper = min(lower + 1, layerCount - 1);
         float mixLayers = saturate(layerCoord - (float)lower);
-        float localCoverage = lerp(
-            layerCoverage[lower], layerCoverage[upper], mixLayers);
+        // Scalar selection avoids variable-indexed HLSL arrays.
+        float lowerCoverage = lower == 0 ? coverage0 :
+            lower == 1 ? coverage1 : lower == 2 ? coverage2 :
+            lower == 3 ? coverage3 : lower == 4 ? coverage4 :
+            lower == 5 ? coverage5 : lower == 6 ? coverage6 : coverage7;
+        float upperCoverage = upper == 0 ? coverage0 :
+            upper == 1 ? coverage1 : upper == 2 ? coverage2 :
+            upper == 3 ? coverage3 : upper == 4 ? coverage4 :
+            upper == 5 ? coverage5 : upper == 6 ? coverage6 : coverage7;
+        float localCoverage = lerp(lowerCoverage, upperCoverage, mixLayers);
         float displaced = immersion * localCoverage;
         wet += immersion;
         if (displaced <= 0.0001) continue;
