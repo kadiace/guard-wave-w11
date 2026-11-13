@@ -79,19 +79,22 @@ namespace GuardWave
             // before the first outflow event so "파괴!" and "제거!" never pay it.
             _font.TryAddCharacters(PREWARM_CHARACTERS, out _);
 
-            // Per-text outline setters instantiate a material for each label.
-            // All floating labels can instead share one outlined font material.
-            _outlineMaterial = new Material(_font.material);
-            _outlineMaterial.EnableKeyword("OUTLINE_ON");
-            _outlineMaterial.SetFloat("_OutlineWidth", 0.22f);
-            _outlineMaterial.SetColor("_OutlineColor", Color.black);
+            // Match the old label's exact TMP outline path. The convenience
+            // properties may configure more than just shader values, so derive
+            // the shared preset from a label using those original setters.
+            Entry first = CreateEntry();
+            first.Text.outlineWidth = 0.22f;
+            first.Text.outlineColor = Color.black;
+            _outlineMaterial = new Material(first.Text.fontSharedMaterial);
+            first.Text.fontSharedMaterial = _outlineMaterial;
+            first.Text.UpdateMeshPadding();
 
             // Prebuild the TextMeshPro meshes and Canvas geometry on scene setup,
             // rather than when the first piece falls past the destruction line.
             List<Entry> warmup = new List<Entry>(PREWARMED_LABEL_COUNT);
             for (int i = 0; i < PREWARMED_LABEL_COUNT; i++)
             {
-                Entry entry = CreateEntry();
+                Entry entry = i == 0 ? first : CreateEntry();
                 entry.Text.fontSize = fontSize * 1.3f;
                 entry.Text.text = PREWARM_CHARACTERS;
                 entry.Text.color = Color.clear;
@@ -114,8 +117,11 @@ namespace GuardWave
             label.transform.SetParent(_canvasRect, false);
             TextMeshProUGUI text = label.GetComponent<TextMeshProUGUI>();
             text.font = _font;
-            text.fontSharedMaterial = _outlineMaterial;
-            text.UpdateMeshPadding();
+            if (_outlineMaterial != null)
+            {
+                text.fontSharedMaterial = _outlineMaterial;
+                text.UpdateMeshPadding();
+            }
             text.alignment = TextAlignmentOptions.Center;
             text.raycastTarget = false;
             text.textWrappingMode = TextWrappingModes.NoWrap;
