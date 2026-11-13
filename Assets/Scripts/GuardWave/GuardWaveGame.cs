@@ -22,6 +22,7 @@ namespace GuardWave
         private const float CAMERA_MAX_TARGET_Z = 15f;
         private const float WINDOWS_SCROLL_UNITS_PER_TICK = 120f;
         private const float BOUNDARY_DESTRUCTION_DELAY = 1f;
+        private const int MAX_DRAG_PLACEMENTS_PER_FRAME = 12;
 
         [Header("3D drop")]
         [SerializeField, Min(2f)] private float dropHeight = 7f;
@@ -111,6 +112,7 @@ namespace GuardWave
         private readonly GuardWaveMaterial[] _offers = new GuardWaveMaterial[4];
         private ForestSceneContext _sceneContext;
         private GuardWaveCatalog _catalog;
+        private GuardWaveStageInfo _stageInfo;
         private GuardWaveHud _hud;
         private GuardWaveDropPreview _dropPreview;
         private GuardWaveFlipRenderer _flipRenderer;
@@ -132,6 +134,28 @@ namespace GuardWave
         private int _pendingDrops;
         private float _lastDropTime = float.NegativeInfinity;
         private bool _dropMouseReleased = true;
+        private GuardWavePlacementFootprint _placementStroke;
+        private readonly List<GuardWavePiece> _placementStrokePieces =
+            new List<GuardWavePiece>();
+        private readonly Queue<PlacementPathPoint> _placementStrokePath =
+            new Queue<PlacementPathPoint>();
+        private Vector2 _placementStrokeProcessedXZ;
+        private bool _placementStrokeCursorValid;
+        private bool _placementStrokeReleased;
+        private int _placementStrokeEpoch;
+
+        private readonly struct PlacementPathPoint
+        {
+            public readonly Vector2 XZ;
+            public readonly bool BreakPath;
+
+            public PlacementPathPoint(Vector2 xz, bool breakPath)
+            {
+                XZ = xz;
+                BreakPath = breakPath;
+            }
+        }
+
         private int _stage;
         private float _objectYaw;
         private bool _rulesOpen;
@@ -159,6 +183,7 @@ namespace GuardWave
         {
             _sceneContext = GetComponent<ForestSceneContext>();
             _catalog = new GuardWaveCatalog();
+            _stageInfo = GuardWaveStageInfoFile.LoadForScene(gameObject.scene.name);
             _fluidSettings = Resources.Load<GuardWaveFluidSettings>("Datas/GuardWaveFluidSettings");
             if (_fluidSettings == null) throw new InvalidOperationException("Missing Resources/Datas/GuardWaveFluidSettings.asset");
             ConfigureScene();
@@ -205,8 +230,13 @@ namespace GuardWave
         private void Update()
         {
             if (!_initialized) return;
+            Mouse mouse = Mouse.current;
+            // Keep the click gate in sync even if the release happens in pause UI.
+            if (mouse != null && mouse.leftButton.wasReleasedThisFrame)
+                _dropMouseReleased = true;
             if (_sceneContext.PauseMenu != null && _sceneContext.PauseMenu.IsOpen)
             {
+                EndPlacementStroke();
                 EndMudDrying();
                 return;
             }
@@ -236,11 +266,6 @@ namespace GuardWave
             if (ambientFlowPreview && !_ambientFlowRunning)
                 _fluid?.PrewarmOneKernel();
             _flipRenderer.Render(_fluid);
-            Mouse mouse = Mouse.current;
-            // Track releases while pieces are falling or a popup is open.
-            if (mouse != null && mouse.leftButton.wasReleasedThisFrame)
-                _dropMouseReleased = true;
-
             UpdateCameraInput();
             if (!_stageTransitioning && !_awaitingStage && !_finished)
                 UpdateHoveredPiece();
@@ -248,6 +273,7 @@ namespace GuardWave
                 SetOutlineTargets(null);
             if (_resolving || _awaitingStage || _finished || _rulesOpen)
             {
+                EndPlacementStroke();
                 EndMudDrying();
                 HideDropPreview();
                 return;
@@ -275,22 +301,156 @@ namespace GuardWave
             }
             EndMudDrying();
 
+            UpdateObjectPlacement(mouse);
+        }
+
+        /// <summary>
+        /// A normal palette object starts on mouse-down and continues whenever
+        /// its projected XZ footprint first clears all earlier drops in the stroke.
+        /// Mouse motion is queued so quick drags do not skip their intermediate path.
+        /// </summary>
+        private void UpdateObjectPlacement(Mouse mouse)
+        {
+            if (_placementStroke != null)
+            {
+                if (mouse == null || mouse.rightButton.isPressed)
+                {
+                    EndPlacementStroke();
+                    return;
+                }
+
+                // Include the release frame's final cursor coordinate as well.
+                if ((mouse.leftButton.isPressed || mouse.leftButton.wasReleasedThisFrame) &&
+                    !_placementStrokeReleased)
+                {
+                    if (TryGetPlacementXZ(mouse.position.ReadValue(), out Vector3 world))
+                    {
+                        Vector2 cursor = new Vector2(world.x, world.z);
+                        _placementStrokePath.Enqueue(new PlacementPathPoint(cursor,
+                            !_placementStrokeCursorValid));
+                        _placementStrokeCursorValid = true;
+                    }
+                    else
+                    {
+                        // Do not emit pieces across UI or outside the placement area.
+                        _placementStrokeCursorValid = false;
+                    }
+                }
+                if (!mouse.leftButton.isPressed)
+                    _placementStrokeReleased = true;
+
+                DrainPlacementStroke();
+                if (_placementStrokeReleased && _placementStrokePath.Count == 0)
+                    EndPlacementStroke();
+                return;
+            }
+
             if (mouse == null || !mouse.leftButton.wasPressedThisFrame ||
                 mouse.rightButton.isPressed || mouse.rightButton.wasReleasedThisFrame ||
                 !_dropMouseReleased || _selected < 0 ||
-                Time.unscaledTime - _lastDropTime < dropClickCooldown)
+                Time.unscaledTime - _lastDropTime < dropClickCooldown ||
+                !TryGetPlacementXZ(mouse.position.ReadValue(), out Vector3 placement))
                 return;
 
-            if (!TryGetPlacementXZ(mouse.position.ReadValue(), out Vector3 placement))
+            GuardWaveMaterial material = _offers[_selected];
+            if (material == null) return;
+            if (GetRemainingPlacements(material.id) <= 0)
+            {
+                _status = material.name + " 배치 수량을 모두 사용했습니다.";
                 return;
+            }
+            GameObject prefab = Resources.Load<GameObject>("Prefabs/Objects/" + material.id);
+            if (prefab == null) return;
 
-            // An actual placement requires a new mouse-down after release and
-            // at least 0.1 seconds since the previous accepted placement.
+            _placementStroke = GuardWavePlacementFootprint.FromPrefab(prefab);
+            _placementStrokePieces.Clear();
+            _placementStrokePath.Clear();
+            _placementStrokeProcessedXZ = new Vector2(placement.x, placement.z);
+            _placementStrokeCursorValid = true;
+            _placementStrokeReleased = false;
             _dropMouseReleased = false;
             _lastDropTime = Time.unscaledTime;
             HideDropPreview();
-            StartCoroutine(DropAndResolve(_offers[_selected],
-                new Vector3(placement.x, _placementBounds.max.y + dropHeight, placement.z)));
+            PlaceStrokePiece(material, _placementStrokeProcessedXZ);
+            if (GetRemainingPlacements(material.id) == 0)
+            {
+                EndPlacementStroke();
+                _status = material.name + " 배치 수량을 모두 사용했습니다.";
+            }
+        }
+
+        private void DrainPlacementStroke()
+        {
+            int remaining = MAX_DRAG_PLACEMENTS_PER_FRAME;
+            while (remaining > 0 && _placementStrokePath.Count > 0)
+            {
+                GuardWaveMaterial material = _offers[_selected];
+                if (material == null || GetRemainingPlacements(material.id) == 0)
+                {
+                    EndPlacementStroke();
+                    return;
+                }
+                PlacementPathPoint next = _placementStrokePath.Peek();
+                if (next.BreakPath)
+                {
+                    _placementStrokeProcessedXZ = next.XZ;
+                    _placementStrokePath.Dequeue();
+                    continue;
+                }
+
+                if (!_placementStroke.TryFindFirstFree(_placementStrokeProcessedXZ,
+                    next.XZ, _objectYaw, out Vector2 placement))
+                {
+                    _placementStrokeProcessedXZ = next.XZ;
+                    _placementStrokePath.Dequeue();
+                    continue;
+                }
+
+                PlaceStrokePiece(material, placement);
+                _placementStrokeProcessedXZ = placement;
+                remaining--;
+                if (GetRemainingPlacements(material.id) == 0)
+                {
+                    EndPlacementStroke();
+                    _status = material.name + " 배치 수량을 모두 사용했습니다.";
+                    return;
+                }
+
+                // Resume at this position on the next iteration/frame; the newly
+                // recorded footprint prevents duplicate drops at the same XZ.
+                if ((next.XZ - placement).sqrMagnitude < 1e-8f)
+                    _placementStrokePath.Dequeue();
+            }
+        }
+
+        private void PlaceStrokePiece(GuardWaveMaterial material, Vector2 xz)
+        {
+            Vector3 start = new Vector3(xz.x, _placementBounds.max.y + dropHeight, xz.y);
+            GuardWavePiece piece = Spawn(material, start);
+            _placementStrokePieces.Add(piece);
+            _placementStroke.Record(xz, _objectYaw);
+            _status = material.name + " 연속 배치 중. 마우스를 놓으면 배치가 완료됩니다.";
+        }
+
+        /// <summary>
+        /// A full gesture is one Undo checkpoint, not one snapshot per Rigidbody.
+        /// The existing settlement refresh still updates its final pose later.
+        /// </summary>
+        private void EndPlacementStroke()
+        {
+            if (_placementStroke == null) return;
+            _placementStroke = null;
+            _placementStrokePath.Clear();
+            _placementStrokeCursorValid = false;
+            _placementStrokeReleased = false;
+            if (_placementStrokePieces.Count == 0) return;
+
+            List<GuardWavePiece> placed = new List<GuardWavePiece>(_placementStrokePieces);
+            _placementStrokePieces.Clear();
+            _playerPlacementCount += placed.Count;
+            WaveSnapshot snapshot = SaveEditState(false);
+            StartCoroutine(ResolvePlacementStroke(snapshot, placed, _placementStrokeEpoch));
+            _status = placed.Count + "개 배치 완료. 같은 기물을 계속 배치할 수 있습니다.";
         }
 
         /// <summary>Esc 또는 우클릭으로 현재 기물 선택을 해제한다.</summary>
@@ -298,6 +458,7 @@ namespace GuardWave
         {
             if (_resolving || _awaitingStage || _finished || _rulesOpen) return;
             _paletteOpen = true;
+            EndPlacementStroke();
             EndMudPainting();
             EndMudDrying();
             _selected = -1;
@@ -681,7 +842,10 @@ namespace GuardWave
                 return;
             }
 
-            bool canPlace = CanPlaceAt(placement);
+            bool canPlace = CanPlaceAt(placement) &&
+                GetRemainingPlacements(_offers[_selected].id) > 0 &&
+                (_placementStroke == null ||
+                 !_placementStroke.Overlaps(new Vector2(placement.x, placement.z), _objectYaw));
             _dropPreview.Show(_offers[_selected], placement,
                 Quaternion.Euler(0f, _objectYaw, 0f),
                 _placementBounds.max.y + dropHeight, canPlace,
@@ -787,7 +951,7 @@ namespace GuardWave
             // While a Forest palette tool is selected, hovered physics
             // objects must not compete with the placement / paint preview.
             // Keep Fog's hover behavior unchanged.
-            bool paintingOrPlacing = _offers[0]?.id == "mud" && _selected >= 0;
+            bool paintingOrPlacing = _selected >= 0 && _offers[_selected]?.id == "mud";
             SetOutlineTargets(paintingOrPlacing ? null : piece);
             _hud.SetHoveredPiece(piece, position);
         }
@@ -870,6 +1034,7 @@ namespace GuardWave
         public bool IsPaletteHidden => false;
         public bool CanReady => (!ambientFlowPreview ||
             (_fluid != null && _fluid.IsShaderPrewarmed)) &&
+            _placementStroke == null &&
             !_stageTransitioning && !_resolving && !_awaitingStage
             && !_finished && !_rulesOpen && _defenseFlag != null
             && _defenseFlag.activeInHierarchy;
@@ -893,6 +1058,35 @@ namespace GuardWave
         public bool IsFinished => _finished;
         public string StatusMessage => _status;
         public int PieceCount => _pieces.Count;
+        public GuardWaveStageInfo StageInfo => _stageInfo;
+
+        /// <summary>Each stage controls its own palette quotas through StageInfo.json.</summary>
+        public int GetPlacementLimit(string materialId)
+        {
+            if (_stageInfo?.palette == null) return -1;
+            foreach (GuardWavePaletteEntry entry in _stageInfo.palette)
+                if (entry.materialId == materialId)
+                    return entry.placementLimit;
+            return -1;
+        }
+
+        /// <summary>
+        /// Count only currently placed player-created objects, never authored
+        /// Forest logs. Destroy, manual removal and snapshot restoration update
+        /// _pieces, so Undo and retries automatically restore the correct quota.
+        /// </summary>
+        public int GetRemainingPlacements(string materialId)
+        {
+            int limit = GetPlacementLimit(materialId);
+            if (limit < 0) return int.MaxValue;
+            int used = 0;
+            foreach (GuardWavePiece piece in _pieces)
+                if (piece != null && _runtimePieces.Contains(piece) &&
+                    piece.MaterialId == materialId)
+                    used++;
+            return Mathf.Max(0, limit - used);
+        }
+
         public int SelectedOffer => _selected;
         public GuardWaveMaterial[] CurrentOffers => _offers;
 
@@ -901,6 +1095,7 @@ namespace GuardWave
         {
             if (!CanSelect || index < 0 || index >= _offers.Length) return;
             if (_offers[index] == null) return;
+            EndPlacementStroke();
             EndMudPainting();
             EndMudDrying();
             SetOutlineTargets(null);
@@ -913,6 +1108,7 @@ namespace GuardWave
         {
             if (isOpen)
             {
+                EndPlacementStroke();
                 EndMudPainting();
                 EndMudDrying();
             }
@@ -1105,6 +1301,12 @@ namespace GuardWave
             _stage = 0;
             _selected = -1;
             _paletteOpen = true;
+            _placementStroke = null;
+            _placementStrokePieces.Clear();
+            _placementStrokePath.Clear();
+            _placementStrokeCursorValid = false;
+            _placementStrokeReleased = false;
+            _placementStrokeEpoch++;
             _pendingDrops = 0;
             _lastDropTime = float.NegativeInfinity;
             _dropMouseReleased = true;
@@ -1298,39 +1500,51 @@ namespace GuardWave
             return piece;
         }
 
-        /// <summary>Fog has only the placeable building in slot 1; Forest keeps its three tools.</summary>
+        /// <summary>Palette order, material choices and quotas all come from StageInfo.json.</summary>
         private void DealOffers()
         {
-            bool fogScene = GetComponent<FogSceneController>() != null;
-            _offers[0] = _catalog.Get(fogScene ? "building" : "mud");
-            _offers[1] = fogScene ? null : _catalog.Get("log");
-            _offers[2] = fogScene ? null : _catalog.Get("forest_pebble");
-            _offers[3] = fogScene ? null : _catalog.Get("hair_dryer");
+            Array.Clear(_offers, 0, _offers.Length);
+            for (int i = 0; i < _stageInfo.palette.Length; i++)
+            {
+                string materialId = _stageInfo.palette[i].materialId;
+                GuardWaveMaterial material = _catalog.Get(materialId);
+                if (material == null || material.startOnly)
+                    throw new InvalidOperationException(
+                        "StageInfo palette references a missing or start-only material: " + materialId);
+                _offers[i] = material;
+            }
             _selected = -1;
             _paletteOpen = true;
             HideDropPreview();
         }
 
-        /// <summary>기물 배치 후 후보를 즉시 갱신하고 떨어지는 기물 수를 추적한다.</summary>
-        private IEnumerator DropAndResolve(GuardWaveMaterial material, Vector3 position)
+        /// <summary>드래그로 생성한 모든 물체가 안정화된 뒤 한 번만 체크포인트를 갱신한다.</summary>
+        private IEnumerator ResolvePlacementStroke(WaveSnapshot placementState,
+            List<GuardWavePiece> placed, int epoch)
         {
-            GuardWavePiece dropped = Spawn(material, position);
-            WaveSnapshot placementState = SaveEditState(true);
             _pendingDrops++;
-            _status = material.name + " 배치 중. 같은 기물을 계속 배치하거나 준비완료를 누르세요.";
-
             float elapsed = 0f;
             while (elapsed < 7f)
             {
                 yield return new WaitForFixedUpdate();
+                if (epoch != _placementStrokeEpoch) yield break;
                 elapsed += Time.fixedDeltaTime;
-                if (dropped == null || (elapsed >= 1.2f && dropped.Body.IsSleeping()))
-                    break;
+                if (elapsed < 1.2f) continue;
+
+                bool settled = true;
+                foreach (GuardWavePiece piece in placed)
+                {
+                    if (piece != null && piece.gameObject.activeInHierarchy &&
+                        !piece.Body.IsSleeping())
+                    {
+                        settled = false;
+                        break;
+                    }
+                }
+                if (settled) break;
             }
 
             _pendingDrops--;
-            // Update the checkpoint with the settled pose, but never overwrite a
-            // newer action or a checkpoint already removed by Ctrl+Z.
             RefreshLatestEditState(placementState);
             if (_pendingDrops == 0 && !_stageTransitioning && !_awaitingStage)
                 _status = "배치 완료. 준비완료를 누르면 파도가 시작됩니다.";
@@ -1408,6 +1622,7 @@ namespace GuardWave
         public void Ready()
         {
             if (!CanReady) return;
+            EndPlacementStroke();
             EndMudPainting();
             EndMudDrying();
             SetOutlineTargets(null);
@@ -1641,6 +1856,7 @@ namespace GuardWave
                         _waveSnapshot = _editHistory[i];
                         break;
                     }
+            EndPlacementStroke();
             EndMudPainting();
             EndMudDrying();
             // Keep the flood coroutine and GPU particle buffers alive so
@@ -1871,11 +2087,14 @@ namespace GuardWave
         {
             if (_stageTransitioning || _awaitingStage || _finished || _rulesOpen ||
                 _resolving) return;
+            EndPlacementStroke();
             EndMudDrying(); // Cancel partial heating; it is not an edit.
             // Ending a brush gesture commits it first, so Ctrl+Z removes that stroke.
             EndMudPainting();
             if (_editHistory.Count <= 1) return;
             _editHistory.RemoveAt(_editHistory.Count - 1);
+            _placementStrokeEpoch++;
+            _pendingDrops = 0;
             // A fresh upstream inflow is part of an initial-impact retry:
             // no old GPU particles may immediately hit the restored 80 N joint.
             DisposeFluid();
