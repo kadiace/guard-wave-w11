@@ -318,7 +318,9 @@ namespace GuardWave
                     return;
                 }
 
-                if (mouse.leftButton.isPressed && !_placementStrokeReleased)
+                // Include the release frame's final cursor coordinate as well.
+                if ((mouse.leftButton.isPressed || mouse.leftButton.wasReleasedThisFrame) &&
+                    !_placementStrokeReleased)
                 {
                     if (TryGetPlacementXZ(mouse.position.ReadValue(), out Vector3 world))
                     {
@@ -333,10 +335,8 @@ namespace GuardWave
                         _placementStrokeCursorValid = false;
                     }
                 }
-                else
-                {
+                if (!mouse.leftButton.isPressed)
                     _placementStrokeReleased = true;
-                }
 
                 DrainPlacementStroke();
                 if (_placementStrokeReleased && _placementStrokePath.Count == 0)
@@ -988,6 +988,7 @@ namespace GuardWave
         public bool IsPaletteHidden => false;
         public bool CanReady => (!ambientFlowPreview ||
             (_fluid != null && _fluid.IsShaderPrewarmed)) &&
+            _placementStroke == null &&
             !_stageTransitioning && !_resolving && !_awaitingStage
             && !_finished && !_rulesOpen && _defenseFlag != null
             && _defenseFlag.activeInHierarchy;
