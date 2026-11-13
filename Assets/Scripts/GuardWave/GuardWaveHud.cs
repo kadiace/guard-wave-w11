@@ -13,6 +13,7 @@ namespace GuardWave
     {
         private readonly Button[] _cards = new Button[4];
         private readonly Text[] _names = new Text[4];
+        private readonly Text[] _remainingLabels = new Text[4];
         private readonly Image[] _silhouettes = new Image[4];
         private readonly Image[] _backgrounds = new Image[4];
         private readonly string[] _shownIds = new string[4];
@@ -99,6 +100,7 @@ namespace GuardWave
                 Transform candidate = candidates.GetChild(i);
                 _cards[i] = candidate.GetComponent<Button>();
                 _names[i] = candidate.Find("MaterialName").GetComponent<Text>();
+                _remainingLabels[i] = CreateRemainingLabel(candidate, _names[i].font);
                 _silhouettes[i] = candidate.Find("Silhouette").GetComponent<Image>();
                 _backgrounds[i] = candidate.GetComponent<Image>();
                 _cards[i].onClick.AddListener(() => _game.SelectOffer(index));
@@ -131,7 +133,8 @@ namespace GuardWave
 바른 자국 위에 통나무나 조약돌이 떨어지면 부착됩니다.
 헤어 드라이기를 선택하고 젖은 진흙을 1초간 좌클릭하면 마릅니다.
 마른 진흙은 새 기물을 부착하지 않고 기존 FixedJoint의 Break Force/Torque가 2배가 됩니다.
-통나무와 조약돌은 클릭 위치 위에서 떨어뜨려 무제한 배치할 수 있습니다.
+통나무와 조약돌은 각각 100개까지 배치할 수 있으며, 남은 개수는 팔레트에 표시됩니다.
+팔레트에서 재료를 선택해 마우스를 누른 채 드래그하면 겹치지 않는 지점마다 연속 배치됩니다.
 선택한 재료는 우클릭으로 해제하기 전까지 계속 사용할 수 있습니다.
 하단의 준비완료를 누르면 홍수가 밀려옵니다.
 깃발을 지키세요! 파도에 깃발이 밀려 절벽 뒤 파괴 경계를 넘으면 방어에 실패합니다.
@@ -146,7 +149,9 @@ Ctrl+Z: 최근 기물 배치, 진흙 붓질 또는 수동 제거 되돌리기
 홍수에 밀려 절벽 뒤로 넘어간 기물은 파괴됩니다.
 ";
             if (_fogMode != null)
-                _rulesBody.text = "기물을 배치한 후 준비 완료를 누르면 안개가 상류에서 몰려옵니다.\n"
+                _rulesBody.text = "건물을 최대 10개 배치할 수 있으며, 남은 개수는 팔레트에 표시됩니다.\n"
+                    + "마우스를 누른 채 드래그하면 건물이 겹치지 않는 지점마다 연속 배치됩니다.\n"
+                    + "기물을 배치한 후 준비 완료를 누르면 안개가 상류에서 몰려옵니다.\n"
                     + "안개는 건물과 기물을 돌아 -Z 방향으로 흐르며 옆으로 확산됩니다.\n"
                     + "안개가 지나간 뒤 깃발이 살아 있다면 스테이지를 클리어합니다.\n\n"
                     + "우클릭 드래그: 카메라 이동 / 스크롤: 확대 / Q/E: 기물 회전";
@@ -204,6 +209,43 @@ Ctrl+Z: 최근 기물 배치, 진흙 붓질 또는 수동 제거 되돌리기
         /// <summary>프리팹의 하위 경로에서 UGUI 텍스트 참조를 찾아 반환한다.</summary>
         private Text FindText(string path) => transform.Find(path).GetComponent<Text>();
 
+        /// <summary>
+        /// An overlay on the palette card shows remaining/total while leaving
+        /// the existing vertical layout, silhouette and tooltip intact.
+        /// </summary>
+        private static Text CreateRemainingLabel(Transform candidate, Font font)
+        {
+            GameObject counter = new GameObject("RemainingCount",
+                typeof(RectTransform), typeof(CanvasRenderer),
+                typeof(Text), typeof(LayoutElement), typeof(Outline));
+            counter.transform.SetParent(candidate, false);
+            LayoutElement element = counter.GetComponent<LayoutElement>();
+            element.ignoreLayout = true;
+            RectTransform rect = counter.GetComponent<RectTransform>();
+            rect.anchorMin = new Vector2(1f, 0f);
+            rect.anchorMax = new Vector2(1f, 0f);
+            rect.pivot = new Vector2(1f, 0f);
+            rect.anchoredPosition = new Vector2(-8f, 6f);
+            rect.sizeDelta = new Vector2(86f, 24f);
+
+            Text text = counter.GetComponent<Text>();
+            text.font = font;
+            text.fontSize = 17;
+            text.fontStyle = FontStyle.Bold;
+            text.alignment = TextAnchor.MiddleRight;
+            text.color = Color.white;
+            text.raycastTarget = false;
+            text.horizontalOverflow = HorizontalWrapMode.Overflow;
+            text.verticalOverflow = VerticalWrapMode.Overflow;
+
+            Outline outline = counter.GetComponent<Outline>();
+            outline.effectColor = new Color(0f, 0f, 0f, 0.85f);
+            outline.effectDistance = new Vector2(1f, -1f);
+            counter.transform.SetAsLastSibling();
+            counter.SetActive(false);
+            return text;
+        }
+
         /// <summary>상단 스테이지 정보, 하단 카드, 버튼, 팝업을 현재 게임 상태로 갱신한다.</summary>
         /// <summary>ESC 메뉴가 가이드를 먼저 닫도록 현재 표시 상태를 공개한다.</summary>
         public bool IsRulesOpen => _rulesPopup != null && _rulesPopup.activeSelf;
@@ -247,6 +289,7 @@ Ctrl+Z: 최근 기물 배치, 진흙 붓질 또는 수동 제거 되돌리기
                         _cards[i].gameObject.SetActive(false);
                     _shownIds[i] = null;
                     _names[i].text = "";
+                    _remainingLabels[i].gameObject.SetActive(false);
                     _silhouettes[i].sprite = null;
                     _silhouettes[i].color = Color.clear;
                     _cards[i].interactable = false;
@@ -263,10 +306,27 @@ Ctrl+Z: 최근 기물 배치, 진흙 붓질 또는 수동 제거 되돌리기
                     _silhouettes[i].color = Color.white;
                     _silhouettes[i].preserveAspect = true;
                 }
-                _cards[i].interactable = _game.CanSelect;
-                _backgrounds[i].color = _game.SelectedOffer == i
-                    ? new Color(0.29f, 0.46f, 0.57f, 1f)
-                    : new Color(0.2f, 0.3f, 0.37f, 1f);
+                int limit = _game.GetPlacementLimit(info.id);
+                int remaining = limit < 0 ? -1 : _game.GetRemainingPlacements(info.id);
+                Text counter = _remainingLabels[i];
+                if (limit >= 0)
+                {
+                    if (!counter.gameObject.activeSelf) counter.gameObject.SetActive(true);
+                    string quantity = remaining + "/" + limit;
+                    if (counter.text != quantity) counter.text = quantity;
+                    counter.color = remaining == 0
+                        ? new Color(1f, 0.48f, 0.43f, 1f) : Color.white;
+                }
+                else if (counter.gameObject.activeSelf)
+                    counter.gameObject.SetActive(false);
+
+                bool exhausted = limit >= 0 && remaining == 0;
+                _cards[i].interactable = _game.CanSelect && !exhausted;
+                _backgrounds[i].color = exhausted
+                    ? new Color(0.17f, 0.2f, 0.23f, 1f)
+                    : _game.SelectedOffer == i
+                        ? new Color(0.29f, 0.46f, 0.57f, 1f)
+                        : new Color(0.2f, 0.3f, 0.37f, 1f);
             }
 
             if (!_game.CanShowItemInfo)
