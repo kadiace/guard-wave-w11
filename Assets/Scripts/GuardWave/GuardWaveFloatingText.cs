@@ -82,6 +82,7 @@ namespace GuardWave
             // Per-text outline setters instantiate a material for each label.
             // All floating labels can instead share one outlined font material.
             _outlineMaterial = new Material(_font.material);
+            _outlineMaterial.EnableKeyword("OUTLINE_ON");
             _outlineMaterial.SetFloat("_OutlineWidth", 0.22f);
             _outlineMaterial.SetColor("_OutlineColor", Color.black);
 
@@ -114,6 +115,7 @@ namespace GuardWave
             TextMeshProUGUI text = label.GetComponent<TextMeshProUGUI>();
             text.font = _font;
             text.fontSharedMaterial = _outlineMaterial;
+            text.UpdateMeshPadding();
             text.alignment = TextAlignmentOptions.Center;
             text.raycastTarget = false;
             text.textWrappingMode = TextWrappingModes.NoWrap;
