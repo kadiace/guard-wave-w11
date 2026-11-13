@@ -67,6 +67,14 @@ namespace GuardWave
         public bool IsFull => _points.Count >= MaxSamples;
         public bool IsDry => _isDry;
 
+        // Painting on a piece must be indexed even before another body bonds to it.
+        private void TrackSurfacePiece()
+        {
+            if (_surfaceBody == null) return;
+            GuardWavePiece piece = _surfaceBody.GetComponent<GuardWavePiece>();
+            if (piece != null) _game?.TrackMudPatch(piece, this);
+        }
+
         /// <summary>
         /// Mud is a render mesh over trigger colliders, not a raycastable solid.
         /// Hit-test the actual painted samples against the underlying surface
@@ -144,6 +152,7 @@ namespace GuardWave
             _surfaceBody = surfaceBody;
             _breakForce = breakForce;
             _breakTorque = breakTorque;
+            TrackSurfacePiece();
 
             MeshFilter filter = gameObject.AddComponent<MeshFilter>();
             MeshRenderer renderer = gameObject.AddComponent<MeshRenderer>();
@@ -164,6 +173,7 @@ namespace GuardWave
             _surfaceBody = surfaceBody;
             _breakForce = breakForce;
             _breakTorque = breakTorque;
+            TrackSurfacePiece();
             // Scene-authored mud uses many rendered child meshes under one patch.
             // Cure all together without modifying the shared Mud.mat asset.
             MeshRenderer[] renderers = GetComponentsInChildren<MeshRenderer>(true);
@@ -572,6 +582,7 @@ namespace GuardWave
 
             if (!touchesPaint) return false;
             _bonds.Add(piece, joint);
+            _game.TrackMudPatch(piece, this);
             _game.RegisterMudBond(piece, joint);
             // The authored joint has the same wet/dry lifecycle as a painted bond.
             GuardWaveInitialLogJoint initialLog = piece.GetComponent<GuardWaveInitialLogJoint>();
@@ -744,6 +755,7 @@ namespace GuardWave
             joint.breakTorque = _breakTorque * (_isDry ? 2f : 1f);
             joint.enableCollision = false;
             _bonds[piece] = joint;
+            _game?.TrackMudPatch(piece, this);
             _game?.RegisterMudBond(piece, joint);
         }
 
@@ -754,6 +766,7 @@ namespace GuardWave
             if (joint != null) return true;
             _game?.ReleaseMudBond(piece, joint);
             _bonds.Remove(piece);
+            _game?.UntrackMudPatch(piece, this);
             return false;
         }
 
@@ -769,6 +782,7 @@ namespace GuardWave
             _game?.ReleaseMudBond(piece, joint);
             if (joint != null) Destroy(joint);
             _bonds.Remove(piece);
+            _game?.UntrackMudPatch(piece, this);
         }
 
         public void CaptureBonds(List<MudBondState> destination)
@@ -783,6 +797,7 @@ namespace GuardWave
             foreach (KeyValuePair<GuardWavePiece, FixedJoint> bond in _bonds)
             {
                 _game?.ReleaseMudBond(bond.Key, bond.Value);
+                _game?.UntrackMudPatch(bond.Key, this);
                 if (bond.Value != null) Destroy(bond.Value);
             }
             _bonds.Clear();
@@ -812,6 +827,11 @@ namespace GuardWave
         private void OnDestroy()
         {
             ClearBonds();
+            if (_surfaceBody != null)
+            {
+                GuardWavePiece surfacePiece = _surfaceBody.GetComponent<GuardWavePiece>();
+                if (surfacePiece != null) _game?.UntrackMudPatch(surfacePiece, this);
+            }
             if (_instanceMaterial != null) Destroy(_instanceMaterial);
             if (_mesh != null) Destroy(_mesh);
         }
