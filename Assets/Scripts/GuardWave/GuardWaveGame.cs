@@ -112,6 +112,7 @@ namespace GuardWave
         private readonly GuardWaveMaterial[] _offers = new GuardWaveMaterial[4];
         private ForestSceneContext _sceneContext;
         private GuardWaveCatalog _catalog;
+        private GuardWaveStageInfo _stageInfo;
         private GuardWaveHud _hud;
         private GuardWaveDropPreview _dropPreview;
         private GuardWaveFlipRenderer _flipRenderer;
@@ -182,6 +183,7 @@ namespace GuardWave
         {
             _sceneContext = GetComponent<ForestSceneContext>();
             _catalog = new GuardWaveCatalog();
+            _stageInfo = GuardWaveStageInfoFile.LoadForScene(gameObject.scene.name);
             _fluidSettings = Resources.Load<GuardWaveFluidSettings>("Datas/GuardWaveFluidSettings");
             if (_fluidSettings == null) throw new InvalidOperationException("Missing Resources/Datas/GuardWaveFluidSettings.asset");
             ConfigureScene();
@@ -949,7 +951,7 @@ namespace GuardWave
             // While a Forest palette tool is selected, hovered physics
             // objects must not compete with the placement / paint preview.
             // Keep Fog's hover behavior unchanged.
-            bool paintingOrPlacing = _offers[0]?.id == "mud" && _selected >= 0;
+            bool paintingOrPlacing = _selected >= 0 && _offers[_selected]?.id == "mud";
             SetOutlineTargets(paintingOrPlacing ? null : piece);
             _hud.SetHoveredPiece(piece, position);
         }
@@ -1056,17 +1058,16 @@ namespace GuardWave
         public bool IsFinished => _finished;
         public string StatusMessage => _status;
         public int PieceCount => _pieces.Count;
+        public GuardWaveStageInfo StageInfo => _stageInfo;
 
-        /// <summary>One quota per material; a negative value means an unlimited tool.</summary>
+        /// <summary>Each stage controls its own palette quotas through StageInfo.json.</summary>
         public int GetPlacementLimit(string materialId)
         {
-            switch (materialId)
-            {
-                case "log": return 100;
-                case "forest_pebble": return 100;
-                case "building": return 10;
-                default: return -1;
-            }
+            if (_stageInfo?.palette == null) return -1;
+            foreach (GuardWavePaletteEntry entry in _stageInfo.palette)
+                if (entry.materialId == materialId)
+                    return entry.placementLimit;
+            return -1;
         }
 
         /// <summary>
@@ -1491,14 +1492,19 @@ namespace GuardWave
             return piece;
         }
 
-        /// <summary>Fog has only the placeable building in slot 1; Forest keeps its three tools.</summary>
+        /// <summary>Palette order, material choices and quotas all come from StageInfo.json.</summary>
         private void DealOffers()
         {
-            bool fogScene = GetComponent<FogSceneController>() != null;
-            _offers[0] = _catalog.Get(fogScene ? "building" : "mud");
-            _offers[1] = fogScene ? null : _catalog.Get("log");
-            _offers[2] = fogScene ? null : _catalog.Get("forest_pebble");
-            _offers[3] = fogScene ? null : _catalog.Get("hair_dryer");
+            Array.Clear(_offers, 0, _offers.Length);
+            for (int i = 0; i < _stageInfo.palette.Length; i++)
+            {
+                string materialId = _stageInfo.palette[i].materialId;
+                GuardWaveMaterial material = _catalog.Get(materialId);
+                if (material == null || material.startOnly)
+                    throw new InvalidOperationException(
+                        "StageInfo palette references a missing or start-only material: " + materialId);
+                _offers[i] = material;
+            }
             _selected = -1;
             _paletteOpen = true;
             HideDropPreview();
