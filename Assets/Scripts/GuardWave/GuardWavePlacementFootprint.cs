@@ -240,7 +240,7 @@ namespace GuardWave
             return false;
         }
 
-        private static bool IntersectDuringTravel(Vector2 moving, Vector2[] fixedShape,
+        private static bool IntersectDuringTravel(Vector2[] moving, Vector2[] fixedShape,
             Vector2 delta, out float first, out float last)
         {
             first = 0f;
