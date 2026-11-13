@@ -96,7 +96,17 @@ namespace GuardWave
                 points.Add(new Vector2(cx + hx, cz + hz));
             }
 
-            return new GuardWavePlacementFootprint(ConvexHull(points));
+            Vector2[] hull = ConvexHull(points);
+            if (hull.Length < 3)
+            {
+                // Also handle long, perfectly collinear projected meshes.
+                points.Add(new Vector2(minX - 0.01f, minZ - 0.01f));
+                points.Add(new Vector2(minX - 0.01f, maxZ + 0.01f));
+                points.Add(new Vector2(maxX + 0.01f, minZ - 0.01f));
+                points.Add(new Vector2(maxX + 0.01f, maxZ + 0.01f));
+                hull = ConvexHull(points);
+            }
+            return new GuardWavePlacementFootprint(hull);
         }
 
         private static void AddMesh(Mesh mesh, Transform transform, Transform root,
