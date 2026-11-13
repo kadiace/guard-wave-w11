@@ -2,7 +2,7 @@
   "stages": [
     {
       "sceneName": "Forest",
-      "disasterName": "파도",
+      "disasterName": "홍수",
       "countdownSeconds": 120,
       "palette": [
         {
