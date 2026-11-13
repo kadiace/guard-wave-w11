@@ -352,6 +352,11 @@ namespace GuardWave
 
             GuardWaveMaterial material = _offers[_selected];
             if (material == null) return;
+            if (GetRemainingPlacements(material.id) <= 0)
+            {
+                _status = material.name + " 배치 수량을 모두 사용했습니다.";
+                return;
+            }
             GameObject prefab = Resources.Load<GameObject>("Prefabs/Objects/" + material.id);
             if (prefab == null) return;
 
@@ -365,6 +370,11 @@ namespace GuardWave
             _lastDropTime = Time.unscaledTime;
             HideDropPreview();
             PlaceStrokePiece(material, _placementStrokeProcessedXZ);
+            if (GetRemainingPlacements(material.id) == 0)
+            {
+                EndPlacementStroke();
+                _status = material.name + " 배치 수량을 모두 사용했습니다.";
+            }
         }
 
         private void DrainPlacementStroke()
@@ -372,6 +382,12 @@ namespace GuardWave
             int remaining = MAX_DRAG_PLACEMENTS_PER_FRAME;
             while (remaining > 0 && _placementStrokePath.Count > 0)
             {
+                GuardWaveMaterial material = _offers[_selected];
+                if (material == null || GetRemainingPlacements(material.id) == 0)
+                {
+                    EndPlacementStroke();
+                    return;
+                }
                 PlacementPathPoint next = _placementStrokePath.Peek();
                 if (next.BreakPath)
                 {
@@ -388,9 +404,15 @@ namespace GuardWave
                     continue;
                 }
 
-                PlaceStrokePiece(_offers[_selected], placement);
+                PlaceStrokePiece(material, placement);
                 _placementStrokeProcessedXZ = placement;
                 remaining--;
+                if (GetRemainingPlacements(material.id) == 0)
+                {
+                    EndPlacementStroke();
+                    _status = material.name + " 배치 수량을 모두 사용했습니다.";
+                    return;
+                }
 
                 // Resume at this position on the next iteration/frame; the newly
                 // recorded footprint prevents duplicate drops at the same XZ.
@@ -819,6 +841,7 @@ namespace GuardWave
             }
 
             bool canPlace = CanPlaceAt(placement) &&
+                GetRemainingPlacements(_offers[_selected].id) > 0 &&
                 (_placementStroke == null ||
                  !_placementStroke.Overlaps(new Vector2(placement.x, placement.z), _objectYaw));
             _dropPreview.Show(_offers[_selected], placement,
@@ -1033,6 +1056,36 @@ namespace GuardWave
         public bool IsFinished => _finished;
         public string StatusMessage => _status;
         public int PieceCount => _pieces.Count;
+
+        /// <summary>One quota per material; a negative value means an unlimited tool.</summary>
+        public int GetPlacementLimit(string materialId)
+        {
+            switch (materialId)
+            {
+                case "log": return 100;
+                case "forest_pebble": return 100;
+                case "building": return 10;
+                default: return -1;
+            }
+        }
+
+        /// <summary>
+        /// Count only currently placed player-created objects, never authored
+        /// Forest logs. Destroy, manual removal and snapshot restoration update
+        /// _pieces, so Undo and retries automatically restore the correct quota.
+        /// </summary>
+        public int GetRemainingPlacements(string materialId)
+        {
+            int limit = GetPlacementLimit(materialId);
+            if (limit < 0) return int.MaxValue;
+            int used = 0;
+            foreach (GuardWavePiece piece in _pieces)
+                if (piece != null && _runtimePieces.Contains(piece) &&
+                    piece.MaterialId == materialId)
+                    used++;
+            return Mathf.Max(0, limit - used);
+        }
+
         public int SelectedOffer => _selected;
         public GuardWaveMaterial[] CurrentOffers => _offers;
 
