@@ -129,11 +129,11 @@ namespace GuardWave
             _completePopup.SetActive(false);
             _rulesPopup.SetActive(false);
             _tooltip.SetActive(false);
-            _rulesBody.text = @"진흙을 선택하고 왼쪽 버튼으로 드래그하면 커서 아래 가장 가까운 물체 표면에 풀이 발립니다.
+            _rulesBody.text = $@"진흙을 선택하고 왼쪽 버튼으로 드래그하면 커서 아래 가장 가까운 물체 표면에 풀이 발립니다.
 바른 자국 위에 통나무나 조약돌이 떨어지면 부착됩니다.
 헤어 드라이기를 선택하고 젖은 진흙을 1초간 좌클릭하면 마릅니다.
 마른 진흙은 새 기물을 부착하지 않고 기존 FixedJoint의 Break Force/Torque가 2배가 됩니다.
-통나무와 조약돌은 각각 100개까지 배치할 수 있으며, 남은 개수는 팔레트에 표시됩니다.
+통나무는 {_game.GetPlacementLimit("log")}개, 조약돌은 {_game.GetPlacementLimit("forest_pebble")}개까지 배치할 수 있으며, 남은 개수는 팔레트에 표시됩니다.
 팔레트에서 재료를 선택해 마우스를 누른 채 드래그하면 겹치지 않는 지점마다 연속 배치됩니다.
 선택한 재료는 우클릭으로 해제하기 전까지 계속 사용할 수 있습니다.
 하단의 준비완료를 누르면 홍수가 밀려옵니다.
@@ -149,7 +149,7 @@ Ctrl+Z: 최근 기물 배치, 진흙 붓질 또는 수동 제거 되돌리기
 홍수에 밀려 절벽 뒤로 넘어간 기물은 파괴됩니다.
 ";
             if (_fogMode != null)
-                _rulesBody.text = "건물을 최대 10개 배치할 수 있으며, 남은 개수는 팔레트에 표시됩니다.\n"
+                _rulesBody.text = $"건물을 최대 {_game.GetPlacementLimit("building")}개 배치할 수 있으며, 남은 개수는 팔레트에 표시됩니다.\n"
                     + "마우스를 누른 채 드래그하면 건물이 겹치지 않는 지점마다 연속 배치됩니다.\n"
                     + "기물을 배치한 후 준비 완료를 누르면 안개가 상류에서 몰려옵니다.\n"
                     + "안개는 건물과 기물을 돌아 -Z 방향으로 흐르며 옆으로 확산됩니다.\n"
