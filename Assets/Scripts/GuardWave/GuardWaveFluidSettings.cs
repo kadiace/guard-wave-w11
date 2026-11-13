@@ -90,6 +90,14 @@ namespace GuardWave
         [SerializeField, Min(0.1f)] private float _maxParticleSpeed = 24f;
         [SerializeField, Range(0f, 1f)] private float _flipFraction = 0.92f;
 
+        [Header("GPU ambient-flow stability")]
+        [Tooltip("Maximum GPU fluid solves within one Unity FixedUpdate. Rigidbody impulses are accumulated once per physics tick.")]
+        [SerializeField, Range(1, 8)] private int _maxFluidSubsteps = 4;
+        [Tooltip("Target Courant number based on ambient inlet speed; 20 m/s, 0.6 m cells and 0.02 s fixed ticks use two substeps at 0.35.")]
+        [SerializeField, Range(0.1f, 1f)] private float _targetFluidCfl = 0.35f;
+        public int MaxFluidSubsteps => Mathf.Max(1, _maxFluidSubsteps);
+        public float TargetFluidCfl => Mathf.Max(0.1f, _targetFluidCfl);
+
         [Header("Collisions")]
         [SerializeField, Range(0f, 2f)] private float _collisionResponse = 1.15f;
         [SerializeField, Min(0.001f)] private float _collisionSkin = 0.06f;

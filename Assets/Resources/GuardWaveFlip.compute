@@ -56,6 +56,7 @@ StructuredBuffer<FluidCollider> _Colliders;
 StructuredBuffer<int> _ColliderZOffsets;
 StructuredBuffer<int> _ColliderZIndices;
 int _WarmupOnly;
+int _ClearBodyImpulses; // preserve accumulated body impulses across internal GPU substeps
 int3 _GridSize;
 float3 _GridOrigin;
 float _CellSize;
@@ -207,7 +208,7 @@ void ClearGrid(uint id : SV_DispatchThreadID)
         _PressureSrc[id] = 0;
         _PressureDst[id] = 0;
     }
-    if (id < _BodyCount * 2)
+    if (id < _BodyCount * 2 && _ClearBodyImpulses != 0)
         _BodyImpulses[id] = int4(0,0,0,0);
     if (id < 3)
         _CrestMetrics[id] = 0u;

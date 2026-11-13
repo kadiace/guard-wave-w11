@@ -278,6 +278,7 @@ namespace GuardWave
                 _buoyancyBodyKernel, _waterfallKernel
             };
             _compute.SetInt("_WarmupOnly", 0);
+            _compute.SetInt("_ClearBodyImpulses", 1);
 
             _compute.SetInts("_GridSize", _grid.x, _grid.y, _grid.z);
             _compute.SetVector("_GridOrigin", _origin);
@@ -718,85 +719,101 @@ namespace GuardWave
             _compute.SetInt("_BodyCount", _bodies.Count);
         }
 
-        /// <summary>Advances 3D GPU water through a PIC/FLIP + affine P2G/G2P pressure substep.</summary>
+        /// <summary>Advances a full Unity physics tick using CFL-limited GPU substeps, with one combined Rigidbody impulse readback.</summary>
         public void Step(float dt, float inletFraction)
         {
             if (_disposed) return;
             _elapsed += dt;
             _gpuStep++;
-            _compute.SetFloat("_Dt", dt);
             UpdateColliders();
-            Dispatch(_clearKernel, Mathf.Max(_gridCount, _bodies.Count * 2));
-            Dispatch(_clearWaterColumnsKernel, _grid.x * _grid.z);
-            Dispatch(_classifyKernel, _gridCount);
-            if (_ambientFlow) Dispatch(_driveInletKernel, _particleCount);
-
-            _spawnClock += dt;
-            if (!_ambientFlow && inletFraction > 0.05f &&
-                _spawnClock >= _settings.SpawnInterval)
+            // The 20 m/s inlet crosses ~0.67 cells per 0.02s tick. Two GPU
+            // substeps restore the previous ~0.33-cell displacement per solve.
+            // Unity rigidbody physics stays at 50 Hz; only the FLIP solve subdivides.
+            int substeps = _ambientFlow
+                ? Mathf.Clamp(Mathf.CeilToInt(InletSpeed * dt /
+                    Mathf.Max(0.001f, _cellSize * _settings.TargetFluidCfl)),
+                    1, _settings.MaxFluidSubsteps)
+                : 1;
+            float fluidDt = dt / substeps;
+            for (int substep = 0; substep < substeps; substep++)
             {
-                _spawnClock -= _settings.SpawnInterval;
-                int widthCells = Mathf.FloorToInt(24f / (_cellSize * 0.85f));
-                int heightCells = Mathf.Max(1, Mathf.FloorToInt(_waveHeight / (_cellSize * 0.85f)));
-                int count = Mathf.Min(_settings.MaxParticles - _particleCount,
-                    Mathf.RoundToInt(widthCells * heightCells * _settings.SpawnRateMultiplier * inletFraction));
-                if (count > 0)
+                _compute.SetFloat("_Dt", fluidDt);
+                // Body impulses include real forces AND waterline/current sample
+                // counters: clear once, accumulate both substeps, read back once.
+                _compute.SetInt("_ClearBodyImpulses", substep == 0 ? 1 : 0);
+                Dispatch(_clearKernel, Mathf.Max(_gridCount, _bodies.Count * 2));
+                Dispatch(_clearWaterColumnsKernel, _grid.x * _grid.z);
+                Dispatch(_classifyKernel, _gridCount);
+                if (_ambientFlow) Dispatch(_driveInletKernel, _particleCount);
+
+                _spawnClock += fluidDt;
+                if (!_ambientFlow && inletFraction > 0.05f &&
+                    _spawnClock >= _settings.SpawnInterval)
                 {
-                    _compute.SetInt("_SpawnStart", _particleCount);
-                    _compute.SetInt("_SpawnCount", count);
-                    _compute.SetInt("_SpawnSeed", ++_seed);
-                    Dispatch(_spawnKernel, count);
-                    _particleCount += count;
+                    _spawnClock -= _settings.SpawnInterval;
+                    int widthCells = Mathf.FloorToInt(24f / (_cellSize * 0.85f));
+                    int heightCells = Mathf.Max(1, Mathf.FloorToInt(_waveHeight / (_cellSize * 0.85f)));
+                    int count = Mathf.Min(_settings.MaxParticles - _particleCount,
+                        Mathf.RoundToInt(widthCells * heightCells * _settings.SpawnRateMultiplier * inletFraction));
+                    if (count > 0)
+                    {
+                        _compute.SetInt("_SpawnStart", _particleCount);
+                        _compute.SetInt("_SpawnCount", count);
+                        _compute.SetInt("_SpawnSeed", ++_seed);
+                        Dispatch(_spawnKernel, count);
+                        _particleCount += count;
+                    }
+                }
+                if (_particleCount == 0) continue;
+                _compute.SetInt("_ParticleCount", _particleCount);
+                Dispatch(_p2gKernel, _particleCount);
+                Dispatch(_normalizeKernel, _gridCount);
+
+                ComputeBuffer src = _pressureA;
+                ComputeBuffer dst = _pressureB;
+                for (int i = 0; i < _settings.PressureIterations; i++)
+                {
+                    _compute.SetBuffer(_pressureKernel, "_PressureSrc", src);
+                    _compute.SetBuffer(_pressureKernel, "_PressureDst", dst);
+                    Dispatch(_pressureKernel, _gridCount);
+                    (src, dst) = (dst, src);
+                }
+                _compute.SetBuffer(_projectKernel, "_PressureSrc", src);
+                Dispatch(_projectKernel, _gridCount);
+                _compute.SetBuffer(_pressureBodyKernel, "_PressureSrc", src);
+                Dispatch(_pressureBodyKernel, _gridCount);
+                // Continue pre-existing spray first; newly exited fluid starts falling next tick.
+                Dispatch(_waterfallKernel, _particleCount);
+                Dispatch(_g2pKernel, _particleCount);
+                // Real particle heights and velocities, not the editor's static water plane.
+                Dispatch(_waterColumnsKernel, _particleCount);
+                Dispatch(_smoothWaterColumnsKernel, _grid.x * _grid.z);
+                if (_bodies.Count > 0)
+                    Dispatch(_buoyancyBodyKernel, _settings.MaxColliders);
+                if (_ambientFlow)
+                {
+                    // Fill the initial deficit and replace later losses using one
+                    // upstream supply budget. Keep the original steady-state
+                    // water density, but never exceed the configured supply cap.
+                    double riverLength = Math.Max(0.1, _startZ - _endZ);
+                    double steadyRate = _ambientTargetCount * InletSpeed / riverLength * AMBIENT_SUPPLY_RATE_MULTIPLIER;
+                    double particlesPerSecond = Math.Min(steadyRate,
+                        _settings.AmbientMaxSupplyParticlesPerSecond);
+                    _ambientRefillFraction += particlesPerSecond * fluidDt;
+                    int supplyBudget = (int)Math.Min(_settings.MaxParticles,
+                        Math.Floor(_ambientRefillFraction));
+                    _ambientRefillFraction -= supplyBudget;
+                    if (supplyBudget > 0)
+                    {
+                        // Supply only the outstanding deficit: initially the empty
+                        // river's target volume, then newly lost baseline parcels.
+                        _compute.SetInt("_AmbientRefillBudget", supplyBudget);
+                        _compute.SetInt("_SpawnSeed", ++_seed);
+                        Dispatch(_recycleAmbientKernel, _particleCount);
+                    }
                 }
             }
-            if (_particleCount == 0) return;
-            _compute.SetInt("_ParticleCount", _particleCount);
-            Dispatch(_p2gKernel, _particleCount);
-            Dispatch(_normalizeKernel, _gridCount);
 
-            ComputeBuffer src = _pressureA;
-            ComputeBuffer dst = _pressureB;
-            for (int i = 0; i < _settings.PressureIterations; i++)
-            {
-                _compute.SetBuffer(_pressureKernel, "_PressureSrc", src);
-                _compute.SetBuffer(_pressureKernel, "_PressureDst", dst);
-                Dispatch(_pressureKernel, _gridCount);
-                (src, dst) = (dst, src);
-            }
-            _compute.SetBuffer(_projectKernel, "_PressureSrc", src);
-            Dispatch(_projectKernel, _gridCount);
-            _compute.SetBuffer(_pressureBodyKernel, "_PressureSrc", src);
-            Dispatch(_pressureBodyKernel, _gridCount);
-            // Continue pre-existing spray first; newly exited fluid starts falling next tick.
-            Dispatch(_waterfallKernel, _particleCount);
-            Dispatch(_g2pKernel, _particleCount);
-            // Real particle heights and velocities, not the editor's static water plane.
-            Dispatch(_waterColumnsKernel, _particleCount);
-            Dispatch(_smoothWaterColumnsKernel, _grid.x * _grid.z);
-            if (_bodies.Count > 0)
-                Dispatch(_buoyancyBodyKernel, _settings.MaxColliders);
-            if (_ambientFlow)
-            {
-                // Fill the initial deficit and replace later losses using one
-                // upstream supply budget. Keep the original steady-state
-                // water density, but never exceed the configured supply cap.
-                double riverLength = Math.Max(0.1, _startZ - _endZ);
-                double steadyRate = _ambientTargetCount * InletSpeed / riverLength * AMBIENT_SUPPLY_RATE_MULTIPLIER;
-                double particlesPerSecond = Math.Min(steadyRate,
-                    _settings.AmbientMaxSupplyParticlesPerSecond);
-                _ambientRefillFraction += particlesPerSecond * dt;
-                int supplyBudget = (int)Math.Min(_settings.MaxParticles,
-                    Math.Floor(_ambientRefillFraction));
-                _ambientRefillFraction -= supplyBudget;
-                if (supplyBudget > 0)
-                {
-                    // Supply only the outstanding deficit: initially the empty
-                    // river's target volume, then newly lost baseline parcels.
-                    _compute.SetInt("_AmbientRefillBudget", supplyBudget);
-                    _compute.SetInt("_SpawnSeed", ++_seed);
-                    Dispatch(_recycleAmbientKernel, _particleCount);
-                }
-            }
             if (_ambientFlow)
             {
                 _crestMetricsClock += dt;
