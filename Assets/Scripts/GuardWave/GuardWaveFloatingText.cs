@@ -48,9 +48,14 @@ namespace GuardWave
         private readonly List<Entry> _active = new List<Entry>();
         private readonly Stack<Entry> _available = new Stack<Entry>();
         private const int MAX_VISIBLE_DESTRUCTION_LABELS = 8;
+        // Warm up enough labels for the first collapse, avoiding runtime TMP construction.
+        private const int PREWARMED_LABEL_COUNT = 12;
+        private const string PREWARM_CHARACTERS =
+            "파괴!제거!침수!효과 발동!효과 해제!성장!생성!획득!덩쿨 생성!";
         private Camera _camera;
         private RectTransform _canvasRect;
         private TMP_FontAsset _font;
+        private Material _outlineMaterial;
         private int _sequence;
 
         private sealed class Entry
@@ -70,6 +75,59 @@ namespace GuardWave
             _canvasRect = canvasRect;
             _font = TMP_FontAsset.CreateFontAsset(Resources.Load<Font>("Fonts & Materials/NotoSansKR"));
             _font.atlasPopulationMode = AtlasPopulationMode.Dynamic;
+            // Dynamic fonts only add glyphs on first use. Populate the atlas
+            // before the first outflow event so "파괴!" and "제거!" never pay it.
+            _font.TryAddCharacters(PREWARM_CHARACTERS, out _);
+
+            // Match the old label's exact TMP outline path. The convenience
+            // properties may configure more than just shader values, so derive
+            // the shared preset from a label using those original setters.
+            Entry first = CreateEntry();
+            first.Text.outlineWidth = 0.22f;
+            first.Text.outlineColor = Color.black;
+            _outlineMaterial = new Material(first.Text.fontSharedMaterial);
+            first.Text.fontSharedMaterial = _outlineMaterial;
+            first.Text.UpdateMeshPadding();
+
+            // Prebuild the TextMeshPro meshes and Canvas geometry on scene setup,
+            // rather than when the first piece falls past the destruction line.
+            List<Entry> warmup = new List<Entry>(PREWARMED_LABEL_COUNT);
+            for (int i = 0; i < PREWARMED_LABEL_COUNT; i++)
+            {
+                Entry entry = i == 0 ? first : CreateEntry();
+                entry.Text.fontSize = fontSize * 1.3f;
+                entry.Text.text = PREWARM_CHARACTERS;
+                entry.Text.color = Color.clear;
+                entry.Text.ForceMeshUpdate();
+                warmup.Add(entry);
+            }
+            Canvas.ForceUpdateCanvases();
+            foreach (Entry entry in warmup)
+            {
+                entry.Text.gameObject.SetActive(false);
+                _available.Push(entry);
+            }
+        }
+
+        /// <summary>Builds a floating label using the shared font and material.</summary>
+        private Entry CreateEntry()
+        {
+            GameObject label = new GameObject("Floating Change", typeof(RectTransform),
+                typeof(CanvasRenderer), typeof(TextMeshProUGUI));
+            label.transform.SetParent(_canvasRect, false);
+            TextMeshProUGUI text = label.GetComponent<TextMeshProUGUI>();
+            text.font = _font;
+            if (_outlineMaterial != null)
+            {
+                text.fontSharedMaterial = _outlineMaterial;
+                text.UpdateMeshPadding();
+            }
+            text.alignment = TextAlignmentOptions.Center;
+            text.raycastTarget = false;
+            text.textWrappingMode = TextWrappingModes.NoWrap;
+            RectTransform rect = (RectTransform)label.transform;
+            rect.sizeDelta = new Vector2(310f, 70f);
+            return new Entry { Text = text };
         }
 
         /// <summary>변화별 독립적인 레이블을 풀에서 꺼내 위치와 메시지를 설정한다.</summary>
@@ -94,19 +152,9 @@ namespace GuardWave
             }
             else
             {
-                GameObject label = new GameObject("Floating Change", typeof(RectTransform),
-                    typeof(CanvasRenderer), typeof(TextMeshProUGUI));
-                label.transform.SetParent(_canvasRect, false);
-                TextMeshProUGUI text = label.GetComponent<TextMeshProUGUI>();
-                text.font = _font;
-                text.alignment = TextAlignmentOptions.Center;
-                text.raycastTarget = false;
-                text.textWrappingMode = TextWrappingModes.NoWrap;
-                text.outlineWidth = 0.22f;
-                text.outlineColor = Color.black;
-                RectTransform rect = (RectTransform)label.transform;
-                rect.sizeDelta = new Vector2(310f, 70f);
-                entry = new Entry { Text = text };
+                // More than the prewarmed capacity can still be displayed,
+                // but all such labels share the same font atlas and material.
+                entry = CreateEntry();
             }
 
             entry.Kind = change.Kind;
@@ -135,6 +183,12 @@ namespace GuardWave
             entry.Text.transform.SetAsLastSibling();
             _active.Add(entry);
             Animate(entry, 0f);
+        }
+
+        private void OnDestroy()
+        {
+            if (_outlineMaterial != null) Destroy(_outlineMaterial);
+            if (_font != null) Destroy(_font);
         }
 
         private void LateUpdate()
