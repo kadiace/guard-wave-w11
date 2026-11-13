@@ -5,17 +5,58 @@ using UnityEngine.UI;
 namespace GuardWave
 {
     [Serializable]
+    public sealed class GuardWavePaletteEntry
+    {
+        public string materialId;
+        // -1 is unlimited. Zero or greater is the maximum number of active
+        // player-placed objects of this material.
+        public int placementLimit;
+    }
+
+    [Serializable]
     public sealed class GuardWaveStageInfo
     {
         public string sceneName;
         public string disasterName;
         public int countdownSeconds;
+        public GuardWavePaletteEntry[] palette;
     }
 
     [Serializable]
     public sealed class GuardWaveStageInfoFile
     {
         public GuardWaveStageInfo[] stages;
+
+        /// <summary>Both the stage timer and the palette use this single stage definition.</summary>
+        public static GuardWaveStageInfo LoadForScene(string sceneName)
+        {
+            TextAsset asset = Resources.Load<TextAsset>("Datas/StageInfo");
+            if (asset == null)
+                throw new InvalidOperationException("Missing Resources/Datas/StageInfo.json");
+
+            GuardWaveStageInfoFile file = JsonUtility.FromJson<GuardWaveStageInfoFile>(asset.text);
+            GuardWaveStageInfo stage = file?.stages == null ? null
+                : Array.Find(file.stages, entry => entry != null && entry.sceneName == sceneName);
+            if (stage == null || string.IsNullOrWhiteSpace(stage.disasterName) ||
+                stage.countdownSeconds <= 0 || stage.palette == null ||
+                stage.palette.Length == 0 || stage.palette.Length > 4)
+                throw new InvalidOperationException("Invalid stage settings: " + sceneName);
+
+            for (int i = 0; i < stage.palette.Length; i++)
+            {
+                GuardWavePaletteEntry entry = stage.palette[i];
+                if (entry == null || string.IsNullOrWhiteSpace(entry.materialId) ||
+                    entry.placementLimit < -1)
+                    throw new InvalidOperationException(
+                        "Invalid palette item in StageInfo.json: " + sceneName);
+                for (int j = 0; j < i; j++)
+                    if (stage.palette[j].materialId == entry.materialId)
+                        throw new InvalidOperationException(
+                            "Duplicate palette item in StageInfo.json: " + entry.materialId);
+            }
+
+            return stage;
+        }
     }
 
     /// <summary>공통 HUD의 재해 이름과 초:센티초 카운트다운을 관리한다.</summary>
@@ -58,17 +99,7 @@ namespace GuardWave
         {
             _game = game;
             _fogMode = fogMode;
-            TextAsset asset = Resources.Load<TextAsset>("Datas/StageInfo");
-            if (asset == null)
-                throw new InvalidOperationException("Missing Resources/Datas/StageInfo.json");
-
-            GuardWaveStageInfoFile file = JsonUtility.FromJson<GuardWaveStageInfoFile>(asset.text);
-            GuardWaveStageInfo stage = file?.stages == null ? null
-                : Array.Find(file.stages, entry => entry.sceneName == game.gameObject.scene.name);
-            if (stage == null || string.IsNullOrWhiteSpace(stage.disasterName) ||
-                stage.countdownSeconds <= 0)
-                throw new InvalidOperationException(
-                    "Invalid stage timer settings: " + game.gameObject.scene.name);
+            GuardWaveStageInfo stage = game.StageInfo;
 
             _disasterName = transform.Find("DisasterName").GetComponent<Text>();
             _countdown = transform.Find("Countdown").GetComponent<Text>();
