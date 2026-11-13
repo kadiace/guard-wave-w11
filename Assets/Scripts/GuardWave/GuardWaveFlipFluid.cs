@@ -983,6 +983,122 @@ namespace GuardWave
         }
 
         /// <summary>
+        /// A read-only, on-demand snapshot of the exact input quantities used by
+        /// floating-body buoyancy. No GPU synchronization or forces are added.
+        /// </summary>
+        internal struct BuoyancyProbeSample
+        {
+            public string State;
+            public float RelativeDensity;
+            public float MassKg;
+            public float RawWaterlineY;
+            public float PhysicsWaterlineY;
+            public float WaterlineSampleAgeSeconds;
+            public float FluidCoverage;
+            public float ShapeSubmergedFraction;
+            public float EffectiveSubmergedFraction;
+            public float BuoyancyRatio;
+            public float BuoyancyForceN;
+            public float GravityForceN;
+            public float VerticalDampingForceN;
+            public float NetVerticalForceN;
+            public float VerticalVelocity;
+            public Vector2 FlowXZ;
+            public int SampledColliders;
+        }
+
+        /// <summary>
+        /// Query a body's CURRENT buoyancy inputs for diagnostics. This deliberately
+        /// uses the same live-pose shape sampler and force formula as the solver,
+        /// but never mutates Rigidbody state or triggers a GPU readback.
+        /// </summary>
+        internal bool TryGetBuoyancyProbeSample(Rigidbody body, out BuoyancyProbeSample sample)
+        {
+            sample = default;
+            if (body == null || !_indices.TryGetValue(body, out int index))
+                return false;
+
+            GuardWavePiece piece = _bodyPieces[index];
+            sample.State = "active";
+            sample.MassKg = body.mass;
+            sample.VerticalVelocity = body.linearVelocity.y;
+            sample.GravityForceN = body.mass * Physics.gravity.y;
+            sample.RawWaterlineY = _recentWaterline[index];
+            sample.PhysicsWaterlineY = _hasSmoothedBodyWaterline[index]
+                ? _smoothedBodyWaterline[index] : _recentWaterline[index];
+            sample.WaterlineSampleAgeSeconds = _recentWaterlineTime[index] > 0f
+                ? Mathf.Max(0f, Time.fixedTime - _recentWaterlineTime[index]) : -1f;
+            sample.FluidCoverage = _recentFluidCoverage[index];
+            sample.FlowXZ = _recentFlowXZ[index];
+
+            if (_disposed) { sample.State = "solver-disposed"; return true; }
+            if (piece == null || !piece.enabled) { sample.State = "piece-disabled"; return true; }
+            sample.RelativeDensity = piece.RelativeFluidDensity;
+            if (sample.RelativeDensity >= 1f) { sample.State = "not-floating"; return true; }
+            if (!body.gameObject.activeInHierarchy) { sample.State = "inactive"; return true; }
+            if (body.isKinematic) { sample.State = "kinematic"; return true; }
+            if (body.worldCenterOfMass.z <= _endZ) { sample.State = "past-waterfall"; return true; }
+            if (_recentWaterlineTime[index] <= 0f)
+            {
+                sample.State = "waiting-for-GPU-waterline";
+                return true;
+            }
+            if (sample.WaterlineSampleAgeSeconds > WATERLINE_SAMPLE_MAX_AGE)
+            {
+                sample.State = "stale-GPU-waterline";
+                return true;
+            }
+            if (sample.FluidCoverage <= 0f)
+            {
+                sample.State = "zero-fluid-coverage";
+                return true;
+            }
+
+            float immersed = 0f;
+            foreach (Collider collider in _bodySampleColliders[index])
+            {
+                if (collider == null || !collider.enabled ||
+                    !collider.gameObject.activeInHierarchy ||
+                    collider.isTrigger || collider.attachedRigidbody != body)
+                    continue;
+                immersed += CurrentSubmergedFraction(
+                    collider, sample.PhysicsWaterlineY, _cellSize);
+                sample.SampledColliders++;
+            }
+
+            if (sample.SampledColliders == 0)
+            {
+                sample.State = "no-active-body-colliders";
+                return true;
+            }
+
+            sample.ShapeSubmergedFraction = immersed / sample.SampledColliders;
+            sample.EffectiveSubmergedFraction =
+                sample.ShapeSubmergedFraction * sample.FluidCoverage;
+
+            if (sample.EffectiveSubmergedFraction <= 0.0001f)
+            {
+                sample.State = "no-displaced-volume";
+                return true;
+            }
+
+            float fractionOverDensity = sample.EffectiveSubmergedFraction /
+                Mathf.Max(0.01f, sample.RelativeDensity);
+            sample.BuoyancyRatio = Mathf.Min(
+                fractionOverDensity, _settings.FloatingMaxBuoyancyRatio);
+            sample.BuoyancyForceN = body.mass * Mathf.Abs(Physics.gravity.y) *
+                _settings.GravityMultiplier * sample.BuoyancyRatio;
+            float damping = 1f - Mathf.Exp(
+                -_settings.FloatingVerticalDamping * Time.fixedDeltaTime);
+            sample.VerticalDampingForceN = -body.mass * damping *
+                Mathf.Clamp01(fractionOverDensity) * sample.VerticalVelocity /
+                Mathf.Max(Time.fixedDeltaTime, 0.0001f);
+            sample.NetVerticalForceN = sample.BuoyancyForceN +
+                sample.GravityForceN + sample.VerticalDampingForceN;
+            return true;
+        }
+
+        /// <summary>
         /// Apply buoyancy and vertical viscosity each physics tick using the
         /// LIVE Rigidbody pose and the most recently observed FLIP waterline.
         /// GPU readback latency may delay the waterline but can no longer

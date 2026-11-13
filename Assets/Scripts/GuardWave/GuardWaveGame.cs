@@ -1204,6 +1204,14 @@ namespace GuardWave
             }
         }
 
+        /// <summary>Read-only entry point for scene-attached buoyancy diagnostics.</summary>
+        internal bool TryGetBuoyancyProbeSample(Rigidbody body,
+            out GuardWaveFlipFluid.BuoyancyProbeSample sample)
+        {
+            sample = default;
+            return _fluid != null && _fluid.TryGetBuoyancyProbeSample(body, out sample);
+        }
+
         /// <summary>Prepare a stationary creek at scene load; Ready starts the current.</summary>
         private void BeginAmbientCreekFlow()
         {
