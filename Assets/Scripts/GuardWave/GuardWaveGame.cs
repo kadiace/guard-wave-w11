@@ -15,9 +15,6 @@ namespace GuardWave
         // Flow begins at Ready; the crest arrives five physics seconds later.
         private const float CREEK_PREWAVE_SECONDS = 5f;
         private const float FLAG_SURVIVAL_CHECK_SECONDS = 5f;
-        // Removing dozens of logs and mud joints in one physics tick stalls
-        // the main thread; drain only a small batch per fixed step.
-        private const int MAX_OUTFLOW_REMOVALS_PER_FIXED_STEP = 4;
         private const float FLOOD_DURATION_INCREASE_PER_STAGE = 0.2f;
         private const float FLOOD_DEPTH_INCREASE_PER_STAGE = 0.5f;
         private const float CAMERA_DRAG_THRESHOLD_PIXELS = 6f;
@@ -52,6 +49,11 @@ namespace GuardWave
         private readonly List<WaveSnapshot> _editHistory = new List<WaveSnapshot>();
         private int _playerPlacementCount;
         private readonly List<GuardWaveMudPatch> _mudPatches = new List<GuardWaveMudPatch>();
+        // Reverse index includes both a piece's own painted surface and bonds to it.
+        // Removing a piece only visits patches that can actually reference it.
+        private readonly Dictionary<GuardWavePiece, HashSet<GuardWaveMudPatch>> _mudPatchesByPiece =
+            new Dictionary<GuardWavePiece, HashSet<GuardWaveMudPatch>>();
+        private readonly List<GuardWaveMudPatch> _removalMudPatches = new List<GuardWaveMudPatch>();
         private readonly HashSet<GuardWaveMudPatch> _sceneMudPatches = new HashSet<GuardWaveMudPatch>();
         private readonly List<GuardWaveMudPatch.MudBondState> _initialMudBondStates =
             new List<GuardWaveMudPatch.MudBondState>();
@@ -182,10 +184,8 @@ namespace GuardWave
         private void FixedUpdate()
         {
             PruneDeadMudJoints();
-            // Process crossing debris in bounded batches, keeping the normal
-            // 2-second visual fall and checkpoint/undo behavior intact.
-            int removals = MAX_OUTFLOW_REMOVALS_PER_FIXED_STEP;
-            while (removals-- > 0 && _pendingOutflowRemovals.Count > 0)
+            // Drain every queued crossing this physics step, without an object-count cap.
+            while (_pendingOutflowRemovals.Count > 0)
             {
                 GuardWavePiece candidate = _pendingOutflowRemovals.Dequeue();
                 _queuedOutflowRemovals.Remove(candidate);
@@ -535,6 +535,28 @@ namespace GuardWave
             _dryingTarget = null;
             _dryingHoldSeconds = 0f;
             _dryerCoverage?.Hide();
+        }
+
+        // Tracks a patch when a piece is its painted surface or a bonded target.
+        // A patch can be indexed under several pieces and a piece under several patches.
+        internal void TrackMudPatch(GuardWavePiece piece, GuardWaveMudPatch patch)
+        {
+            if (piece == null || patch == null) return;
+            if (!_mudPatchesByPiece.TryGetValue(piece, out HashSet<GuardWaveMudPatch> patches))
+            {
+                patches = new HashSet<GuardWaveMudPatch>();
+                _mudPatchesByPiece.Add(piece, patches);
+            }
+            patches.Add(patch);
+        }
+
+        internal void UntrackMudPatch(GuardWavePiece piece, GuardWaveMudPatch patch)
+        {
+            if (ReferenceEquals(piece, null) || ReferenceEquals(patch, null) ||
+                !_mudPatchesByPiece.TryGetValue(piece, out HashSet<GuardWaveMudPatch> patches))
+                return;
+            patches.Remove(patch);
+            if (patches.Count == 0) _mudPatchesByPiece.Remove(piece);
         }
 
         internal bool HasMudBond(GuardWavePiece piece) =>
@@ -1059,6 +1081,8 @@ namespace GuardWave
             }
             _mudPatches.Clear();
             _mudPatches.AddRange(_sceneMudPatches);
+            _mudPatchesByPiece.Clear();
+            _removalMudPatches.Clear();
             _everMudBonded.Clear();
             foreach (GuardWavePiece piece in _runtimePieces)
             {
@@ -1338,8 +1362,16 @@ namespace GuardWave
             if (piece == _outlinedPiece) SetOutlineTargets(null);
             _pieces.Remove(piece);
             _everMudBonded.Remove(piece);
-            foreach (GuardWaveMudPatch patch in _mudPatches)
-                if (patch != null) patch.DetachPiece(piece);
+            if (_mudPatchesByPiece.TryGetValue(piece, out HashSet<GuardWaveMudPatch> patches))
+            {
+                // DetachPiece can mutate the reverse index while bonds are removed.
+                // Copy only this piece's related patches into a reusable scratch list.
+                _removalMudPatches.Clear();
+                _removalMudPatches.AddRange(patches);
+                foreach (GuardWaveMudPatch patch in _removalMudPatches)
+                    if (patch != null) patch.DetachPiece(piece);
+                _removalMudPatches.Clear();
+            }
             PublishChange(new GuardWaveChange(piece, piece, reason, 0, piece.transform.position));
             if (_scenePieces.Contains(piece) || _runtimePieces.Contains(piece))
             {
