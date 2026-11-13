@@ -228,6 +228,10 @@ namespace GuardWave
         private void Update()
         {
             if (!_initialized) return;
+            Mouse mouse = Mouse.current;
+            // Keep the click gate in sync even if the release happens in pause UI.
+            if (mouse != null && mouse.leftButton.wasReleasedThisFrame)
+                _dropMouseReleased = true;
             if (_sceneContext.PauseMenu != null && _sceneContext.PauseMenu.IsOpen)
             {
                 EndPlacementStroke();
@@ -260,11 +264,6 @@ namespace GuardWave
             if (ambientFlowPreview && !_ambientFlowRunning)
                 _fluid?.PrewarmOneKernel();
             _flipRenderer.Render(_fluid);
-            Mouse mouse = Mouse.current;
-            // Track releases while pieces are falling or a popup is open.
-            if (mouse != null && mouse.leftButton.wasReleasedThisFrame)
-                _dropMouseReleased = true;
-
             UpdateCameraInput();
             if (!_stageTransitioning && !_awaitingStage && !_finished)
                 UpdateHoveredPiece();
