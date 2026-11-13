@@ -926,18 +926,18 @@ void RelativeDensityToBodies(uint id : SV_DispatchThreadID)
                 ((i == 1 || i == 6 || i == 7) ? -1.0 : 0.0);
             float dz = (i == 2 || i == 4 || i == 6) ? 1.0 :
                 ((i == 3 || i == 5 || i == 7) ? -1.0 : 0.0);
-            float3 point = body.centerBody.xyz +
+            float3 samplePos = body.centerBody.xyz +
                 float3(dx * outside.x, 0, dz * outside.y);
-            point.y = sampleY;
+            samplePos.y = sampleY;
             float localHeight = 0.0;
             float3 localCurrent = 0.0;
-            float presence = SampleWater(point, localHeight, localCurrent);
+            float presence = SampleWater(samplePos, localHeight, localCurrent);
             if (presence <= 0.0) continue;
             float beneathSurface = saturate(
                 (localHeight - sampleY) /
                 max(_CellSize * 0.5, 0.001) + 0.5);
             if (beneathSurface <= 0.0) continue;
-            presence *= beneathSurface * SampleFluidOccupancy3D(point);
+            presence *= beneathSurface * SampleFluidOccupancy3D(samplePos);
             if (presence <= 0.0) continue;
             support += presence;
             available += presence;
