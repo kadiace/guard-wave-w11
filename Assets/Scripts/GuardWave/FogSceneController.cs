@@ -67,6 +67,12 @@ namespace GuardWave
         private string _status;
         private float _opacity;
         private int _simulationSpeed = 1;
+        // The normal duration is a minimum. Beyond it, the flag's density dots
+        // decide when the gas has cleared (not the solver clock alone).
+        private float _nominalSimulationDuration;
+        private float _requestedProbeSimulationElapsed;
+        private bool _postDurationDensityMeasured;
+        private bool _residualFogAtFlag;
 
         public int SimulationSpeed => _simulationSpeed;
         public bool IsComing => _running;
@@ -133,6 +139,9 @@ namespace GuardWave
             _sampledOutOfBoundsCount = 0;
             _nextProbeLogTime = float.NegativeInfinity;
             _simulationSpeed = 1;
+            _postDurationDensityMeasured = false;
+            _residualFogAtFlag = false;
+            _requestedProbeSimulationElapsed = 0f;
             if (_flagProbes == null)
             {
                 _status = "Defense Flag의 FogFlagDensityProbes 구성을 찾을 수 없습니다.";
@@ -178,12 +187,15 @@ namespace GuardWave
             }
 
             float travel = _fluid.WorldBounds.size.z / Mathf.Max(0.5f, _windSpeed);
-            float total = _inletDuration + travel + 4f;
+            _nominalSimulationDuration = _inletDuration + travel + 4f;
             float elapsed = 0f, accumulator = 0f, realElapsed = 0f;
             const float SimulationStepSeconds = 0.05f;
             bool failed = false;
             bool exposureFailure = false;
-            while (elapsed < total)
+            // The nominal ~26s is a minimum duration, not a forced stop.
+            // Afterward, continue until a POST-duration GPU probe result
+            // confirms that all valid flag dots are below 0.001 density.
+            while (true)
             {
                 yield return new WaitForFixedUpdate();
                 if (_game.AwaitingFailure)
@@ -206,8 +218,7 @@ namespace GuardWave
                 // Advance the gas domain (and its inlet/tail timing), NOT the
                 // entire Unity game. Several stable 0.05s solver steps may be
                 // dispatched in one FixedUpdate at 2x/3x; never enlarge _Dt.
-                float simulatedDt = Mathf.Min(dt * _simulationSpeed,
-                    Mathf.Max(0f, total - elapsed));
+                float simulatedDt = dt * _simulationSpeed;
                 elapsed += simulatedDt;
                 accumulator += simulatedDt;
                 bool stepped = false;
@@ -237,6 +248,7 @@ namespace GuardWave
                         // Collect may update the mutable world-space point array.
                         if (_fluid.RequestDensitySamples(_probePositions, probeCount, ReceiveFlagDensity))
                         {
+                            _requestedProbeSimulationElapsed = elapsed;
                             _sampledProbeCount = probeCount;
                             _sampledOutOfBoundsCount = _flagProbes.LastOutOfBoundsCount;
                             for (int i = 0; i < probeCount; i++)
@@ -248,8 +260,13 @@ namespace GuardWave
                     }
                     else
                     {
+                        // No dots inside the simulation bounds: there cannot be a
+                        // measurable flag contact, including after the base time.
                         _flagTouching = false;
+                        _residualFogAtFlag = false;
                         _exposureSeconds = 0f;
+                        if (elapsed >= _nominalSimulationDuration)
+                            _postDurationDensityMeasured = true;
                         if (_logEachFlagProbeDensity && Time.unscaledTime >= _nextProbeLogTime)
                         {
                             Debug.Log($"[FogFlagDensity] no valid dots (excluded=" +
@@ -277,8 +294,19 @@ namespace GuardWave
                     failed = exposureFailure;
                     if (failed) break;
                 }
-                _opacity = Mathf.Clamp01((total - elapsed) / 2.5f);
+                // Do not fade out a plume still registering at least 0.001 at
+                // the flag; the simulation may outlive its nominal duration.
+                _opacity = _residualFogAtFlag
+                    ? 1f : Mathf.Clamp01((_nominalSimulationDuration - elapsed) / 2.5f);
                 RenderVolume();
+
+                if (elapsed >= _nominalSimulationDuration &&
+                    _postDurationDensityMeasured && !_residualFogAtFlag)
+                {
+                    Debug.Log($"[FogSimulation] cleared at simulation={elapsed:F2}s " +
+                        $"real={realElapsed:F2}s; max flag density={_maxFlagDensity:F5}");
+                    break;
+                }
             }
 
             DisposeFog();
@@ -304,6 +332,9 @@ namespace GuardWave
             if (!_running || _game == null || _game.AwaitingFailure) return;
             _lastDensityAt = Time.time;
             _maxFlagDensity = peakDensity;
+            _residualFogAtFlag = peakDensity >= Mathf.Min(_releaseDensity, _contactDensity);
+            if (_requestedProbeSimulationElapsed >= _nominalSimulationDuration)
+                _postDurationDensityMeasured = true;
             bool wasTouching = _flagTouching;
             // Hysteresis: the first contact requires 0.01, but once touched,
             // any detectable fog >=0.001 keeps the five-second timer active.
@@ -336,6 +367,9 @@ namespace GuardWave
                 .Append(" releaseThreshold=").Append(Mathf.Min(_releaseDensity,
                     _contactDensity).ToString("F4"))
                 .Append(" simSpeed=").Append(_simulationSpeed).Append('x')
+                .Append(" simElapsed=").Append(_requestedProbeSimulationElapsed.ToString("F2"))
+                .Append("s minDuration=").Append(_nominalSimulationDuration.ToString("F2"))
+                .Append("s residualFog=").Append(_residualFogAtFlag ? "YES" : "NO")
                 .Append(" sampled=").Append(count)
                 .Append(" excludedOutsideVolume=").Append(_sampledOutOfBoundsCount)
                 .Append(" exposure=").Append(_exposureSeconds.ToString("F2"))
