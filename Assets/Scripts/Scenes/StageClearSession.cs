@@ -1,7 +1,7 @@
 using System.Collections.Generic;
 using UnityEngine;
 
-/// <summary>실행 중에만 Forest/Fog 클리어 결과를 보관한다. 파일 및 PlayerPrefs에는 저장하지 않는다.</summary>
+/// <summary>실행 중에만 Flood/Fog 클리어 결과를 보관한다. 파일 및 PlayerPrefs에는 저장하지 않는다.</summary>
 public static class StageClearSession
 {
     private static readonly HashSet<Scene> ClearedStages = new HashSet<Scene>();
@@ -23,7 +23,7 @@ public static class StageClearSession
     /// <summary>깃발을 지킨 스테이지를 클리어 처리하고 복귀 시 연출 대상을 기록한다.</summary>
     public static void MarkCleared(Scene scene)
     {
-        if (scene != Scene.Forest && scene != Scene.Fog) return;
+        if (scene != Scene.Flood && scene != Scene.Fog) return;
         ClearedStages.Add(scene);
         _recentlyCleared = scene;
     }

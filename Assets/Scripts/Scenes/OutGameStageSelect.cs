@@ -36,7 +36,7 @@ public sealed class OutGameStageSelect : MonoBehaviour, IBeginDragHandler, IDrag
     [SerializeField, Min(0.1f)] private float _transitionSpeed = 10f;
     [SerializeField, Min(20f)] private float _swipeThreshold = 65f;
 
-    private static readonly Scene[] Destinations = { Scene.Forest, Scene.Fog };
+    private static readonly Scene[] Destinations = { Scene.Flood, Scene.Fog };
     private static readonly string[] Names = { "THE LAST DAM", "GREEN SILENCE" };
     private static readonly string[] Descriptions =
     {
