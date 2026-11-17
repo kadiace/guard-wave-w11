@@ -47,8 +47,13 @@ namespace GuardWave
         private MaterialPropertyBlock _block;
 
         [Header("Defense flag gas exposure")]
-        [SerializeField, Range(0f, 1f)] private float _contactDensity = 0.15f;
+        [SerializeField, Range(0f, 1f)] private float _contactDensity = 0.01f;
+        [SerializeField, Range(0f, 1f)] private float _releaseDensity = 0.001f;
         [SerializeField, Min(0.1f)] private float _failureExposureSeconds = 5f;
+
+        [Header("Fog simulation playback (real seconds since Ready)")]
+        [SerializeField, Min(0f)] private float _doubleSpeedAfterSeconds = 20f;
+        [SerializeField, Min(0f)] private float _tripleSpeedAfterSeconds = 21f;
 
         [Header("Fog density debug log (Unity Console)")]
         [SerializeField] private bool _logEachFlagProbeDensity = true;
@@ -61,7 +66,9 @@ namespace GuardWave
         private bool _running;
         private string _status;
         private float _opacity;
+        private int _simulationSpeed = 1;
 
+        public int SimulationSpeed => _simulationSpeed;
         public bool IsComing => _running;
         public float FlagExposureSeconds => _exposureSeconds;
         public float FlagExposureLimitSeconds => _failureExposureSeconds;
@@ -125,6 +132,7 @@ namespace GuardWave
             _sampledProbeCount = 0;
             _sampledOutOfBoundsCount = 0;
             _nextProbeLogTime = float.NegativeInfinity;
+            _simulationSpeed = 1;
             if (_flagProbes == null)
             {
                 _status = "Defense Flag의 FogFlagDensityProbes 구성을 찾을 수 없습니다.";
@@ -171,7 +179,8 @@ namespace GuardWave
 
             float travel = _fluid.WorldBounds.size.z / Mathf.Max(0.5f, _windSpeed);
             float total = _inletDuration + travel + 4f;
-            float elapsed = 0f, accumulator = 0f;
+            float elapsed = 0f, accumulator = 0f, realElapsed = 0f;
+            const float SimulationStepSeconds = 0.05f;
             bool failed = false;
             bool exposureFailure = false;
             while (elapsed < total)
@@ -182,20 +191,44 @@ namespace GuardWave
                     failed = true;
                     break;
                 }
-                float dt = Time.fixedDeltaTime;
-                elapsed += dt;
-                accumulator += dt;
-                if (accumulator >= 0.05f)
+                float dt = Time.fixedDeltaTime; // Exposure and HUD use unaccelerated game seconds.
+                realElapsed += dt;
+                int nextSpeed = realElapsed >= Mathf.Max(_tripleSpeedAfterSeconds,
+                    _doubleSpeedAfterSeconds) ? 3 :
+                    realElapsed >= _doubleSpeedAfterSeconds ? 2 : 1;
+                if (nextSpeed != _simulationSpeed)
                 {
-                    // Bounded 20 Hz simulation decoupled from renderer frame rate.
-                    float step = Mathf.Min(accumulator, 0.07f);
-                    accumulator -= step;
+                    _simulationSpeed = nextSpeed;
+                    Debug.Log($"[FogSimulation] playback={_simulationSpeed}x " +
+                        $"realElapsed={realElapsed:F2}s simulationElapsed={elapsed:F2}s");
+                }
+
+                // Advance the gas domain (and its inlet/tail timing), NOT the
+                // entire Unity game. Several stable 0.05s solver steps may be
+                // dispatched in one FixedUpdate at 2x/3x; never enlarge _Dt.
+                float simulatedDt = Mathf.Min(dt * _simulationSpeed,
+                    Mathf.Max(0f, total - elapsed));
+                elapsed += simulatedDt;
+                accumulator += simulatedDt;
+                bool stepped = false;
+                while (accumulator + 0.00001f >= SimulationStepSeconds)
+                {
+                    float step = SimulationStepSeconds;
+                    accumulator = Mathf.Max(0f, accumulator - step);
+                    float stepElapsed = elapsed - accumulator;
                     // Fast source ignition followed by a brief, tapered smoke tail.
-                    float ramp = Mathf.SmoothStep(0f, 1f, Mathf.Clamp01(elapsed / 0.75f));
+                    float ramp = Mathf.SmoothStep(0f, 1f,
+                        Mathf.Clamp01(stepElapsed / 0.75f));
                     float tail = Mathf.SmoothStep(0f, 1f,
-                        Mathf.Clamp01((_inletDuration - elapsed) / 1.2f));
-                    float inlet = elapsed < _inletDuration ? ramp * tail : 0f;
+                        Mathf.Clamp01((_inletDuration - stepElapsed) / 1.2f));
+                    float inlet = stepElapsed < _inletDuration ? ramp * tail : 0f;
                     _fluid.Step(step, inlet, _windSpeed, ground);
+                    stepped = true;
+                }
+                // Read one set of detection dots after the final step of this
+                // physics frame; more solver steps do not change exposure time.
+                if (stepped)
+                {
                     int probeCount = _flagProbes.Collect(_probePositions, _fluid.WorldBounds);
                     if (probeCount > 0)
                     {
@@ -272,8 +305,12 @@ namespace GuardWave
             _lastDensityAt = Time.time;
             _maxFlagDensity = peakDensity;
             bool wasTouching = _flagTouching;
-            _flagTouching = peakDensity >= _contactDensity;
-            // Any observed interruption ends the five-second consecutive exposure.
+            // Hysteresis: the first contact requires 0.01, but once touched,
+            // any detectable fog >=0.001 keeps the five-second timer active.
+            // Density below 0.001 (or no valid samples) resets exposure.
+            float releaseThreshold = Mathf.Min(_releaseDensity, _contactDensity);
+            _flagTouching = peakDensity >= (wasTouching
+                ? releaseThreshold : _contactDensity);
             if (!_flagTouching) _exposureSeconds = 0f;
 
             // Include the very first crossing in addition to timed snapshots.
@@ -288,13 +325,17 @@ namespace GuardWave
         private void LogFlagProbeDensities(float[] samples)
         {
             int count = Mathf.Min(samples.Length, _sampledProbeCount);
-            int contacts = 0;
+            int startHits = 0, holdHits = 0;
+            float releaseThreshold = Mathf.Min(_releaseDensity, _contactDensity);
             float minDensity = float.PositiveInfinity;
             float maxDensity = 0f;
             StringBuilder message = new StringBuilder(1536);
             message.Append("[FogFlagDensity] t=")
                 .Append(Time.time.ToString("F2"))
-                .Append("s threshold=").Append(_contactDensity.ToString("F3"))
+                .Append("s startThreshold=").Append(_contactDensity.ToString("F4"))
+                .Append(" releaseThreshold=").Append(Mathf.Min(_releaseDensity,
+                    _contactDensity).ToString("F4"))
+                .Append(" simSpeed=").Append(_simulationSpeed).Append('x')
                 .Append(" sampled=").Append(count)
                 .Append(" excludedOutsideVolume=").Append(_sampledOutOfBoundsCount)
                 .Append(" exposure=").Append(_exposureSeconds.ToString("F2"))
@@ -302,8 +343,10 @@ namespace GuardWave
             for (int i = 0; i < count; i++)
             {
                 float density = samples[i];
-                bool hit = density >= _contactDensity;
-                if (hit) contacts++;
+                bool startHit = density >= _contactDensity;
+                bool holdHit = density >= releaseThreshold;
+                if (startHit) startHits++;
+                if (holdHit) holdHits++;
                 minDensity = Mathf.Min(minDensity, density);
                 maxDensity = Mathf.Max(maxDensity, density);
                 Vector3 p = _sampledProbePositions[i];
@@ -312,13 +355,14 @@ namespace GuardWave
                     .Append(" world=(").Append(p.x.ToString("F2"))
                     .Append(", ").Append(p.y.ToString("F2"))
                     .Append(", ").Append(p.z.ToString("F2"))
-                    .Append(") density=").Append(density.ToString("F4"))
-                    .Append(hit ? " HIT" : " miss");
+                    .Append(") density=").Append(density.ToString("F5"))
+                    .Append(startHit ? " START" : holdHit ? " HOLD" : " miss");
             }
             message.Append("\n  summary: min=")
                 .Append(count > 0 ? minDensity.ToString("F4") : "n/a")
-                .Append(" max=").Append(maxDensity.ToString("F4"))
-                .Append(" hit=").Append(contacts).Append('/').Append(count)
+                .Append(" max=").Append(maxDensity.ToString("F5"))
+                .Append(" startHits=").Append(startHits).Append('/').Append(count)
+                .Append(" holdHits=").Append(holdHits).Append('/').Append(count)
                 .Append(" touching=").Append(_flagTouching ? "YES" : "NO");
             Debug.Log(message.ToString());
         }
