@@ -1,5 +1,6 @@
 using System.Collections;
 using System.Collections.Generic;
+
 using UnityEngine;
 
 namespace GuardWave
@@ -36,6 +37,7 @@ namespace GuardWave
             new Dictionary<GuardWavePiece, FixedJoint>();
         private readonly Dictionary<Collider, float> _lastContactCheck =
             new Dictionary<Collider, float>();
+        private readonly List<Collider> _adhesionTriggers = new List<Collider>();
         // Brush-time queries catch pieces already in contact before a new
         // trigger is installed, without performing a whole-scene scan.
         private readonly Collider[] _nearbyColliders = new Collider[64];
@@ -50,6 +52,7 @@ namespace GuardWave
         private GuardWaveGame _game;
         private Collider _surfaceCollider;
         private Rigidbody _surfaceBody;
+        private GuardWavePiece _surfacePiece;
         private float _breakForce;
         private float _breakTorque;
         private int _triggerSegmentFirstSample;
@@ -144,12 +147,14 @@ namespace GuardWave
             }
         }
 
+        /// <summary>Initializes a runtime stroke on its surface and creates its mesh and material.</summary>
         public void Initialize(GuardWaveGame game, Collider surfaceCollider,
             Rigidbody surfaceBody, float breakForce, float breakTorque)
         {
             _game = game;
             _surfaceCollider = surfaceCollider;
             _surfaceBody = surfaceBody;
+            _surfacePiece = surfaceCollider.GetComponentInParent<GuardWavePiece>();
             _breakForce = breakForce;
             _breakTorque = breakTorque;
             TrackSurfacePiece();
@@ -171,6 +176,7 @@ namespace GuardWave
             _game = game;
             _surfaceCollider = surfaceCollider;
             _surfaceBody = surfaceBody;
+            _surfacePiece = surfaceCollider.GetComponentInParent<GuardWavePiece>();
             _breakForce = breakForce;
             _breakTorque = breakTorque;
             TrackSurfacePiece();
@@ -188,6 +194,8 @@ namespace GuardWave
 
             foreach (SphereCollider trigger in GetComponents<SphereCollider>())
             {
+                if (trigger.isTrigger && trigger.enabled)
+                    _adhesionTriggers.Add(trigger);
                 Vector3 point = trigger.center - Vector3.up * 0.24f;
                 int index = _points.Count;
                 _points.Add(point);
@@ -422,11 +430,12 @@ namespace GuardWave
             return _instanceMaterial;
         }
 
-        /// <summary>Restore mud curing state without multiplying joint forces again.</summary>
+        /// <summary>Restores curing, trigger and contact-cache state without multiplying joint forces again.</summary>
         public void RestoreDryness(bool dry)
         {
             StopAllCoroutines();
             _isDry = dry;
+            RefreshAdhesionTriggers();
             if (_instanceMaterial == null) return;
             if (_instanceMaterial.HasProperty("_Smoothness"))
                 _instanceMaterial.SetFloat("_Smoothness", dry ? 0.025f : _wetSmoothness);
@@ -444,6 +453,7 @@ namespace GuardWave
         {
             if (_isDry) return;
             _isDry = true;
+            RefreshAdhesionTriggers();
             foreach (FixedJoint joint in _bonds.Values)
             {
                 if (joint == null) continue;
@@ -456,6 +466,14 @@ namespace GuardWave
             }
             if (_instanceMaterial != null)
                 StartCoroutine(AnimateDryMaterial());
+        }
+
+        /// <summary>Enables adhesion triggers only while wet and invalidates checks from the previous state.</summary>
+        private void RefreshAdhesionTriggers()
+        {
+            _lastContactCheck.Clear();
+            foreach (Collider trigger in _adhesionTriggers)
+                if (trigger != null) trigger.enabled = !_isDry;
         }
 
         private IEnumerator AnimateDryMaterial()
@@ -538,6 +556,7 @@ namespace GuardWave
             _triggerCapsule.height = axis.magnitude + BrushRadius * 2f;
         }
 
+        /// <summary>Creates an adhesion capsule beginning at the given sample and registers its curing state.</summary>
         private void CreateTriggerSegment(int firstSample)
         {
             _triggerSegmentFirstSample = firstSample;
@@ -547,6 +566,8 @@ namespace GuardWave
             _triggerCapsule.isTrigger = true;
             _triggerCapsule.radius = BrushRadius;
             _triggerCapsule.direction = 1;
+            _adhesionTriggers.Add(_triggerCapsule);
+            _triggerCapsule.enabled = !_isDry;
             _triggerSegment.AddComponent<GuardWaveMudTriggerRelay>().Initialize(this);
         }
 
@@ -593,24 +614,28 @@ namespace GuardWave
 
         private void OnTriggerEnter(Collider other) => TryBond(other);
         private void OnTriggerStay(Collider other) => TryBond(other);
+
+        /// <summary>Checks contact forwarded by a child adhesion capsule.</summary>
         internal void ProcessTrigger(Collider other) => TryBond(other);
 
         /// <summary>
-        /// The other collider may belong to a dynamic piece or to the static
-        /// creek bed. A stroke painted on a piece must be able to join it to
-        /// the creek just as a stroke painted on the creek can capture a piece.
+        /// Resolves a currently eligible target and its connection before searching painted samples.
+        /// Creek contact targets the painted piece; other contacts target the incoming piece.
         /// </summary>
-        private bool TryBondAt(Collider other, Vector3 paintedPoint, Vector3 paintedNormal)
+        private bool TryResolveBondTarget(Collider other, out GuardWavePiece piece,
+            out Rigidbody connectedBody)
         {
+            piece = null;
+            connectedBody = null;
             if (_game == null || _isDry || other == null ||
                 other == _surfaceCollider || other.isTrigger) return false;
+            if (_surfaceBody != null && other.attachedRigidbody == _surfaceBody)
+                return false;
 
-            GuardWavePiece sourcePiece = _surfaceCollider == null
-                ? null : _surfaceCollider.GetComponentInParent<GuardWavePiece>();
-            GuardWavePiece otherPiece = other.GetComponentInParent<GuardWavePiece>();
             bool bindSourceToGround = other == _game.CreekBedCollider &&
-                sourcePiece != null && _game.IsPlacedPiece(sourcePiece);
-            GuardWavePiece piece = bindSourceToGround ? sourcePiece : otherPiece;
+                _surfacePiece != null && _game.IsPlacedPiece(_surfacePiece);
+            piece = bindSourceToGround ? _surfacePiece
+                : other.GetComponentInParent<GuardWavePiece>();
 
             if (piece == null || !_game.IsPlacedPiece(piece) ||
                 piece.Body == null || piece.Body.isKinematic ||
@@ -618,11 +643,22 @@ namespace GuardWave
                 _game.HasMudBond(piece) || _game.WasEverMudBonded(piece))
                 return false;
 
-            // The source may be a static bank: do not bind a piece to an
-            // unrelated static collider through a brush on another object.
-            if (otherPiece == null && !bindSourceToGround)
-                return false;
+            connectedBody = bindSourceToGround ? null : _surfaceBody;
+            return true;
+        }
 
+        /// <summary>Attempts immediate adhesion at a brush point after resolving its eligible target.</summary>
+        private bool TryBondAt(Collider other, Vector3 paintedPoint, Vector3 paintedNormal)
+        {
+            return TryResolveBondTarget(other, out GuardWavePiece piece,
+                       out Rigidbody connectedBody) &&
+                   TryCreateBondAt(other, piece, connectedBody, paintedPoint, paintedNormal);
+        }
+
+        /// <summary>Checks the painted contact gap and creates a joint for an already resolved target.</summary>
+        private bool TryCreateBondAt(Collider other, GuardWavePiece piece,
+            Rigidbody connectedBody, Vector3 paintedPoint, Vector3 paintedNormal)
+        {
             Vector3 normal = paintedNormal.normalized;
             Vector3 closest = other.ClosestPoint(paintedPoint);
             Vector3 offset = closest - paintedPoint;
@@ -635,7 +671,6 @@ namespace GuardWave
             // Midpoint anchors prevent a large solver impulse when convex
             // meshes rest slightly above the painted point.
             Vector3 anchor = (paintedPoint + closest) * 0.5f;
-            Rigidbody connectedBody = bindSourceToGround ? null : _surfaceBody;
             Vector3 localAnchor = piece.transform.InverseTransformPoint(anchor);
             Vector3 connectedAnchor = connectedBody == null ? anchor
                 : connectedBody.transform.InverseTransformPoint(anchor);
@@ -681,27 +716,29 @@ namespace GuardWave
         }
 
 
+        /// <summary>Searches an eligible contact once per physics tick, including contact with the creek bed.</summary>
         private void TryBond(Collider other)
         {
-            if (_game == null || _isDry || other == null) return;
-            GuardWavePiece otherPiece = other.GetComponentInParent<GuardWavePiece>();
+            if (_game == null || _isDry || other == null || other.isTrigger ||
+                other == _surfaceCollider) return;
+            if (_lastContactCheck.TryGetValue(other, out float checkedAt) &&
+                checkedAt == Time.fixedTime) return;
+            _lastContactCheck[other] = Time.fixedTime;
+            if (!TryResolveBondTarget(other, out GuardWavePiece piece,
+                    out Rigidbody connectedBody)) return;
             bool possibleCreek = other == _game.CreekBedCollider &&
                 _surfaceBody != null;
-            if (!possibleCreek && (otherPiece == null ||
-                !_game.IsPlacedPiece(otherPiece))) return;
             // The creek AABB spans the entire channel. For this rare case,
             // test the short patch directly instead of hashing thousands of
             // empty world cells every physics step.
             if (possibleCreek)
             {
                 for (int i = 0; i < _points.Count; i++)
-                    if (TryBondAt(other, transform.TransformPoint(_points[i]),
+                    if (TryCreateBondAt(other, piece, connectedBody,
+                        transform.TransformPoint(_points[i]),
                         transform.TransformDirection(_normals[i]).normalized)) return;
                 return;
             }
-            if (_lastContactCheck.TryGetValue(other, out float checkedAt) &&
-                checkedAt == Time.fixedTime) return;
-            _lastContactCheck[other] = Time.fixedTime;
 
             // The sample hash keeps each contact test proportional to nearby
             // brush points rather than the full stroke length.
@@ -737,7 +774,7 @@ namespace GuardWave
                 {
                     Vector3 point = transform.TransformPoint(_points[index]);
                     Vector3 normal = transform.TransformDirection(_normals[index]).normalized;
-                    if (TryBondAt(other, point, normal)) return;
+                    if (TryCreateBondAt(other, piece, connectedBody, point, normal)) return;
                 }
             }
         }
