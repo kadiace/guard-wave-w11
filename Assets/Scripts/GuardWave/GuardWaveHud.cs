@@ -272,6 +272,10 @@ Ctrl+Z: 최근 기물 배치, 진흙 붓질 또는 수동 제거 되돌리기
 
         private void Refresh()
         {
+            // Match the visible countdown to early fog completion before
+            // activating the success popup in this same HUD refresh.
+            if (_fogMode != null && _game.IsFinished)
+                _stageTimer.CompleteFogCountdown();
             RefreshFogExposure();
             if (_game.IsPaletteHidden && _hoveredCard >= 0)
             {
