@@ -903,6 +903,9 @@ MonoBehaviour:
   _expansionStrength: 4.2
   _buoyancy: 1.05
   _settling: 0.54
+  _ambientWindRelaxation: 0.65
+  _minimumSpeedLimit: 4
+  _ambientSpeedLimitMultiplier: 2.35
   _extinction: 1.3
   _shadowStrength: 2.1
   _detailStrength: 0.65
