@@ -10,6 +10,7 @@ public class ForestSceneContext : MonoBehaviour
 
     [Header("Camera")]
     [SerializeField, Min(0f)] private float _cameraYawPerScrollStep = 5f;
+    [SerializeField, Min(0.1f)] private float _cameraDistance = 40f;
 
     [Header("Destruction boundary")]
     [SerializeField] private float _destructionBoundaryZ = -28.2f;
@@ -17,6 +18,7 @@ public class ForestSceneContext : MonoBehaviour
     [Header("Scene objects")]
     [SerializeField] private GameObject _defenseFlag;
 
+    public float CameraDistance => _cameraDistance;
     public float DestructionBoundaryZ => _destructionBoundaryZ;
     public GameObject DefenseFlag => _defenseFlag;
     public GuardWaveHud Hud { get; private set; }

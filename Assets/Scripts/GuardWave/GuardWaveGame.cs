@@ -1240,7 +1240,7 @@ namespace GuardWave
         /// <summary>현재 회전 방향과 주시 위치를 사용해 카메라 위치를 갱신한다.</summary>
         private void UpdateCameraPosition()
         {
-            _camera.transform.position = _cameraTarget - _camera.transform.forward * 40f;
+            _camera.transform.position = _cameraTarget - _camera.transform.forward * _sceneContext.CameraDistance;
         }
 
         /// <summary>모든 배치와 소모품 상태를 초기화하고 기본 발판을 배치한다.</summary>
