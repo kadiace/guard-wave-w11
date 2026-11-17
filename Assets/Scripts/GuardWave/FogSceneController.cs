@@ -36,12 +36,25 @@ namespace GuardWave
 
         private GuardWaveGame _game;
         private FogFluidSolver _fluid;
+        private FogFlagDensityProbes _flagProbes;
+        private readonly Vector3[] _probePositions = new Vector3[FogFlagDensityProbes.MaxSamples];
         private MaterialPropertyBlock _block;
+
+        [Header("Defense flag gas exposure")]
+        [SerializeField, Range(0f, 1f)] private float _contactDensity = 0.15f;
+        [SerializeField, Min(0.1f)] private float _failureExposureSeconds = 5f;
+        private const float MaxReadingAge = 0.25f;
+        private float _exposureSeconds;
+        private float _lastDensityAt = float.NegativeInfinity;
+        private float _maxFlagDensity;
+        private bool _flagTouching;
         private bool _running;
         private string _status;
         private float _opacity;
 
         public bool IsComing => _running;
+        public float FlagExposureSeconds => _exposureSeconds;
+        public float FlagMaximumDensity => _maxFlagDensity;
         public bool CanReady => !_running && _game != null && _game.CanReady;
         public string StatusMessage => !string.IsNullOrEmpty(_status)
             ? _status : _game != null ? _game.StatusMessage : "";
@@ -75,6 +88,20 @@ namespace GuardWave
         {
             _running = true;
             _game.SetRulesOpen(true); // Existing placement UI and input become read-only.
+            _flagProbes = _game.DefenseFlag != null
+                ? _game.DefenseFlag.GetComponent<FogFlagDensityProbes>() : null;
+            _exposureSeconds = 0f;
+            _lastDensityAt = float.NegativeInfinity;
+            _maxFlagDensity = 0f;
+            _flagTouching = false;
+            if (_flagProbes == null)
+            {
+                _status = "Defense Flag의 FogFlagDensityProbes 구성을 찾을 수 없습니다.";
+                Debug.LogError(_status);
+                _running = false;
+                _game.SetRulesOpen(false);
+                yield break;
+            }
             _status = "도시 도로로 밀려오는 안개에 배치한 건물의 실외기 바람이 맞서고 있습니다.";
             float ground = -2.25f;
             GameObject bed = GameObject.Find("Fog Asphalt Ground");
@@ -115,6 +142,7 @@ namespace GuardWave
             float total = _inletDuration + travel + 4f;
             float elapsed = 0f, accumulator = 0f;
             bool failed = false;
+            bool exposureFailure = false;
             while (elapsed < total)
             {
                 yield return new WaitForFixedUpdate();
@@ -137,6 +165,27 @@ namespace GuardWave
                         Mathf.Clamp01((_inletDuration - elapsed) / 1.2f));
                     float inlet = elapsed < _inletDuration ? ramp * tail : 0f;
                     _fluid.Step(step, inlet, _windSpeed, ground);
+                    int probeCount = _flagProbes.Collect(_probePositions, _fluid.WorldBounds);
+                    if (probeCount > 0)
+                        _fluid.RequestDensitySamples(_probePositions, probeCount, ReceiveFlagDensity);
+                    else
+                    {
+                        _flagTouching = false;
+                        _exposureSeconds = 0f;
+                    }
+                }
+
+                // Readbacks are asynchronous. Only count physics time while the
+                // last GPU density reading is fresh; never stall for GPU data.
+                if (_flagTouching && Time.time - _lastDensityAt <= MaxReadingAge)
+                    _exposureSeconds += dt;
+
+                if (_exposureSeconds >= _failureExposureSeconds)
+                {
+                    _game.FailFromFogExposure();
+                    exposureFailure = _game.AwaitingFailure;
+                    failed = exposureFailure;
+                    if (failed) break;
                 }
                 _opacity = Mathf.Clamp01((total - elapsed) / 2.5f);
                 RenderVolume();
@@ -154,8 +203,20 @@ namespace GuardWave
             }
             else
             {
-                _status = "방어에 실패했습니다. 배치 상태를 복원하고 다시 시도하세요.";
+                _status = exposureFailure
+                    ? "깃발이 독안개에 5초 이상 노출되었습니다. 확인을 누르면 배치 상태로 돌아갑니다."
+                    : "방어에 실패했습니다. 배치 상태를 복원하고 다시 시도하세요.";
             }
+        }
+
+        private void ReceiveFlagDensity(float peakDensity)
+        {
+            if (!_running || _game == null || _game.AwaitingFailure) return;
+            _lastDensityAt = Time.time;
+            _maxFlagDensity = peakDensity;
+            _flagTouching = peakDensity >= _contactDensity;
+            // Any observed interruption ends the five-second consecutive exposure.
+            if (!_flagTouching) _exposureSeconds = 0f;
         }
 
         private void RenderVolume()
@@ -191,6 +252,8 @@ namespace GuardWave
             DisposeFog();
             if (_running && _game != null) _game.SetRulesOpen(false);
             _running = false;
+            _flagTouching = false;
+            _exposureSeconds = 0f;
         }
     }
 }

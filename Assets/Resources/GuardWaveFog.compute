@@ -12,6 +12,7 @@
 #pragma kernel AdvectFogDensityForward
 #pragma kernel AdvectFogDensityBackward
 #pragma kernel AdvectFogDensity
+#pragma kernel SampleFogDensity
 #pragma target 5.0
 
 struct ObstacleBox { float4 center; float4 halfExtent; float4 rotation; };
@@ -21,6 +22,9 @@ StructuredBuffer<WindVent> _WindVents;
 int _WindVentCount;
 float _PeakFanSpeed;
 int _ObstacleCount;
+int _DensityProbeCount;
+StructuredBuffer<float3> _DensityProbePositions;
+RWStructuredBuffer<float> _DensityProbeResults;
 int3 _GridSize;
 float3 _WorldMin;
 float _CellSize;
@@ -322,4 +326,20 @@ void AdvectFogDensity(uint3 id : SV_DispatchThreadID) {
     density*=exp(-_Dt*0.018);
     density=max(density,Emission(p));
     _DensityWrite[id]=float4(saturate(density),0,0,0);
+}
+
+
+// Samples exactly the same scalar gas density that drives volumetric shading.
+// The collider interior is solid (density=0), so positions are placed outside
+// the Defense Flag's child collider surfaces by FogFlagDensityProbes.
+[numthreads(32,1,1)]
+void SampleFogDensity(uint3 id : SV_DispatchThreadID)
+{
+    if (id.x >= _DensityProbeCount) return;
+    float3 p = _DensityProbePositions[id.x];
+    float3 worldMax = _WorldMin + float3(_GridSize) * _CellSize;
+    float density = 0.0;
+    if (all(p >= _WorldMin) && all(p <= worldMax))
+        density = _DensityRead.SampleLevel(sampler_linear_clamp, UV(p), 0).r;
+    _DensityProbeResults[id.x] = density;
 }

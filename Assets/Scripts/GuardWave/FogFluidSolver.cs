@@ -45,6 +45,9 @@ namespace GuardWave
         private readonly int _clear, _clearAuxiliary, _classify, _advectVelocity, _curlKernel, _forces;
         private readonly int _divergenceKernel, _jacobi, _project, _advectTemperature;
         private readonly int _predictDensity, _reverseDensity, _advectDensity;
+        private readonly int _sampleDensityKernel;
+        private readonly ComputeBuffer _probePositions, _probeDensities;
+        private bool _probeReadbackPending;
         private readonly Vector3Int _size;
         private readonly float _cell;
         private readonly int _pressureIterations;
@@ -100,6 +103,9 @@ namespace GuardWave
             _obstacleSdf = MakeTexture("Fog Obstacle SDF");
             _obstacles = new ComputeBuffer(MaxObstacles, Marshal.SizeOf<Obstacle>());
             _windVents = new ComputeBuffer(MaxWindVents, Marshal.SizeOf<WindVent>());
+            _probePositions = new ComputeBuffer(FogFlagDensityProbes.MaxSamples, sizeof(float) * 3);
+            _probeDensities = new ComputeBuffer(FogFlagDensityProbes.MaxSamples, sizeof(float));
+            _sampleDensityKernel = _compute.FindKernel("SampleFogDensity");
             _clear = _compute.FindKernel("ClearFog");
             _clearAuxiliary = _compute.FindKernel("ClearFogAuxiliary");
             _classify = _compute.FindKernel("BuildObstacleSdf");
@@ -387,12 +393,48 @@ namespace GuardWave
             _densityIsA = !_densityIsA;
         }
 
+        /// <summary>
+        /// GPU-only sparse density lookup. The 3D density texture is never copied
+        /// to CPU; only up to 40 scalar probe values are read back asynchronously.
+        /// A pending request is skipped rather than blocking the simulation.
+        /// </summary>
+        public void RequestDensitySamples(Vector3[] points, int count, Action<float> completed)
+        {
+            if (_disposed || _probeReadbackPending || count <= 0 || completed == null)
+                return;
+            if (points == null || count > FogFlagDensityProbes.MaxSamples || count > points.Length)
+                throw new ArgumentOutOfRangeException(nameof(count));
+
+            _probePositions.SetData(points, 0, 0, count);
+            _compute.SetInt("_DensityProbeCount", count);
+            _compute.SetBuffer(_sampleDensityKernel, "_DensityProbePositions", _probePositions);
+            _compute.SetBuffer(_sampleDensityKernel, "_DensityProbeResults", _probeDensities);
+            Bind(_sampleDensityKernel, "_DensityRead", Density);
+            _compute.Dispatch(_sampleDensityKernel, (count + 31) / 32, 1, 1);
+
+            _probeReadbackPending = true;
+            int requestedCount = count;
+            AsyncGPUReadback.Request(_probeDensities, request =>
+            {
+                _probeReadbackPending = false;
+                if (_disposed || request.hasError) return;
+
+                var values = request.GetData<float>();
+                float peak = 0f;
+                for (int i = 0; i < requestedCount; ++i)
+                    peak = Mathf.Max(peak, values[i]);
+                completed(peak);
+            });
+        }
+
         public void Dispose()
         {
             if (_disposed) return;
             _disposed = true;
             _obstacles?.Release();
             _windVents?.Release();
+            _probePositions?.Release();
+            _probeDensities?.Release();
             foreach (RenderTexture t in new[] {
                 _velocityA, _velocityB, _densityA, _densityB,
                 _temperatureA, _temperatureB, _curl, _densityPredict, _densityReverse,

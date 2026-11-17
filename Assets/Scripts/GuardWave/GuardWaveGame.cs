@@ -1055,6 +1055,7 @@ namespace GuardWave
 
         /// <summary>배치한 기물의 카탈로그 정보를 제공한다.</summary>
         public GuardWaveMaterial GetPieceMaterial(GuardWavePiece piece) => _catalog.Get(piece.MaterialId);
+        public GameObject DefenseFlag => _defenseFlag;
         public bool AwaitingFailure => _awaitingStage;
         public bool IsFinished => _finished;
         public string StatusMessage => _status;
@@ -1873,6 +1874,21 @@ namespace GuardWave
             _flipRenderer?.Render(null);
             _fluid?.Dispose();
             _fluid = null;
+        }
+
+        /// <summary>
+        /// Fog's continuous toxic exposure shares the existing failure popup and
+        /// snapshot restoration. The flag need not cross Forest's Z boundary.
+        /// </summary>
+        public void FailFromFogExposure()
+        {
+            if (GetComponent<FogSceneController>() == null || _awaitingStage || _finished)
+                return;
+            DestroyDefenseFlag();
+            if (_awaitingStage)
+                _status = _waveSnapshot == null
+                    ? "깃발이 독안개에 5초 이상 노출되었습니다. 확인을 누르면 다시 시작합니다."
+                    : "깃발이 독안개에 5초 이상 노출되었습니다. 확인을 누르면 배치를 복원합니다.";
         }
 
         /// <summary>깃발이 파괴되면 팝업을 열되 기물의 속도와 Rigidbody 물리는 유지한다.</summary>
