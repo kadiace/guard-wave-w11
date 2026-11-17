@@ -22,6 +22,10 @@ namespace GuardWave
         private GuardWaveGame _game;
         private FogSceneController _fogMode;
         private GuardWaveStageTimer _stageTimer;
+        private GameObject _fogExposurePanel;
+        private RectTransform _fogExposureFill;
+        private Image _fogExposureFillImage;
+        private Text _fogExposureLabel;
         private Text _detail;
         private Text _stageTitle;
         private Text _stageBody;
@@ -57,6 +61,15 @@ namespace GuardWave
             _fogMode = game.GetComponent<FogSceneController>();
             _stageTimer = transform.Find("DisasterCountdown").GetComponent<GuardWaveStageTimer>();
             _stageTimer.Initialize(game, _fogMode);
+            Transform fogExposure = transform.Find("FogExposurePanel");
+            if (fogExposure != null)
+            {
+                _fogExposurePanel = fogExposure.gameObject;
+                _fogExposureFill = fogExposure.Find("ExposureTrack/ExposureFill").GetComponent<RectTransform>();
+                _fogExposureFillImage = _fogExposureFill.GetComponent<Image>();
+                _fogExposureLabel = fogExposure.Find("ExposureLabel").GetComponent<Text>();
+                _fogExposurePanel.SetActive(false);
+            }
             _detail = FindText("PlacementDetailPanel/DetailText");
             _stagePopup = transform.Find("StageResultPopup").gameObject;
             _stageTitle = FindText("StageResultPopup/Heading/TitleText");
@@ -153,6 +166,8 @@ Ctrl+Z: 최근 기물 배치, 진흙 붓질 또는 수동 제거 되돌리기
                     + "마우스를 누른 채 드래그하면 건물이 겹치지 않는 지점마다 연속 배치됩니다.\n"
                     + "기물을 배치한 후 준비 완료를 누르면 안개가 상류에서 몰려옵니다.\n"
                     + "안개는 건물과 기물을 돌아 -Z 방향으로 흐르며 옆으로 확산됩니다.\n"
+                    + "깃발 주변의 독안개 밀도가 0.15 이상인 상태가 5초 연속되면 방어에 실패합니다.\n"
+                    + "노출이 시작되면 화면 상단에 노출 게이지가 표시되고, 안개가 사라지면 초기화됩니다.\n"
                     + "안개가 지나간 뒤 깃발이 살아 있다면 스테이지를 클리어합니다.\n\n"
                     + "우클릭 드래그: 카메라 이동 / 스크롤: 확대 / Q/E: 기물 회전";
             Refresh();
@@ -252,6 +267,7 @@ Ctrl+Z: 최근 기물 배치, 진흙 붓질 또는 수동 제거 되돌리기
 
         private void Refresh()
         {
+            RefreshFogExposure();
             if (_game.IsPaletteHidden && _hoveredCard >= 0)
             {
                 _hoveredCard = -1;
@@ -348,6 +364,36 @@ Ctrl+Z: 최근 기물 배치, 진흙 붓질 또는 수동 제거 되돌리기
                 _completeBody.text = "재해가 지나갔습니다.\n"
                     + "깃발을 지켜냈습니다!\n\n"
                     + "돌아가기를 누르면 스테이지 선택 화면으로 이동합니다.";
+        }
+
+        /// <summary>
+        /// The prefab-authored bar appears with the first qualifying fog density
+        /// sample, tracks continuous exposure, and disappears on contact loss,
+        /// disaster completion, or failure.
+        /// </summary>
+        private void RefreshFogExposure()
+        {
+            if (_fogExposurePanel == null) return;
+            bool visible = _fogMode != null && _fogMode.IsFlagExposed &&
+                !_game.AwaitingFailure && !_game.IsFinished;
+            if (_fogExposurePanel.activeSelf != visible)
+                _fogExposurePanel.SetActive(visible);
+            if (!visible) return;
+
+            float duration = _fogMode.FlagExposureLimitSeconds;
+            float elapsed = Mathf.Clamp(_fogMode.FlagExposureSeconds, 0f, duration);
+            float progress = Mathf.Clamp01(elapsed / Mathf.Max(0.01f, duration));
+            Vector2 end = _fogExposureFill.anchorMax;
+            if (!Mathf.Approximately(end.x, progress))
+                _fogExposureFill.anchorMax = new Vector2(progress, end.y);
+
+            // Yellow on first contact, red near failure.
+            _fogExposureFillImage.color = Color.Lerp(
+                new Color(0.98f, 0.72f, 0.26f, 1f),
+                new Color(0.96f, 0.15f, 0.18f, 1f), progress);
+            string label = $"독안개 노출  {elapsed:0.0} / {duration:0.0}초";
+            if (_fogExposureLabel.text != label)
+                _fogExposureLabel.text = label;
         }
 
         /// <summary>승리 팝업에서 세션 클리어 상태를 보존한 채 Game 씬으로 복귀한다.</summary>

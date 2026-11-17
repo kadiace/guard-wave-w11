@@ -54,7 +54,11 @@ namespace GuardWave
 
         public bool IsComing => _running;
         public float FlagExposureSeconds => _exposureSeconds;
+        public float FlagExposureLimitSeconds => _failureExposureSeconds;
         public float FlagMaximumDensity => _maxFlagDensity;
+        public bool IsFlagExposed => _running && _flagTouching &&
+            Time.time - _lastDensityAt <= MaxReadingAge &&
+            _game != null && !_game.AwaitingFailure;
         public bool CanReady => !_running && _game != null && _game.CanReady;
         public string StatusMessage => !string.IsNullOrEmpty(_status)
             ? _status : _game != null ? _game.StatusMessage : "";
@@ -185,7 +189,13 @@ namespace GuardWave
 
                 // Readbacks are asynchronous. Only count physics time while the
                 // last GPU density reading is fresh; never stall for GPU data.
-                if (_flagTouching && Time.time - _lastDensityAt <= MaxReadingAge)
+                // A stale reading is not uninterrupted exposure.
+                if (_flagTouching && Time.time - _lastDensityAt > MaxReadingAge)
+                {
+                    _flagTouching = false;
+                    _exposureSeconds = 0f;
+                }
+                if (IsFlagExposed)
                     _exposureSeconds += dt;
 
                 if (_exposureSeconds >= _failureExposureSeconds)
