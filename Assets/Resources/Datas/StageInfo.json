@@ -30,7 +30,7 @@
       "palette": [
         {
           "materialId": "building",
-          "placementLimit": 10
+          "placementLimit": 1
         }
       ]
     }
