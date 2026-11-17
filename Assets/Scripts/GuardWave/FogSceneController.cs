@@ -56,9 +56,15 @@ namespace GuardWave
         public float FlagExposureSeconds => _exposureSeconds;
         public float FlagExposureLimitSeconds => _failureExposureSeconds;
         public float FlagMaximumDensity => _maxFlagDensity;
-        public bool IsFlagExposed => _running && _flagTouching &&
-            Time.time - _lastDensityAt <= MaxReadingAge &&
-            _game != null && !_game.AwaitingFailure;
+        // Keep the saturated bar visible while the toxic-exposure failure popup
+        // is waiting for confirmation. FogPass stops on failure, but the exposure
+        // counter stays at its final value until the next Ready.
+        public bool IsFlagExposed =>
+            (_running && _flagTouching &&
+                Time.time - _lastDensityAt <= MaxReadingAge &&
+                _game != null && !_game.AwaitingFailure) ||
+            (_game != null && _game.AwaitingFailure &&
+                _exposureSeconds >= _failureExposureSeconds);
         public bool CanReady => !_running && _game != null && _game.CanReady;
         public string StatusMessage => !string.IsNullOrEmpty(_status)
             ? _status : _game != null ? _game.StatusMessage : "";

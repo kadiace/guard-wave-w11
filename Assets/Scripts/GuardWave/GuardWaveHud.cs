@@ -374,8 +374,10 @@ Ctrl+Z: 최근 기물 배치, 진흙 붓질 또는 수동 제거 되돌리기
         private void RefreshFogExposure()
         {
             if (_fogExposurePanel == null) return;
+            // During a toxic-exposure failure, the full bar must remain above
+            // the popup until the player confirms and restores the checkpoint.
             bool visible = _fogMode != null && _fogMode.IsFlagExposed &&
-                !_game.AwaitingFailure && !_game.IsFinished;
+                !_game.IsFinished;
             if (_fogExposurePanel.activeSelf != visible)
                 _fogExposurePanel.SetActive(visible);
             if (!visible) return;
