@@ -173,10 +173,12 @@ namespace GuardWave
 
             // Urban highway fog spans a 100 m wide simulation domain centered at world X=0.
             // Background towers have no fans; player-placed mid-height vents remain in the gas domain.
-            Vector3 origin = new Vector3(-50f, ground - 0.5f, -29f);
-            Vector3 extent = new Vector3(100f, 20f, 83f);
-            // Match the requested -50..+50 X bounds exactly despite voxel quantization.
-            float voxelSize = extent.x / Mathf.CeilToInt(extent.x / _cellSize);
+            Vector3 origin = new Vector3(-50f, ground - 0.5f, -70f);
+            Vector3 extent = new Vector3(100f, 20f, 140f);
+            // Align X/Y/Z cell counts with the 100:20:140 metre dimensions.
+            // The 5:1:7 ratio keeps the real volume within the requested bounds.
+            int xCellCount = Mathf.CeilToInt(extent.x / (_cellSize * 5f)) * 5;
+            float voxelSize = extent.x / xCellCount;
             try
             {
                 _fluid = new FogFluidSolver(gameObject.scene, origin, extent,
