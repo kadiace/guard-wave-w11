@@ -1,5 +1,6 @@
 using System;
 using System.Collections;
+using System.Text;
 using UnityEngine;
 using UnityEngine.Rendering.Universal;
 
@@ -38,11 +39,20 @@ namespace GuardWave
         private FogFluidSolver _fluid;
         private FogFlagDensityProbes _flagProbes;
         private readonly Vector3[] _probePositions = new Vector3[FogFlagDensityProbes.MaxSamples];
+        private readonly Vector3[] _sampledProbePositions = new Vector3[FogFlagDensityProbes.MaxSamples];
+        private readonly string[] _sampledProbeSources = new string[FogFlagDensityProbes.MaxSamples];
+        private int _sampledProbeCount;
+        private int _sampledOutOfBoundsCount;
+        private float _nextProbeLogTime;
         private MaterialPropertyBlock _block;
 
         [Header("Defense flag gas exposure")]
         [SerializeField, Range(0f, 1f)] private float _contactDensity = 0.15f;
         [SerializeField, Min(0.1f)] private float _failureExposureSeconds = 5f;
+
+        [Header("Fog density debug log (Unity Console)")]
+        [SerializeField] private bool _logEachFlagProbeDensity = true;
+        [SerializeField, Range(0.1f, 5f)] private float _probeLogIntervalSeconds = 0.5f;
         private const float MaxReadingAge = 0.25f;
         private float _exposureSeconds;
         private float _lastDensityAt = float.NegativeInfinity;
@@ -112,6 +122,9 @@ namespace GuardWave
             _lastDensityAt = float.NegativeInfinity;
             _maxFlagDensity = 0f;
             _flagTouching = false;
+            _sampledProbeCount = 0;
+            _sampledOutOfBoundsCount = 0;
+            _nextProbeLogTime = float.NegativeInfinity;
             if (_flagProbes == null)
             {
                 _status = "Defense Flag의 FogFlagDensityProbes 구성을 찾을 수 없습니다.";
@@ -185,11 +198,31 @@ namespace GuardWave
                     _fluid.Step(step, inlet, _windSpeed, ground);
                     int probeCount = _flagProbes.Collect(_probePositions, _fluid.WorldBounds);
                     if (probeCount > 0)
-                        _fluid.RequestDensitySamples(_probePositions, probeCount, ReceiveFlagDensity);
+                    {
+                        // Only snapshot metadata when the solver actually accepts
+                        // a new request. While an async readback is pending,
+                        // Collect may update the mutable world-space point array.
+                        if (_fluid.RequestDensitySamples(_probePositions, probeCount, ReceiveFlagDensity))
+                        {
+                            _sampledProbeCount = probeCount;
+                            _sampledOutOfBoundsCount = _flagProbes.LastOutOfBoundsCount;
+                            for (int i = 0; i < probeCount; i++)
+                            {
+                                _sampledProbePositions[i] = _probePositions[i];
+                                _sampledProbeSources[i] = _flagProbes.GetSampleSource(i);
+                            }
+                        }
+                    }
                     else
                     {
                         _flagTouching = false;
                         _exposureSeconds = 0f;
+                        if (_logEachFlagProbeDensity && Time.unscaledTime >= _nextProbeLogTime)
+                        {
+                            Debug.Log($"[FogFlagDensity] no valid dots (excluded=" +
+                                $"{_flagProbes.LastOutOfBoundsCount}, bounds={_fluid.WorldBounds})");
+                            _nextProbeLogTime = Time.unscaledTime + _probeLogIntervalSeconds;
+                        }
                     }
                 }
 
@@ -233,14 +266,61 @@ namespace GuardWave
             }
         }
 
-        private void ReceiveFlagDensity(float peakDensity)
+        private void ReceiveFlagDensity(float peakDensity, float[] samples)
         {
             if (!_running || _game == null || _game.AwaitingFailure) return;
             _lastDensityAt = Time.time;
             _maxFlagDensity = peakDensity;
+            bool wasTouching = _flagTouching;
             _flagTouching = peakDensity >= _contactDensity;
             // Any observed interruption ends the five-second consecutive exposure.
             if (!_flagTouching) _exposureSeconds = 0f;
+
+            // Include the very first crossing in addition to timed snapshots.
+            if (_logEachFlagProbeDensity &&
+                (Time.unscaledTime >= _nextProbeLogTime || wasTouching != _flagTouching))
+            {
+                LogFlagProbeDensities(samples);
+                _nextProbeLogTime = Time.unscaledTime + _probeLogIntervalSeconds;
+            }
+        }
+
+        private void LogFlagProbeDensities(float[] samples)
+        {
+            int count = Mathf.Min(samples.Length, _sampledProbeCount);
+            int contacts = 0;
+            float minDensity = float.PositiveInfinity;
+            float maxDensity = 0f;
+            StringBuilder message = new StringBuilder(1536);
+            message.Append("[FogFlagDensity] t=")
+                .Append(Time.time.ToString("F2"))
+                .Append("s threshold=").Append(_contactDensity.ToString("F3"))
+                .Append(" sampled=").Append(count)
+                .Append(" excludedOutsideVolume=").Append(_sampledOutOfBoundsCount)
+                .Append(" exposure=").Append(_exposureSeconds.ToString("F2"))
+                .Append('/').Append(_failureExposureSeconds.ToString("F2")).Append("s");
+            for (int i = 0; i < count; i++)
+            {
+                float density = samples[i];
+                bool hit = density >= _contactDensity;
+                if (hit) contacts++;
+                minDensity = Mathf.Min(minDensity, density);
+                maxDensity = Mathf.Max(maxDensity, density);
+                Vector3 p = _sampledProbePositions[i];
+                message.Append("\n  #").Append(i.ToString("D2"))
+                    .Append(' ').Append(_sampledProbeSources[i])
+                    .Append(" world=(").Append(p.x.ToString("F2"))
+                    .Append(", ").Append(p.y.ToString("F2"))
+                    .Append(", ").Append(p.z.ToString("F2"))
+                    .Append(") density=").Append(density.ToString("F4"))
+                    .Append(hit ? " HIT" : " miss");
+            }
+            message.Append("\n  summary: min=")
+                .Append(count > 0 ? minDensity.ToString("F4") : "n/a")
+                .Append(" max=").Append(maxDensity.ToString("F4"))
+                .Append(" hit=").Append(contacts).Append('/').Append(count)
+                .Append(" touching=").Append(_flagTouching ? "YES" : "NO");
+            Debug.Log(message.ToString());
         }
 
         private void RenderVolume()

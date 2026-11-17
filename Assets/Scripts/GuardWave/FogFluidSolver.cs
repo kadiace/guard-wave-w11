@@ -398,10 +398,12 @@ namespace GuardWave
         /// to CPU; only up to 40 scalar probe values are read back asynchronously.
         /// A pending request is skipped rather than blocking the simulation.
         /// </summary>
-        public void RequestDensitySamples(Vector3[] points, int count, Action<float> completed)
+        /// <returns>True only when a new GPU readback was scheduled.</returns>
+        public bool RequestDensitySamples(Vector3[] points, int count,
+            Action<float, float[]> completed)
         {
             if (_disposed || _probeReadbackPending || count <= 0 || completed == null)
-                return;
+                return false;
             if (points == null || count > FogFlagDensityProbes.MaxSamples || count > points.Length)
                 throw new ArgumentOutOfRangeException(nameof(count));
 
@@ -421,10 +423,15 @@ namespace GuardWave
 
                 var values = request.GetData<float>();
                 float peak = 0f;
+                float[] samples = new float[requestedCount];
                 for (int i = 0; i < requestedCount; ++i)
-                    peak = Mathf.Max(peak, values[i]);
-                completed(peak);
+                {
+                    samples[i] = values[i];
+                    peak = Mathf.Max(peak, samples[i]);
+                }
+                completed(peak, samples);
             });
+            return true;
         }
 
         public void Dispose()

@@ -909,6 +909,8 @@ MonoBehaviour:
   _fogTint: {r: 0.69, g: 0.81, b: 0.6, a: 1}
   _contactDensity: 0.15
   _failureExposureSeconds: 5
+  _logEachFlagProbeDensity: 1
+  _probeLogIntervalSeconds: 0.5
 --- !u!1 &4700000001
 GameObject:
   m_ObjectHideFlags: 0

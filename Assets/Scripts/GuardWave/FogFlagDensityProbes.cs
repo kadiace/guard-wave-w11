@@ -17,6 +17,13 @@ namespace GuardWave
         [SerializeField] private bool _drawGizmos = true;
 
         private Collider[] _colliders;
+        private readonly string[] _sampleSources = new string[MaxSamples];
+
+        // The solver receives only points inside its active 3D volume.
+        // Diagnostics report excluded dots so an all-zero result is not
+        // mistakenly interpreted as proof that every collider was sampled.
+        public int LastOutOfBoundsCount { get; private set; }
+        public string GetSampleSource(int index) => _sampleSources[index];
 
         private void Awake() => CacheColliders();
 
@@ -36,6 +43,7 @@ namespace GuardWave
             if (_colliders == null || _colliders.Length == 0) CacheColliders();
 
             int count = 0;
+            LastOutOfBoundsCount = 0;
             foreach (Collider collider in _colliders)
             {
                 if (collider == null || !collider.enabled || collider.isTrigger ||
@@ -57,7 +65,14 @@ namespace GuardWave
             Transform t = collider.transform;
             Vector3 normal = t.TransformDirection(localOutward).normalized;
             Vector3 world = t.TransformPoint(localSurface) + normal * _surfaceClearance;
-            if (worldBounds.Contains(world)) positions[count++] = world;
+            if (!worldBounds.Contains(world))
+            {
+                LastOutOfBoundsCount++;
+                return;
+            }
+            positions[count] = world;
+            _sampleSources[count] = collider.gameObject.name;
+            count++;
         }
 
         private void AddCapsule(CapsuleCollider capsule, Vector3[] positions,
