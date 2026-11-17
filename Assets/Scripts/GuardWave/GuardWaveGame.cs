@@ -2339,6 +2339,10 @@ namespace GuardWave
         public void ConfirmFailure()
         {
             if (!_awaitingStage) return;
+            // Fog keeps simulating behind the popup; confirmation is the
+            // explicit point at which its volume and GPU resources are cleared.
+            FogSceneController fogMode = GetComponent<FogSceneController>();
+            if (fogMode != null) fogMode.ResetAfterFailureConfirmation();
             if (_waveSnapshot == null)
             {
                 ClearEditorSceneSelectionBeforeReload();

@@ -81,6 +81,7 @@ namespace GuardWave
         private FogSceneController _fogMode;
         private Text _disasterName;
         private Text _countdown;
+        private string _preparationDisasterName;
         private float _durationSeconds;
         private float _remainingSeconds;
         private int _displayedHundredths = -1;
@@ -107,7 +108,8 @@ namespace GuardWave
             _countdown.verticalOverflow = VerticalWrapMode.Overflow;
             _defaultFontSize = _countdown.fontSize;
             _defaultCountdownScale = _countdown.rectTransform.localScale;
-            _disasterName.text = stage.disasterName + "가 오기까지";
+            _preparationDisasterName = stage.disasterName + "가 오기까지";
+            _disasterName.text = _preparationDisasterName;
             _durationSeconds = stage.countdownSeconds;
             ResetCountdown();
             _initialized = true;
@@ -135,7 +137,19 @@ namespace GuardWave
             if (_disasterStarted)
             {
                 if (CanReady) ResetCountdown();
-                else AnimateCountdown();
+                else
+                {
+                    // This uses the fog solver's simulation clock, so the
+                    // countdown advances twice as fast after simulation t=30.
+                    // AwaitingFailure is handled above: the HUD freezes even
+                    // while FogSceneController continues simulating.
+                    if (_fogMode != null && _fogMode.IsComing)
+                    {
+                        _remainingSeconds = _fogMode.RemainingSimulationSeconds;
+                        RefreshCountdown();
+                    }
+                    AnimateCountdown();
+                }
                 return;
             }
 
@@ -152,10 +166,19 @@ namespace GuardWave
         public void Ready()
         {
             if (!_initialized || _disasterStarted || !CanReady) return;
-            _remainingSeconds = 0f;
-            RefreshCountdown();
-            if (_fogMode == null) _game.Ready();
-            else _fogMode.Ready();
+            if (_fogMode == null)
+            {
+                _remainingSeconds = 0f;
+                RefreshCountdown();
+                _game.Ready();
+            }
+            else
+            {
+                _disasterName.text = "독안개 사라지기까지";
+                _remainingSeconds = _fogMode.MaximumSimulationDurationSeconds;
+                RefreshCountdown();
+                _fogMode.Ready();
+            }
             _disasterStarted = true;
         }
 
@@ -163,6 +186,8 @@ namespace GuardWave
         private void ResetCountdown()
         {
             _remainingSeconds = _durationSeconds;
+            if (_disasterName != null)
+                _disasterName.text = _preparationDisasterName;
             _displayedHundredths = -1;
             _disasterStarted = false;
             _pulseKind = PulseKind.None;
