@@ -910,8 +910,8 @@ MonoBehaviour:
   _contactDensity: 0.01
   _releaseDensity: 0.001
   _failureExposureSeconds: 5
-  _doubleSpeedAfterSeconds: 20
-  _tripleSpeedAfterSeconds: 21
+  _doubleSpeedAfterSeconds: 30
+  _residualFogExtensionSeconds: 5
   _logEachFlagProbeDensity: 1
   _probeLogIntervalSeconds: 0.5
 --- !u!1 &4700000001

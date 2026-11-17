@@ -29,6 +29,7 @@ int3 _GridSize;
 float3 _WorldMin;
 float _CellSize;
 float _Dt, _WindSpeed, _SimulationTime, _FogBaseY, _InletStrength, _InletZ;
+float _FogDensityFadeStart, _FogDensityFadeEnd;
 float _VorticityStrength, _TurbulenceStrength, _ExpansionStrength, _Buoyancy, _Weight;
 
 Texture3D<float4> _VelocityRead, _DensityRead, _PressureRead, _DivergenceRead, _ObstacleRead;
@@ -325,6 +326,16 @@ void AdvectFogDensity(uint3 id : SV_DispatchThreadID) {
     float density=clamp(corrected,lo,hi);
     density*=exp(-_Dt*0.018);
     density=max(density,Emission(p));
+    // Multiply by the ratio of adjacent fade factors rather than the
+    // absolute factor each frame. Across 30..60 simulated seconds the
+    // product is linear, reaches exactly 0 at 60, and is frame-rate neutral.
+    float remainingBefore = max(0.0,
+        _FogDensityFadeEnd - max(_FogDensityFadeStart, _SimulationTime - _Dt));
+    float remainingNow = max(0.0,
+        _FogDensityFadeEnd - max(_FogDensityFadeStart, _SimulationTime));
+    float fadeStep = remainingBefore > 0.000001
+        ? remainingNow / remainingBefore : 0.0;
+    density *= fadeStep;
     _DensityWrite[id]=float4(saturate(density),0,0,0);
 }
 

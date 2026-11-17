@@ -294,6 +294,18 @@ namespace GuardWave
             if (count > 0) _windVents.SetData(_ventData);
         }
 
+        /// <summary>
+        /// Apply a linear, time-correct density attenuation between 30s and
+        /// 60s, without fading the UI material or multiplying an absolute
+        /// fade factor at every step (which would compound too quickly).
+        /// </summary>
+        public void ConfigureDensityFade(float startSimulationSeconds, float endSimulationSeconds)
+        {
+            _compute.SetFloat("_FogDensityFadeStart", startSimulationSeconds);
+            _compute.SetFloat("_FogDensityFadeEnd",
+                Mathf.Max(startSimulationSeconds + 0.001f, endSimulationSeconds));
+        }
+
         public void Step(float deltaTime, float inlet, float windSpeed, float baseY)
         {
             if (_disposed) return;

@@ -51,9 +51,13 @@ namespace GuardWave
         [SerializeField, Range(0f, 1f)] private float _releaseDensity = 0.001f;
         [SerializeField, Min(0.1f)] private float _failureExposureSeconds = 5f;
 
-        [Header("Fog simulation playback (real seconds since Ready)")]
-        [SerializeField, Min(0f)] private float _doubleSpeedAfterSeconds = 20f;
-        [SerializeField, Min(0f)] private float _tripleSpeedAfterSeconds = 21f;
+        [Header("Fog simulation playback (simulation seconds)")]
+        [SerializeField, Min(0f)] private float _doubleSpeedAfterSeconds = 30f;
+
+        [Header("Fog simulation end time (simulation seconds)")]
+        [SerializeField, Min(0.1f)] private float _residualFogExtensionSeconds = 5f;
+        private const float MinimumSimulationSeconds = 30f;
+        private const float MaximumSimulationSeconds = 60f;
 
         [Header("Fog density debug log (Unity Console)")]
         [SerializeField] private bool _logEachFlagProbeDensity = true;
@@ -67,11 +71,12 @@ namespace GuardWave
         private string _status;
         private float _opacity;
         private int _simulationSpeed = 1;
-        // The normal duration is a minimum. Beyond it, the flag's density dots
-        // decide when the gas has cleared (not the solver clock alone).
-        private float _nominalSimulationDuration;
+        // The stage ends at 30s by default. Each nonzero residual density
+        // detection renews its deadline to (sample time + 5 simulated seconds),
+        // with an unconditional 60-second upper bound.
+        private float _scheduledSimulationEnd;
         private float _requestedProbeSimulationElapsed;
-        private bool _postDurationDensityMeasured;
+        private float _lastCompletedProbeSimulationElapsed;
         private bool _residualFogAtFlag;
 
         public int SimulationSpeed => _simulationSpeed;
@@ -139,7 +144,8 @@ namespace GuardWave
             _sampledOutOfBoundsCount = 0;
             _nextProbeLogTime = float.NegativeInfinity;
             _simulationSpeed = 1;
-            _postDurationDensityMeasured = false;
+            _scheduledSimulationEnd = MinimumSimulationSeconds;
+            _lastCompletedProbeSimulationElapsed = float.NegativeInfinity;
             _residualFogAtFlag = false;
             _requestedProbeSimulationElapsed = 0f;
             if (_flagProbes == null)
@@ -171,6 +177,7 @@ namespace GuardWave
                     voxelSize, _pressureIterations);
                 _fluid.ConfigureMotion(_vorticityStrength, _turbulenceStrength,
                     _expansionStrength, _buoyancy, _settling);
+                _fluid.ConfigureDensityFade(MinimumSimulationSeconds, MaximumSimulationSeconds);
                 Bounds bounds = _fluid.WorldBounds;
                 _fogVolumeRenderer.transform.position = bounds.center;
                 _fogVolumeRenderer.transform.localScale = bounds.size;
@@ -186,15 +193,15 @@ namespace GuardWave
                 yield break;
             }
 
-            float travel = _fluid.WorldBounds.size.z / Mathf.Max(0.5f, _windSpeed);
-            _nominalSimulationDuration = _inletDuration + travel + 4f;
+            // The original inlet/travel heuristic (~26s) is replaced with a
+            // fixed 30s minimum independent of wind speed.
             float elapsed = 0f, accumulator = 0f, realElapsed = 0f;
             const float SimulationStepSeconds = 0.05f;
             bool failed = false;
             bool exposureFailure = false;
-            // The nominal ~26s is a minimum duration, not a forced stop.
-            // Afterward, continue until a POST-duration GPU probe result
-            // confirms that all valid flag dots are below 0.001 density.
+            // Fog persists until the sliding deadline is reached and a recent
+            // sample is clear; all simulation work stops at t=60 regardless.
+            // Gas density itself fades linearly during t=30..60.
             while (true)
             {
                 yield return new WaitForFixedUpdate();
@@ -205,9 +212,7 @@ namespace GuardWave
                 }
                 float dt = Time.fixedDeltaTime; // Exposure and HUD use unaccelerated game seconds.
                 realElapsed += dt;
-                int nextSpeed = realElapsed >= Mathf.Max(_tripleSpeedAfterSeconds,
-                    _doubleSpeedAfterSeconds) ? 3 :
-                    realElapsed >= _doubleSpeedAfterSeconds ? 2 : 1;
+                int nextSpeed = elapsed >= _doubleSpeedAfterSeconds ? 2 : 1;
                 if (nextSpeed != _simulationSpeed)
                 {
                     _simulationSpeed = nextSpeed;
@@ -218,13 +223,17 @@ namespace GuardWave
                 // Advance the gas domain (and its inlet/tail timing), NOT the
                 // entire Unity game. Several stable 0.05s solver steps may be
                 // dispatched in one FixedUpdate at 2x/3x; never enlarge _Dt.
-                float simulatedDt = dt * _simulationSpeed;
+                float simulatedDt = Mathf.Min(dt * _simulationSpeed,
+                    Mathf.Max(0f, MaximumSimulationSeconds - elapsed));
                 elapsed += simulatedDt;
                 accumulator += simulatedDt;
                 bool stepped = false;
-                while (accumulator + 0.00001f >= SimulationStepSeconds)
+                while (accumulator + 0.00001f >= SimulationStepSeconds ||
+                       (elapsed >= MaximumSimulationSeconds && accumulator >= 0.001f))
                 {
-                    float step = SimulationStepSeconds;
+                    // Drain the final partial solver step at t=60 so the
+                    // shader's density fade actually reaches zero.
+                    float step = Mathf.Min(SimulationStepSeconds, accumulator);
                     accumulator = Mathf.Max(0f, accumulator - step);
                     float stepElapsed = elapsed - accumulator;
                     // Fast source ignition followed by a brief, tapered smoke tail.
@@ -260,13 +269,12 @@ namespace GuardWave
                     }
                     else
                     {
-                        // No dots inside the simulation bounds: there cannot be a
-                        // measurable flag contact, including after the base time.
+                        // No dots are in the volume. This is equivalent to a
+                        // current clear density sample for the end-time check.
                         _flagTouching = false;
                         _residualFogAtFlag = false;
                         _exposureSeconds = 0f;
-                        if (elapsed >= _nominalSimulationDuration)
-                            _postDurationDensityMeasured = true;
+                        _lastCompletedProbeSimulationElapsed = elapsed;
                         if (_logEachFlagProbeDensity && Time.unscaledTime >= _nextProbeLogTime)
                         {
                             Debug.Log($"[FogFlagDensity] no valid dots (excluded=" +
@@ -294,17 +302,23 @@ namespace GuardWave
                     failed = exposureFailure;
                     if (failed) break;
                 }
-                // Do not fade out a plume still registering at least 0.001 at
-                // the flag; the simulation may outlive its nominal duration.
-                _opacity = _residualFogAtFlag
-                    ? 1f : Mathf.Clamp01((_nominalSimulationDuration - elapsed) / 2.5f);
+                // Do not fade the visual material independently. The GPU
+                // density itself fades 30..60s, matching gameplay probes.
+                _opacity = 1f;
                 RenderVolume();
 
-                if (elapsed >= _nominalSimulationDuration &&
-                    _postDurationDensityMeasured && !_residualFogAtFlag)
+                // Never terminate on a stale GPU result sampled before the
+                // deadline. An in-flight request can still renew it.
+                bool pastDeadline = elapsed >= _scheduledSimulationEnd;
+                bool latestReadbackIsAfterDeadline =
+                    _lastCompletedProbeSimulationElapsed >= _scheduledSimulationEnd;
+                if (elapsed >= MaximumSimulationSeconds ||
+                    (pastDeadline && latestReadbackIsAfterDeadline && !_residualFogAtFlag))
                 {
-                    Debug.Log($"[FogSimulation] cleared at simulation={elapsed:F2}s " +
-                        $"real={realElapsed:F2}s; max flag density={_maxFlagDensity:F5}");
+                    Debug.Log($"[FogSimulation] complete sim={elapsed:F2}s " +
+                        $"real={realElapsed:F2}s deadline={_scheduledSimulationEnd:F2}s " +
+                        $"density={_maxFlagDensity:F5} hardStop=" +
+                        (elapsed >= MaximumSimulationSeconds));
                     break;
                 }
             }
@@ -332,9 +346,17 @@ namespace GuardWave
             if (!_running || _game == null || _game.AwaitingFailure) return;
             _lastDensityAt = Time.time;
             _maxFlagDensity = peakDensity;
+            _lastCompletedProbeSimulationElapsed = _requestedProbeSimulationElapsed;
             _residualFogAtFlag = peakDensity >= Mathf.Min(_releaseDensity, _contactDensity);
-            if (_requestedProbeSimulationElapsed >= _nominalSimulationDuration)
-                _postDurationDensityMeasured = true;
+            if (_residualFogAtFlag)
+            {
+                // Do not add five seconds cumulatively: renew the deadline
+                // based on the exact sampled simulation time.
+                float renewedEnd = _requestedProbeSimulationElapsed +
+                    _residualFogExtensionSeconds;
+                _scheduledSimulationEnd = Mathf.Min(MaximumSimulationSeconds,
+                    Mathf.Max(_scheduledSimulationEnd, renewedEnd));
+            }
             bool wasTouching = _flagTouching;
             // Hysteresis: the first contact requires 0.01, but once touched,
             // any detectable fog >=0.001 keeps the five-second timer active.
@@ -368,7 +390,8 @@ namespace GuardWave
                     _contactDensity).ToString("F4"))
                 .Append(" simSpeed=").Append(_simulationSpeed).Append('x')
                 .Append(" simElapsed=").Append(_requestedProbeSimulationElapsed.ToString("F2"))
-                .Append("s minDuration=").Append(_nominalSimulationDuration.ToString("F2"))
+                .Append("s deadline=").Append(_scheduledSimulationEnd.ToString("F2"))
+                .Append("s hardStop=").Append(MaximumSimulationSeconds.ToString("F2"))
                 .Append("s residualFog=").Append(_residualFogAtFlag ? "YES" : "NO")
                 .Append(" sampled=").Append(count)
                 .Append(" excludedOutsideVolume=").Append(_sampledOutOfBoundsCount)
