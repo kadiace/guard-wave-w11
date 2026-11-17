@@ -515,8 +515,7 @@ namespace GuardWave
                 return false;
 
             Ray ray = _camera.ScreenPointToRay(screen);
-            return Physics.Raycast(ray, out surface, 300f,
-                       Physics.DefaultRaycastLayers, QueryTriggerInteraction.Ignore) &&
+            return TryRaycastIgnoringBackgroundTowers(ray, out surface) &&
                    CanPlaceAt(surface.point);
         }
 
@@ -966,11 +965,48 @@ namespace GuardWave
                 return null;
 
             Ray ray = _camera.ScreenPointToRay(position);
-            if (!Physics.Raycast(ray, out RaycastHit hit, 300f,
-                    Physics.DefaultRaycastLayers, QueryTriggerInteraction.Ignore))
+            if (!TryRaycastIgnoringBackgroundTowers(ray, out RaycastHit hit))
                 return null;
             GuardWavePiece piece = hit.collider.GetComponentInParent<GuardWavePiece>();
             return piece != null && _pieceSet.Contains(piece) ? piece : null;
+        }
+
+        /// <summary>
+        /// Returns the nearest raycast hit that is not a background tower carrying
+        /// FogBackgroundTowerTransparency, independent of the tower's current opacity.
+        /// Leaves its collider enabled for gameplay physics and gas simulation.
+        /// </summary>
+        private bool TryRaycastIgnoringBackgroundTowers(Ray ray, out RaycastHit hit)
+        {
+            const float maxDistance = 300f;
+            const int layerMask = Physics.DefaultRaycastLayers;
+            const QueryTriggerInteraction triggers = QueryTriggerInteraction.Ignore;
+
+            hit = default;
+            if (!Physics.Raycast(ray, out RaycastHit nearest, maxDistance, layerMask, triggers))
+                return false;
+
+            if (nearest.collider.GetComponentInParent<FogBackgroundTowerTransparency>() == null)
+            {
+                hit = nearest;
+                return true;
+            }
+
+            RaycastHit[] hits = Physics.RaycastAll(ray, maxDistance, layerMask, triggers);
+            float nearestDistance = float.PositiveInfinity;
+            bool found = false;
+            foreach (RaycastHit candidate in hits)
+            {
+                if (candidate.distance >= nearestDistance ||
+                    candidate.collider.GetComponentInParent<FogBackgroundTowerTransparency>() != null)
+                    continue;
+
+                hit = candidate;
+                nearestDistance = candidate.distance;
+                found = true;
+            }
+
+            return found;
         }
 
         /// <summary>Highlights one hovered object; scene sticks and placed pieces use the same render layer.</summary>
