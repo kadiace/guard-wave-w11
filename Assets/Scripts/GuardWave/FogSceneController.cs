@@ -344,7 +344,6 @@ namespace GuardWave
                 }
             }
 
-            DisposeFog();
             _running = false;
             _game.SetRulesOpen(false);
             if (!failed && !_game.AwaitingFailure)
@@ -353,12 +352,32 @@ namespace GuardWave
                 _status = _game.IsFinished
                     ? "안개가 지나갔습니다. 깃발을 지켜냈습니다."
                     : _game.StatusMessage;
+                if (_game.IsFinished)
+                    yield return ContinueFogAfterSuccess(ground);
             }
             else
             {
                 _status = exposureFailure
                     ? "깃발이 독안개에 5초 이상 노출되었습니다. 확인을 누르면 배치 상태로 돌아갑니다."
                     : "방어에 실패했습니다. 배치 상태를 복원하고 다시 시도하세요.";
+            }
+            DisposeFog();
+        }
+
+        /// <summary>
+        /// Keeps fog moving behind the victory popup without repeating the
+        /// exposure or success checks, until leaving the Fog scene.
+        /// </summary>
+        private IEnumerator ContinueFogAfterSuccess(float ground)
+        {
+            // Gameplay clears gas by 60s; reinstate a fresh inlet for the
+            // victory-only display so the fog does not disappear behind the UI.
+            _fluid.ConfigureDensityFade(1000000f, 1000001f);
+            while (_game.IsFinished && _fluid != null)
+            {
+                yield return new WaitForFixedUpdate();
+                _fluid.Step(Time.fixedDeltaTime, 1f, _windSpeed, ground);
+                RenderVolume();
             }
         }
 

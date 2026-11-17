@@ -361,7 +361,8 @@ Ctrl+Z: 최근 기물 배치, 진흙 붓질 또는 수동 제거 되돌리기
                 _tooltip.SetActive(false);
             }
             _stagePopup.SetActive(_game.AwaitingFailure && !_game.IsFinished);
-            if (_game.IsFinished && !_completePopup.activeSelf)
+            // Fog remains active behind victory UI; only Forest pauses physics.
+            if (_game.IsFinished && !_completePopup.activeSelf && _fogMode == null)
                 Time.timeScale = 0f;
             _completePopup.SetActive(_game.IsFinished);
             if (_game.AwaitingFailure)
