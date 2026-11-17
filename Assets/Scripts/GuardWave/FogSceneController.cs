@@ -84,14 +84,16 @@ namespace GuardWave
                 if (c != null) ground = c.bounds.max.y;
             }
 
-            // 24 m urban highway (8 lanes x 3 m) and independent city fog domain.
+            // Urban highway fog spans a 100 m wide simulation domain centered at world X=0.
             // Background towers have no fans; player-placed mid-height vents remain in the gas domain.
-            Vector3 origin = new Vector3(-28f, ground - 0.5f, -29f);
-            Vector3 extent = new Vector3(56f, 20f, 83f);
+            Vector3 origin = new Vector3(-50f, ground - 0.5f, -29f);
+            Vector3 extent = new Vector3(100f, 20f, 83f);
+            // Match the requested -50..+50 X bounds exactly despite voxel quantization.
+            float voxelSize = extent.x / Mathf.CeilToInt(extent.x / _cellSize);
             try
             {
                 _fluid = new FogFluidSolver(gameObject.scene, origin, extent,
-                    _cellSize, _pressureIterations);
+                    voxelSize, _pressureIterations);
                 _fluid.ConfigureMotion(_vorticityStrength, _turbulenceStrength,
                     _expansionStrength, _buoyancy, _settling);
                 Bounds bounds = _fluid.WorldBounds;
