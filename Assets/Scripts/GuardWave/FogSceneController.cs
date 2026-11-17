@@ -28,6 +28,14 @@ namespace GuardWave
         [SerializeField, Range(0f, 4f)] private float _buoyancy = 1.05f;
         [SerializeField, Range(0f, 4f)] private float _settling = 0.54f;
 
+        [Header("Global wind physics (all buildings)")]
+        [Tooltip("Rate at which fog velocity relaxes toward the scene's -Z ambient wind.")]
+        [SerializeField, Min(0f)] private float _ambientWindRelaxation = 0.65f;
+        [Tooltip("Minimum allowable speed ceiling for all gas motion, in metres per second.")]
+        [SerializeField, Min(0f)] private float _minimumSpeedLimit = 4f;
+        [Tooltip("Maximum velocity derived from ambient wind speed before considering AC jets.")]
+        [SerializeField, Min(0f)] private float _ambientSpeedLimitMultiplier = 2.35f;
+
         [Header("Volumetric smoke shading")]
         [SerializeField, Range(0.1f, 3f)] private float _extinction = 1.3f;
         [SerializeField, Range(0f, 6f)] private float _shadowStrength = 2.1f;
@@ -141,6 +149,8 @@ namespace GuardWave
                     voxelSize, _pressureIterations);
                 _fluid.ConfigureMotion(_vorticityStrength, _turbulenceStrength,
                     _expansionStrength, _buoyancy, _settling);
+                _fluid.ConfigureWindPhysics(_ambientWindRelaxation, _minimumSpeedLimit,
+                    _ambientSpeedLimitMultiplier);
                 Bounds bounds = _fluid.WorldBounds;
                 _fogVolumeRenderer.transform.position = bounds.center;
                 _fogVolumeRenderer.transform.localScale = bounds.size;

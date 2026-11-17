@@ -17,7 +17,7 @@
 
 struct ObstacleBox { float4 center; float4 halfExtent; float4 rotation; };
 StructuredBuffer<ObstacleBox> _ObstacleBoxes;
-struct WindVent { float4 positionRange; float4 directionAcceleration; float4 radius; };
+struct WindVent { float4 positionRange; float4 directionAcceleration; float4 radius; float4 ramp; };
 StructuredBuffer<WindVent> _WindVents;
 int _WindVentCount;
 float _PeakFanSpeed;
@@ -30,6 +30,7 @@ float3 _WorldMin;
 float _CellSize;
 float _Dt, _WindSpeed, _SimulationTime, _FogBaseY, _InletStrength, _InletZ;
 float _VorticityStrength, _TurbulenceStrength, _ExpansionStrength, _Buoyancy, _Weight;
+float _AmbientWindRelaxation, _MinWindSpeedLimit, _AmbientSpeedLimitMultiplier;
 
 Texture3D<float4> _VelocityRead, _DensityRead, _PressureRead, _DivergenceRead, _ObstacleRead;
 Texture3D<float4> _TemperatureRead, _CurlRead, _DensityPredictRead, _DensityReverseRead;
@@ -141,7 +142,7 @@ void AdvectFogVelocity(uint3 id : SV_DispatchThreadID) {
     float3 old=Velocity(c);
     float3 v=_VelocityRead.SampleLevel(sampler_linear_clamp,UV(Backtrace(p,old,-1.0)),0).xyz;
     // Weak wind relaxation preserves obstacle wakes and vortices.
-    v=lerp(v,float3(0.0,0.0,-_WindSpeed),saturate(_Dt*0.65));
+    v=lerp(v,float3(0.0,0.0,-_WindSpeed),saturate(_Dt*_AmbientWindRelaxation));
     _VelocityWrite[id]=float4(v,0);
 }
 
@@ -196,17 +197,18 @@ void ApplyFogForces(uint3 id : SV_DispatchThreadID) {
         float3 delta = p - fan.positionRange.xyz;
         float forward = dot(delta, axis);
         float reach = fan.positionRange.w;
-        if (forward < -_CellSize || forward > reach) continue;
-        float radius = fan.radius.x + max(forward, 0.0) * 0.22;
+        float rearStart = -_CellSize * fan.ramp.x;
+        if (forward < rearStart || forward > reach) continue;
+        float radius = fan.radius.x + max(forward, 0.0) * fan.radius.y;
         float radial = length(delta - forward * axis);
         if (radial > radius) continue;
-        float radialFalloff = 1.0 - smoothstep(radius * 0.50, radius, radial);
-        float longitudinal = (1.0 - smoothstep(reach * 0.65, reach, max(forward,0.0)))
-            * smoothstep(-_CellSize, _CellSize * 0.7, forward);
+        float radialFalloff = 1.0 - smoothstep(radius * fan.radius.z, radius, radial);
+        float longitudinal = (1.0 - smoothstep(reach * fan.radius.w, reach, max(forward,0.0)))
+            * smoothstep(rearStart, _CellSize * fan.ramp.y, forward);
         float strength = radialFalloff * longitudinal;
         v += axis * (_Dt * fan.directionAcceleration.w * strength);
     }
-    float maxSpeed=max(max(4.0,_WindSpeed*2.35),_PeakFanSpeed*1.12);
+    float maxSpeed=max(max(_MinWindSpeedLimit,_WindSpeed*_AmbientSpeedLimitMultiplier),_PeakFanSpeed);
     v*=min(1.0,maxSpeed/max(length(v),0.0001));
     // Slip tangent to the SDF normal rather than penetrating a prop.
     if (Solid(c)<_CellSize*1.5) {

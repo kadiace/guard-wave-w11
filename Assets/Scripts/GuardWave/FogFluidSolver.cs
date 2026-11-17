@@ -31,6 +31,7 @@ namespace GuardWave
             public Vector4 PositionRange;
             public Vector4 DirectionAcceleration;
             public Vector4 Radius;
+            public Vector4 Ramp;
         }
 
         private readonly WindVent[] _ventData = new WindVent[MaxWindVents];
@@ -160,6 +161,19 @@ namespace GuardWave
             _compute.SetFloat("_Weight", Mathf.Max(0f, weight));
         }
 
+        /// <summary>
+        /// Configure scene-wide ambient wind relaxation and speed limits. Individual
+        /// buildings keep their own jet shape and per-vent acceleration values.
+        /// </summary>
+        public void ConfigureWindPhysics(float relaxation, float minimumSpeedLimit,
+            float ambientSpeedLimitMultiplier)
+        {
+            _compute.SetFloat("_AmbientWindRelaxation", Mathf.Max(0f, relaxation));
+            _compute.SetFloat("_MinWindSpeedLimit", Mathf.Max(0f, minimumSpeedLimit));
+            _compute.SetFloat("_AmbientSpeedLimitMultiplier",
+                Mathf.Max(0f, ambientSpeedLimitMultiplier));
+        }
+
         private RenderTexture MakeTexture(string name)
         {
             var texture = new RenderTexture(_size.x, _size.y, 0, RenderTextureFormat.ARGBHalf)
@@ -283,9 +297,12 @@ namespace GuardWave
                         PositionRange = new Vector4(position.x, position.y, position.z, source.Reach),
                         DirectionAcceleration = new Vector4(direction.x, direction.y,
                             direction.z, source.WindAcceleration),
-                        Radius = new Vector4(source.OutletRadius, 0f, 0f, 0f)
+                        Radius = new Vector4(source.OutletRadius, source.RadiusGrowthPerMeter,
+                            source.RadialFalloffStart, source.EndFalloffStart),
+                        Ramp = new Vector4(source.RearInfluenceCells, source.OutletRampCells,
+                            0f, 0f)
                     };
-                    peak = Mathf.Max(peak, source.WindAcceleration);
+                    peak = Mathf.Max(peak, source.WindAcceleration * source.SpeedCapMultiplier);
                 }
                 if (count >= MaxWindVents) break;
             }

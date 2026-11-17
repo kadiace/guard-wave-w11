@@ -19,10 +19,24 @@ namespace GuardWave
         [SerializeField] private Vector3 outletLocalDirection = Vector3.forward;
         [SerializeField] private float[] additionalOutletHeights = { 7.05f, 12.05f, 17.05f };
         [SerializeField, Min(0f)]
-        [Tooltip("Strength of each AC vent on the GPU fog simulation. Original: 28. Default reduced to 5.6 (20%).")]
+        [Tooltip("GPU acceleration per air-conditioner vent. This building prefab currently overrides the 5.6 script default with 28.")]
         private float windAcceleration = 5.6f;
         [SerializeField, Min(0.1f)] private float reach = 14f;
         [SerializeField, Min(0.1f)] private float outletRadius = 16f;
+
+        [Header("Wind jet profile (GPU physics)")]
+        [Tooltip("Radius added per metre along the jet axis. 0 produces a cylindrical jet.")]
+        [SerializeField, Min(0f)] private float _radiusGrowthPerMeter = 0.22f;
+        [Tooltip("Fraction of the local radius where the radial strength begins fading.")]
+        [SerializeField, Range(0f, 0.99f)] private float _radialFalloffStart = 0.5f;
+        [Tooltip("Fraction of Reach where the jet starts losing strength toward its tip.")]
+        [SerializeField, Range(0f, 0.99f)] private float _endFalloffStart = 0.65f;
+        [Tooltip("How far behind the outlet the jet starts, measured in fog grid cells.")]
+        [SerializeField, Min(0f)] private float _rearInfluenceCells = 1f;
+        [Tooltip("Distance in grid cells after the outlet before jet strength reaches full intensity.")]
+        [SerializeField, Min(0.01f)] private float _outletRampCells = 0.7f;
+        [Tooltip("Multiplier for this fan's contribution to the global velocity cap. Does not directly multiply acceleration.")]
+        [SerializeField, Min(0f)] private float _speedCapMultiplier = 1.12f;
 
         [Header("Visible airflow (cosmetic only)")]
         [Tooltip("Seconds each particle lives. Particle speed is computed as GPU wind reach / lifetime.")]
@@ -41,6 +55,12 @@ namespace GuardWave
         public float WindAcceleration => Mathf.Max(0f, windAcceleration);
         public float Reach => Mathf.Max(0.1f, reach);
         public float OutletRadius => Mathf.Max(0.1f, outletRadius);
+        public float RadiusGrowthPerMeter => Mathf.Max(0f, _radiusGrowthPerMeter);
+        public float RadialFalloffStart => Mathf.Clamp(_radialFalloffStart, 0f, 0.99f);
+        public float EndFalloffStart => Mathf.Clamp(_endFalloffStart, 0f, 0.99f);
+        public float RearInfluenceCells => Mathf.Max(0f, _rearInfluenceCells);
+        public float OutletRampCells => Mathf.Max(0.01f, _outletRampCells);
+        public float SpeedCapMultiplier => Mathf.Max(0f, _speedCapMultiplier);
 
         public Vector3 GetOutletPosition(int index)
         {

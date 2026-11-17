@@ -314,6 +314,12 @@ MonoBehaviour:
   windAcceleration: 28
   reach: 14
   outletRadius: 16
+  _radiusGrowthPerMeter: 0.22
+  _radialFalloffStart: 0.5
+  _endFalloffStart: 0.65
+  _rearInfluenceCells: 1
+  _outletRampCells: 0.7
+  _speedCapMultiplier: 1.12
   particleLifetime: 1.15
   particlesPerSecond: 32
   particleTint: {r: 0.77, g: 0.92, b: 1, a: 0.85}
