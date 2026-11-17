@@ -78,6 +78,14 @@ namespace GuardWave
             }
         }
 
+        private void Update()
+        {
+            // The common failure popup restores GuardWaveGame's edit checkpoint.
+            // Drop the old Fog status once that restoration has been confirmed.
+            if (!_running && _game != null && !_game.AwaitingFailure && _game.CanReady)
+                _status = null;
+        }
+
         public void Ready()
         {
             if (!CanReady || _fogVolumeRenderer == null) return;
