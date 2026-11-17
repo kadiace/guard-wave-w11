@@ -311,9 +311,9 @@ MonoBehaviour:
   - 7.05
   - 12.05
   - 17.05
-  windAcceleration: 28
+  windAcceleration: 14
   reach: 14
-  outletRadius: 16
+  outletRadius: 8
   particleLifetime: 1.15
   particlesPerSecond: 32
   particleTint: {r: 0.77, g: 0.92, b: 1, a: 0.85}
