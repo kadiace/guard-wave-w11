@@ -131,7 +131,7 @@ MeshRenderer:
   m_RenderingLayerMask: 1
   m_RendererPriority: 0
   m_Materials:
-  - {fileID: 10303, guid: 0000000000000000f000000000000000, type: 0}
+  - {fileID: 2100000, guid: b29a0c6dc2ce46ca9e88369748dbd811, type: 2}
 --- !u!65 &200004
 BoxCollider:
   m_ObjectHideFlags: 0
@@ -215,7 +215,7 @@ MeshRenderer:
   m_RenderingLayerMask: 1
   m_RendererPriority: 0
   m_Materials:
-  - {fileID: 10303, guid: 0000000000000000f000000000000000, type: 0}
+  - {fileID: 2100000, guid: b29a0c6dc2ce46ca9e88369748dbd811, type: 2}
 --- !u!65 &200014
 BoxCollider:
   m_ObjectHideFlags: 0
@@ -299,7 +299,7 @@ MeshRenderer:
   m_RenderingLayerMask: 1
   m_RendererPriority: 0
   m_Materials:
-  - {fileID: 10303, guid: 0000000000000000f000000000000000, type: 0}
+  - {fileID: 2100000, guid: b29a0c6dc2ce46ca9e88369748dbd811, type: 2}
 --- !u!65 &200024
 BoxCollider:
   m_ObjectHideFlags: 0
@@ -383,7 +383,7 @@ MeshRenderer:
   m_RenderingLayerMask: 1
   m_RendererPriority: 0
   m_Materials:
-  - {fileID: 10303, guid: 0000000000000000f000000000000000, type: 0}
+  - {fileID: 2100000, guid: b29a0c6dc2ce46ca9e88369748dbd811, type: 2}
 --- !u!65 &200034
 BoxCollider:
   m_ObjectHideFlags: 0
@@ -467,7 +467,7 @@ MeshRenderer:
   m_RenderingLayerMask: 1
   m_RendererPriority: 0
   m_Materials:
-  - {fileID: 10303, guid: 0000000000000000f000000000000000, type: 0}
+  - {fileID: 2100000, guid: b29a0c6dc2ce46ca9e88369748dbd811, type: 2}
 --- !u!65 &200044
 BoxCollider:
   m_ObjectHideFlags: 0

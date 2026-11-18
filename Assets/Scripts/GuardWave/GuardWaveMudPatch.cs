@@ -53,8 +53,7 @@ namespace GuardWave
         private Collider _surfaceCollider;
         private Rigidbody _surfaceBody;
         private GuardWavePiece _surfacePiece;
-        private float _breakForce;
-        private float _breakTorque;
+        private GuardWaveMudJointSettings _jointSettings;
         private int _triggerSegmentFirstSample;
         private GameObject _triggerSegment;
         private CapsuleCollider _triggerCapsule;
@@ -132,8 +131,6 @@ namespace GuardWave
             public readonly Vector3 Anchor;
             public readonly Vector3 ConnectedAnchor;
             public readonly Rigidbody ConnectedBody;
-            public readonly float BreakForce;
-            public readonly float BreakTorque;
 
             public MudBondState(GuardWaveMudPatch patch, GuardWavePiece piece, FixedJoint joint)
             {
@@ -142,43 +139,61 @@ namespace GuardWave
                 Anchor = joint.anchor;
                 ConnectedAnchor = joint.connectedAnchor;
                 ConnectedBody = joint.connectedBody;
-                BreakForce = joint.breakForce;
-                BreakTorque = joint.breakTorque;
             }
         }
 
-        /// <summary>Initializes a runtime stroke on its surface and creates its mesh and material.</summary>
+        /// <summary>All mud bonds share the Inspector settings on mud.prefab.</summary>
+        private void LoadJointSettings()
+        {
+            _jointSettings = GetComponent<GuardWaveMudJointSettings>();
+            if (_jointSettings == null)
+                _jointSettings = GuardWaveMudJointSettings.LoadPrefabSettings();
+            if (_jointSettings == null)
+                throw new MissingReferenceException(
+                    "Missing GuardWaveMudJointSettings on Resources/Prefabs/Objects/mud.prefab");
+        }
+
         public void Initialize(GuardWaveGame game, Collider surfaceCollider,
-            Rigidbody surfaceBody, float breakForce, float breakTorque)
+            Rigidbody surfaceBody)
         {
             _game = game;
             _surfaceCollider = surfaceCollider;
             _surfaceBody = surfaceBody;
             _surfacePiece = surfaceCollider.GetComponentInParent<GuardWavePiece>();
-            _breakForce = breakForce;
-            _breakTorque = breakTorque;
+            LoadJointSettings();
             TrackSurfacePiece();
+        }
 
-            MeshFilter filter = gameObject.AddComponent<MeshFilter>();
-            MeshRenderer renderer = gameObject.AddComponent<MeshRenderer>();
-            _mesh = new Mesh { name = "Wet Mud Brush Stroke" };
-            _mesh.MarkDynamic();
-            filter.sharedMesh = _mesh;
-            renderer.sharedMaterial = CreateInstanceMaterial(MudMaterial);
-            renderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
-            renderer.receiveShadows = false;
+        /// <summary>Whether this patch belongs to the support being removed.</summary>
+        public bool IsOnSurface(GuardWavePiece piece) =>
+            piece != null && _surfacePiece == piece;
+
+        /// <summary>Join two touching bodies with one 3D ellipsoidal mud lump.</summary>
+        public bool ConnectContact(GuardWavePiece piece, Vector3 point, Vector3 normal)
+        {
+            if (_game == null || piece == null || piece.Body == null ||
+                piece.Body == _surfaceBody ||
+                _game.HasMudBondBetween(piece.Body, _surfaceBody))
+                return false;
+            Vector3 anchor = piece.transform.InverseTransformPoint(point);
+            Vector3 connectedAnchor = _surfaceBody == null ? point
+                : _surfaceBody.transform.InverseTransformPoint(point);
+            CreateBond(piece, anchor, connectedAnchor, _surfaceBody);
+            if (!HasBond(piece)) return false;
+
+            // The instantiated mud prefab already provides the oval renderer.
+            return true;
         }
 
         /// <summary>씬에 배치된 진흙의 트리거 중심을 접착 표면 샘플로 등록한다.</summary>
         public void InitializeAuthored(GuardWaveGame game, Collider surfaceCollider,
-            Rigidbody surfaceBody, float breakForce, float breakTorque)
+            Rigidbody surfaceBody)
         {
             _game = game;
             _surfaceCollider = surfaceCollider;
             _surfaceBody = surfaceBody;
             _surfacePiece = surfaceCollider.GetComponentInParent<GuardWavePiece>();
-            _breakForce = breakForce;
-            _breakTorque = breakTorque;
+            LoadJointSettings();
             TrackSurfacePiece();
             // Scene-authored mud uses many rendered child meshes under one patch.
             // Cure all together without modifying the shared Mud.mat asset.
@@ -194,8 +209,11 @@ namespace GuardWave
 
             foreach (SphereCollider trigger in GetComponents<SphereCollider>())
             {
-                if (trigger.isTrigger && trigger.enabled)
+                if (trigger.isTrigger)
+                {
                     _adhesionTriggers.Add(trigger);
+                    trigger.enabled = false;
+                }
                 Vector3 point = trigger.center - Vector3.up * 0.24f;
                 int index = _points.Count;
                 _points.Add(point);
@@ -222,7 +240,7 @@ namespace GuardWave
             UpdateTriggerSegment(index);
             // Do not wait for OnTriggerEnter/Stay: painting over two surfaces
             // that already touch must glue them immediately.
-            TryBondNearSample(worldPoint, worldNormal);
+            // Explicit contact clicks exclusively create new bonds.
         }
 
         /// <summary>Throttle full mesh uploads while painting; always flush the final brush position.</summary>
@@ -473,7 +491,7 @@ namespace GuardWave
         {
             _lastContactCheck.Clear();
             foreach (Collider trigger in _adhesionTriggers)
-                if (trigger != null) trigger.enabled = !_isDry;
+                if (trigger != null) trigger.enabled = false;
         }
 
         private IEnumerator AnimateDryMaterial()
@@ -584,7 +602,7 @@ namespace GuardWave
                 !piece.gameObject.activeInHierarchy || _points.Count == 0 ||
                 !_game.IsPlacedPiece(piece) ||
                 joint.connectedBody != _surfaceBody ||
-                _game.HasMudBond(piece) || _game.WasEverMudBonded(piece) ||
+                _game.HasMudBondBetween(piece.Body, joint.connectedBody) ||
                 HasBond(piece))
                 return false;
 
@@ -602,13 +620,14 @@ namespace GuardWave
             }
 
             if (!touchesPaint) return false;
+            _jointSettings.ApplyTo(joint);
             _bonds.Add(piece, joint);
             _game.TrackMudPatch(piece, this);
-            _game.RegisterMudBond(piece, joint);
-            // The authored joint has the same wet/dry lifecycle as a painted bond.
+            _game.RegisterMudBond(piece, joint,
+                _jointSettings.SolverIterations, _jointSettings.SolverVelocityIterations);
             GuardWaveInitialLogJoint initialLog = piece.GetComponent<GuardWaveInitialLogJoint>();
             if (initialLog != null)
-                initialLog.Restart(joint, _isDry);
+                initialLog.Restart(joint, _isDry, _jointSettings.BreakForce);
             return true;
         }
 
@@ -640,7 +659,8 @@ namespace GuardWave
             if (piece == null || !_game.IsPlacedPiece(piece) ||
                 piece.Body == null || piece.Body.isKinematic ||
                 (!bindSourceToGround && piece.Body == _surfaceBody) ||
-                _game.HasMudBond(piece) || _game.WasEverMudBonded(piece))
+                _game.HasMudBondBetween(piece.Body,
+                    bindSourceToGround ? null : _surfaceBody))
                 return false;
 
             connectedBody = bindSourceToGround ? null : _surfaceBody;
@@ -719,81 +739,26 @@ namespace GuardWave
         /// <summary>Searches an eligible contact once per physics tick, including contact with the creek bed.</summary>
         private void TryBond(Collider other)
         {
-            if (_game == null || _isDry || other == null || other.isTrigger ||
-                other == _surfaceCollider) return;
-            if (_lastContactCheck.TryGetValue(other, out float checkedAt) &&
-                checkedAt == Time.fixedTime) return;
-            _lastContactCheck[other] = Time.fixedTime;
-            if (!TryResolveBondTarget(other, out GuardWavePiece piece,
-                    out Rigidbody connectedBody)) return;
-            bool possibleCreek = other == _game.CreekBedCollider &&
-                _surfaceBody != null;
-            // The creek AABB spans the entire channel. For this rare case,
-            // test the short patch directly instead of hashing thousands of
-            // empty world cells every physics step.
-            if (possibleCreek)
-            {
-                for (int i = 0; i < _points.Count; i++)
-                    if (TryCreateBondAt(other, piece, connectedBody,
-                        transform.TransformPoint(_points[i]),
-                        transform.TransformDirection(_normals[i]).normalized)) return;
-                return;
-            }
-
-            // The sample hash keeps each contact test proportional to nearby
-            // brush points rather than the full stroke length.
-            Bounds bounds = other.bounds;
-            Vector3 pad = Vector3.one * (BrushRadius + MaxBondNormalGap);
-            Vector3 low = bounds.min - pad;
-            Vector3 high = bounds.max + pad;
-            Vector3 min = new Vector3(float.PositiveInfinity, 0f, float.PositiveInfinity);
-            Vector3 max = new Vector3(float.NegativeInfinity, 0f, float.NegativeInfinity);
-            for (int corner = 0; corner < 8; corner++)
-            {
-                Vector3 vertex = new Vector3(
-                    (corner & 1) == 0 ? low.x : high.x,
-                    (corner & 2) == 0 ? low.y : high.y,
-                    (corner & 4) == 0 ? low.z : high.z);
-                Vector3 local = transform.InverseTransformPoint(vertex);
-                min.x = Mathf.Min(min.x, local.x);
-                min.z = Mathf.Min(min.z, local.z);
-                max.x = Mathf.Max(max.x, local.x);
-                max.z = Mathf.Max(max.z, local.z);
-            }
-
-            int x0 = Mathf.FloorToInt(min.x / SampleCellSize);
-            int x1 = Mathf.FloorToInt(max.x / SampleCellSize);
-            int z0 = Mathf.FloorToInt(min.z / SampleCellSize);
-            int z1 = Mathf.FloorToInt(max.z / SampleCellSize);
-            for (int x = x0; x <= x1; x++)
-            for (int z = z0; z <= z1; z++)
-            {
-                if (!_sampleGrid.TryGetValue(new Vector2Int(x, z),
-                    out List<int> indices)) continue;
-                foreach (int index in indices)
-                {
-                    Vector3 point = transform.TransformPoint(_points[index]);
-                    Vector3 normal = transform.TransformDirection(_normals[index]).normalized;
-                    if (TryCreateBondAt(other, piece, connectedBody, point, normal)) return;
-                }
-            }
+            // Click-to-bond is the only way to create a new mud connection.
+            // Keep callbacks harmless for old authored trigger components.
         }
 
         private void CreateBond(GuardWavePiece piece, Vector3 anchor,
             Vector3 connectedAnchor, Rigidbody connectedBody)
         {
-            if (piece == null || HasBond(piece)) return;
+            if (piece == null || HasBond(piece) ||
+                (_game != null && _game.HasMudBondBetween(piece.Body, connectedBody)))
+                return;
             FixedJoint joint = piece.gameObject.AddComponent<FixedJoint>();
             joint.autoConfigureConnectedAnchor = false;
             joint.connectedBody = connectedBody;
             joint.anchor = anchor;
             joint.connectedAnchor = connectedAnchor;
-            joint.breakForce = _breakForce * (_isDry ? 2f : 1f);
-            joint.breakTorque = _breakTorque * (_isDry ? 2f : 1f);
-            joint.enableCollision = false;
+            _jointSettings.ApplyTo(joint);
             _bonds[piece] = joint;
             _game?.TrackMudPatch(piece, this);
-            _game?.RegisterMudBond(piece, joint);
+            _game?.RegisterMudBond(piece, joint,
+                _jointSettings.SolverIterations, _jointSettings.SolverVelocityIterations);
         }
 
         public bool HasBond(GuardWavePiece piece)
@@ -849,15 +814,12 @@ namespace GuardWave
                 state.ConnectedBody);
             if (_bonds.TryGetValue(state.Piece, out FixedJoint joint) && joint != null)
             {
-                // Initial definitions are wet; restoring a missing authored
-                // bond into a dried patch must also restore its doubled torque.
-                float dryness = fromInitialDefinition && _isDry ? 2f : 1f;
-                joint.breakForce = state.BreakForce * dryness;
-                joint.breakTorque = state.BreakTorque * dryness;
+                // No stale snapshot may override prefab-authored joint physics.
+                _jointSettings.ApplyTo(joint);
                 GuardWaveInitialLogJoint initialLog =
                     state.Piece.GetComponent<GuardWaveInitialLogJoint>();
                 if (initialLog != null)
-                    initialLog.Restart(joint, _isDry);
+                    initialLog.Restart(joint, _isDry, _jointSettings.BreakForce);
             }
         }
 

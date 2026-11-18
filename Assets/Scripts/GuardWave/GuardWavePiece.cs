@@ -72,8 +72,17 @@ namespace GuardWave
                 _game.RemoveOutsideBoundary(this);
         }
 
-        private void OnCollisionEnter(Collision collision) => RecordGroundContact(collision);
-        private void OnCollisionStay(Collision collision) => RecordGroundContact(collision);
+        private void OnCollisionEnter(Collision collision)
+        {
+            RecordGroundContact(collision);
+            _game?.ReportMudContact(this, collision);
+        }
+
+        private void OnCollisionStay(Collision collision)
+        {
+            RecordGroundContact(collision);
+            _game?.ReportMudContact(this, collision);
+        }
 
         private void RecordGroundContact(Collision collision)
         {

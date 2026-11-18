@@ -146,21 +146,23 @@ namespace GuardWave
             _completePopup.SetActive(false);
             _rulesPopup.SetActive(false);
             _tooltip.SetActive(false);
-            _rulesBody.text = $@"진흙을 선택하고 왼쪽 버튼으로 드래그하면 커서 아래 가장 가까운 물체 표면에 풀이 발립니다.
-바른 자국에 통나무나 조약돌이 닿으면 부착됩니다.
+            _rulesBody.text = $@"진흙을 선택하면 실제 접촉 지점 또는 XZ 방향 표면 간격 0.35m 이내에 노란 반투명 가이드가 표시됩니다.
+노란 가이드를 클릭하면 타원형 진흙 한 덩어리로 두 물체가 고정 연결됩니다. 드래그로 칠하지 않습니다.
+A-B, A-C처럼 한 물체에 여러 물체를 각각 연결하거나 냇가 바닥에 붙일 수 있습니다.
+진흙과 통나무는 각각 30개로, 초기 배치된 13개를 제외하고 17개씩 남습니다.
 통나무는 {_game.GetPlacementLimit("log")}개, 조약돌은 {_game.GetPlacementLimit("forest_pebble")}개까지 배치할 수 있으며, 남은 개수는 팔레트에 표시됩니다.
 팔레트에서 재료를 선택해 마우스를 누른 채 드래그하면 겹치지 않는 지점마다 연속 배치됩니다.
 선택한 재료는 우클릭으로 해제하기 전까지 계속 사용할 수 있습니다.
 하단의 준비완료를 누르면 홍수가 밀려옵니다.
 깃발은 팔레트 마지막의 금색 목표물입니다. 깃발을 직접 배치해야 준비 완료할 수 있습니다.
-깃발을 지키세요! 파도에 깃발이 밀려 절벽 뒤 파괴 경계를 넘으면 방어에 실패합니다.
+깃발을 지키세요! 절벽 뒤로 밀리거나 물에 충분히 잠긴 상태가 5초 지속되면 방어에 실패합니다.
 실패 팝업에서 확인을 누르면 마지막으로 저장된 배치 상태로 돌아갑니다. 배치한 적이 없다면 씬이 재시작됩니다.
 
 우클릭 드래그: 카메라 이동
 스크롤: 확대
 우클릭 중 스크롤: 카메라 회전
 Q/E: 기물 회전 / 우클릭 또는 Esc: 선택 취소
-Ctrl+Z: 최근 기물 배치, 깃발 배치 또는 수동 제거 되돌리기
+Ctrl+Z: 최근 기물 배치, 깃발 배치, 진흙 접촉 연결 또는 수동 제거 되돌리기
 
 홍수에 밀려 절벽 뒤로 넘어간 기물은 파괴됩니다.
 ";
@@ -405,16 +407,19 @@ Ctrl+Z: 최근 기물 배치, 깃발 배치 또는 수동 제거 되돌리기
         private void RefreshFogExposure()
         {
             if (_fogExposurePanel == null) return;
-            // During a toxic-exposure failure, the full bar must remain above
-            // the popup until the player confirms and restores the checkpoint.
-            bool visible = _fogMode != null && _fogMode.IsFlagExposed &&
-                !_game.IsFinished;
+            // Fog and Flood use the same authored progress track. A completed
+            // exposure failure leaves its bar full until the player confirms.
+            bool fogExposure = _fogMode != null && _fogMode.IsFlagExposed;
+            bool floodDrowning = _fogMode == null && _game.IsFloodDrowning;
+            bool visible = (fogExposure || floodDrowning) && !_game.IsFinished;
             if (_fogExposurePanel.activeSelf != visible)
                 _fogExposurePanel.SetActive(visible);
             if (!visible) return;
 
-            float duration = _fogMode.FlagExposureLimitSeconds;
-            float elapsed = Mathf.Clamp(_fogMode.FlagExposureSeconds, 0f, duration);
+            float duration = _fogMode != null ? _fogMode.FlagExposureLimitSeconds
+                : _game.FloodDrowningLimitSeconds;
+            float elapsed = Mathf.Clamp(_fogMode != null
+                ? _fogMode.FlagExposureSeconds : _game.FloodDrowningSeconds, 0f, duration);
             float progress = Mathf.Clamp01(elapsed / Mathf.Max(0.01f, duration));
             Vector2 end = _fogExposureFill.anchorMax;
             if (!Mathf.Approximately(end.x, progress))
@@ -424,7 +429,9 @@ Ctrl+Z: 최근 기물 배치, 깃발 배치 또는 수동 제거 되돌리기
             _fogExposureFillImage.color = Color.Lerp(
                 new Color(0.98f, 0.72f, 0.26f, 1f),
                 new Color(0.96f, 0.15f, 0.18f, 1f), progress);
-            string label = $"독안개 노출  {elapsed:0.0} / {duration:0.0}초";
+            string label = _fogMode != null
+                ? $"독안개 노출  {elapsed:0.0} / {duration:0.0}초"
+                : $"깃발 익사  {elapsed:0.0} / {duration:0.0}초";
             if (_fogExposureLabel.text != label)
                 _fogExposureLabel.text = label;
         }

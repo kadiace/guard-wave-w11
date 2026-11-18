@@ -147,7 +147,7 @@ Transform:
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
   m_LocalPosition: {x: -0.3, y: -6.98, z: 5.7}
-  m_LocalScale: {x: 0.54, y: 0.24, z: 0.54}
+  m_LocalScale: {x: 0.70, y: 0.28, z: 0.44}
   m_ConstrainProportionsScale: 0
   m_Children: []
   m_Father: {fileID: 2080924027}
@@ -237,7 +237,7 @@ Transform:
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
   m_LocalPosition: {x: 0.3, y: -6.98, z: 5.7}
-  m_LocalScale: {x: 0.54, y: 0.24, z: 0.54}
+  m_LocalScale: {x: 0.70, y: 0.28, z: 0.44}
   m_ConstrainProportionsScale: 0
   m_Children: []
   m_Father: {fileID: 2080924027}
@@ -394,8 +394,8 @@ FixedJoint:
   serializedVersion: 1
   m_ConnectedBody: {fileID: 0}
   m_ConnectedArticulationBody: {fileID: 0}
-  m_BreakForce: 150
-  m_BreakTorque: 1400
+  m_BreakForce: 300
+  m_BreakTorque: Infinity
   m_EnableCollision: 0
   m_EnablePreprocessing: 1
   m_MassScale: 1
@@ -428,7 +428,7 @@ Transform:
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
   m_LocalPosition: {x: -1.2, y: -6.98, z: 4.8}
-  m_LocalScale: {x: 0.54, y: 0.24, z: 0.54}
+  m_LocalScale: {x: 0.70, y: 0.28, z: 0.44}
   m_ConstrainProportionsScale: 0
   m_Children: []
   m_Father: {fileID: 2080924027}
@@ -585,8 +585,8 @@ FixedJoint:
   serializedVersion: 1
   m_ConnectedBody: {fileID: 0}
   m_ConnectedArticulationBody: {fileID: 0}
-  m_BreakForce: 150
-  m_BreakTorque: 1400
+  m_BreakForce: 300
+  m_BreakTorque: Infinity
   m_EnableCollision: 0
   m_EnablePreprocessing: 1
   m_MassScale: 1
@@ -619,7 +619,7 @@ Transform:
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
   m_LocalPosition: {x: -1.5, y: -6.98, z: 4.5}
-  m_LocalScale: {x: 0.54, y: 0.24, z: 0.54}
+  m_LocalScale: {x: 0.70, y: 0.28, z: 0.44}
   m_ConstrainProportionsScale: 0
   m_Children: []
   m_Father: {fileID: 2080924027}
@@ -709,7 +709,7 @@ Transform:
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
   m_LocalPosition: {x: -0.6, y: -6.98, z: 5.4}
-  m_LocalScale: {x: 0.54, y: 0.24, z: 0.54}
+  m_LocalScale: {x: 0.70, y: 0.28, z: 0.44}
   m_ConstrainProportionsScale: 0
   m_Children: []
   m_Father: {fileID: 2080924027}
@@ -866,8 +866,8 @@ FixedJoint:
   serializedVersion: 1
   m_ConnectedBody: {fileID: 0}
   m_ConnectedArticulationBody: {fileID: 0}
-  m_BreakForce: 150
-  m_BreakTorque: 1400
+  m_BreakForce: 300
+  m_BreakTorque: Infinity
   m_EnableCollision: 0
   m_EnablePreprocessing: 1
   m_MassScale: 1
@@ -967,8 +967,8 @@ FixedJoint:
   serializedVersion: 1
   m_ConnectedBody: {fileID: 0}
   m_ConnectedArticulationBody: {fileID: 0}
-  m_BreakForce: 150
-  m_BreakTorque: 1400
+  m_BreakForce: 300
+  m_BreakTorque: Infinity
   m_EnableCollision: 0
   m_EnablePreprocessing: 1
   m_MassScale: 1
@@ -1001,7 +1001,7 @@ Transform:
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
   m_LocalPosition: {x: 0.6, y: -6.98, z: 5.4}
-  m_LocalScale: {x: 0.54, y: 0.24, z: 0.54}
+  m_LocalScale: {x: 0.70, y: 0.28, z: 0.44}
   m_ConstrainProportionsScale: 0
   m_Children: []
   m_Father: {fileID: 2080924027}
@@ -1091,7 +1091,7 @@ Transform:
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
   m_LocalPosition: {x: -0.9, y: -6.98, z: 5.1}
-  m_LocalScale: {x: 0.54, y: 0.24, z: 0.54}
+  m_LocalScale: {x: 0.70, y: 0.28, z: 0.44}
   m_ConstrainProportionsScale: 0
   m_Children: []
   m_Father: {fileID: 2080924027}
@@ -1248,8 +1248,8 @@ FixedJoint:
   serializedVersion: 1
   m_ConnectedBody: {fileID: 0}
   m_ConnectedArticulationBody: {fileID: 0}
-  m_BreakForce: 150
-  m_BreakTorque: 1400
+  m_BreakForce: 300
+  m_BreakTorque: Infinity
   m_EnableCollision: 0
   m_EnablePreprocessing: 1
   m_MassScale: 1
@@ -1282,7 +1282,7 @@ Transform:
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
   m_LocalPosition: {x: 1.5, y: -6.98, z: 4.5}
-  m_LocalScale: {x: 0.54, y: 0.24, z: 0.54}
+  m_LocalScale: {x: 0.70, y: 0.28, z: 0.44}
   m_ConstrainProportionsScale: 0
   m_Children: []
   m_Father: {fileID: 2080924027}
@@ -1372,7 +1372,7 @@ Transform:
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
   m_LocalPosition: {x: -1.8, y: -6.98, z: 4.2}
-  m_LocalScale: {x: 0.54, y: 0.24, z: 0.54}
+  m_LocalScale: {x: 0.70, y: 0.28, z: 0.44}
   m_ConstrainProportionsScale: 0
   m_Children: []
   m_Father: {fileID: 2080924027}
@@ -1589,7 +1589,7 @@ Transform:
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
   m_LocalPosition: {x: 0, y: -6.98, z: 6}
-  m_LocalScale: {x: 0.54, y: 0.24, z: 0.54}
+  m_LocalScale: {x: 0.70, y: 0.28, z: 0.44}
   m_ConstrainProportionsScale: 0
   m_Children: []
   m_Father: {fileID: 2080924027}
@@ -1679,7 +1679,7 @@ Transform:
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
   m_LocalPosition: {x: 1.8, y: -6.98, z: 4.2}
-  m_LocalScale: {x: 0.54, y: 0.24, z: 0.54}
+  m_LocalScale: {x: 0.70, y: 0.28, z: 0.44}
   m_ConstrainProportionsScale: 0
   m_Children: []
   m_Father: {fileID: 2080924027}
@@ -1836,8 +1836,8 @@ FixedJoint:
   serializedVersion: 1
   m_ConnectedBody: {fileID: 0}
   m_ConnectedArticulationBody: {fileID: 0}
-  m_BreakForce: 150
-  m_BreakTorque: 1400
+  m_BreakForce: 300
+  m_BreakTorque: Infinity
   m_EnableCollision: 0
   m_EnablePreprocessing: 1
   m_MassScale: 1
@@ -1870,7 +1870,7 @@ Transform:
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
   m_LocalPosition: {x: 1.2, y: -6.98, z: 4.8}
-  m_LocalScale: {x: 0.54, y: 0.24, z: 0.54}
+  m_LocalScale: {x: 0.70, y: 0.28, z: 0.44}
   m_ConstrainProportionsScale: 0
   m_Children: []
   m_Father: {fileID: 2080924027}
@@ -2073,8 +2073,8 @@ FixedJoint:
   serializedVersion: 1
   m_ConnectedBody: {fileID: 0}
   m_ConnectedArticulationBody: {fileID: 0}
-  m_BreakForce: 150
-  m_BreakTorque: 1400
+  m_BreakForce: 300
+  m_BreakTorque: Infinity
   m_EnableCollision: 0
   m_EnablePreprocessing: 1
   m_MassScale: 1
@@ -2174,8 +2174,8 @@ FixedJoint:
   serializedVersion: 1
   m_ConnectedBody: {fileID: 0}
   m_ConnectedArticulationBody: {fileID: 0}
-  m_BreakForce: 150
-  m_BreakTorque: 1400
+  m_BreakForce: 300
+  m_BreakTorque: Infinity
   m_EnableCollision: 0
   m_EnablePreprocessing: 1
   m_MassScale: 1
@@ -2208,7 +2208,7 @@ Transform:
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
   m_LocalPosition: {x: 0.9, y: -6.98, z: 5.1}
-  m_LocalScale: {x: 0.54, y: 0.24, z: 0.54}
+  m_LocalScale: {x: 0.70, y: 0.28, z: 0.44}
   m_ConstrainProportionsScale: 0
   m_Children: []
   m_Father: {fileID: 2080924027}
@@ -2365,8 +2365,8 @@ FixedJoint:
   serializedVersion: 1
   m_ConnectedBody: {fileID: 0}
   m_ConnectedArticulationBody: {fileID: 0}
-  m_BreakForce: 150
-  m_BreakTorque: 1400
+  m_BreakForce: 300
+  m_BreakTorque: Infinity
   m_EnableCollision: 0
   m_EnablePreprocessing: 1
   m_MassScale: 1
@@ -2466,8 +2466,8 @@ FixedJoint:
   serializedVersion: 1
   m_ConnectedBody: {fileID: 0}
   m_ConnectedArticulationBody: {fileID: 0}
-  m_BreakForce: 150
-  m_BreakTorque: 1400
+  m_BreakForce: 300
+  m_BreakTorque: Infinity
   m_EnableCollision: 0
   m_EnablePreprocessing: 1
   m_MassScale: 1
@@ -2659,8 +2659,8 @@ FixedJoint:
   serializedVersion: 1
   m_ConnectedBody: {fileID: 0}
   m_ConnectedArticulationBody: {fileID: 0}
-  m_BreakForce: 150
-  m_BreakTorque: 1400
+  m_BreakForce: 300
+  m_BreakTorque: Infinity
   m_EnableCollision: 0
   m_EnablePreprocessing: 1
   m_MassScale: 1
@@ -2760,8 +2760,8 @@ FixedJoint:
   serializedVersion: 1
   m_ConnectedBody: {fileID: 0}
   m_ConnectedArticulationBody: {fileID: 0}
-  m_BreakForce: 150
-  m_BreakTorque: 1400
+  m_BreakForce: 300
+  m_BreakTorque: Infinity
   m_EnableCollision: 0
   m_EnablePreprocessing: 1
   m_MassScale: 1
@@ -3201,8 +3201,6 @@ MonoBehaviour:
     m_PreInfinity: 2
     m_PostInfinity: 2
     m_RotationOrder: 4
-  mudBreakForce: 150
-  mudBreakTorque: 1400
 --- !u!1001 &2103365363
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -3298,8 +3296,8 @@ FixedJoint:
   serializedVersion: 1
   m_ConnectedBody: {fileID: 0}
   m_ConnectedArticulationBody: {fileID: 0}
-  m_BreakForce: 150
-  m_BreakTorque: 1400
+  m_BreakForce: 300
+  m_BreakTorque: Infinity
   m_EnableCollision: 0
   m_EnablePreprocessing: 1
   m_MassScale: 1
@@ -3761,8 +3759,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 7a8b41e9595f4e0d901684e77e3e6e23, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWaveInitialLogJoint
-  initialBreakForce: 150
-  settledBreakForce: 150
+  initialBreakForce: 300
+  settledBreakForce: 300
   firstContactForce: 1
   minimumProtectionSeconds: 0.8
   settledDuration: 0.2
@@ -3779,8 +3777,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 7a8b41e9595f4e0d901684e77e3e6e23, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWaveInitialLogJoint
-  initialBreakForce: 150
-  settledBreakForce: 150
+  initialBreakForce: 300
+  settledBreakForce: 300
   firstContactForce: 1
   minimumProtectionSeconds: 0.8
   settledDuration: 0.2
@@ -3797,8 +3795,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 7a8b41e9595f4e0d901684e77e3e6e23, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWaveInitialLogJoint
-  initialBreakForce: 150
-  settledBreakForce: 150
+  initialBreakForce: 300
+  settledBreakForce: 300
   firstContactForce: 1
   minimumProtectionSeconds: 0.8
   settledDuration: 0.2
@@ -3815,8 +3813,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 7a8b41e9595f4e0d901684e77e3e6e23, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWaveInitialLogJoint
-  initialBreakForce: 150
-  settledBreakForce: 150
+  initialBreakForce: 300
+  settledBreakForce: 300
   firstContactForce: 1
   minimumProtectionSeconds: 0.8
   settledDuration: 0.2
@@ -3833,8 +3831,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 7a8b41e9595f4e0d901684e77e3e6e23, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWaveInitialLogJoint
-  initialBreakForce: 150
-  settledBreakForce: 150
+  initialBreakForce: 300
+  settledBreakForce: 300
   firstContactForce: 1
   minimumProtectionSeconds: 0.8
   settledDuration: 0.2
@@ -3851,8 +3849,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 7a8b41e9595f4e0d901684e77e3e6e23, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWaveInitialLogJoint
-  initialBreakForce: 150
-  settledBreakForce: 150
+  initialBreakForce: 300
+  settledBreakForce: 300
   firstContactForce: 1
   minimumProtectionSeconds: 0.8
   settledDuration: 0.2
@@ -3869,8 +3867,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 7a8b41e9595f4e0d901684e77e3e6e23, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWaveInitialLogJoint
-  initialBreakForce: 150
-  settledBreakForce: 150
+  initialBreakForce: 300
+  settledBreakForce: 300
   firstContactForce: 1
   minimumProtectionSeconds: 0.8
   settledDuration: 0.2
@@ -3887,8 +3885,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 7a8b41e9595f4e0d901684e77e3e6e23, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWaveInitialLogJoint
-  initialBreakForce: 150
-  settledBreakForce: 150
+  initialBreakForce: 300
+  settledBreakForce: 300
   firstContactForce: 1
   minimumProtectionSeconds: 0.8
   settledDuration: 0.2
@@ -3905,8 +3903,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 7a8b41e9595f4e0d901684e77e3e6e23, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWaveInitialLogJoint
-  initialBreakForce: 150
-  settledBreakForce: 150
+  initialBreakForce: 300
+  settledBreakForce: 300
   firstContactForce: 1
   minimumProtectionSeconds: 0.8
   settledDuration: 0.2
@@ -3923,8 +3921,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 7a8b41e9595f4e0d901684e77e3e6e23, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWaveInitialLogJoint
-  initialBreakForce: 150
-  settledBreakForce: 150
+  initialBreakForce: 300
+  settledBreakForce: 300
   firstContactForce: 1
   minimumProtectionSeconds: 0.8
   settledDuration: 0.2
@@ -3941,8 +3939,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 7a8b41e9595f4e0d901684e77e3e6e23, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWaveInitialLogJoint
-  initialBreakForce: 150
-  settledBreakForce: 150
+  initialBreakForce: 300
+  settledBreakForce: 300
   firstContactForce: 1
   minimumProtectionSeconds: 0.8
   settledDuration: 0.2
@@ -3959,8 +3957,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 7a8b41e9595f4e0d901684e77e3e6e23, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWaveInitialLogJoint
-  initialBreakForce: 150
-  settledBreakForce: 150
+  initialBreakForce: 300
+  settledBreakForce: 300
   firstContactForce: 1
   minimumProtectionSeconds: 0.8
   settledDuration: 0.2
@@ -3977,8 +3975,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 7a8b41e9595f4e0d901684e77e3e6e23, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWaveInitialLogJoint
-  initialBreakForce: 150
-  settledBreakForce: 150
+  initialBreakForce: 300
+  settledBreakForce: 300
   firstContactForce: 1
   minimumProtectionSeconds: 0.8
   settledDuration: 0.2
