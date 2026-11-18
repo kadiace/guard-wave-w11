@@ -1,5 +1,7 @@
 using UnityEngine;
 
+using GuardWave;
+
 namespace Avalanche
 {
     /// <summary>Resolution-independent prototype HUD, tools and always-visible citizen observations.</summary>
@@ -127,7 +129,7 @@ namespace Avalanche
                 float y = 170 + zone * 151;
                 AvalancheCitizen first = _stage.Citizens[zone * 2];
                 if (Button(new Rect(40, y, 226, 32), first.Zone + "   ↗", new Color(0.73f, 0.83f, 0.8f)))
-                    _stage.ViewCamera.GetComponent<AvalancheCamera>().Focus(first.transform.position);
+                    _stage.ViewCamera.GetComponent<StageCameraController>().Focus(first.transform.position);
                 for (int j = 0; j < 2; j++)
                 {
                     AvalancheCitizen citizen = _stage.Citizens[zone * 2 + j];
@@ -144,7 +146,7 @@ namespace Avalanche
                 if (Button(new Rect(155, y + 109, 111, 30), "배수 정비", response.DrainZone == zone ? AQUA : PAPER)) response.AssignDrain(zone);
                 GUI.enabled = !_stage.Paused;
             }
-            if (Button(new Rect(40, 618, 226, 25), "전체 마을 보기 · Home", AQUA)) _stage.ViewCamera.GetComponent<AvalancheCamera>().Overview();
+            if (Button(new Rect(40, 618, 226, 25), "전체 마을 보기 · Home", AQUA)) _stage.ViewCamera.GetComponent<StageCameraController>().Overview();
         }
 
         /// <summary>Shows the upstream input sequence separately from water arrival at the citizens.</summary>

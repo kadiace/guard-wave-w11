@@ -9036,16 +9036,21 @@ MonoBehaviour:
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 4ef2780fe8cc8934ebe36befbc78168e, type: 3}
   m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::Avalanche.AvalancheCamera
+  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.StageCameraController
   _focus: {x: 0, y: 0, z: 29}
   _yaw: -12
   _pitch: 58
   _zoom: 36
+  _overviewDistance: 90
   _citizenFocusZoom: 13
   _scrollSensitivity: 0.9
   _orbitYawSensitivity: 0.22
   _orbitPitchSensitivity: 0.18
   _keyboardPanSpeed: 0.7
+  _focusMin: {x: -22, y: -2}
+  _focusMax: {x: 22, y: 62}
+  _pitchRange: {x: 35, y: 85}
+  _zoomRange: {x: 8, y: 40}
 --- !u!81 &1376346628
 AudioListener:
   m_ObjectHideFlags: 0

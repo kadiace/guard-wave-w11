@@ -22,7 +22,6 @@ namespace GuardWave
         private const float CAMERA_DRAG_THRESHOLD_PIXELS = 6f;
         private const float CAMERA_MIN_TARGET_Z = -15f;
         private const float CAMERA_MAX_TARGET_Z = 15f;
-        private const float WINDOWS_SCROLL_UNITS_PER_TICK = 120f;
         private const float BOUNDARY_DESTRUCTION_DELAY = 1f;
         private const int MAX_DRAG_PLACEMENTS_PER_FRAME = 12;
 
@@ -137,6 +136,7 @@ namespace GuardWave
         private Coroutine _stageFloodRoutine;
         private WaveSnapshot _waveSnapshot;
         private Camera _camera;
+        private StageCameraController _cameraController;
         private GuardWavePiece _outlinedPiece;
         private Vector3 _cameraTarget;
         private int _selected = -1;
@@ -1008,6 +1008,8 @@ namespace GuardWave
         {
             _camera = Camera.main;
             if (_camera == null) throw new InvalidOperationException("Game scene needs a Main Camera.");
+            _cameraController = _camera.gameObject.AddComponent<StageCameraController>();
+            _cameraController.InitializeManual();
             _cameraTarget = Vector3.zero;
             _defenseFlag = _sceneContext.DefenseFlag;
             if (_defenseFlag == null)
@@ -1223,10 +1225,7 @@ namespace GuardWave
 
                 if (_rightGestureMoved && delta.sqrMagnitude > 0f)
                 {
-                    float unit = 2f * _camera.orthographicSize / Mathf.Max(Screen.height, 1);
-                    Vector3 right = Vector3.ProjectOnPlane(_camera.transform.right, Vector3.up).normalized;
-                    Vector3 up = Vector3.ProjectOnPlane(_camera.transform.up, Vector3.up).normalized;
-                    float movementZ = unit * (right.z * delta.x + up.z * delta.y);
+                    float movementZ = _cameraController.GetDragAlongZ(delta);
                     _cameraTarget.z = Mathf.Clamp(_cameraTarget.z - movementZ,
                         CAMERA_MIN_TARGET_Z, CAMERA_MAX_TARGET_Z);
                 }
@@ -1238,13 +1237,11 @@ namespace GuardWave
                 if (gestureInProgress)
                 {
                     if (!pointerOverUi)
-                        _camera.transform.Rotate(Vector3.up,
-                            NormalizeScrollSteps(scroll) * CameraYawPerScrollStep, Space.World);
+                        _cameraController.RotateByScroll(scroll, CameraYawPerScrollStep);
                 }
                 else if (!rightButton.isPressed && !rightButton.wasReleasedThisFrame && !pointerOverUi)
                 {
-                    _camera.orthographicSize = Mathf.Clamp(_camera.orthographicSize *
-                        Mathf.Exp(-scroll * 0.03f), 6f,
+                    _cameraController.ZoomByScroll(scroll, 0.03f, 6f,
                         GetComponent<FogSceneController>() != null ? 32f : 12.5f);
                 }
             }
@@ -1268,25 +1265,10 @@ namespace GuardWave
             UpdateCameraPosition();
         }
 
-        /// <summary>
-        /// Input System의 휠 델타를 입력 설정과 실행 플랫폼에 맞춰 휠 칸 수로 환산한다.
-        /// 정규화된 설정은 그대로 사용하고 Windows의 플랫폼 고유 값은 120으로 나눈다.
-        /// </summary>
-        private static float NormalizeScrollSteps(float scroll)
-        {
-            if (InputSystem.settings.scrollDeltaBehavior ==
-                InputSettings.ScrollDeltaBehavior.KeepPlatformSpecificInputRange &&
-                (Application.platform == RuntimePlatform.WindowsEditor ||
-                 Application.platform == RuntimePlatform.WindowsPlayer))
-                return scroll / WINDOWS_SCROLL_UNITS_PER_TICK;
-
-            return scroll;
-        }
-
         /// <summary>현재 회전 방향과 주시 위치를 사용해 카메라 위치를 갱신한다.</summary>
         private void UpdateCameraPosition()
         {
-            StageCamera.PositionAtFocus(_camera.transform, _cameraTarget, _sceneContext.CameraDistance);
+            _cameraController.PositionAtFocus(_cameraTarget, _sceneContext.CameraDistance);
         }
 
         /// <summary>모든 배치와 소모품 상태를 초기화하고 기본 발판을 배치한다.</summary>

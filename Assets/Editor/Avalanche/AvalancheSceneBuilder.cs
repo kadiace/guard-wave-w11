@@ -9,6 +9,8 @@ using UnityEditor;
 using UnityEditor.SceneManagement;
 using UnityEngine.Rendering.Universal;
 
+using GuardWave;
+
 namespace Avalanche.Editor
 {
     /// <summary>Authors the standalone prototype scene and its dedicated assets without touching Flood.</summary>
@@ -124,7 +126,7 @@ namespace Avalanche.Editor
             camera.transform.position = new Vector3(0, 0, 29) - camera.transform.forward * 90f;
             camera.gameObject.AddComponent<UniversalAdditionalCameraData>().renderPostProcessing = false;
             camera.gameObject.AddComponent<AudioListener>();
-            camera.gameObject.AddComponent<AvalancheCamera>();
+            camera.gameObject.AddComponent<StageCameraController>();
             var stage = new GameObject("Avalanche - stage context").AddComponent<AvalancheStage>();
             stage.Configure(camera, collider, waterFilter, citizens.ToArray(),
                 AssetDatabase.LoadAssetAtPath<Font>("Assets/TextMesh Pro/Resources/Fonts & Materials/NotoSansKR.ttf"), panel, stone, preview, line, friction);

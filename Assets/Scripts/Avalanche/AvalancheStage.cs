@@ -118,6 +118,7 @@ namespace Avalanche
             Construction.Initialize(this);
             Response.Initialize(this);
             Hud.Initialize(this);
+            _viewCamera.GetComponent<StageCameraController>().InitializeOverview(Hud.BlocksPointer);
             _pauseMenu = Instantiate(Resources.Load<StagePauseMenu>("Prefabs/UIs/StagePauseMenu"), transform);
             _pauseMenu.Initialize(() => Phase != AvalanchePhase.Introduction && !IsFinished(),
                 SetPaused, () => Retry(true));

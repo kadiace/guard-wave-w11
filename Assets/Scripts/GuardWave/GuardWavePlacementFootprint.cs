@@ -89,16 +89,6 @@ namespace GuardWave
         }
     }
 
-    /// <summary>주시점과 카메라 방향으로 위치를 계산한다.</summary>
-    internal static class StageCamera
-    {
-        /// <summary>현재 카메라 회전을 유지하며 주시점에서 지정한 거리로 이동한다.</summary>
-        public static void PositionAtFocus(Transform camera, Vector3 focus, float distance)
-        {
-            camera.position = focus - camera.forward * distance;
-        }
-    }
-
     /// <summary>
     /// Records the projected footprints of pieces placed in one left-button stroke.
     /// Computes the first clear point along a mouse segment using swept 2D SAT,
