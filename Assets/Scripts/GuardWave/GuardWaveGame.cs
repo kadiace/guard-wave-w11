@@ -407,7 +407,11 @@ namespace GuardWave
             _dropMouseReleased = false;
             _lastDropTime = Time.unscaledTime;
             HideDropPreview();
-            PlaceStrokePiece(material, _placementStrokeProcessedXZ);
+            if (!PlaceStrokePiece(material, _placementStrokeProcessedXZ))
+            {
+                EndPlacementStroke();
+                return;
+            }
             if (GetRemainingPlacements(material.id) == 0)
             {
                 EndPlacementStroke();
@@ -442,7 +446,11 @@ namespace GuardWave
                     continue;
                 }
 
-                PlaceStrokePiece(material, placement);
+                if (!PlaceStrokePiece(material, placement))
+                {
+                    EndPlacementStroke();
+                    return;
+                }
                 _placementStrokeProcessedXZ = placement;
                 remaining--;
                 if (GetRemainingPlacements(material.id) == 0)
@@ -459,13 +467,19 @@ namespace GuardWave
             }
         }
 
-        private void PlaceStrokePiece(GuardWaveMaterial material, Vector2 xz)
+        /// <summary>미리보기와 같은 위치에 기물을 생성하고 연속 배치 영역을 기록한다.</summary>
+        private bool PlaceStrokePiece(GuardWaveMaterial material, Vector2 xz)
         {
-            Vector3 start = new Vector3(xz.x, _placementBounds.max.y + dropHeight, xz.y);
-            GuardWavePiece piece = Spawn(material, start);
+            Vector3 placement = new Vector3(xz.x, _placementBounds.max.y, xz.y);
+            _dropPreview.Show(material, placement, Quaternion.Euler(0f, _objectYaw, 0f),
+                _placementBounds.max.y + dropHeight, true, _placementBounds.max.y);
+            if (!_dropPreview.IsVisible) return false;
+            GuardWavePiece piece = Spawn(material, _dropPreview.LandingPosition);
+            Physics.SyncTransforms();
             _placementStrokePieces.Add(piece);
             _placementStroke.Record(xz, _objectYaw);
             _status = material.name + " 연속 배치 중. 마우스를 놓으면 배치가 완료됩니다.";
+            return true;
         }
 
         /// <summary>
@@ -886,21 +900,7 @@ namespace GuardWave
                 _placementBounds.max.y + dropHeight, canPlace,
                 _placementBounds.max.y);
 
-            // A valid placement always has a guide even if collision raycasts
-            // miss (e.g. an empty creek section) or the ghost cannot load.
-            // The marker aligns with the same XZ used by Spawn().
-            Vector3 launchTarget = _camera.WorldToScreenPoint(
-                new Vector3(placement.x,
-                    _placementBounds.max.y + dropHeight, placement.z));
-            Vector3 landingPosition = _dropPreview.IsVisible
-                ? _dropPreview.LandingPosition
-                : new Vector3(placement.x, _placementBounds.max.y, placement.z);
-            Vector3 screenTarget = _camera.WorldToScreenPoint(landingPosition);
-            if (canPlace && launchTarget.z > 0f && screenTarget.z > 0f)
-                _hud.ShowDropGuide(new Vector2(launchTarget.x, launchTarget.y),
-                    new Vector2(screenTarget.x, screenTarget.y));
-            else
-                _hud.HideDropGuide();
+            _hud.HideDropGuide();
         }
 
         /// <summary>배치 중단·UI 가림·라운드 종료 시 고스트와 화면 점선을 함께 숨긴다.</summary>
@@ -1560,7 +1560,7 @@ namespace GuardWave
             _initialFlagState.RestoreMotion(_flagBody);
         }
 
-        /// <summary>Resources/Prefabs에서 3D 기물을 로드하고 Rigidbody를 통한 중력 낙하를 준비한다.</summary>
+        /// <summary>Resources/Prefabs에서 3D 기물을 지정한 위치에 생성하고 물리 시스템에 등록한다.</summary>
         private GuardWavePiece Spawn(GuardWaveMaterial material, Vector3 position, bool anchored = false)
         {
             GameObject prefab = Resources.Load<GameObject>("Prefabs/Objects/" + material.id);

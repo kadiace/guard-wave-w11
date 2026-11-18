@@ -143,7 +143,7 @@ namespace GuardWave
             _rulesPopup.SetActive(false);
             _tooltip.SetActive(false);
             _rulesBody.text = $@"진흙을 선택하고 왼쪽 버튼으로 드래그하면 커서 아래 가장 가까운 물체 표면에 풀이 발립니다.
-바른 자국 위에 통나무나 조약돌이 떨어지면 부착됩니다.
+바른 자국에 통나무나 조약돌이 닿으면 부착됩니다.
 헤어 드라이기를 선택하고 젖은 진흙을 1초간 좌클릭하면 마릅니다.
 마른 진흙은 새 기물을 부착하지 않고 기존 FixedJoint의 Break Force/Torque가 2배가 됩니다.
 통나무는 {_game.GetPlacementLimit("log")}개, 조약돌은 {_game.GetPlacementLimit("forest_pebble")}개까지 배치할 수 있으며, 남은 개수는 팔레트에 표시됩니다.

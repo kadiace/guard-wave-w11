@@ -5,8 +5,8 @@ using UnityEngine.Rendering;
 namespace GuardWave
 {
     /// <summary>
-    /// 후보 프리팹의 시각 메시만 남긴 반투명 복제본을 -Y Raycast 충돌 예상 높이에 표시한다.
-    /// 실제 중력·회전·충돌로 인한 최종 정착은 재현하지 않는 정적 낙하 가이드이다.
+    /// 후보 프리팹의 시각 메시만 남긴 반투명 복제본을 배치할 표면 위에 표시한다.
+    /// 생성 후에는 중력과 충돌에 따라 위치가 달라질 수 있다.
     /// </summary>
     internal sealed class GuardWaveDropPreview
     {
@@ -35,15 +35,12 @@ namespace GuardWave
             if (_instance == null) return;
             SetPlacementValidity(canPlace);
 
-            // Use the same fixed XZ as the real drop; trace vertically from above
-            // the launch plane onto the first physical surface at this point.
+            // 같은 XZ에서 수직으로 표면을 찾아 미리보기와 생성 위치에 사용한다.
             Vector3 origin = new Vector3(placement.x, dropHeight + 5f, placement.z);
             bool hasHit = Physics.Raycast(origin, Vector3.down, out RaycastHit hit,
                 MaximumRayDistance, Physics.DefaultRaycastLayers,
                 QueryTriggerInteraction.Ignore);
-            // Falling pieces can still be dropped over water, gaps or
-            // objects without colliders. Falling back to the fixed placement
-            // plane keeps both the ghost and dotted guide visible.
+            // 표면을 찾지 못하면 기준 평면 위에 표시한다.
             float surfaceY = hasHit ? hit.point.y : fallbackSurfaceY;
             _instance.transform.SetPositionAndRotation(
                 new Vector3(placement.x,
