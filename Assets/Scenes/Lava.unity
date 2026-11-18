@@ -3203,8 +3203,6 @@ MonoBehaviour:
     m_PreInfinity: 2
     m_PostInfinity: 2
     m_RotationOrder: 4
-  mudBreakForce: 150
-  mudBreakTorque: 1400
 --- !u!1001 &2103365363
 PrefabInstance:
   m_ObjectHideFlags: 0
