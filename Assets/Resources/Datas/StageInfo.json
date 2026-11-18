@@ -101,11 +101,6 @@
           "target": false
         },
         {
-          "materialId": "mud",
-          "placementLimit": -1,
-          "target": false
-        },
-        {
           "materialId": "default_flag",
           "placementLimit": 1,
           "target": true
