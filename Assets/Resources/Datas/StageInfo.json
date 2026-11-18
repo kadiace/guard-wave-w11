@@ -31,6 +31,10 @@
         {
           "materialId": "building",
           "placementLimit": 1
+        },
+        {
+          "materialId": "fog_barrier",
+          "placementLimit": 10
         }
       ]
     },
