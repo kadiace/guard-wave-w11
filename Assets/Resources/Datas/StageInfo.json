@@ -8,17 +8,17 @@
       "palette": [
         {
           "materialId": "mud",
-          "placementLimit": -1,
+          "placementLimit": 20,
           "target": false
         },
         {
           "materialId": "log",
-          "placementLimit": 100,
+          "placementLimit": 10,
           "target": false
         },
         {
           "materialId": "forest_pebble",
-          "placementLimit": 100,
+          "placementLimit": 5,
           "target": false
         },
         {
