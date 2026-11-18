@@ -26,7 +26,7 @@ namespace Flood2
             if (_stage.Phase == Flood2Phase.Introduction || _stage.IsFinished() || _stage.Paused) return true;
             float x = screen.x * 1600f / Screen.width;
             float y = (Screen.height - screen.y) * 900f / Screen.height;
-            return y < 104f || y > 752f || x < 294f && y < 552f || x > 1306f && y < 452f;
+            return y < 104f || y > 752f || x < 294f && y < 665f || x > 1306f && y < 452f;
         }
 
         /// <summary>Initializes GUI styles once with the project's Korean font.</summary>
@@ -99,9 +99,11 @@ namespace Flood2
             string phase = _stage.Phase switch
             {
                 Flood2Phase.Introduction => "배치를 설계하고 두 차례 홍수에 대비하세요",
-                Flood2Phase.Preparing => $"준비 {Mathf.CeilToInt(_stage.PreparationLeft)}초  ·  0초가 되면 홍수가 시작됩니다",
-                Flood2Phase.Warning => $"홍수 경보  ·  {Mathf.CeilToInt(_stage.WarningLeft)}초 후 유입 시작",
-                Flood2Phase.Flooding => $"홍수 진행  {_stage.FloodElapsed:0.0}초  ·  구조물 편집 잠금",
+                Flood2Phase.Preparing => _stage.LimitPreparationTime
+                    ? $"준비 {Mathf.CeilToInt(_stage.PreparationLeft)}초  ·  0초가 되면 홍수가 시작됩니다"
+                    : "준비 중  ·  배치를 마치면 준비 완료를 누르세요",
+                Flood2Phase.Warning => $"홍수 경보  ·  {Mathf.CeilToInt(_stage.WarningLeft)}초 후 유입",
+                Flood2Phase.Flooding => $"홍수 진행  {_stage.FloodElapsed:0.0}초  ·  물길과 대피 상황 관찰",
                 Flood2Phase.Assessing => "유입 종료  ·  하류 도달과 잔류 침수 관찰 중",
                 Flood2Phase.Cleared => "시민 전원 보호 완료",
                 Flood2Phase.TechnicalError => "계산 오류  ·  배치를 복원할 수 있습니다",
@@ -112,14 +114,15 @@ namespace Flood2
             if (Button(new Rect(1410, 22, 164, 50), _stage.Paused ? "계속하기" : "일시정지", PAPER)) _stage.TogglePause();
         }
 
-        /// <summary>Displays all six citizens and provides camera focus for each neighbourhood.</summary>
+        /// <summary>Displays citizen risk and tools for assigning the two village crews.</summary>
         private void DrawCitizens()
         {
-            Fill(new Rect(24, 116, 258, 426), INK);
-            Label(42, 132, 220, 30, "보호 구역", AQUA, 21);
+            var response = _stage.Response;
+            Fill(new Rect(24, 116, 258, 539), INK);
+            Label(42, 128, 225, 42, "대피팀 1개 · 배수팀 1개", AQUA, 19);
             for (int zone = 0; zone < 3; zone++)
             {
-                float y = 173 + zone * 117;
+                float y = 170 + zone * 151;
                 Flood2Citizen first = _stage.Citizens[zone * 2];
                 if (Button(new Rect(40, y, 226, 32), first.Zone + "   ↗", new Color(0.73f, 0.83f, 0.8f)))
                     _stage.ViewCamera.GetComponent<Flood2Camera>().Focus(first.transform.position);
@@ -127,14 +130,19 @@ namespace Flood2
                 {
                     Flood2Citizen citizen = _stage.Citizens[zone * 2 + j];
                     Color color = CitizenColor(citizen);
-                    float row = y + 38 + j * 33;
+                    float row = y + 35 + j * 24;
                     Label(42, row, 104, 24, citizen.CitizenId, PAPER, 16);
                     Fill(new Rect(111, row + 9, 106, 8), new Color(0.2f, 0.29f, 0.32f));
                     Fill(new Rect(111, row + 9, 106 * citizen.Exposure / 100f, 8), color);
                     Label(223, row - 1, 44, 24, $"{citizen.Exposure:0}", color, 17);
                 }
+                Label(42, y + 84, 226, 24, response.Status(zone), response.GuideZone == zone || response.DrainZone == zone ? AQUA : MUTED, 15);
+                GUI.enabled = _stage.CanEdit;
+                if (Button(new Rect(40, y + 109, 110, 30), "대피 지정", response.GuideZone == zone ? AQUA : PAPER)) response.AssignGuide(zone);
+                if (Button(new Rect(155, y + 109, 111, 30), "배수 정비", response.DrainZone == zone ? AQUA : PAPER)) response.AssignDrain(zone);
+                GUI.enabled = true;
             }
-            if (Button(new Rect(40, 510, 226, 25), "전체 마을 보기 · Home", AQUA)) _stage.ViewCamera.GetComponent<Flood2Camera>().Overview();
+            if (Button(new Rect(40, 618, 226, 25), "전체 마을 보기 · Home", AQUA)) _stage.ViewCamera.GetComponent<Flood2Camera>().Overview();
         }
 
         /// <summary>Shows the upstream input sequence separately from water arrival at the citizens.</summary>
@@ -154,7 +162,9 @@ namespace Flood2
             Fill(new Rect(0, 764, 1600, 136), INK);
             var build = _stage.Construction;
             Label(24, 772, 1290, 28, build.Hint, GOLD, 18);
-            string[] names = { $"1  방벽 패널\n{build.Panels} / 24개", $"2  무거운 돌\n{build.Stones} / 18개", $"3  접합재\n{build.Adhesive:0.0} / 30m", "4  경화 도구\n선 위에서 1초", "5  회수\n설치 자재 클릭" };
+            string[] names = { $"1  물막이판\n{build.Panels} / {build.StartingPanels}개",
+                $"2  모래주머니\n{build.Sandbags} / {build.StartingSandbags}개",
+                $"3  고정용 접합재\n{build.Adhesive:0.0} / {build.StartingAdhesive:0.#}m", "4  경화 도구\n선 위에서 1초", "5  회수\n설치 자재 클릭" };
             GUI.enabled = _stage.CanEdit;
             for (int i = 0; i < names.Length; i++)
                 if (Button(new Rect(24 + i * 210, 809, 198, 66), names[i], (int)build.Tool == i ? AQUA : PAPER)) build.SelectTool((Flood2Tool)i);
@@ -184,7 +194,7 @@ namespace Flood2
                 Vector3 screen = _stage.ViewCamera.WorldToScreenPoint(first.transform.position + new Vector3(0.65f, 3f, 0f));
                 if (screen.z <= 0f) continue;
                 float x = screen.x / Screen.width * 1600f - 85f;
-                float y = (1f - screen.y / Screen.height) * 900f - 75f;
+                float y = (1f - screen.y / Screen.height) * 900f - (i == 2 ? 94f : 75f);
                 if (x < 294f || x + 172f > 1310f || y < 104f || y > 660f) continue;
                 Fill(new Rect(x, y, 172, 58), INK);
                 Label(x + 9, y + 5, 155, 26, citizen.Zone, CitizenColor(citizen), 17);
@@ -205,10 +215,13 @@ namespace Flood2
         /// <summary>Introduces all essential rules before starting any timer.</summary>
         private void DrawIntroduction()
         {
-            Modal("FLOOD2 / 시민 보호 프로토타입", "홍수가 오기 전, 물길을 만들어 주세요.");
+            Modal("마을 홍수 대응", "대피할 길과 물이 빠질 길을 확보하세요.");
+            string preparation = _stage.LimitPreparationTime
+                ? $"{_stage.PreparationSeconds:0.##}초 동안"
+                : "준비 단계에서";
             Label(470, 301, 660, 220,
-                "시장 · 광장 · 정류장에서 시민 두 명씩이 기다립니다.\n\n120초 안에 방벽을 놓고, 돌로 지지하고, 접촉면에 접합재를 바르세요. 젖은 선을 경화하면 기존 연결이 강해집니다.\n\n물을 가둘 수도, 옆으로 흘려보낼 수도 있습니다. 시민 주변의 깊거나 빠른 물이 오래 지속되면 구조가 필요해집니다.", PAPER, 21);
-            Label(470, 538, 660, 60, "홍수 중에는 배치를 바꿀 수 없습니다. 실패하면 홍수 직전 배치로 돌아와 다시 설계할 수 있습니다.", GOLD, 19);
+                $"시장 · 광장 · 정류장에 시민 두 명씩이 있습니다.\n\n{preparation} 대피팀과 배수팀을 각각 한 구역에 배치하세요. 대피팀은 경보가 울리면 시민을 높은 대피대로 안내합니다. 초록색 통로를 비워 두세요.\n\n물막이판으로 물을 우회시키고 모래주머니로 낮은 틈을 보강하세요. 파란 배수구 주변은 물이 들어갈 수 있게 비워 두세요.", PAPER, 21);
+            Label(470, 538, 660, 60, "두 차례 물이 들어옵니다. 배치와 팀 지정은 경보 전에 끝내세요.", GOLD, 19);
             if (Button(new Rect(470, 620, 660, 52), "마을 지키기 시작   ·   Enter", AQUA)) _stage.BeginPreparation();
         }
 
@@ -217,7 +230,9 @@ namespace Flood2
         {
             Modal("시도 결과", _stage.Phase == Flood2Phase.Cleared ? "여섯 시민을 지켰습니다." : _stage.Phase == Flood2Phase.TechnicalError ? "다시 시도할 수 있습니다." : "물길을 다시 설계해 주세요.");
             Label(470, 304, 660, 160, _stage.ResultMessage, PAPER, 22);
-            Label(470, 483, 660, 58, $"사용한 패널 {24 - _stage.Construction.Panels}개 · 돌 {18 - _stage.Construction.Stones}개\n현재 유지 중인 연결 {_stage.Construction.BondCount}개", MUTED, 19);
+            var response = _stage.Response;
+            var build = _stage.Construction;
+            Label(470, 483, 660, 58, $"대피대 도착 {response.ShelteredCount}명 · 하류로 배수한 물 {response.DrainedVolume:0.0}m³\n사용한 물막이판 {build.StartingPanels - build.Panels}개 · 모래주머니 {build.StartingSandbags - build.Sandbags}개", MUTED, 19);
             if (Button(new Rect(470, 560, 660, 52), "홍수 전 배치로 복원 · 수정하기", AQUA)) _stage.Retry(false);
             if (Button(new Rect(470, 628, 318, 43), "빈 배치로 새로 시작", PAPER)) _stage.Retry(true);
             if (Button(new Rect(804, 628, 326, 43), "스테이지 선택으로", PAPER)) _stage.ReturnToMenu();
@@ -227,7 +242,7 @@ namespace Flood2
         private void DrawPause()
         {
             Modal("일시정지", "마을과 시간을 잠시 멈췄습니다.");
-            Label(470, 309, 660, 90, "준비 시간, 물의 이동, 시민 위험도와 자재의 움직임이 함께 정지합니다.", PAPER, 23);
+            Label(470, 309, 660, 90, "물의 이동, 시민 위험도와 자재의 움직임이 함께 정지합니다.", PAPER, 23);
             if (Button(new Rect(470, 442, 660, 56), "계속하기 · Esc", AQUA)) _stage.TogglePause();
             if (Button(new Rect(470, 522, 660, 56), "빈 배치로 새로 시작", PAPER)) _stage.Retry(true);
             if (Button(new Rect(470, 602, 660, 56), "스테이지 선택으로", PAPER)) _stage.ReturnToMenu();

@@ -13,6 +13,9 @@ namespace Flood2
         [SerializeField] private float _yaw = -12f;
         [SerializeField, Range(35f, 85f)] private float _pitch = 58f;
         [SerializeField, Range(8f, 40f)] private float _zoom = 36f;
+
+        [Header("Camera Controls")]
+        [SerializeField, Min(0f)] private float _scrollSensitivity = 0.015f;
         private Camera _camera;
         private Flood2Stage _stage;
 
@@ -45,7 +48,7 @@ namespace Flood2
             float dt = Mathf.Min(Time.unscaledDeltaTime, 0.05f);
             if (mouse != null && !_stage.Hud.BlocksPointer(mouse.position.ReadValue()))
             {
-                _zoom = Mathf.Clamp(_zoom - mouse.scroll.ReadValue().y * 0.015f, 8f, 40f);
+                _zoom = Mathf.Clamp(_zoom - mouse.scroll.ReadValue().y * _scrollSensitivity, 8f, 40f);
                 Vector2 delta = mouse.delta.ReadValue();
                 if (mouse.rightButton.isPressed) { _yaw += delta.x * 0.22f; _pitch = Mathf.Clamp(_pitch - delta.y * 0.18f, 35f, 85f); }
                 if (mouse.middleButton.isPressed)

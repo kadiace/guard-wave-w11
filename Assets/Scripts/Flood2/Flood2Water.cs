@@ -114,8 +114,8 @@ namespace Flood2
             for (int i = 0; i < _depth.Length; i++) _depth[i] += _displaced[i];
         }
 
-        /// <summary>Advances flux, water volume and body forces using bounded substeps and the requested inlet depth.</summary>
-        public void Step(float dt, float inletDepth, IReadOnlyList<Flood2Piece> pieces)
+        /// <summary>Advances surface flow, discharges through an open storm drain and applies water forces to defences.</summary>
+        internal void Step(float dt, float inletDepth, IReadOnlyList<Flood2Piece> pieces, Flood2Response response)
         {
             UpdateObstacles(pieces);
             float maxSignal = 1f;
@@ -124,6 +124,9 @@ namespace Flood2
             int steps = Mathf.Max(2, Mathf.CeilToInt(dt * maxSignal / (DX * 0.35f)));
             if (steps > 24) { IsValid = false; return; }
             for (int s = 0; s < steps; s++) Substep(dt / steps, inletDepth);
+            float capacity = response.GetDrain(out Vector3 intake, out float radius);
+            float discharged = capacity > 0f ? Drain(intake, radius, capacity * dt) : 0f;
+            response.RecordDrain(discharged, dt);
             float total = 0f;
             for (int i = 0; i < _depth.Length; i++)
             {
@@ -135,6 +138,47 @@ namespace Flood2
             foreach (Flood2Piece piece in pieces) piece.ApplyWater(this);
             _renderClock += dt;
             if (_renderClock >= 0.05f) { _renderClock = 0f; RefreshMesh(); }
+        }
+
+        /// <summary>Removes only connected water above the intake lip, limited by the pipe's volume per step.</summary>
+        private float Drain(Vector3 intake, float radius, float capacity)
+        {
+            int minX = Mathf.Max(0, Mathf.FloorToInt((intake.x - radius - Flood2Terrain.MIN_X) / DX));
+            int maxX = Mathf.Min(W - 1, Mathf.FloorToInt((intake.x + radius - Flood2Terrain.MIN_X) / DX));
+            int minZ = Mathf.Max(0, Mathf.FloorToInt((intake.z - radius) / DX));
+            int maxZ = Mathf.Min(L - 1, Mathf.FloorToInt((intake.z + radius) / DX));
+            float radiusSquared = radius * radius;
+            float lip = intake.y + DRY;
+            float available = 0f;
+            for (int z = minZ; z <= maxZ; z++)
+            for (int x = minX; x <= maxX; x++)
+                available += DrainableDepth(x, z, intake, radiusSquared, lip);
+            if (available <= 0f) return 0f;
+            float fraction = Mathf.Min(1f, capacity / (available * DX * DX));
+            for (int z = minZ; z <= maxZ; z++)
+            for (int x = minX; x <= maxX; x++)
+                _depth[z * W + x] -= DrainableDepth(x, z, intake, radiusSquared, lip) * fraction;
+            return available * fraction * DX * DX;
+        }
+
+        /// <summary>Returns local water above the lip where the path to the grate is not cut by a raised obstacle.</summary>
+        private float DrainableDepth(int x, int z, Vector3 intake, float radiusSquared, float lip)
+        {
+            Vector3 center = Center(x, z);
+            var offset = new Vector2(center.x - intake.x, center.z - intake.z);
+            if (offset.sqrMagnitude > radiusSquared) return 0f;
+            int i = z * W + x;
+            float head = _bed[i] + _depth[i];
+            if (head <= lip) return 0f;
+            int samples = Mathf.CeilToInt(offset.magnitude / (DX * 0.5f));
+            for (int k = 0; k < samples; k++)
+            {
+                Vector3 point = intake + new Vector3(offset.x, 0f, offset.y) * (k / (float)samples);
+                int px = Mathf.FloorToInt((point.x - Flood2Terrain.MIN_X) / DX);
+                int pz = Mathf.FloorToInt(point.z / DX);
+                if (_bed[pz * W + px] >= head) return 0f;
+            }
+            return Mathf.Min(_depth[i], head - lip);
         }
 
         /// <summary>Updates local inertial discharge; high beds block flow until the water overtops them.</summary>

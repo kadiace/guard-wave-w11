@@ -2,7 +2,7 @@ using UnityEngine;
 
 namespace Flood2
 {
-    public enum Flood2Material { Panel, Stone }
+    public enum Flood2Material { Panel, Sandbag }
 
     /// <summary>One dynamic building material and its single outgoing adhesive joint.</summary>
     [RequireComponent(typeof(Rigidbody), typeof(BoxCollider))]
@@ -30,7 +30,7 @@ namespace Flood2
         public bool Broken => EverBonded && !IsBonded;
 
         /// <summary>Configures the material's real collider, mass, friction and connection indicator.</summary>
-        public void Initialize(int id, Flood2Material kind, PhysicsMaterial friction, Material lineMaterial)
+        public void Initialize(int id, Flood2Material kind, PhysicsMaterial friction, Material lineMaterial, float relativeDensity)
         {
             Id = id;
             Kind = kind;
@@ -39,7 +39,7 @@ namespace Flood2
             _shape = GetComponent<BoxCollider>();
             _shape.sharedMaterial = friction;
             Vector3 size = transform.localScale;
-            _body.mass = size.x * size.y * size.z * WATER_DENSITY * (kind == Flood2Material.Panel ? 0.6f : 2.6f);
+            _body.mass = size.x * size.y * size.z * WATER_DENSITY * relativeDensity;
             _body.linearDamping = 0.4f;
             _body.angularDamping = 1.5f;
             _body.interpolation = RigidbodyInterpolation.Interpolate;

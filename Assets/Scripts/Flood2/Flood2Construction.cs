@@ -6,13 +6,23 @@ using UnityEngine.InputSystem;
 
 namespace Flood2
 {
-    public enum Flood2Tool { Panel, Stone, Adhesive, Cure, Remove }
+    public enum Flood2Tool { Panel, Sandbag, Adhesive, Cure, Remove }
 
     /// <summary>Limited construction, contact adhesion, curing and complete editable-layout snapshots.</summary>
     public sealed class Flood2Construction : MonoBehaviour
     {
         private const float BRUSH_RADIUS = 0.48f;
         private const int MAX_PATCHES = 96;
+        private static readonly Color SANDBAG_COLOR = new Color(0.66f, 0.54f, 0.30f);
+
+        [Header("Flood defence supplies")]
+        [SerializeField, Min(0)] private int _startingPanels = 24;
+        [SerializeField, Min(0)] private int _startingSandbags = 18;
+        [SerializeField, Min(0f)] private float _startingAdhesive = 30f;
+        [SerializeField] private Vector3 _panelSize = new Vector3(3.6f, 1.2f, 0.6f);
+        [SerializeField] private Vector3 _sandbagSize = new Vector3(1.4f, 0.55f, 1.1f);
+        [SerializeField, Min(1f)] private float _sandbagRelativeDensity = 2f;
+        private MaterialPropertyBlock _sandbagTint;
         private readonly List<Flood2Piece> _pieces = new List<Flood2Piece>();
         private readonly List<Patch> _patches = new List<Patch>();
         private readonly Stack<Snapshot> _undo = new Stack<Snapshot>();
@@ -36,12 +46,15 @@ namespace Flood2
         private bool _candidateValid;
         public IReadOnlyList<Flood2Piece> Pieces => _pieces;
         public Flood2Tool Tool { get; private set; }
-        public int Panels { get; private set; } = 24;
-        public int Stones { get; private set; } = 18;
-        public float Adhesive { get; private set; } = 30f;
+        public int Panels { get; private set; }
+        public int Sandbags { get; private set; }
+        public float Adhesive { get; private set; }
+        public int StartingPanels => _startingPanels;
+        public int StartingSandbags => _startingSandbags;
+        public float StartingAdhesive => _startingAdhesive;
         public int PatchCount => _patches.Count;
         public int BondCount { get { int n = 0; foreach (var p in _pieces) if (p.IsBonded) n++; return n; } }
-        public string Hint { get; private set; } = "방벽을 놓고 돌과 접합재로 보강하세요.";
+        public string Hint { get; private set; } = "물막이판으로 흐름을 돌리고 모래주머니로 낮은 틈을 보강하세요.";
         public float CureProgress => _cureTime;
         public bool HasCheckpoint => _checkpoint != null;
 
@@ -76,7 +89,7 @@ namespace Flood2
             public List<PieceState> Pieces { get; set; } = new List<PieceState>();
             public List<Patch> Patches { get; set; } = new List<Patch>();
             public int Panels { get; set; }
-            public int Stones { get; set; }
+            public int Sandbags { get; set; }
             public float Adhesive { get; set; }
             public int NextId { get; set; }
             public int NextPatchId { get; set; }
@@ -86,6 +99,11 @@ namespace Flood2
         public void Initialize(Flood2Stage stage)
         {
             _stage = stage;
+            Panels = _startingPanels;
+            Sandbags = _startingSandbags;
+            Adhesive = _startingAdhesive;
+            _sandbagTint = new MaterialPropertyBlock();
+            _sandbagTint.SetColor("_BaseColor", SANDBAG_COLOR);
             _preview = GameObject.CreatePrimitive(PrimitiveType.Cube);
             _preview.name = "Placement preview";
             _preview.layer = 2;
@@ -97,7 +115,8 @@ namespace Flood2
         }
 
         /// <summary>Returns the world dimensions of a catalog item.</summary>
-        public static Vector3 Size(Flood2Material kind) => kind == Flood2Material.Panel ? new Vector3(3.6f, 1.2f, 0.6f) : new Vector3(1.4f, 0.9f, 1.1f);
+        private Vector3 Size(Flood2Material kind) =>
+            Vector3.Max(kind == Flood2Material.Panel ? _panelSize : _sandbagSize, Vector3.one * 0.1f);
 
         /// <summary>Switches tools and finalizes any pending paint gesture.</summary>
         public void SelectTool(Flood2Tool tool)
@@ -124,7 +143,7 @@ namespace Flood2
             if (keyboard != null)
             {
                 if (keyboard.digit1Key.wasPressedThisFrame) SelectTool(Flood2Tool.Panel);
-                if (keyboard.digit2Key.wasPressedThisFrame) SelectTool(Flood2Tool.Stone);
+                if (keyboard.digit2Key.wasPressedThisFrame) SelectTool(Flood2Tool.Sandbag);
                 if (keyboard.digit3Key.wasPressedThisFrame) SelectTool(Flood2Tool.Adhesive);
                 if (keyboard.digit4Key.wasPressedThisFrame) SelectTool(Flood2Tool.Cure);
                 if (keyboard.digit5Key.wasPressedThisFrame) SelectTool(Flood2Tool.Remove);
@@ -136,9 +155,9 @@ namespace Flood2
             if (_stage.Hud.BlocksPointer(mouse.position.ReadValue())) { _preview.SetActive(false); FinishInput(); return; }
             Ray ray = _stage.ViewCamera.ScreenPointToRay(mouse.position.ReadValue());
             if (!Physics.Raycast(ray, out RaycastHit hit, 300f, ~4, QueryTriggerInteraction.Ignore)) { _preview.SetActive(false); FinishInput(); return; }
-            if (Tool == Flood2Tool.Panel || Tool == Flood2Tool.Stone)
+            if (Tool == Flood2Tool.Panel || Tool == Flood2Tool.Sandbag)
             {
-                Flood2Material kind = Tool == Flood2Tool.Panel ? Flood2Material.Panel : Flood2Material.Stone;
+                Flood2Material kind = Tool == Flood2Tool.Panel ? Flood2Material.Panel : Flood2Material.Sandbag;
                 Vector3 size = Size(kind);
                 _candidate = hit.point;
                 if (keyboard == null || !keyboard.shiftKey.isPressed)
@@ -177,7 +196,7 @@ namespace Flood2
         private bool CanPlace(Flood2Material kind, Vector3 center, Quaternion rotation, out string reason)
         {
             reason = "";
-            if (kind == Flood2Material.Panel ? Panels <= 0 : Stones <= 0) { reason = "이 자재의 재고가 없습니다."; return false; }
+            if (kind == Flood2Material.Panel ? Panels <= 0 : Sandbags <= 0) { reason = "이 자재의 재고가 없습니다."; return false; }
             Vector3 size = Size(kind);
             Vector3 extents = new Vector3(Mathf.Abs((rotation * Vector3.right).x) * size.x + Mathf.Abs((rotation * Vector3.forward).x) * size.z, 0f,
                 Mathf.Abs((rotation * Vector3.right).z) * size.x + Mathf.Abs((rotation * Vector3.forward).z) * size.z) * 0.5f;
@@ -200,7 +219,7 @@ namespace Flood2
             if (!_stage.CanEdit || !CanPlace(kind, center, Quaternion.Euler(0f, yaw, 0f), out string reason)) return false;
             _undo.Push(Capture());
             Spawn(_nextId++, kind, center, Quaternion.Euler(0f, yaw, 0f));
-            if (kind == Flood2Material.Panel) Panels--; else Stones--;
+            if (kind == Flood2Material.Panel) Panels--; else Sandbags--;
             Physics.SyncTransforms();
             return true;
         }
@@ -213,11 +232,33 @@ namespace Flood2
             go.transform.SetParent(transform, false);
             go.transform.SetPositionAndRotation(position, rotation);
             go.transform.localScale = Size(kind);
-            go.GetComponent<Renderer>().sharedMaterial = kind == Flood2Material.Panel ? _stage.PanelMaterial : _stage.StoneMaterial;
+            Renderer solid = go.GetComponent<Renderer>();
+            if (kind == Flood2Material.Panel) solid.sharedMaterial = _stage.PanelMaterial;
+            else
+            {
+                solid.enabled = false;
+                AddSandbagVisual(go.transform);
+            }
             Flood2Piece piece = go.AddComponent<Flood2Piece>();
-            piece.Initialize(id, kind, _stage.Friction, _stage.LineMaterial);
+            piece.Initialize(id, kind, _stage.Friction, _stage.LineMaterial, kind == Flood2Material.Panel ? 0.6f : _sandbagRelativeDensity);
             _pieces.Add(piece);
             return piece;
+        }
+
+        /// <summary>Shapes the sandbag silhouette while keeping one rectangular collider per bag.</summary>
+        private void AddSandbagVisual(Transform parent)
+        {
+            GameObject cloth = GameObject.CreatePrimitive(PrimitiveType.Capsule);
+            cloth.name = "Sandbag canvas";
+            cloth.transform.SetParent(parent, false);
+            cloth.transform.localRotation = Quaternion.Euler(0f, 0f, 90f);
+            cloth.transform.localScale = new Vector3(0.92f, 0.49f, 0.96f);
+            Collider shape = cloth.GetComponent<Collider>();
+            shape.enabled = false;
+            Destroy(shape);
+            Renderer renderer = cloth.GetComponent<Renderer>();
+            renderer.sharedMaterial = _stage.SandbagMaterial;
+            renderer.SetPropertyBlock(_sandbagTint);
         }
 
         /// <summary>Finds an editable body by its stable snapshot identifier.</summary>
@@ -368,7 +409,7 @@ namespace Flood2
         {
             if (!_stage.CanEdit || piece == null) return;
             _undo.Push(Capture());
-            if (piece.Kind == Flood2Material.Panel) Panels++; else Stones++;
+            if (piece.Kind == Flood2Material.Panel) Panels++; else Sandbags++;
             _patches.RemoveAll(patch => patch.Owner == piece.Id);
             foreach (var other in _pieces) other.RemoveSupport(piece);
             _pieces.Remove(piece);
@@ -379,7 +420,7 @@ namespace Flood2
         /// <summary>Captures physical poses, joint topology, paint, stock and identifier counters.</summary>
         private Snapshot Capture()
         {
-            var snapshot = new Snapshot { Panels = Panels, Stones = Stones, Adhesive = Adhesive, NextId = _nextId, NextPatchId = _nextPatchId };
+            var snapshot = new Snapshot { Panels = Panels, Sandbags = Sandbags, Adhesive = Adhesive, NextId = _nextId, NextPatchId = _nextPatchId };
             foreach (var piece in _pieces)
                 snapshot.Pieces.Add(new PieceState { Id = piece.Id, Kind = piece.Kind, Position = piece.transform.position, Rotation = piece.transform.rotation,
                     Velocity = piece.Body.linearVelocity, Angular = piece.Body.angularVelocity, Bonded = piece.IsBonded, EverBonded = piece.EverBonded,
@@ -395,7 +436,7 @@ namespace Flood2
             foreach (var patch in _patches) { patch.Line.gameObject.SetActive(false); Destroy(patch.Line.gameObject); }
             foreach (var piece in _pieces) { piece.gameObject.SetActive(false); Destroy(piece.gameObject); }
             _patches.Clear(); _pieces.Clear();
-            Panels = snapshot.Panels; Stones = snapshot.Stones; Adhesive = snapshot.Adhesive;
+            Panels = snapshot.Panels; Sandbags = snapshot.Sandbags; Adhesive = snapshot.Adhesive;
             _nextId = snapshot.NextId; _nextPatchId = snapshot.NextPatchId;
             _contactClock = 0f;
             foreach (var state in snapshot.Pieces)
@@ -433,7 +474,7 @@ namespace Flood2
         public void ResetLayout(bool empty)
         {
             if (empty || _checkpoint == null)
-                Restore(new Snapshot { Panels = 24, Stones = 18, Adhesive = 30f });
+                Restore(new Snapshot { Panels = _startingPanels, Sandbags = _startingSandbags, Adhesive = _startingAdhesive });
             else Restore(_checkpoint);
             if (empty) _checkpoint = null;
             _undo.Clear();
