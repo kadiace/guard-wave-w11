@@ -52,7 +52,7 @@ namespace GuardWave
             new Queue<GuardWavePiece>();
         private readonly HashSet<GuardWavePiece> _queuedOutflowRemovals =
             new HashSet<GuardWavePiece>();
-        private readonly List<WaveSnapshot> _editHistory = new List<WaveSnapshot>();
+        private readonly StageEditHistory<WaveSnapshot> _editHistory = new StageEditHistory<WaveSnapshot>();
         private int _playerPlacementCount;
         private readonly List<GuardWaveMudPatch> _mudPatches = new List<GuardWaveMudPatch>();
         // Reverse index includes both a piece's own painted surface and bonds to it.
@@ -475,7 +475,7 @@ namespace GuardWave
                 _placementBounds.max.y + dropHeight, true, _placementBounds.max.y);
             if (!_dropPreview.IsVisible) return false;
             GuardWavePiece piece = Spawn(material, _dropPreview.LandingPosition);
-            Physics.SyncTransforms();
+            StagePlacement.SyncPhysics();
             _placementStrokePieces.Add(piece);
             _placementStroke.Record(xz, _objectYaw);
             _status = material.name + " 연속 배치 중. 마우스를 놓으면 배치가 완료됩니다.";
@@ -864,7 +864,6 @@ namespace GuardWave
             if (mouse != null && _selected >= 0 && _offers[_selected]?.id == "mud")
             {
                 _dropPreview.Hide();
-                _hud.HideDropGuide();
                 if (!mouse.rightButton.isPressed &&
                     TryGetMudSurface(mouse.position.ReadValue(), out RaycastHit surface))
                 {
@@ -900,14 +899,12 @@ namespace GuardWave
                 _placementBounds.max.y + dropHeight, canPlace,
                 _placementBounds.max.y);
 
-            _hud.HideDropGuide();
         }
 
         /// <summary>배치 중단·UI 가림·라운드 종료 시 고스트와 화면 점선을 함께 숨긴다.</summary>
         private void HideDropPreview()
         {
             _dropPreview?.Hide();
-            _hud?.HideDropGuide();
             if (_mudPreview != null) _mudPreview.SetActive(false);
         }
 
@@ -1138,11 +1135,7 @@ namespace GuardWave
         /// <summary>Each stage controls its own palette quotas through StageInfo.json.</summary>
         public int GetPlacementLimit(string materialId)
         {
-            if (_stageInfo?.palette == null) return -1;
-            foreach (GuardWavePaletteEntry entry in _stageInfo.palette)
-                if (entry.materialId == materialId)
-                    return entry.placementLimit;
-            return -1;
+            return _stageInfo.GetPlacementLimit(materialId);
         }
 
         /// <summary>
@@ -1318,7 +1311,7 @@ namespace GuardWave
         /// <summary>현재 회전 방향과 주시 위치를 사용해 카메라 위치를 갱신한다.</summary>
         private void UpdateCameraPosition()
         {
-            _camera.transform.position = _cameraTarget - _camera.transform.forward * _sceneContext.CameraDistance;
+            StageCamera.PositionAtFocus(_camera.transform, _cameraTarget, _sceneContext.CameraDistance);
         }
 
         /// <summary>모든 배치와 소모품 상태를 초기화하고 기본 발판을 배치한다.</summary>
@@ -1565,7 +1558,7 @@ namespace GuardWave
         {
             GameObject prefab = Resources.Load<GameObject>("Prefabs/Objects/" + material.id);
             if (prefab == null) throw new InvalidOperationException("Missing 3D prefab: " + material.id);
-            GameObject instance = Instantiate(prefab, position, Quaternion.Euler(0f, _objectYaw, 0f));
+            GameObject instance = StagePlacement.CreatePrefab(prefab, position, Quaternion.Euler(0f, _objectYaw, 0f));
             instance.name = material.name;
             // Imported OBJ Mesh local IDs may be remapped by Unity 6. Ensure
             // a Forest pebble is not an invisible Rigidbody with a null Mesh.
@@ -2356,14 +2349,13 @@ namespace GuardWave
             EndMudDrying(); // Cancel partial heating; it is not an edit.
             // Ending a brush gesture commits it first, so Ctrl+Z removes that stroke.
             EndMudPainting();
-            if (_editHistory.Count <= 1) return;
-            _editHistory.RemoveAt(_editHistory.Count - 1);
+            if (!_editHistory.TryUndo(true, out WaveSnapshot previousState)) return;
             _placementStrokeEpoch++;
             _pendingDrops = 0;
             // A fresh upstream inflow is part of an initial-impact retry:
             // no old GPU particles may immediately hit the restored 80 N joint.
             DisposeFluid();
-            RestoreEditState(_editHistory[_editHistory.Count - 1]);
+            RestoreEditState(previousState);
             if (ambientFlowPreview) BeginAmbientCreekFlow();
             _status = "이전 배치 상태로 되돌렸습니다.";
         }

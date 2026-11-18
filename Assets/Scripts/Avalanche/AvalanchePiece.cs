@@ -2,6 +2,8 @@ using System;
 
 using UnityEngine;
 
+using GuardWave;
+
 namespace Avalanche
 {
     public enum AvalancheMaterial { Panel, Sandbag }
@@ -90,14 +92,9 @@ namespace Avalanche
             AdhesiveId = adhesiveId;
             _connectedPiece = target;
             _anchor = transform.InverseTransformPoint(point);
-            _joint = gameObject.AddComponent<FixedJoint>();
-            _joint.connectedBody = target != null ? target.Body : null;
-            _joint.autoConfigureConnectedAnchor = false;
-            _joint.anchor = _anchor;
-            _joint.connectedAnchor = target != null ? target.transform.InverseTransformPoint(point) : point;
-            _joint.breakForce = _settings.BreakForce;
-            _joint.breakTorque = _settings.BreakTorque;
-            _joint.enableCollision = true;
+            _joint = StageJoint.Create(gameObject, target != null ? target.Body : null, _anchor,
+                target != null ? target.transform.InverseTransformPoint(point) : point,
+                _settings.BreakForce, _settings.BreakTorque, true);
             _wasConnected = true;
             return true;
         }

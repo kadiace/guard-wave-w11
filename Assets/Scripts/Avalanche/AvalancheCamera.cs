@@ -2,6 +2,8 @@ using UnityEngine;
 
 using UnityEngine.InputSystem;
 
+using GuardWave;
+
 namespace Avalanche
 {
     /// <summary>Unscaled orthographic inspection camera with pan, orbit, zoom and citizen focus.</summary>
@@ -85,7 +87,7 @@ namespace Avalanche
         private void ApplyPose()
         {
             transform.rotation = Quaternion.Euler(_currentPitch, _currentYaw, 0f);
-            transform.position = _currentFocus - transform.forward * 90f;
+            StageCamera.PositionAtFocus(transform, _currentFocus, 90f);
             _camera.orthographicSize = _currentZoom;
         }
     }

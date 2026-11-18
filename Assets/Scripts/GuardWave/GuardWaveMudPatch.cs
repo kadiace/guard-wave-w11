@@ -783,14 +783,9 @@ namespace GuardWave
             Vector3 connectedAnchor, Rigidbody connectedBody)
         {
             if (piece == null || HasBond(piece)) return;
-            FixedJoint joint = piece.gameObject.AddComponent<FixedJoint>();
-            joint.autoConfigureConnectedAnchor = false;
-            joint.connectedBody = connectedBody;
-            joint.anchor = anchor;
-            joint.connectedAnchor = connectedAnchor;
-            joint.breakForce = _breakForce * (_isDry ? 2f : 1f);
-            joint.breakTorque = _breakTorque * (_isDry ? 2f : 1f);
-            joint.enableCollision = false;
+            FixedJoint joint = StageJoint.Create(piece.gameObject, connectedBody, anchor,
+                connectedAnchor, _breakForce * (_isDry ? 2f : 1f),
+                _breakTorque * (_isDry ? 2f : 1f), false);
             _bonds[piece] = joint;
             _game?.TrackMudPatch(piece, this);
             _game?.RegisterMudBond(piece, joint);

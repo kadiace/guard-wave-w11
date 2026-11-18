@@ -62,6 +62,8 @@ namespace Avalanche
         private float _attemptClock;
         private float _previousTimeScale;
         private GuardWaveStageInfo _stageInfo;
+        private StagePreparationClock _preparationClock;
+        private StagePauseMenu _pauseMenu;
         public Camera ViewCamera => _viewCamera;
         public MeshCollider Ground => _ground;
         public AvalancheCitizen[] Citizens => _citizens;
@@ -78,8 +80,8 @@ namespace Avalanche
         public AvalanchePhase Phase { get; private set; } = AvalanchePhase.Introduction;
         public bool Paused { get; private set; }
         public bool CanEdit => Phase == AvalanchePhase.Preparing && !Paused;
-        public float PreparationLeft { get; private set; }
-        internal bool LimitPreparationTime => _stageInfo.limitPreparationTime;
+        public float PreparationLeft => _preparationClock.Remaining;
+        internal bool LimitPreparationTime => _preparationClock.Enabled;
         internal float PreparationSeconds => _stageInfo.countdownSeconds;
         internal GuardWaveStageInfo StageInfo => _stageInfo;
         internal float FirstWaveEnd => _firstRiseSeconds + _firstPeakSeconds;
@@ -102,10 +104,12 @@ namespace Avalanche
         private void Awake()
         {
             _previousTimeScale = Time.timeScale;
+            Managers.Init();
             Time.timeScale = 0f;
             Cursor.visible = true;
             Cursor.lockState = CursorLockMode.None;
             _stageInfo = GuardWaveStageInfoFile.LoadForScene(gameObject.scene.name);
+            _preparationClock = new StagePreparationClock(_stageInfo);
             Construction = GetComponent<AvalancheConstruction>();
             Response = GetComponent<AvalancheResponse>();
             Hud = GetComponent<AvalancheHud>();
@@ -114,7 +118,9 @@ namespace Avalanche
             Construction.Initialize(this);
             Response.Initialize(this);
             Hud.Initialize(this);
-            PreparationLeft = PreparationSeconds;
+            _pauseMenu = Instantiate(Resources.Load<StagePauseMenu>("Prefabs/UIs/StagePauseMenu"), transform);
+            _pauseMenu.Initialize(() => Phase != AvalanchePhase.Introduction && !IsFinished(),
+                SetPaused, () => Retry(true));
             foreach (var citizen in _citizens) citizen.ResetState();
         }
 
@@ -122,7 +128,6 @@ namespace Avalanche
         {
             Keyboard keyboard = Keyboard.current;
             if (keyboard == null) return;
-            if (keyboard.escapeKey.wasPressedThisFrame && Phase != AvalanchePhase.Introduction) TogglePause();
             if (keyboard.enterKey.wasPressedThisFrame)
             {
                 if (Phase == AvalanchePhase.Introduction) BeginPreparation();
@@ -139,8 +144,8 @@ namespace Avalanche
             {
                 if (LimitPreparationTime)
                 {
-                    PreparationLeft = Mathf.Max(0f, PreparationLeft - dt);
-                    if (PreparationLeft <= 0f) Ready();
+                    _preparationClock.Advance(dt);
+                    if (_preparationClock.Expired) Ready();
                 }
                 return;
             }
@@ -220,10 +225,12 @@ namespace Avalanche
         /// <summary>Pauses simulation and rule clocks together while leaving the camera and menus usable.</summary>
         public void TogglePause()
         {
-            if (IsFinished() || Phase == AvalanchePhase.Introduction) return;
-            Paused = !Paused;
-            Time.timeScale = Paused ? 0f : 1f;
+            if (_pauseMenu.IsOpen) _pauseMenu.Resume();
+            else _pauseMenu.Open();
         }
+
+        /// <summary>공통 일시정지 메뉴의 상태를 스테이지 편집 잠금에 반영한다.</summary>
+        private void SetPaused(bool paused) => Paused = paused;
 
         /// <summary>Reports whether the current attempt has reached a terminal result.</summary>
         public bool IsFinished() => Phase == AvalanchePhase.Cleared || Phase == AvalanchePhase.Failed || Phase == AvalanchePhase.TechnicalError;
@@ -247,7 +254,7 @@ namespace Avalanche
             Response.ResetResponse(empty);
             foreach (var citizen in _citizens) citizen.ResetState();
             _warningClock = _sampleClock = _stableClock = _attemptClock = FloodElapsed = 0f;
-            PreparationLeft = PreparationSeconds;
+            _preparationClock.Reset();
             ResultMessage = "";
             Attempt++;
             Paused = false;

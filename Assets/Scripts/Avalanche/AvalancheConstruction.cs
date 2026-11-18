@@ -32,7 +32,7 @@ namespace Avalanche
         private MaterialPropertyBlock _adhesiveTint;
         private readonly List<AvalanchePiece> _pieces = new List<AvalanchePiece>();
         private readonly List<AdhesiveBlock> _adhesives = new List<AdhesiveBlock>();
-        private readonly Stack<Snapshot> _undo = new Stack<Snapshot>();
+        private readonly StageEditHistory<Snapshot> _undo = new StageEditHistory<Snapshot>();
         private readonly Collider[] _overlaps = new Collider[64];
         private Collider[] _contacts = new Collider[64];
         private AvalancheStage _stage;
@@ -132,9 +132,8 @@ namespace Avalanche
         /// <summary>Returns the configured finite inventory for an Avalanche material.</summary>
         private static int GetStartingInventory(GuardWaveStageInfo stage, string materialId)
         {
-            foreach (GuardWavePaletteEntry entry in stage.palette)
-                if (entry.materialId == materialId && entry.placementLimit >= 0)
-                    return entry.placementLimit;
+            int limit = stage.GetPlacementLimit(materialId);
+            if (limit >= 0) return limit;
             throw new System.InvalidOperationException("Missing finite Avalanche inventory: " + materialId);
         }
 
@@ -202,8 +201,7 @@ namespace Avalanche
                 _candidate.y = support + size.y * 0.5f + 0.035f;
                 _candidateValid = CanPlace(kind, _candidate, rotation, out string reason);
                 Hint = _candidateValid ? $"클릭: 설치  /  Q·E: {_rotationStep:0.#}° 회전  /  Shift: 정밀 배치" : reason;
-                _preview.SetActive(true);
-                _preview.transform.SetPositionAndRotation(_candidate, rotation);
+                StagePlacement.ShowPreview(_preview, _candidate, rotation);
                 _preview.transform.localScale = size;
                 _previewTint.SetColor("_BaseColor", _candidateValid ? new Color(0.2f, 0.95f, 0.7f, 0.45f) : new Color(1f, 0.25f, 0.2f, 0.45f));
                 _previewRenderer.SetPropertyBlock(_previewTint);
@@ -241,20 +239,18 @@ namespace Avalanche
         public bool TryPlace(AvalancheMaterial kind, Vector3 center, float yaw)
         {
             if (!_stage.CanEdit || !CanPlace(kind, center, Quaternion.Euler(0f, yaw, 0f), out string reason)) return false;
-            _undo.Push(Capture());
+            _undo.Add(Capture());
             Spawn(_nextId++, kind, center, Quaternion.Euler(0f, yaw, 0f));
             if (kind == AvalancheMaterial.Panel) Panels--; else Sandbags--;
-            Physics.SyncTransforms();
+            StagePlacement.SyncPhysics();
             return true;
         }
 
         /// <summary>Instantiates a catalog body; callers handle validation and stock.</summary>
         private AvalanchePiece Spawn(int id, AvalancheMaterial kind, Vector3 position, Quaternion rotation)
         {
-            GameObject go = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            GameObject go = StagePlacement.CreateCube(transform, position, rotation);
             go.name = $"{kind} {id:00}";
-            go.transform.SetParent(transform, false);
-            go.transform.SetPositionAndRotation(position, rotation);
             go.transform.localScale = Size(kind);
             Renderer solid = go.GetComponent<Renderer>();
             if (kind == AvalancheMaterial.Panel) solid.sharedMaterial = _stage.PanelMaterial;
@@ -309,7 +305,7 @@ namespace Avalanche
                 return false;
             }
 
-            _undo.Push(Capture());
+            _undo.Add(Capture());
             Vector3 local = owner != null ? owner.transform.InverseTransformPoint(point) : point;
             AdhesiveBlock block = SpawnAdhesive(_nextAdhesiveId++, owner, local);
             Adhesive--;
@@ -410,7 +406,7 @@ namespace Avalanche
 
             if (nearest != null)
             {
-                _undo.Push(Capture());
+                _undo.Add(Capture());
                 RemoveAdhesive(nearest);
                 Hint = "접합 블록과 해당 연결을 회수했습니다.";
             }
@@ -431,7 +427,7 @@ namespace Avalanche
         public void Remove(AvalanchePiece piece)
         {
             if (!_stage.CanEdit || piece == null) return;
-            _undo.Push(Capture());
+            _undo.Add(Capture());
             if (piece.Kind == AvalancheMaterial.Panel) Panels++; else Sandbags++;
             for (int i = _adhesives.Count - 1; i >= 0; i--)
                 if (_adhesives[i].Owner == piece) RemoveAdhesive(_adhesives[i]);
@@ -487,8 +483,8 @@ namespace Avalanche
         /// <summary>Undoes one complete edit, including its inventory and joint changes.</summary>
         public void Undo()
         {
-            if (!_stage.CanEdit || _undo.Count == 0) return;
-            Restore(_undo.Pop());
+            if (!_stage.CanEdit || !_undo.TryUndo(false, out Snapshot snapshot)) return;
+            Restore(snapshot);
             Hint = "직전 편집과 재고를 복원했습니다.";
         }
 

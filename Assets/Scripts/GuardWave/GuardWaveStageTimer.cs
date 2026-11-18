@@ -21,6 +21,40 @@ namespace GuardWave
         public bool limitPreparationTime;
         public int countdownSeconds;
         public GuardWavePaletteEntry[] palette;
+
+        /// <summary>자재의 배치 제한을 조회하고 항목이 없으면 무제한을 반환한다.</summary>
+        public int GetPlacementLimit(string materialId)
+        {
+            foreach (GuardWavePaletteEntry entry in palette)
+                if (entry.materialId == materialId) return entry.placementLimit;
+            return -1;
+        }
+    }
+
+    /// <summary>스테이지별 설정에 따라 준비시간을 초기화하고 경과시킨다.</summary>
+    public sealed class StagePreparationClock
+    {
+        private readonly float _duration;
+        public bool Enabled { get; }
+        public float Remaining { get; private set; }
+        public bool Expired => Enabled && Remaining <= 0f;
+
+        /// <summary>공통 설정에서 제한 여부와 준비 시간을 읽는다.</summary>
+        public StagePreparationClock(GuardWaveStageInfo stage)
+        {
+            Enabled = stage.limitPreparationTime;
+            _duration = stage.countdownSeconds;
+            Reset();
+        }
+
+        /// <summary>준비 시간을 설정된 값으로 되돌린다.</summary>
+        public void Reset() => Remaining = _duration;
+
+        /// <summary>제한이 활성화된 경우 경과 시간만큼 남은 시간을 줄인다.</summary>
+        public void Advance(float deltaTime)
+        {
+            if (Enabled) Remaining = Mathf.Max(0f, Remaining - deltaTime);
+        }
     }
 
     [Serializable]
@@ -83,8 +117,7 @@ namespace GuardWave
         private Text _disasterName;
         private Text _countdown;
         private string _preparationDisasterName;
-        private float _durationSeconds;
-        private bool _limitPreparationTime;
+        private StagePreparationClock _preparationClock;
         private float _remainingSeconds;
         private int _displayedHundredths = -1;
         private bool _disasterStarted;
@@ -112,8 +145,7 @@ namespace GuardWave
             _defaultCountdownScale = _countdown.rectTransform.localScale;
             _preparationDisasterName = stage.disasterName + "가 오기까지";
             _disasterName.text = _preparationDisasterName;
-            _durationSeconds = stage.countdownSeconds;
-            _limitPreparationTime = stage.limitPreparationTime;
+            _preparationClock = new StagePreparationClock(stage);
             ResetCountdown();
             _initialized = true;
         }
@@ -165,11 +197,12 @@ namespace GuardWave
                 return;
             }
 
-            if (!_limitPreparationTime) return;
-            _remainingSeconds = Mathf.Max(0f, _remainingSeconds - Time.deltaTime);
+            if (!_preparationClock.Enabled) return;
+            _preparationClock.Advance(Time.deltaTime);
+            _remainingSeconds = _preparationClock.Remaining;
             RefreshCountdown();
             // A rules modal can keep Ready unavailable; trigger once it closes.
-            if (_remainingSeconds <= 0f && CanReady) Ready();
+            if (_preparationClock.Expired && CanReady) Ready();
             AnimateCountdown();
         }
 
@@ -182,7 +215,7 @@ namespace GuardWave
             if (_fogMode == null)
             {
                 _remainingSeconds = 0f;
-                if (!_limitPreparationTime) _displayedHundredths = -1;
+                if (!_preparationClock.Enabled) _displayedHundredths = -1;
                 RefreshCountdown();
                 _game.Ready();
                 _disasterStarted = true;
@@ -192,7 +225,7 @@ namespace GuardWave
                     _remainingSeconds = _game.LavaFlowSecondsRemaining;
                     RefreshCountdown();
                 }
-                else if (!_limitPreparationTime)
+                else if (!_preparationClock.Enabled)
                 {
                     _disasterName.text = _game.StageInfo.disasterName + " 진행 중";
                     _countdown.gameObject.SetActive(false);
@@ -234,7 +267,8 @@ namespace GuardWave
         /// <summary>재해 종료, 실패 복원 또는 게임 재시작 시 해당 스테이지의 준비 시간을 재설정한다.</summary>
         private void ResetCountdown()
         {
-            _remainingSeconds = _durationSeconds;
+            _preparationClock.Reset();
+            _remainingSeconds = _preparationClock.Remaining;
             _countdown.gameObject.SetActive(true);
             if (_disasterName != null)
                 _disasterName.text = _preparationDisasterName;
@@ -242,7 +276,7 @@ namespace GuardWave
             _disasterStarted = false;
             _pulseKind = PulseKind.None;
             _pulseElapsed = 0f;
-            if (!_limitPreparationTime)
+            if (!_preparationClock.Enabled)
             {
                 _disasterName.text = "준비 중";
                 _countdown.text = "배치를 마치면\n준비 완료를 누르세요";

@@ -75,6 +75,8 @@ namespace Avalanche
         {
             if (_stage == null) return;
             EnsureStyles();
+            bool guiEnabled = GUI.enabled;
+            GUI.enabled = !_stage.Paused;
             Matrix4x4 previous = GUI.matrix;
             GUI.matrix = Matrix4x4.Scale(new Vector3(Screen.width / 1600f, Screen.height / 900f, 1f));
             DrawHeader();
@@ -84,8 +86,8 @@ namespace Avalanche
             DrawWorldMarkers();
             if (_stage.Phase == AvalanchePhase.Introduction) DrawIntroduction();
             else if (_stage.IsFinished()) DrawResult();
-            else if (_stage.Paused) DrawPause();
             GUI.matrix = previous;
+            GUI.enabled = guiEnabled;
         }
 
         /// <summary>Shows the objective, phase and countdown with a persistent pause control.</summary>
@@ -140,7 +142,7 @@ namespace Avalanche
                 GUI.enabled = _stage.CanEdit;
                 if (Button(new Rect(40, y + 109, 110, 30), "대피 지정", response.GuideZone == zone ? AQUA : PAPER)) response.AssignGuide(zone);
                 if (Button(new Rect(155, y + 109, 111, 30), "배수 정비", response.DrainZone == zone ? AQUA : PAPER)) response.AssignDrain(zone);
-                GUI.enabled = true;
+                GUI.enabled = !_stage.Paused;
             }
             if (Button(new Rect(40, 618, 226, 25), "전체 마을 보기 · Home", AQUA)) _stage.ViewCamera.GetComponent<AvalancheCamera>().Overview();
         }
@@ -180,7 +182,7 @@ namespace Avalanche
                 if (Button(new Rect(24 + i * 262, 809, 248, 66), names[i], (int)build.Tool == i ? AQUA : PAPER)) build.SelectTool((AvalancheTool)i);
             if (Button(new Rect(1083, 809, 174, 66), "되돌리기\nCtrl + Z", PAPER)) build.Undo();
             if (Button(new Rect(1270, 809, 306, 66), "준비 완료  →  홍수 시작", GOLD)) _stage.Ready();
-            GUI.enabled = true;
+            GUI.enabled = !_stage.Paused;
             Label(306, 720, 990, 27, "WASD 이동  ·  휠 확대  ·  우클릭 드래그 회전  ·  중클릭 드래그 이동  ·  Esc 일시정지", INK, 16);
         }
 
@@ -243,14 +245,5 @@ namespace Avalanche
             if (Button(new Rect(804, 628, 326, 43), "스테이지 선택으로", PAPER)) _stage.ReturnToMenu();
         }
 
-        /// <summary>Pauses all simulation and provides a safe return path.</summary>
-        private void DrawPause()
-        {
-            Modal("일시정지", "마을과 시간을 잠시 멈췄습니다.");
-            Label(470, 309, 660, 90, "물의 이동, 시민 위험도와 자재의 움직임이 함께 정지합니다.", PAPER, 23);
-            if (Button(new Rect(470, 442, 660, 56), "계속하기 · Esc", AQUA)) _stage.TogglePause();
-            if (Button(new Rect(470, 522, 660, 56), "빈 배치로 새로 시작", PAPER)) _stage.Retry(true);
-            if (Button(new Rect(470, 602, 660, 56), "스테이지 선택으로", PAPER)) _stage.ReturnToMenu();
-        }
     }
 }

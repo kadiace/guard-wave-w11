@@ -52,7 +52,6 @@ namespace GuardWave
         private RectTransform _candidatePanel;
         private Vector2 _candidatePanelShown;
         private float _candidateSlide;
-        private GuardWaveDropGuideGraphic _dropGuide;
 
         /// <summary>게임 인스턴스 및 원본 HUD 프리팹의 버튼과 상태 텍스트를 연결한다.</summary>
         public void Initialize(GuardWaveGame game)
@@ -101,10 +100,6 @@ namespace GuardWave
 
             _candidatePanel = transform.Find("CandidateSelectionRow").GetComponent<RectTransform>();
             _candidatePanelShown = _candidatePanel.anchoredPosition;
-
-            _dropGuide = transform.Find("Drop Prediction Dashed Line")
-                .GetComponent<GuardWaveDropGuideGraphic>();
-            _dropGuide.gameObject.SetActive(false);
 
             Transform candidates = transform.Find("CandidateSelectionRow/CandidateRow");
             for (int i = 0; i < _cards.Length; i++)
@@ -203,20 +198,6 @@ Ctrl+Z: 최근 기물 배치, 진흙 붓질 또는 수동 제거 되돌리기
             float hideDistance = _candidatePanel.rect.height + _candidatePanelShown.y + 32f;
             _candidatePanel.anchoredPosition = _candidatePanelShown
                 + Vector2.down * hideDistance * eased;
-        }
-
-        /// <summary>실제 낙하 시작점과 현재 미리보기의 화면 좌표를 실시간 점선으로 연결한다.</summary>
-        public void ShowDropGuide(Vector2 launchScreen, Vector2 landingScreen)
-        {
-            if (_dropGuide == null) return;
-            if (!_dropGuide.gameObject.activeSelf) _dropGuide.gameObject.SetActive(true);
-            _dropGuide.SetScreenEndpoints(launchScreen, landingScreen);
-        }
-
-        public void HideDropGuide()
-        {
-            if (_dropGuide != null && _dropGuide.gameObject.activeSelf)
-                _dropGuide.gameObject.SetActive(false);
         }
 
         private void OnDestroy()
