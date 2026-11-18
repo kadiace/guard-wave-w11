@@ -20,7 +20,7 @@ namespace GuardWave
         private bool _completed;
         private string _label;
 
-        public void Ignite(GuardWaveGame game, Rigidbody body,
+        internal void Ignite(GuardWaveGame game, Rigidbody body,
             GuardWavePiece piece, bool isFlag, float skin, float contactDistance,
             float coverageThreshold, GuardWaveFlipFluid.LavaContactEvidence hit,
             float duration)

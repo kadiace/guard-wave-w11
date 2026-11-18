@@ -24,7 +24,7 @@ namespace GuardWave
             CreateEmbers(map);
         }
 
-        public void BindFluid(GuardWaveFlipFluid fluid)
+        internal void BindFluid(GuardWaveFlipFluid fluid)
         {
             _fluid = fluid;
             _smokeCredit = 0f;
