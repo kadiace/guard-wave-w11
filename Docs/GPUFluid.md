@@ -47,7 +47,7 @@ The bounds and emission rate are deliberately limited. Thin sticks and narrow ga
 
 ## Play Mode acceptance checklist (requires Unity Editor)
 
-1. Open `Assets/Scenes/Forest.unity` in Unity 6000.3.28f1.
+1. Open `Assets/Scenes/Flood.unity` in Unity 6000.3.28f1.
 2. Confirm the Console has **no** C# errors and the compute and URP water shader import.
 3. Press Play, place a rubber duck/large stone, then click Ready.
 4. Check water enters near `z = 50` with `x` in `[-12,12]` and travels toward -Z.

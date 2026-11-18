@@ -1,7 +1,7 @@
 {
   "stages": [
     {
-      "sceneName": "Forest",
+      "sceneName": "Flood",
       "disasterName": "홍수",
       "countdownSeconds": 120,
       "palette": [
