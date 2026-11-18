@@ -1513,9 +1513,8 @@ namespace GuardWave
         }
 
         /// <summary>
-        /// Count active runtime pieces normally, and authored Lava structures
-        /// against the same inventory. Manual removal and Undo update the count;
-        /// existing Flood and Fog inventory behavior remains unchanged.
+        /// Count active runtime pieces and authored inventory objects against the
+        /// same quota. Removed scene pieces return a slot; Undo and restart restore it.
         /// </summary>
         public int GetRemainingPlacements(string materialId)
         {
@@ -1543,7 +1542,8 @@ namespace GuardWave
                 if (piece != null && _runtimePieces.Contains(piece) &&
                     piece.MaterialId == materialId && _pieceSet.Contains(piece))
                     used++;
-            if (_isLavaStage || (_isFloodStage && materialId == "log"))
+            if (_isLavaStage || (_isFloodStage && materialId == "log") ||
+                (_isFogStage && materialId == "fog_barrier"))
                 foreach (GuardWavePiece piece in _scenePieces)
                     if (piece != null && piece.MaterialId == materialId &&
                         _pieceSet.Contains(piece) && piece.gameObject.activeInHierarchy)
