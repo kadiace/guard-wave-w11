@@ -37,7 +37,7 @@
 - `AvalancheWater`는 0.6m 간격의 60×100 천수 격자로 흐름을 계산한다. 배수구 위의 자재를 확인하고, 반경 1.8m에서 배수구 턱 위에 있으며 차단된 구간 없이 구멍에 도달하는 물만 뺀다. 기본 최대 배수량은 초당 1.15m³다. 미세한 틈을 흐르는 물과 지하 배관의 압력은 생략한다.
 - `AvalancheConstruction`은 가볍고 높은 물막이판과 낮고 물보다 조밀한 모래주머니 두 종류를 제공한다. 기본 재고는 각각 24개와 18개다. 모래주머니 물리는 직육면체 콜라이더로 근사한다. HUD의 재고는 공통 스테이지 설정 값을 읽는다.
 - 접합 블록은 기본 30개다. 자재에 놓은 블록은 자재를 따라가며, 나중에 닿은 자재도 연결한다. 연결 강도는 생성 즉시 파손 하중 9,000N과 5,200N·m를 적용한다. 자재마다 직접 맺는 연결은 하나이며, 파손된 연결은 자동으로 되살아나지 않는다. 블록을 회수하면 그 블록이 만든 연결이 풀린다.
-- `Avalanche - stage context`에서 `AvalancheStage`의 관찰 시간과 유입 수심, `AvalancheConstruction`의 자재 치수·모래주머니 밀도, `AvalancheResponse`의 대피·배수 값을 조정할 수 있다. 준비 제한을 다시 사용하려면 `AvalancheStage > Limit Preparation Time`을 켠다. 준비 시간과 자재별 시작 재고는 `Assets/Resources/Datas/StageInfo.json`의 Avalanche 항목에서 설정한다. 휠 감도는 카메라의 `Avalanche Camera > Camera Controls > Scroll Sensitivity`에 있다.
+- `Avalanche - stage context`에서 `AvalancheStage`의 관찰 시간과 유입 수심, `AvalancheConstruction`의 자재 치수·모래주머니 밀도, `AvalancheResponse`의 대피·배수 값을 조정할 수 있다. 준비 제한을 사용하려면 `Assets/Resources/Datas/StageInfo.json`의 Avalanche 항목에서 `limitPreparationTime`을 `true`로 바꾸고 `countdownSeconds`를 설정한다. 자재별 시작 재고도 같은 항목에서 설정한다. 휠 감도는 카메라의 `Avalanche Camera > Camera Controls > Scroll Sensitivity`에 있다.
 
 씬을 편집하는 동안 Inspector에서 각 컴포넌트의 설정을 조정할 수 있다. `AvalancheStage`는 파도별 수심과 지속 시간, 시민 위험 기준, 물의 유입·배수와 마찰을 제공한다. `AvalancheConstruction`에서는 배치 간격과 회전, 접합 블록의 접촉 반경, 물체의 밀도·저항과 접합 강도를 조정한다. `AvalancheCamera`에서는 전체 보기와 구역 확대, 카메라 조작 감도를 조정한다.
 

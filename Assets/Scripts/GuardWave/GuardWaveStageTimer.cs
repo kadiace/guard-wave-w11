@@ -18,6 +18,7 @@ namespace GuardWave
     {
         public string sceneName;
         public string disasterName;
+        public bool limitPreparationTime;
         public int countdownSeconds;
         public GuardWavePaletteEntry[] palette;
     }
@@ -83,6 +84,7 @@ namespace GuardWave
         private Text _countdown;
         private string _preparationDisasterName;
         private float _durationSeconds;
+        private bool _limitPreparationTime;
         private float _remainingSeconds;
         private int _displayedHundredths = -1;
         private bool _disasterStarted;
@@ -111,6 +113,7 @@ namespace GuardWave
             _preparationDisasterName = stage.disasterName + "가 오기까지";
             _disasterName.text = _preparationDisasterName;
             _durationSeconds = stage.countdownSeconds;
+            _limitPreparationTime = stage.limitPreparationTime;
             ResetCountdown();
             _initialized = true;
         }
@@ -162,6 +165,7 @@ namespace GuardWave
                 return;
             }
 
+            if (!_limitPreparationTime) return;
             _remainingSeconds = Mathf.Max(0f, _remainingSeconds - Time.deltaTime);
             RefreshCountdown();
             // A rules modal can keep Ready unavailable; trigger once it closes.
@@ -178,6 +182,7 @@ namespace GuardWave
             if (_fogMode == null)
             {
                 _remainingSeconds = 0f;
+                if (!_limitPreparationTime) _displayedHundredths = -1;
                 RefreshCountdown();
                 _game.Ready();
                 _disasterStarted = true;
@@ -186,6 +191,11 @@ namespace GuardWave
                     _disasterName.text = "용암류가 지나가기까지";
                     _remainingSeconds = _game.LavaFlowSecondsRemaining;
                     RefreshCountdown();
+                }
+                else if (!_limitPreparationTime)
+                {
+                    _disasterName.text = _game.StageInfo.disasterName + " 진행 중";
+                    _countdown.gameObject.SetActive(false);
                 }
             }
             else
@@ -225,12 +235,22 @@ namespace GuardWave
         private void ResetCountdown()
         {
             _remainingSeconds = _durationSeconds;
+            _countdown.gameObject.SetActive(true);
             if (_disasterName != null)
                 _disasterName.text = _preparationDisasterName;
             _displayedHundredths = -1;
             _disasterStarted = false;
             _pulseKind = PulseKind.None;
             _pulseElapsed = 0f;
+            if (!_limitPreparationTime)
+            {
+                _disasterName.text = "준비 중";
+                _countdown.text = "배치를 마치면\n준비 완료를 누르세요";
+                _countdown.fontSize = 22;
+                _countdown.rectTransform.localScale = _defaultCountdownScale;
+                _countdown.color = Color.white;
+                return;
+            }
             RefreshCountdown();
             // Include the initial boundary: 120s/40s/30s are ten-second marks.
             // A countdown starting at 10s already belongs to the stronger warning.

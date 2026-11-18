@@ -28,7 +28,6 @@ namespace Avalanche
         [SerializeField] private PhysicsMaterial _friction;
 
         [Header("Attempt timing (seconds)")]
-        [SerializeField] private bool _limitPreparationTime = false;
         [SerializeField, Min(1f)] private float _warningSeconds = 5f;
         [SerializeField, Min(20f)] private float _tailObservationSeconds = 25f;
         [Tooltip("Counts from Ready, including the warning, both waves and the tail observation.")]
@@ -80,7 +79,7 @@ namespace Avalanche
         public bool Paused { get; private set; }
         public bool CanEdit => Phase == AvalanchePhase.Preparing && !Paused;
         public float PreparationLeft { get; private set; }
-        internal bool LimitPreparationTime => _limitPreparationTime;
+        internal bool LimitPreparationTime => _stageInfo.limitPreparationTime;
         internal float PreparationSeconds => _stageInfo.countdownSeconds;
         internal GuardWaveStageInfo StageInfo => _stageInfo;
         internal float FirstWaveEnd => _firstRiseSeconds + _firstPeakSeconds;
@@ -138,7 +137,7 @@ namespace Avalanche
             Construction.TickContacts(dt);
             if (Phase == AvalanchePhase.Preparing)
             {
-                if (_limitPreparationTime)
+                if (LimitPreparationTime)
                 {
                     PreparationLeft = Mathf.Max(0f, PreparationLeft - dt);
                     if (PreparationLeft <= 0f) Ready();

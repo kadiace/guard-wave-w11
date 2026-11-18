@@ -1482,7 +1482,6 @@ MonoBehaviour:
   _previewMaterial: {fileID: 2100000, guid: 3b077fe6bab0be04288c0ad8dcbb462a, type: 2}
   _lineMaterial: {fileID: 2100000, guid: 147c9c1847a854a48a809a15bd7148e1, type: 2}
   _friction: {fileID: 13400000, guid: 34ab0999e1f4c204b8e469aef57764f3, type: 2}
-  _limitPreparationTime: 0
   _warningSeconds: 5
   _tailObservationSeconds: 25
   _attemptLimitSeconds: 150
