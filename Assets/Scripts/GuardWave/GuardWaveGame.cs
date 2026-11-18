@@ -16,7 +16,8 @@ namespace GuardWave
         private const float CREEK_PREWAVE_SECONDS = 5f;
         private const float SECOND_CREST_DELAY_SECONDS = 3f;
         private const float FLAG_SURVIVAL_CHECK_SECONDS = 5f;
-        private const int MAX_MUD_CONTACTS_PER_STEP = 96;
+        private const int MAX_MUD_CONTACTS = 512;
+        private const int MAX_VISIBLE_MUD_GUIDES = 48;
         private const float MUD_CONTACT_GUIDE_RADIUS_PIXELS = 65f;
         private const float LAVA_FLOW_DURATION_SECONDS = 60f;
         private const float FLOOD_DURATION_INCREASE_PER_STAGE = 0.2f;
@@ -97,9 +98,14 @@ namespace GuardWave
         }
         private GameObject _mudPreview;
         private Material _mudPreviewMaterial;
+        private readonly List<GameObject> _mudGuidePool = new List<GameObject>();
+        // Cache collision manifolds even when the mud palette is not selected.
+        // Sleeping Rigidbodies stop sending OnCollisionStay, but their last
+        // contacts remain valid until the pieces visibly separate.
         private readonly List<MudContactCandidate> _mudContacts =
-            new List<MudContactCandidate>(MAX_MUD_CONTACTS_PER_STEP);
-        private readonly HashSet<ulong> _mudContactPairs = new HashSet<ulong>();
+            new List<MudContactCandidate>(MAX_MUD_CONTACTS);
+        private readonly Dictionary<ulong, int> _mudContactPairs =
+            new Dictionary<ulong, int>();
         private MudContactCandidate _hoveredMudContact;
         private bool _hasHoveredMudContact;
         private readonly struct MudContactCandidate
@@ -258,10 +264,6 @@ namespace GuardWave
 
         private void FixedUpdate()
         {
-            // Physics calls OnCollisionStay after FixedUpdate: collect contacts
-            // afresh each simulation step, never using stale join candidates.
-            _mudContacts.Clear();
-            _mudContactPairs.Clear();
             PruneDeadMudJoints();
             // Drain every queued crossing this physics step, without an object-count cap.
             while (_pendingOutflowRemovals.Count > 0)
@@ -635,12 +637,10 @@ namespace GuardWave
         /// </summary>
         internal void ReportMudContact(GuardWavePiece source, Collision collision)
         {
-            if (_selected < 0 || _offers[_selected]?.id != "mud" ||
-                _isLavaStage || GetComponent<FogSceneController>() != null ||
+            if (_isLavaStage || GetComponent<FogSceneController>() != null ||
                 _stageTransitioning || _resolving || _awaitingStage || _finished ||
                 !IsPlacedPiece(source) || collision == null ||
-                collision.contactCount == 0 ||
-                _mudContacts.Count >= MAX_MUD_CONTACTS_PER_STEP)
+                collision.contactCount == 0)
                 return;
 
             ContactPoint first = collision.GetContact(0);
@@ -658,26 +658,37 @@ namespace GuardWave
             int b = other.GetInstanceID();
             ulong key = ((ulong)(uint)Mathf.Min(a, b) << 32) |
                 (uint)Mathf.Max(a, b);
-            if (!_mudContactPairs.Add(key)) return;
+            bool existing = _mudContactPairs.TryGetValue(key, out int index);
+            if (!existing && _mudContacts.Count >= MAX_MUD_CONTACTS)
+                return;
 
-            // A collider pair may have a broad contact manifold; use the point
-            // nearest the cursor so the guide sits where the player is aiming.
-            Vector2 cursor = Mouse.current != null
-                ? Mouse.current.position.ReadValue() : Vector2.zero;
+            // Prefer a manifold point near the cursor when actively using mud.
             ContactPoint nearest = first;
-            float nearestDistance = float.PositiveInfinity;
-            for (int i = 0; i < Mathf.Min(collision.contactCount, 8); i++)
+            if (_selected >= 0 && _offers[_selected]?.id == "mud" &&
+                Mouse.current != null)
             {
-                ContactPoint contact = collision.GetContact(i);
-                Vector3 projected = _camera.WorldToScreenPoint(contact.point);
-                if (projected.z <= 0f) continue;
-                float distance = ((Vector2)projected - cursor).sqrMagnitude;
-                if (distance >= nearestDistance) continue;
-                nearestDistance = distance;
-                nearest = contact;
+                Vector2 cursor = Mouse.current.position.ReadValue();
+                float nearestDistance = float.PositiveInfinity;
+                for (int i = 0; i < Mathf.Min(collision.contactCount, 8); i++)
+                {
+                    ContactPoint contact = collision.GetContact(i);
+                    Vector3 projected = _camera.WorldToScreenPoint(contact.point);
+                    if (projected.z <= 0f) continue;
+                    float distance = ((Vector2)projected - cursor).sqrMagnitude;
+                    if (distance >= nearestDistance) continue;
+                    nearestDistance = distance;
+                    nearest = contact;
+                }
             }
-            _mudContacts.Add(new MudContactCandidate(source, own, other,
-                nearest.point, nearest.normal));
+            MudContactCandidate candidate = new MudContactCandidate(source,
+                own, other, nearest.point, nearest.normal);
+            if (existing)
+                _mudContacts[index] = candidate;
+            else
+            {
+                _mudContactPairs.Add(key, _mudContacts.Count);
+                _mudContacts.Add(candidate);
+            }
         }
 
         private bool CanCreateMudBond(GuardWavePiece piece) =>
@@ -689,10 +700,29 @@ namespace GuardWave
         {
             piece = null;
             support = null;
-            if (candidate.OtherCollider == null || candidate.OwnCollider == null)
+            if (candidate.OtherCollider == null || candidate.OwnCollider == null ||
+                !candidate.OtherCollider.enabled || !candidate.OwnCollider.enabled ||
+                !candidate.OtherCollider.gameObject.activeInHierarchy ||
+                !candidate.OwnCollider.gameObject.activeInHierarchy)
                 return false;
+
+            // A saved contact must still be physically valid. Never glue two
+            // bodies merely because they touched before they drifted apart.
+            Vector3 onOwn = candidate.OwnCollider.ClosestPoint(candidate.Point);
+            Vector3 onOther = candidate.OtherCollider.ClosestPoint(candidate.Point);
+            if ((onOwn - onOther).sqrMagnitude > 0.18f * 0.18f ||
+                (onOwn - candidate.Point).sqrMagnitude > 0.28f * 0.28f ||
+                (onOther - candidate.Point).sqrMagnitude > 0.28f * 0.28f)
+                return false;
+
             GuardWavePiece other =
                 candidate.OtherCollider.GetComponentInParent<GuardWavePiece>();
+            if (other != null &&
+                ((_activeMudJoints.TryGetValue(candidate.Piece, out MudJointState firstBond) &&
+                    firstBond.ConnectedBody == other.Body) ||
+                 (_activeMudJoints.TryGetValue(other, out MudJointState secondBond) &&
+                    secondBond.ConnectedBody == candidate.Piece.Body)))
+                return false;
             if (CanCreateMudBond(candidate.Piece))
             {
                 piece = candidate.Piece;
@@ -707,37 +737,8 @@ namespace GuardWave
                 support.attachedRigidbody != piece.Body;
         }
 
-        private void UpdateMudContactPreview(Vector2 screen)
+        private GameObject GetMudGuide(int index)
         {
-            _hasHoveredMudContact = false;
-            if (_camera == null || screen.x < 0f || screen.y < 0f ||
-                screen.x >= Screen.width || screen.y >= Screen.height ||
-                (EventSystem.current != null &&
-                 EventSystem.current.IsPointerOverGameObject()))
-            {
-                if (_mudPreview != null) _mudPreview.SetActive(false);
-                return;
-            }
-
-            float nearest = MUD_CONTACT_GUIDE_RADIUS_PIXELS *
-                MUD_CONTACT_GUIDE_RADIUS_PIXELS;
-            foreach (MudContactCandidate candidate in _mudContacts)
-            {
-                if (!TryResolveMudContact(candidate, out _, out _)) continue;
-                Vector3 projected = _camera.WorldToScreenPoint(candidate.Point);
-                if (projected.z <= 0f) continue;
-                float distance = ((Vector2)projected - screen).sqrMagnitude;
-                if (distance > nearest) continue;
-                nearest = distance;
-                _hoveredMudContact = candidate;
-                _hasHoveredMudContact = true;
-            }
-
-            if (!_hasHoveredMudContact)
-            {
-                if (_mudPreview != null) _mudPreview.SetActive(false);
-                return;
-            }
             if (_mudPreview == null)
             {
                 _mudPreview = GuardWaveMudPatch.CreatePreview();
@@ -752,13 +753,69 @@ namespace GuardWave
                 };
                 _mudPreview.GetComponent<MeshRenderer>().sharedMaterial =
                     _mudPreviewMaterial;
+                _mudPreview.name = "Mud Contact Guide";
+                _mudGuidePool.Add(_mudPreview);
             }
-            Vector3 normal = _hoveredMudContact.Normal;
-            if (normal.sqrMagnitude < 0.001f) normal = Vector3.up;
-            _mudPreview.transform.SetPositionAndRotation(
-                _hoveredMudContact.Point + normal.normalized * 0.025f,
-                Quaternion.FromToRotation(Vector3.up, normal.normalized));
-            _mudPreview.SetActive(true);
+            while (_mudGuidePool.Count <= index)
+            {
+                GameObject clone = Instantiate(_mudPreview);
+                clone.name = "Mud Contact Guide";
+                clone.hideFlags = HideFlags.HideInHierarchy;
+                _mudGuidePool.Add(clone);
+            }
+            return _mudGuidePool[index];
+        }
+
+        private void HideMudContactGuides()
+        {
+            _hasHoveredMudContact = false;
+            foreach (GameObject guide in _mudGuidePool)
+                if (guide != null) guide.SetActive(false);
+        }
+
+        private void UpdateMudContactPreview(Vector2 screen)
+        {
+            _hasHoveredMudContact = false;
+            if (_camera == null || screen.x < 0f || screen.y < 0f ||
+                screen.x >= Screen.width || screen.y >= Screen.height ||
+                (EventSystem.current != null &&
+                 EventSystem.current.IsPointerOverGameObject()))
+            {
+                HideMudContactGuides();
+                return;
+            }
+
+            float nearest = MUD_CONTACT_GUIDE_RADIUS_PIXELS *
+                MUD_CONTACT_GUIDE_RADIUS_PIXELS;
+            int visible = 0;
+            foreach (MudContactCandidate candidate in _mudContacts)
+            {
+                if (!TryResolveMudContact(candidate, out _, out _)) continue;
+                Vector3 projected = _camera.WorldToScreenPoint(candidate.Point);
+                if (projected.z <= 0f) continue;
+                float distance = ((Vector2)projected - screen).sqrMagnitude;
+                if (distance < nearest)
+                {
+                    nearest = distance;
+                    _hoveredMudContact = candidate;
+                    _hasHoveredMudContact = true;
+                }
+
+                if (visible >= MAX_VISIBLE_MUD_GUIDES ||
+                    projected.x < 0f || projected.y < 0f ||
+                    projected.x >= Screen.width || projected.y >= Screen.height)
+                    continue;
+                GameObject guide = GetMudGuide(visible++);
+                Vector3 normal = candidate.Normal.sqrMagnitude < 0.001f
+                    ? Vector3.up : candidate.Normal.normalized;
+                guide.transform.SetPositionAndRotation(
+                    candidate.Point + normal * 0.025f,
+                    Quaternion.FromToRotation(Vector3.up, normal));
+                guide.transform.localScale = Vector3.one * 0.8f;
+                guide.SetActive(true);
+            }
+            for (int i = visible; i < _mudGuidePool.Count; i++)
+                if (_mudGuidePool[i] != null) _mudGuidePool[i].SetActive(false);
         }
 
         private void UpdateMudContactClick(Mouse mouse)
@@ -791,8 +848,7 @@ namespace GuardWave
             }
             _mudPatches.Add(patch);
             SaveEditState(false);
-            _hasHoveredMudContact = false;
-            if (_mudPreview != null) _mudPreview.SetActive(false);
+            HideMudContactGuides();
             _status = "진흙으로 접촉 지점을 연결했습니다. 드라이기로 접착력을 강화할 수 있습니다.";
         }
 
@@ -800,8 +856,7 @@ namespace GuardWave
         {
             // Legacy brush entry points still call this during selection reset.
             // No gesture or extra undo step exists in click-to-bond mode.
-            _hasHoveredMudContact = false;
-            if (_mudPreview != null) _mudPreview.SetActive(false);
+            HideMudContactGuides();
         }
 
         /// <summary>
@@ -994,10 +1049,10 @@ namespace GuardWave
                 if (!mouse.rightButton.isPressed)
                     UpdateMudContactPreview(mouse.position.ReadValue());
                 else
-                    EndMudPainting();
+                    HideMudContactGuides();
                 return;
             }
-            if (_mudPreview != null) _mudPreview.SetActive(false);
+            HideMudContactGuides();
             if (_selected >= 0 && _offers[_selected]?.id == "hair_dryer")
             {
                 HideDropPreview();
@@ -1028,7 +1083,7 @@ namespace GuardWave
         {
             _dropPreview?.Hide();
             _hud?.HideDropGuide();
-            if (_mudPreview != null) _mudPreview.SetActive(false);
+            HideMudContactGuides();
         }
 
         /// <summary>
@@ -1088,8 +1143,13 @@ namespace GuardWave
             {
                 MeshFilter filter = _mudPreview.GetComponent<MeshFilter>();
                 if (filter != null) Destroy(filter.sharedMesh);
-                SafeDestroySelectedObject(_mudPreview);
-                Destroy(_mudPreview);
+                foreach (GameObject guide in _mudGuidePool)
+                {
+                    if (guide == null) continue;
+                    SafeDestroySelectedObject(guide);
+                    Destroy(guide);
+                }
+                _mudGuidePool.Clear();
             }
             DisposeFluid();
             _flipRenderer?.Dispose();
@@ -2379,6 +2439,8 @@ namespace GuardWave
             if (snapshot == null) return;
             _pendingOutflowRemovals.Clear();
             _queuedOutflowRemovals.Clear();
+            _mudContacts.Clear();
+            _mudContactPairs.Clear();
             ResetFloodDrowning();
             SetOutlineTargets(null);
             HideDropPreview();
