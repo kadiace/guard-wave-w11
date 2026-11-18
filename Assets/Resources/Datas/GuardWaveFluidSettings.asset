@@ -23,7 +23,7 @@ MonoBehaviour:
   _ambientWaterDepth: 1
   _ambientFlowSpeed: 20
   _ambientFlowVolumeMultiplier: 2
-  _ambientMaxSupplyParticlesPerSecond: 37000
+  _ambientMaxSupplyParticlesPerSecond: 3000
   _ambientImpactScale: 0.01
   _waterFlowResponse: 6
   _verticalFlowResponseScale: 0.35
@@ -61,6 +61,15 @@ MonoBehaviour:
   _spawnInterval: 0.12
   _spawnRateMultiplier: 3
   _particleRenderRadius: 0.45
+  _destroyOnFluidContact: 0
+  _lavaDestroyContactDistance: 0.2
+  _lavaSurfaceCoverageThreshold: 0.12
+  _lavaSurfaceWetnessThreshold: 0.08
+  _lavaSurfaceSampleOffset: 0.35
+  _lavaBurnDurationSeconds: 3
+  _lavaSmokeParticlesPerSecond: 48
+  _lavaEmberParticlesPerSecond: 52
+  _ssfrLavaSurface: 0
   _ssfrResolutionScale: 0.5
   _ssfrRadiusScale: 1
   _ssfrThicknessScale: 1.2
@@ -71,3 +80,5 @@ MonoBehaviour:
   _ssfrOpacity: 0.9
   _ssfrShallowColor: {r: 0.13, g: 0.6, b: 0.87, a: 1}
   _ssfrDeepColor: {r: 0.015, g: 0.24, b: 0.52, a: 1}
+  _lavaEmissionColor: {r: 1, g: 0.25, b: 0.035, a: 1}
+  _lavaEmissionIntensity: 2
