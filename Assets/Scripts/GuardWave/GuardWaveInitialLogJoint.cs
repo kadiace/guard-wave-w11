@@ -3,9 +3,9 @@ using UnityEngine;
 namespace GuardWave
 {
     /// <summary>
-    /// A scene-authored Initial Wall log starts each attempt at 80 N, then
-    /// drops to 35 N after the first creek impact has settled. Mud drying is
-    /// the same x2 strength multiplier used for ordinary mud bonds.
+    /// Initial Wall logs use a 300 N bond from the start (twice the former 150 N).
+    /// The old dryer boost is no longer needed. Impact monitoring is retained
+    /// to keep the existing scene's rollback and diagnostics behavior.
     /// </summary>
     [DisallowMultipleComponent]
     [RequireComponent(typeof(FixedJoint))]
@@ -13,8 +13,8 @@ namespace GuardWave
     public sealed class GuardWaveInitialLogJoint : MonoBehaviour
     {
         [Header("FixedJoint break force")]
-        [SerializeField, Min(0f)] private float initialBreakForce = 80f;
-        [SerializeField, Min(0f)] private float settledBreakForce = 35f;
+        [SerializeField, Min(0f)] private float initialBreakForce = 300f;
+        [SerializeField, Min(0f)] private float settledBreakForce = 300f;
 
         [Header("First creek impact")]
         [SerializeField, Min(0f)] private float firstContactForce = 1f;
