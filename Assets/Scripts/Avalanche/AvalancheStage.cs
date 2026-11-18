@@ -2,6 +2,8 @@ using UnityEngine;
 
 using UnityEngine.InputSystem;
 
+using GuardWave;
+
 namespace Avalanche
 {
     public enum AvalanchePhase { Introduction, Preparing, Warning, Flooding, Assessing, Cleared, Failed, TechnicalError }
@@ -27,7 +29,6 @@ namespace Avalanche
 
         [Header("Attempt timing (seconds)")]
         [SerializeField] private bool _limitPreparationTime = false;
-        [SerializeField, Min(10f)] private float _preparationSeconds = 120f;
         [SerializeField, Min(1f)] private float _warningSeconds = 5f;
         [SerializeField, Min(20f)] private float _tailObservationSeconds = 25f;
         [Tooltip("Counts from Ready, including the warning, both waves and the tail observation.")]
@@ -61,6 +62,7 @@ namespace Avalanche
         private float _stableClock;
         private float _attemptClock;
         private float _previousTimeScale;
+        private GuardWaveStageInfo _stageInfo;
         public Camera ViewCamera => _viewCamera;
         public MeshCollider Ground => _ground;
         public AvalancheCitizen[] Citizens => _citizens;
@@ -79,7 +81,8 @@ namespace Avalanche
         public bool CanEdit => Phase == AvalanchePhase.Preparing && !Paused;
         public float PreparationLeft { get; private set; }
         internal bool LimitPreparationTime => _limitPreparationTime;
-        internal float PreparationSeconds => _preparationSeconds;
+        internal float PreparationSeconds => _stageInfo.countdownSeconds;
+        internal GuardWaveStageInfo StageInfo => _stageInfo;
         internal float FirstWaveEnd => _firstRiseSeconds + _firstPeakSeconds;
         internal float IntermissionEnd => FirstWaveEnd + _intermissionSeconds;
         internal float SecondWaveEnd => IntermissionEnd + _secondRiseSeconds + _secondPeakSeconds;
@@ -103,6 +106,7 @@ namespace Avalanche
             Time.timeScale = 0f;
             Cursor.visible = true;
             Cursor.lockState = CursorLockMode.None;
+            _stageInfo = GuardWaveStageInfoFile.LoadForScene(gameObject.scene.name);
             Construction = GetComponent<AvalancheConstruction>();
             Response = GetComponent<AvalancheResponse>();
             Hud = GetComponent<AvalancheHud>();
@@ -111,7 +115,7 @@ namespace Avalanche
             Construction.Initialize(this);
             Response.Initialize(this);
             Hud.Initialize(this);
-            PreparationLeft = _preparationSeconds;
+            PreparationLeft = PreparationSeconds;
             foreach (var citizen in _citizens) citizen.ResetState();
         }
 
@@ -231,6 +235,8 @@ namespace Avalanche
             if (IsFinished()) return;
             Phase = phase;
             ResultMessage = message;
+            if (phase == AvalanchePhase.Cleared)
+                StageClearSession.MarkCleared(Scene.Avalanche);
             Time.timeScale = 0f;
         }
 
@@ -242,7 +248,7 @@ namespace Avalanche
             Response.ResetResponse(empty);
             foreach (var citizen in _citizens) citizen.ResetState();
             _warningClock = _sampleClock = _stableClock = _attemptClock = FloodElapsed = 0f;
-            PreparationLeft = _preparationSeconds;
+            PreparationLeft = PreparationSeconds;
             ResultMessage = "";
             Attempt++;
             Paused = false;

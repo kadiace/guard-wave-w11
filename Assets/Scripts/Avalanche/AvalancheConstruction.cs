@@ -4,6 +4,8 @@ using UnityEngine;
 
 using UnityEngine.InputSystem;
 
+using GuardWave;
+
 namespace Avalanche
 {
     public enum AvalancheTool { Panel, Sandbag, Adhesive, Remove }
@@ -13,11 +15,6 @@ namespace Avalanche
     {
         private static readonly Color SANDBAG_COLOR = new Color(0.66f, 0.54f, 0.30f);
         private static readonly Color ADHESIVE_COLOR = new Color(0.95f, 0.68f, 0.18f);
-
-        [Header("Starting inventory")]
-        [SerializeField, Min(0)] private int _startingPanels = 24;
-        [SerializeField, Min(0)] private int _startingSandbags = 18;
-        [SerializeField, Min(0)] private int _startingAdhesive = 30;
 
         [Header("Placement")]
         [SerializeField] private Vector3 _panelSize = new Vector3(3.6f, 1.2f, 0.6f);
@@ -39,6 +36,9 @@ namespace Avalanche
         private readonly Collider[] _overlaps = new Collider[64];
         private Collider[] _contacts = new Collider[64];
         private AvalancheStage _stage;
+        private int _startingPanels;
+        private int _startingSandbags;
+        private int _startingAdhesive;
         private GameObject _preview;
         private Renderer _previewRenderer;
         private MaterialPropertyBlock _previewTint;
@@ -109,6 +109,9 @@ namespace Avalanche
         public void Initialize(AvalancheStage stage)
         {
             _stage = stage;
+            _startingPanels = GetStartingInventory(stage.StageInfo, "panel");
+            _startingSandbags = GetStartingInventory(stage.StageInfo, "sandbag");
+            _startingAdhesive = GetStartingInventory(stage.StageInfo, "adhesive");
             Panels = _startingPanels;
             Sandbags = _startingSandbags;
             Adhesive = _startingAdhesive;
@@ -124,6 +127,15 @@ namespace Avalanche
             _previewRenderer.sharedMaterial = stage.PreviewMaterial;
             _previewTint = new MaterialPropertyBlock();
             _preview.SetActive(false);
+        }
+
+        /// <summary>Returns the configured finite inventory for an Avalanche material.</summary>
+        private static int GetStartingInventory(GuardWaveStageInfo stage, string materialId)
+        {
+            foreach (GuardWavePaletteEntry entry in stage.palette)
+                if (entry.materialId == materialId && entry.placementLimit >= 0)
+                    return entry.placementLimit;
+            throw new System.InvalidOperationException("Missing finite Avalanche inventory: " + materialId);
         }
 
         /// <summary>Returns the world dimensions of a catalog item.</summary>

@@ -35,6 +35,16 @@
       ]
     },
     {
+      "sceneName": "Avalanche",
+      "disasterName": "홍수",
+      "countdownSeconds": 120,
+      "palette": [
+        { "materialId": "panel", "placementLimit": 24 },
+        { "materialId": "sandbag", "placementLimit": 18 },
+        { "materialId": "adhesive", "placementLimit": 30 }
+      ]
+    },
+    {
       "sceneName": "Lava",
       "disasterName": "용암",
       "countdownSeconds": 120,

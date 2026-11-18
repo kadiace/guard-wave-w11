@@ -1483,7 +1483,6 @@ MonoBehaviour:
   _lineMaterial: {fileID: 2100000, guid: 147c9c1847a854a48a809a15bd7148e1, type: 2}
   _friction: {fileID: 13400000, guid: 34ab0999e1f4c204b8e469aef57764f3, type: 2}
   _limitPreparationTime: 0
-  _preparationSeconds: 120
   _warningSeconds: 5
   _tailObservationSeconds: 25
   _attemptLimitSeconds: 150
@@ -1549,9 +1548,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 111a6d3aee62a134f8a5980fd881f703, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::Avalanche.AvalancheConstruction
-  _startingPanels: 24
-  _startingSandbags: 18
-  _startingAdhesive: 30
   _panelSize: {x: 3.6, y: 1.2, z: 0.6}
   _sandbagSize: {x: 1.4, y: 0.55, z: 1.1}
   _placementGrid: 0.3
