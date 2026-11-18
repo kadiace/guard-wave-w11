@@ -19,6 +19,10 @@ namespace GuardWave
         private const int MAX_MUD_CONTACTS = 512;
         private const int MAX_VISIBLE_MUD_GUIDES = 48;
         private const float MUD_CONTACT_GUIDE_RADIUS_PIXELS = 65f;
+        // Only horizontal surface separation gets the extra tolerance.
+        // Vertical adjacency is not widened; touching Y contacts still use collisions.
+        private const float MUD_XZ_PROXIMITY_METERS = 0.35f;
+        private const float MUD_XZ_MAX_HEIGHT_OFFSET = 0.16f;
         private const float LAVA_FLOW_DURATION_SECONDS = 60f;
         private const float FLOOD_DURATION_INCREASE_PER_STAGE = 0.2f;
         private const float FLOOD_DEPTH_INCREASE_PER_STAGE = 0.5f;
@@ -105,6 +109,11 @@ namespace GuardWave
             new List<MudContactCandidate>(MAX_MUD_CONTACTS);
         private readonly Dictionary<ulong, int> _mudContactPairs =
             new Dictionary<ulong, int>();
+        // Short-lived side-contact candidates are evaluated only when mud is selected.
+        private readonly List<MudContactCandidate> _mudXZContacts =
+            new List<MudContactCandidate>(MAX_MUD_CONTACTS);
+        private readonly HashSet<ulong> _mudXZPairs = new HashSet<ulong>();
+        private readonly Collider[] _mudNearbyColliders = new Collider[128];
         private int _nextMudContactEviction;
         private MudContactCandidate _hoveredMudContact;
         private bool _hasHoveredMudContact;
@@ -115,15 +124,18 @@ namespace GuardWave
             public readonly Collider OtherCollider;
             public readonly Vector3 Point;
             public readonly Vector3 Normal;
+            public readonly bool XZProximity;
 
             public MudContactCandidate(GuardWavePiece piece, Collider ownCollider,
-                Collider otherCollider, Vector3 point, Vector3 normal)
+                Collider otherCollider, Vector3 point, Vector3 normal,
+                bool xzProximity = false)
             {
                 Piece = piece;
                 OwnCollider = ownCollider;
                 OtherCollider = otherCollider;
                 Point = point;
                 Normal = normal;
+                XZProximity = xzProximity;
             }
         }
         private float _floodDrowningSeconds;
@@ -382,8 +394,8 @@ namespace GuardWave
 
             UpdateDropPreview();
 
-            // Mud no longer paints strokes. Only a visible physical contact
-            // candidate can be clicked to create one fixed joint.
+            // Mud offers real contacts plus XZ-only nearby surface candidates.
+            // Both are revalidated at click time before a bond is created.
             if (_selected >= 0 && _offers[_selected]?.id == "mud")
             {
                 UpdateMudContactClick(mouse);
@@ -761,6 +773,106 @@ namespace GuardWave
             }
         }
 
+        /// <summary>
+        /// Horizontal-only grace distance for connecting side-by-side objects.
+        /// Both colliders must overlap in height; stacked objects still need
+        /// ordinary physics contact rather than an artificial vertical gap.
+        /// </summary>
+        private static bool TryGetMudXZProximity(Collider a, Collider b,
+            out Vector3 point, out Vector3 normal)
+        {
+            point = default;
+            normal = Vector3.up;
+            if (a == null || b == null || !a.enabled || !b.enabled ||
+                !a.gameObject.activeInHierarchy || !b.gameObject.activeInHierarchy ||
+                a.isTrigger || b.isTrigger) return false;
+
+            Bounds aa = a.bounds, bb = b.bounds;
+            float bottom = Mathf.Max(aa.min.y, bb.min.y);
+            float top = Mathf.Min(aa.max.y, bb.max.y);
+            if (top <= bottom) return false;
+
+            // Repeated ClosestPoint projections handle cylinders and rotated
+            // meshes more faithfully than measuring their AABB-to-AABB gap.
+            float y = (bottom + top) * 0.5f;
+            Vector3 onA = a.ClosestPoint(new Vector3(bb.center.x, y, bb.center.z));
+            Vector3 onB = b.ClosestPoint(onA);
+            for (int i = 0; i < 3; i++)
+            {
+                onA = a.ClosestPoint(onB);
+                onB = b.ClosestPoint(onA);
+            }
+            Vector3 gap = onB - onA;
+            Vector2 horizontal = new Vector2(gap.x, gap.z);
+            if (horizontal.sqrMagnitude >
+                    MUD_XZ_PROXIMITY_METERS * MUD_XZ_PROXIMITY_METERS ||
+                Mathf.Abs(gap.y) > MUD_XZ_MAX_HEIGHT_OFFSET)
+                return false;
+
+            Vector3 direction = new Vector3(gap.x, 0f, gap.z);
+            if (direction.sqrMagnitude < 0.0001f)
+                direction = new Vector3(bb.center.x - aa.center.x,
+                    0f, bb.center.z - aa.center.z);
+            if (direction.sqrMagnitude < 0.0001f) return false;
+
+            point = (onA + onB) * 0.5f;
+            normal = direction.normalized;
+            return true;
+        }
+
+        /// <summary>
+        /// Physics contact callbacks miss horizontal gaps entirely. Find nearby
+        /// bodies with a non-allocating broad phase and confirm their collider
+        /// surface distances before offering an XZ-only mud guide.
+        /// </summary>
+        private void CollectMudXZContacts()
+        {
+            _mudXZContacts.Clear();
+            _mudXZPairs.Clear();
+            foreach (GuardWavePiece piece in _pieceSet)
+            {
+                if (piece == null || piece.Body == null ||
+                    !IsPlacedPiece(piece) || !piece.gameObject.activeInHierarchy)
+                    continue;
+                foreach (Collider own in piece.GetComponentsInChildren<Collider>())
+                {
+                    if (own == null || !own.enabled || own.isTrigger) continue;
+                    Bounds bounds = own.bounds;
+                    int count = Physics.OverlapBoxNonAlloc(bounds.center,
+                        bounds.extents + new Vector3(
+                            MUD_XZ_PROXIMITY_METERS, 0.01f,
+                            MUD_XZ_PROXIMITY_METERS),
+                        _mudNearbyColliders, Quaternion.identity,
+                        Physics.DefaultRaycastLayers, QueryTriggerInteraction.Ignore);
+                    for (int i = 0; i < count; i++)
+                    {
+                        Collider other = _mudNearbyColliders[i];
+                        if (other == null || other == own ||
+                            other.attachedRigidbody == piece.Body ||
+                            other == _creekBedCollider) continue;
+                        GuardWavePiece neighbor =
+                            other.GetComponentInParent<GuardWavePiece>();
+                        if (neighbor == null || !IsPlacedPiece(neighbor) ||
+                            !neighbor.gameObject.activeInHierarchy ||
+                            HasMudBondBetween(piece.Body, neighbor.Body))
+                            continue;
+                        ulong pair = MudContactKey(own, other);
+                        if (!_mudXZPairs.Add(pair)) continue;
+                        if (_mudContactPairs.TryGetValue(pair, out int contactIndex) &&
+                            contactIndex >= 0 && contactIndex < _mudContacts.Count &&
+                            TryResolveMudContact(_mudContacts[contactIndex], out _, out _))
+                            continue;
+                        if (!TryGetMudXZProximity(own, other,
+                            out Vector3 point, out Vector3 normal))
+                            continue;
+                        _mudXZContacts.Add(new MudContactCandidate(piece, own,
+                            other, point, normal, xzProximity: true));
+                        if (_mudXZContacts.Count >= MAX_MUD_CONTACTS) return;
+                    }
+                }
+            }
+        }
+
         private bool CanCreateMudBond(GuardWavePiece piece) =>
             piece != null && IsPlacedPiece(piece) && piece.Body != null;
 
@@ -775,14 +887,23 @@ namespace GuardWave
                 !candidate.OwnCollider.gameObject.activeInHierarchy)
                 return false;
 
-            // A saved contact must still be physically valid. Never glue two
-            // bodies merely because they touched before they drifted apart.
-            Vector3 onOwn = candidate.OwnCollider.ClosestPoint(candidate.Point);
-            Vector3 onOther = candidate.OtherCollider.ClosestPoint(candidate.Point);
-            if ((onOwn - onOther).sqrMagnitude > 0.18f * 0.18f ||
-                (onOwn - candidate.Point).sqrMagnitude > 0.28f * 0.28f ||
-                (onOther - candidate.Point).sqrMagnitude > 0.28f * 0.28f)
-                return false;
+            if (candidate.XZProximity)
+            {
+                // Revalidate side-gap tolerance at click time as well.
+                if (!TryGetMudXZProximity(candidate.OwnCollider,
+                    candidate.OtherCollider, out _, out _))
+                    return false;
+            }
+            else
+            {
+                // Cached real contacts are usable only while physically near.
+                Vector3 onOwn = candidate.OwnCollider.ClosestPoint(candidate.Point);
+                Vector3 onOther = candidate.OtherCollider.ClosestPoint(candidate.Point);
+                if ((onOwn - onOther).sqrMagnitude > 0.18f * 0.18f ||
+                    (onOwn - candidate.Point).sqrMagnitude > 0.28f * 0.28f ||
+                    (onOther - candidate.Point).sqrMagnitude > 0.28f * 0.28f)
+                    return false;
+            }
 
             GuardWavePiece other =
                 candidate.OtherCollider.GetComponentInParent<GuardWavePiece>();
@@ -856,10 +977,13 @@ namespace GuardWave
                 return;
             }
 
+            CollectMudXZContacts();
             float nearest = MUD_CONTACT_GUIDE_RADIUS_PIXELS *
                 MUD_CONTACT_GUIDE_RADIUS_PIXELS;
             int visible = 0;
-            foreach (MudContactCandidate candidate in _mudContacts)
+            for (int kind = 0; kind < 2; kind++)
+            foreach (MudContactCandidate candidate in
+                kind == 0 ? _mudContacts : _mudXZContacts)
             {
                 Vector3 projected = _camera.WorldToScreenPoint(candidate.Point);
                 if (projected.z <= 0f) continue;
@@ -1584,6 +1708,8 @@ namespace GuardWave
             ResetFloodDrowning();
             _mudContacts.Clear();
             _mudContactPairs.Clear();
+            _mudXZContacts.Clear();
+            _mudXZPairs.Clear();
             _nextMudContactEviction = 0;
             SetOutlineTargets(null);
             if (_stageFloodRoutine != null)
