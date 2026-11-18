@@ -73,3 +73,5 @@ MonoBehaviour:
   _ssfrOpacity: 1
   _ssfrShallowColor: {r: 1.6, g: 0.42, b: 0.035, a: 1}
   _ssfrDeepColor: {r: 0.37, g: 0.045, b: 0.014, a: 1}
+  _lavaEmissionColor: {r: 1, g: 0.25, b: 0.035, a: 1}
+  _lavaEmissionIntensity: 2

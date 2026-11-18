@@ -167,5 +167,12 @@ namespace GuardWave
         public float SsfrOpacity => _ssfrOpacity;
         public Color SsfrShallowColor => _ssfrShallowColor;
         public Color SsfrDeepColor => _ssfrDeepColor;
+
+        [Header("Lava emission")]
+        [ColorUsage(false, true)]
+        [SerializeField] private Color _lavaEmissionColor = new Color(1f, 0.25f, 0.035f, 1f);
+        [SerializeField, Min(0f)] private float _lavaEmissionIntensity = 2f;
+        public Color LavaEmissionColor => _lavaEmissionColor;
+        public float LavaEmissionIntensity => _lavaEmissionIntensity;
     }
 }

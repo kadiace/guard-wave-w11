@@ -4,6 +4,8 @@ Shader "Hidden/GuardWave/SSFRLava"
     {
         _ShallowColor ("Shallow water", Color) = (0.13,0.60,0.87,1)
         _DeepColor ("Deep water", Color) = (0.015,0.24,0.52,1)
+        [HDR] _EmissionColor ("Lava emission color", Color) = (1,0.25,0.035,1)
+        _EmissionIntensity ("Lava emission strength", Float) = 2
     }
     SubShader
     {
@@ -30,7 +32,8 @@ Shader "Hidden/GuardWave/SSFRLava"
         TEXTURE2D_X(_SsfrSmoothDepth);
         float _Radius, _ThicknessScale, _BlurRadius, _DepthSigma;
         float _Absorption, _Refraction, _Opacity;
-        float4 _ShallowColor, _DeepColor, _SsfrTexelSize;
+        float4 _ShallowColor, _DeepColor, _SsfrTexelSize, _EmissionColor;
+        float _EmissionIntensity;
 
         struct ParticleVaryings
         {
@@ -165,11 +168,14 @@ Shader "Hidden/GuardWave/SSFRLava"
             half3 color = lerp(_ShallowColor.rgb,_DeepColor.rgb,deep);
             float fresnel = pow(1.0-saturate(normal.z),2.0);
             float glint = pow(saturate(dot(normal,normalize(float3(0.45,0.5,0.75)))),16.0);
-            // Scene-specific glowing lava surface, with no water background refraction.
+            // HDR self-emission is brightest along thin, hotter-looking lava.
+            // Keep the SSFR depth/thickness discards, but never blend visible lava with the background.
+            float heat = lerp(0.15, 1.0, pow(1.0 - deep, 1.5));
+            half3 emission = _EmissionColor.rgb * (_EmissionIntensity * heat);
             half3 lava = color * (1.06 + (1.0 - deep) * 0.18) +
-                glint * 0.09 + fresnel * _ShallowColor.rgb * 0.12;
-            float alpha = saturate((1.0-exp(-thickness*_Absorption))*_Opacity);
-            return half4(lava, saturate(alpha * 1.25 + 0.12));
+                glint * 0.09 + fresnel * _ShallowColor.rgb * 0.12 +
+                emission;
+            return half4(lava, 1.0);
         }
         ENDHLSL
 
@@ -220,7 +226,7 @@ Shader "Hidden/GuardWave/SSFRLava"
         {
             Name "WaterComposite"
             ZWrite Off ZTest Always
-            Blend SrcAlpha OneMinusSrcAlpha
+            Blend One Zero
             HLSLPROGRAM
             #pragma target 4.5
             #pragma vertex FullscreenVert

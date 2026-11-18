@@ -102,6 +102,11 @@ namespace GuardWave
                 _material.SetFloat("_Opacity", settings.SsfrOpacity);
                 _material.SetColor("_ShallowColor", settings.SsfrShallowColor);
                 _material.SetColor("_DeepColor", settings.SsfrDeepColor);
+                if (settings.SsfrLavaSurface)
+                {
+                    _material.SetColor("_EmissionColor", settings.LavaEmissionColor);
+                    _material.SetFloat("_EmissionIntensity", settings.LavaEmissionIntensity);
+                }
 
                 RenderTextureDescriptor descriptor = camera.cameraTargetDescriptor;
                 descriptor.width = Mathf.Max(1, Mathf.RoundToInt(
