@@ -141,7 +141,10 @@ namespace GuardWave
 
         [Header("Lava contact physics")]
         [SerializeField] private bool _destroyOnFluidContact;
+        [Tooltip("Seconds of visible fire after the first confirmed GPU particle contact.")]
+        [SerializeField, Min(0.05f)] private float _lavaBurnDurationSeconds = 0.8f;
         public bool DestroyOnFluidContact => _destroyOnFluidContact;
+        public float LavaBurnDurationSeconds => Mathf.Max(0.05f, _lavaBurnDurationSeconds);
 
         [Header("Screen-space liquid rendering")]
         [SerializeField] private bool _ssfrLavaSurface;

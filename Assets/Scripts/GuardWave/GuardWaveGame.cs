@@ -125,6 +125,8 @@ namespace GuardWave
         private bool _isLavaStage;
         private float _lavaFlowSecondsRemaining;
         private readonly List<Rigidbody> _lavaContacts = new List<Rigidbody>();
+        private readonly HashSet<GuardWaveLavaBurning> _activeLavaBurns =
+            new HashSet<GuardWaveLavaBurning>();
         private GuardWaveFlipFluid _fluid;
         private Bounds _placementBounds;
         private Bounds _lowerCreekBounds;
@@ -227,8 +229,17 @@ namespace GuardWave
                 _queuedOutflowRemovals.Remove(candidate);
                 if (candidate != null && IsPlacedPiece(candidate) &&
                     candidate.transform.position.z <= DestructionBoundaryZ)
+                {
+                    // Preserve visible ignition rather than allowing the cliff to remove it first.
+                    if (_isLavaStage && candidate.GetComponent<GuardWaveLavaBurning>() != null)
+                        continue;
+                    if (_isLavaStage)
+                        Debug.Log($"[LavaDestroy][BOUNDARY] object={candidate.name}#{candidate.GetInstanceID()} " +
+                            $"material={candidate.MaterialId} z={candidate.transform.position.z:F3} " +
+                            $"limitZ={DestructionBoundaryZ:F3} reason=OUTFLOW notGpuContact=true", candidate);
                     RemovePiece(candidate, GuardWaveChangeKind.Destroyed,
                         BOUNDARY_DESTRUCTION_DELAY);
+                }
             }
             if (_fluid == null) return;
             // Drain at most one completed GPU step per physics tick, before
@@ -1319,6 +1330,9 @@ namespace GuardWave
             _ambientFlowRunning = false;
             _lavaFlowSecondsRemaining = 0f;
             _lavaContacts.Clear();
+            foreach (GuardWaveLavaBurning fire in _activeLavaBurns)
+                if (fire != null) fire.Cancel();
+            _activeLavaBurns.Clear();
             CommitWaveSnapshot();
 
             foreach (GuardWaveMudPatch patch in _mudPatches)
@@ -1387,7 +1401,7 @@ namespace GuardWave
             _status = GetComponent<FogSceneController>() != null
                 ? "건물을 배치하면 +Z 방향 실외기 바람으로 안개를 밀어냅니다. 준비 완료를 누르세요."
                 : _isLavaStage
-                    ? "용암에 닿는 기물은 즉시 파괴됩니다. 깃발을 지키세요."
+                    ? "용암에 닿은 기물은 불타다가 파괴됩니다. 깃발을 지키세요."
                     : "진흙을 바르고 드라이기로 말려 접착력을 강화하세요. 기물 우클릭: 제거, 빈 공간 우클릭: 선택 해제";
             // Initial state enables Ctrl+Z to undo the very first placement.
             SaveEditState(false);
@@ -1706,7 +1720,7 @@ namespace GuardWave
             if (_isLavaStage)
             {
                 _ambientFlowRunning = true;
-                _status = "용암이 흐르고 있습니다. 접촉한 기물은 즉시 파괴됩니다.";
+                _status = "용암이 흐르고 있습니다. 접촉한 기물은 불이 붙은 뒤 파괴됩니다.";
                 _stageFloodRoutine = StartCoroutine(ResolveLavaFlow());
                 return;
             }
@@ -1760,6 +1774,18 @@ namespace GuardWave
                 _stageFloodRoutine = null;
                 yield break;
             }
+            // Do not award victory until the final GPU-contacted bodies have burnt out.
+            while (_activeLavaBurns.Count > 0)
+            {
+                _activeLavaBurns.RemoveWhere(fire => fire == null);
+                if (_activeLavaBurns.Count == 0) break;
+                yield return new WaitForFixedUpdate();
+                if (_awaitingStage)
+                {
+                    _stageFloodRoutine = null;
+                    yield break;
+                }
+            }
             _stageTransitioning = false;
             _resolving = false;
             _stageFloodRoutine = null;
@@ -1767,8 +1793,8 @@ namespace GuardWave
         }
 
         /// <summary>
-        /// Removes contacted rigidbody pieces now rather than retaining them
-        /// for the cliff's one-second delayed disappearance.
+        /// An SDF-qualified GPU contact starts an irreversible burn exactly once.
+        /// Later particle hits do not change the destruction deadline.
         /// </summary>
         private void DestroyContactedLavaObjects()
         {
@@ -1778,21 +1804,33 @@ namespace GuardWave
             foreach (Rigidbody body in _lavaContacts)
             {
                 if (body == null || !body.gameObject.activeInHierarchy) continue;
-                if (body.gameObject == _defenseFlag)
-                {
-                    GuardWavePiece flagPiece = body.GetComponent<GuardWavePiece>();
-                    if (flagPiece != null)
-                        PublishChange(new GuardWaveChange(flagPiece, flagPiece,
-                            GuardWaveChangeKind.Destroyed, 0, body.position));
-                    DestroyDefenseFlag();
-                    continue;
-                }
+                bool isFlag = body.gameObject == _defenseFlag;
                 GuardWavePiece piece = body.GetComponent<GuardWavePiece>();
-                if (piece != null && IsPlacedPiece(piece))
-                    RemovePiece(piece, GuardWaveChangeKind.Destroyed,
-                        destroyImmediately: true);
+                if (!isFlag && (piece == null || !IsPlacedPiece(piece))) continue;
+                if (body.GetComponent<GuardWaveLavaBurning>() != null) continue;
+                GuardWaveLavaBurning fire = body.gameObject.AddComponent<GuardWaveLavaBurning>();
+                _activeLavaBurns.Add(fire);
+                fire.Ignite(this, body, piece, isFlag,
+                    _fluidSettings.CollisionSkin, _fluidSettings.LavaBurnDurationSeconds);
             }
             _lavaContacts.Clear();
+        }
+
+        /// <summary>Complete an ignited body's timed destruction, retaining the existing "파괴!" text.</summary>
+        internal void FinishLavaBurn(GuardWaveLavaBurning fire, Rigidbody body,
+            GuardWavePiece piece, bool isFlag)
+        {
+            if (!_activeLavaBurns.Remove(fire)) return;
+            if (body == null || _awaitingStage || _finished) return;
+            if (isFlag)
+            {
+                if (piece != null)
+                    PublishChange(new GuardWaveChange(piece, piece,
+                        GuardWaveChangeKind.Destroyed, 0, body.position));
+                DestroyDefenseFlag();
+            }
+            else if (piece != null && IsPlacedPiece(piece))
+                RemovePiece(piece, GuardWaveChangeKind.Destroyed, destroyImmediately: true);
         }
 
         /// <summary>
