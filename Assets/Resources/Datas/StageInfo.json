@@ -73,8 +73,8 @@
           "target": false
         },
         {
-          "materialId": "default_flag",
-          "placementLimit": 1,
+          "materialId": "citizen",
+          "placementLimit": 6,
           "target": true
         }
       ]

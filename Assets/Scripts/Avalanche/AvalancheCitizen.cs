@@ -6,7 +6,7 @@ namespace Avalanche
 {
     public enum AvalancheCitizenState { Safe, Warning, Critical, RescueRequired, Protected }
 
-    /// <summary>Fixed citizen objective; danger is measured from occupied water, independently of rendering.</summary>
+    /// <summary>Player-placed citizen objective with water-based danger tracking.</summary>
     public sealed class AvalancheCitizen : MonoBehaviour
     {
         [Header("Identity and appearance")]
@@ -20,6 +20,7 @@ namespace Avalanche
         private float _exposedSeconds;
         private float _previousPeakDepth;
         public string CitizenId => _citizenId;
+        public int PlacementId { get; private set; }
         public string Zone => _zone;
         public float Exposure { get; private set; }
         public float Depth { get; private set; }
@@ -74,6 +75,45 @@ namespace Avalanche
         public void Configure(string id, string zone, Transform visual, Renderer marker)
         {
             _citizenId = id; _zone = zone; _visual = visual; _marker = marker;
+        }
+
+        /// <summary>배치 위치에 충돌체가 없는 시민 외형과 목표 컴포넌트를 생성한다.</summary>
+        public static AvalancheCitizen Create(int id, Vector3 position, Transform parent, Material coat, Material skin, Material marker)
+        {
+            GameObject root = new GameObject($"Citizen {id + 1:00}");
+            root.transform.SetParent(parent, false);
+            root.transform.position = position;
+            Transform visual = new GameObject("Visual").transform;
+            visual.SetParent(root.transform, false);
+            CreateVisual("Coat", PrimitiveType.Capsule, visual, Vector3.up * 0.85f, new Vector3(0.55f, 0.5f, 0.42f), coat);
+            CreateVisual("Head", PrimitiveType.Sphere, visual, Vector3.up * 1.48f, Vector3.one * 0.36f, skin);
+            for (int i = -1; i <= 1; i += 2)
+            {
+                CreateVisual("Boot", PrimitiveType.Cube, visual, new Vector3(i * 0.15f, 0.2f, 0f), new Vector3(0.18f, 0.4f, 0.25f), marker);
+                GameObject arm = CreateVisual("Arm", PrimitiveType.Capsule, visual, new Vector3(i * 0.34f, 0.9f, 0f), new Vector3(0.15f, 0.27f, 0.15f), coat);
+                arm.transform.localRotation = Quaternion.Euler(0f, 0f, i * 16f);
+            }
+            Renderer beacon = CreateVisual("Status beacon", PrimitiveType.Sphere, root.transform, Vector3.up * 2.05f, Vector3.one * 0.23f, marker).GetComponent<Renderer>();
+            AvalancheCitizen citizen = root.AddComponent<AvalancheCitizen>();
+            citizen.PlacementId = id;
+            citizen.Configure($"시민 {id + 1:00}", "보호 대상", visual, beacon);
+            citizen.ResetState();
+            return citizen;
+        }
+
+        /// <summary>시민의 장식용 형상을 생성하고 배치 및 유체 계산에 충돌하지 않게 한다.</summary>
+        private static GameObject CreateVisual(string name, PrimitiveType type, Transform parent, Vector3 position, Vector3 scale, Material material)
+        {
+            GameObject part = GameObject.CreatePrimitive(type);
+            part.name = name;
+            part.layer = 2;
+            part.transform.SetParent(parent, false);
+            part.transform.localPosition = position;
+            part.transform.localScale = scale;
+            part.GetComponent<Collider>().enabled = false;
+            Destroy(part.GetComponent<Collider>());
+            part.GetComponent<Renderer>().sharedMaterial = material;
+            return part;
         }
 
         /// <summary>Resets all danger history for a new or restored attempt.</summary>

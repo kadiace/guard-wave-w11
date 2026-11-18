@@ -30,6 +30,22 @@ namespace GuardWave
                 if (entry.materialId == materialId) return entry.placementLimit;
             return -1;
         }
+
+        /// <summary>해당 항목이 스테이지의 필수 배치 목표인지 반환한다.</summary>
+        public bool IsTargetMaterial(string materialId)
+        {
+            foreach (GuardWavePaletteEntry entry in palette)
+                if (entry.target && entry.materialId == materialId) return true;
+            return false;
+        }
+
+        /// <summary>필수 목표 항목의 남은 배치 수를 조회하여 배치 완료 여부를 반환한다.</summary>
+        public bool AreTargetsPlaced(Func<string, int> getRemainingPlacements)
+        {
+            foreach (GuardWavePaletteEntry entry in palette)
+                if (entry.target && getRemainingPlacements(entry.materialId) > 0) return false;
+            return true;
+        }
     }
 
     /// <summary>스테이지별 설정에 따라 준비시간을 초기화하고 경과시킨다.</summary>

@@ -1090,21 +1090,14 @@ namespace GuardWave
         /// <summary>True for mandatory palette entries defined by the stage JSON.</summary>
         public bool IsTargetMaterial(string materialId)
         {
-            if (_stageInfo?.palette == null) return false;
-            foreach (GuardWavePaletteEntry entry in _stageInfo.palette)
-                if (entry.target && entry.materialId == materialId) return true;
-            return false;
+            return _stageInfo?.palette != null && _stageInfo.IsTargetMaterial(materialId);
         }
 
         public bool AllTargetsPlaced
         {
             get
             {
-                if (_stageInfo?.palette == null) return false;
-                foreach (GuardWavePaletteEntry entry in _stageInfo.palette)
-                    if (entry.target && GetRemainingPlacements(entry.materialId) > 0)
-                        return false;
-                return true;
+                return _stageInfo?.palette != null && _stageInfo.AreTargetsPlaced(GetRemainingPlacements);
             }
         }
 

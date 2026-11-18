@@ -1,3 +1,5 @@
+using System.Collections.Generic;
+
 using UnityEngine;
 
 using UnityEngine.InputSystem;
@@ -17,7 +19,6 @@ namespace Avalanche
         [SerializeField] private Camera _viewCamera;
         [SerializeField] private MeshCollider _ground;
         [SerializeField] private MeshFilter _waterSurface;
-        [SerializeField] private AvalancheCitizen[] _citizens;
         [SerializeField] private Font _font;
 
         [Header("Construction catalog")]
@@ -66,7 +67,7 @@ namespace Avalanche
         private StagePauseMenu _pauseMenu;
         public Camera ViewCamera => _viewCamera;
         public MeshCollider Ground => _ground;
-        public AvalancheCitizen[] Citizens => _citizens;
+        public IReadOnlyList<AvalancheCitizen> Citizens => Construction.Citizens;
         public Font Font => _font;
         public Material PanelMaterial => _panelMaterial;
         public Material SandbagMaterial => _stoneMaterial;
@@ -79,6 +80,7 @@ namespace Avalanche
         public AvalanchePhase Phase { get; private set; } = AvalanchePhase.Introduction;
         public bool Paused { get; private set; }
         public bool CanEdit => Phase == AvalanchePhase.Preparing && !Paused;
+        public bool AllTargetsPlaced => _stageInfo.AreTargetsPlaced(Construction.GetRemainingPlacements);
         public float PreparationLeft => _preparationClock.Remaining;
         internal bool LimitPreparationTime => _preparationClock.Enabled;
         internal float PreparationSeconds => _stageInfo.countdownSeconds;
@@ -93,10 +95,10 @@ namespace Avalanche
         public int Attempt { get; private set; } = 1;
 
         /// <summary>Assigns authored scene references and dedicated Avalanche assets.</summary>
-        public void Configure(Camera view, MeshCollider ground, MeshFilter water, AvalancheCitizen[] citizens, Font font,
+        public void Configure(Camera view, MeshCollider ground, MeshFilter water, Font font,
             Material panel, Material stone, Material preview, Material line, PhysicsMaterial friction)
         {
-            _viewCamera = view; _ground = ground; _waterSurface = water; _citizens = citizens; _font = font;
+            _viewCamera = view; _ground = ground; _waterSurface = water; _font = font;
             _panelMaterial = panel; _stoneMaterial = stone; _previewMaterial = preview; _lineMaterial = line; _friction = friction;
         }
 
@@ -119,7 +121,6 @@ namespace Avalanche
             _pauseMenu = Instantiate(Resources.Load<StagePauseMenu>("Prefabs/UIs/StagePauseMenu"), transform);
             _pauseMenu.Initialize(() => Phase != AvalanchePhase.Introduction && !IsFinished(),
                 SetPaused, () => Retry(true));
-            foreach (var citizen in _citizens) citizen.ResetState();
         }
 
         private void Update()
@@ -166,9 +167,9 @@ namespace Avalanche
             _sampleClock += dt;
             if (_sampleClock >= _citizenSampleInterval - 0.0001f)
             {
-                foreach (var citizen in _citizens) citizen.Observe(_water, _sampleClock, _citizenRisk);
+                foreach (var citizen in Citizens) citizen.Observe(_water, _sampleClock, _citizenRisk);
                 bool settled = true;
-                foreach (var citizen in _citizens)
+                foreach (var citizen in Citizens)
                 {
                     settled &= !citizen.HasUnsettledWater;
                     if (citizen.State != AvalancheCitizenState.RescueRequired) continue;
@@ -179,11 +180,11 @@ namespace Avalanche
                 _sampleClock = 0f;
             }
             bool allSafe = true;
-            foreach (var citizen in _citizens) allSafe &= citizen.SafeSeconds >= _citizenSafeSeconds && !citizen.InDanger;
+            foreach (var citizen in Citizens) allSafe &= citizen.SafeSeconds >= _citizenSafeSeconds && !citizen.InDanger;
             if (Phase == AvalanchePhase.Assessing && FloodElapsed >= InflowEnd + _tailObservationSeconds && _stableClock >= _settledWaterSeconds && allSafe)
             {
-                foreach (var citizen in _citizens) citizen.Protect();
-                End(AvalanchePhase.Cleared, "두 차례의 홍수가 지나갔으며 여섯 시민 모두 안전합니다.");
+                foreach (var citizen in Citizens) citizen.Protect();
+                End(AvalanchePhase.Cleared, $"두 차례의 홍수가 지나갔으며 시민 {Citizens.Count}명 모두 안전합니다.");
             }
             else if (_attemptClock >= _attemptLimitSeconds)
                 End(AvalanchePhase.Failed, "시민 주변에 잔류 홍수 위험이 남아 있습니다.\n물길이 시민을 지나지 않도록 배치를 수정하세요.");
@@ -212,7 +213,7 @@ namespace Avalanche
         /// <summary>Finalizes edits and saves the layout before locking tools for the warning.</summary>
         public void Ready()
         {
-            if (!CanEdit) return;
+            if (!CanEdit || !AllTargetsPlaced) return;
             Construction.SaveCheckpoint();
             _warningClock = _attemptClock = 0f;
             Phase = AvalanchePhase.Warning;
@@ -247,7 +248,7 @@ namespace Avalanche
         {
             Construction.ResetLayout(empty);
             _water.Reset();
-            foreach (var citizen in _citizens) citizen.ResetState();
+            foreach (var citizen in Citizens) citizen.ResetState();
             _warningClock = _sampleClock = _stableClock = _attemptClock = FloodElapsed = 0f;
             _preparationClock.Reset();
             ResultMessage = "";

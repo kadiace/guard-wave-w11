@@ -99,7 +99,7 @@ namespace Avalanche
             Fill(new Rect(24, 22, 5, 50), AQUA);
             Label(44, 15, 330, 25, "FLOOD / 02     RIVERSIDE", AQUA, 16);
             GUI.Label(new Rect(44, 40, 440, 44), "마을을 지키는 물길", _title);
-            Label(550, 20, 470, 30, "목표  ·  시민 6명 모두 보호", PAPER, 23);
+            Label(550, 20, 470, 30, $"목표  ·  시민 {_stage.Construction.StartingCitizens}명 모두 보호", PAPER, 23);
             string phase = _stage.Phase switch
             {
                 AvalanchePhase.Introduction => "배치를 설계하고 두 차례 홍수에 대비하세요",
@@ -118,27 +118,21 @@ namespace Avalanche
             if (Button(new Rect(1410, 22, 164, 50), _stage.Paused ? "계속하기" : "일시정지", PAPER)) _stage.TogglePause();
         }
 
-        /// <summary>Displays each district's citizen risk and provides camera focus.</summary>
+        /// <summary>배치된 시민의 위험도와 목표 배치 수를 표시하고 카메라 초점을 제공한다.</summary>
         private void DrawCitizens()
         {
             Fill(new Rect(24, 116, 258, 539), INK);
-            Label(42, 128, 225, 42, "시민 위험 현황", AQUA, 19);
-            for (int zone = 0; zone < 3; zone++)
+            Label(42, 128, 225, 42, $"시민 {_stage.Citizens.Count} / {_stage.Construction.StartingCitizens}", AQUA, 19);
+            for (int i = 0; i < _stage.Citizens.Count; i++)
             {
-                float y = 170 + zone * 151;
-                AvalancheCitizen first = _stage.Citizens[zone * 2];
-                if (Button(new Rect(40, y, 226, 32), first.Zone + "   ↗", new Color(0.73f, 0.83f, 0.8f)))
-                    _stage.ViewCamera.GetComponent<StageCameraController>().Focus(first.transform.position);
-                for (int j = 0; j < 2; j++)
-                {
-                    AvalancheCitizen citizen = _stage.Citizens[zone * 2 + j];
-                    Color color = CitizenColor(citizen);
-                    float row = y + 35 + j * 24;
-                    Label(42, row, 104, 24, citizen.CitizenId, PAPER, 16);
-                    Fill(new Rect(111, row + 9, 106, 8), new Color(0.2f, 0.29f, 0.32f));
-                    Fill(new Rect(111, row + 9, 106 * citizen.Exposure / 100f, 8), color);
-                    Label(223, row - 1, 44, 24, $"{citizen.Exposure:0}", color, 17);
-                }
+                AvalancheCitizen citizen = _stage.Citizens[i];
+                float y = 170 + i * 70;
+                if (Button(new Rect(40, y, 226, 32), citizen.CitizenId + "   ↗", new Color(0.73f, 0.83f, 0.8f)))
+                    _stage.ViewCamera.GetComponent<StageCameraController>().Focus(citizen.transform.position);
+                Color color = CitizenColor(citizen);
+                Fill(new Rect(42, y + 45, 175, 8), new Color(0.2f, 0.29f, 0.32f));
+                Fill(new Rect(42, y + 45, 175 * citizen.Exposure / 100f, 8), color);
+                Label(223, y + 35, 44, 24, $"{citizen.Exposure:0}", color, 17);
             }
             if (Button(new Rect(40, 618, 226, 25), "전체 마을 보기 · Home", AQUA)) _stage.ViewCamera.GetComponent<StageCameraController>().Overview();
         }
@@ -171,13 +165,15 @@ namespace Avalanche
                 $"1  물막이판\n{build.Panels} / {build.StartingPanels}개",
                 $"2  모래주머니\n{build.Sandbags} / {build.StartingSandbags}개",
                 $"3  접합 블록\n{build.Adhesive} / {build.StartingAdhesive}개",
-                "4  회수\n자재 또는 접합 블록 클릭"
+                "4  회수\n배치물 클릭",
+                $"5  시민\n{build.RemainingCitizens} / {build.StartingCitizens}명"
             };
             GUI.enabled = _stage.CanEdit;
             for (int i = 0; i < names.Length; i++)
-                if (Button(new Rect(24 + i * 262, 809, 248, 66), names[i], (int)build.Tool == i ? AQUA : PAPER)) build.SelectTool((AvalancheTool)i);
+                if (Button(new Rect(24 + i * 210, 809, 198, 66), names[i], (int)build.Tool == i ? AQUA : PAPER)) build.SelectTool((AvalancheTool)i);
             if (Button(new Rect(1083, 809, 174, 66), "되돌리기\nCtrl + Z", PAPER)) build.Undo();
-            if (Button(new Rect(1270, 809, 306, 66), "준비 완료  →  홍수 시작", GOLD)) _stage.Ready();
+            GUI.enabled = _stage.CanEdit && _stage.AllTargetsPlaced;
+            if (Button(new Rect(1270, 809, 306, 66), _stage.AllTargetsPlaced ? "준비 완료  →  홍수 시작" : "시민을 모두 배치하세요", GOLD)) _stage.Ready();
             GUI.enabled = !_stage.Paused;
             Label(306, 720, 990, 27, "WASD 이동  ·  휠 확대  ·  우클릭 드래그 회전  ·  중클릭 드래그 이동  ·  Esc 일시정지", INK, 16);
         }
@@ -186,21 +182,19 @@ namespace Avalanche
         private static Color CitizenColor(AvalancheCitizen citizen) => citizen.State == AvalancheCitizenState.Critical || citizen.State == AvalancheCitizenState.RescueRequired
             ? new Color(1f, 0.36f, 0.29f) : citizen.State == AvalancheCitizenState.Warning ? GOLD : AQUA;
 
-        /// <summary>Overlays observations above each zone, even when structures obscure the figures.</summary>
+        /// <summary>각 시민 위에 수심과 유속 관측값을 표시한다.</summary>
         private void DrawWorldMarkers()
         {
-            for (int i = 0; i < _stage.Citizens.Length; i += 2)
+            for (int i = 0; i < _stage.Citizens.Count; i++)
             {
-                AvalancheCitizen first = _stage.Citizens[i];
-                AvalancheCitizen second = _stage.Citizens[i + 1];
-                AvalancheCitizen citizen = second.Exposure > first.Exposure || second.Depth > first.Depth ? second : first;
-                Vector3 screen = _stage.ViewCamera.WorldToScreenPoint(first.transform.position + new Vector3(0.65f, 3f, 0f));
+                AvalancheCitizen citizen = _stage.Citizens[i];
+                Vector3 screen = _stage.ViewCamera.WorldToScreenPoint(citizen.transform.position + Vector3.up * 3f);
                 if (screen.z <= 0f) continue;
                 float x = screen.x / Screen.width * 1600f - 85f;
-                float y = (1f - screen.y / Screen.height) * 900f - (i == 2 ? 94f : 75f);
+                float y = (1f - screen.y / Screen.height) * 900f - 75f;
                 if (x < 294f || x + 172f > 1310f || y < 104f || y > 660f) continue;
                 Fill(new Rect(x, y, 172, 58), INK);
-                Label(x + 9, y + 5, 155, 26, citizen.Zone, CitizenColor(citizen), 17);
+                Label(x + 9, y + 5, 155, 26, citizen.CitizenId, CitizenColor(citizen), 17);
                 Label(x + 9, y + 31, 155, 23, $"{citizen.Depth:0.00}m  /  {citizen.Speed:0.0}m/s", PAPER, 15);
             }
         }
@@ -223,7 +217,7 @@ namespace Avalanche
                 ? $"{_stage.PreparationSeconds:0.##}초 동안"
                 : "준비 단계에서";
             Label(470, 301, 660, 220,
-                $"시장 · 광장 · 정류장에 시민 두 명씩이 있습니다.\n\n{preparation} 물막이판으로 물을 우회시키고 모래주머니로 낮은 틈을 보강하세요. 시민 주변의 수심과 유속을 관찰해 모든 시민을 보호하세요.", PAPER, 21);
+                $"보호할 시민 {_stage.Construction.StartingCitizens}명을 직접 배치하세요.\n\n{preparation} 물막이판으로 물을 우회시키고 모래주머니로 낮은 틈을 보강하세요. 시민 주변의 수심과 유속을 관찰해 모든 시민을 보호하세요.", PAPER, 21);
             Label(470, 538, 660, 60, "접합 블록을 놓으면 닿는 자재가 자동으로 연결됩니다. 배치는 경보 전에 끝내세요.", GOLD, 19);
             if (Button(new Rect(470, 620, 660, 52), "마을 지키기 시작   ·   Enter", AQUA)) _stage.BeginPreparation();
         }
@@ -231,7 +225,7 @@ namespace Avalanche
         /// <summary>Shows the observed result and restoration or empty-layout choices.</summary>
         private void DrawResult()
         {
-            Modal("시도 결과", _stage.Phase == AvalanchePhase.Cleared ? "여섯 시민을 지켰습니다." : _stage.Phase == AvalanchePhase.TechnicalError ? "다시 시도할 수 있습니다." : "물길을 다시 설계해 주세요.");
+            Modal("시도 결과", _stage.Phase == AvalanchePhase.Cleared ? "시민 모두를 지켰습니다." : _stage.Phase == AvalanchePhase.TechnicalError ? "다시 시도할 수 있습니다." : "물길을 다시 설계해 주세요.");
             Label(470, 304, 660, 160, _stage.ResultMessage, PAPER, 22);
             var build = _stage.Construction;
             Label(470, 483, 660, 58, $"사용한 물막이판 {build.StartingPanels - build.Panels}개 · 모래주머니 {build.StartingSandbags - build.Sandbags}개 · 접합 블록 {build.StartingAdhesive - build.Adhesive}개", MUTED, 19);

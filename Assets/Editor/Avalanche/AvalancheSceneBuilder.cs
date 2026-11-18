@@ -29,7 +29,7 @@ namespace Avalanche.Editor
             Create();
         }
 
-        /// <summary>Creates a new authored village with terrain, six citizens, dedicated art and a playable context.</summary>
+        /// <summary>Creates a village with terrain, dedicated art and a playable stage context.</summary>
         public static void Create()
         {
             if (File.Exists(SCENE_PATH)) throw new InvalidOperationException("Avalanche already exists; creation never overwrites a scene.");
@@ -47,7 +47,6 @@ namespace Avalanche.Editor
             var cream = Material("Plaster", new Color(0.86f, 0.85f, 0.7f));
             var red = Material("Terracotta", new Color(0.66f, 0.29f, 0.22f));
             var teal = Material("Teal", new Color(0.16f, 0.6f, 0.55f));
-            var yellow = Material("Ochre", new Color(0.95f, 0.72f, 0.25f));
             var green = Material("Foliage", new Color(0.29f, 0.46f, 0.35f));
             var line = Material("Adhesive", Color.white, Shader.Find("Universal Render Pipeline/Particles/Unlit"));
             var preview = Material("Placement", new Color(0.25f, 0.9f, 0.7f, 0.45f));
@@ -88,17 +87,6 @@ namespace Avalanche.Editor
                     if (i % 2 == 0) House(new Vector3(side * 23.6f, 0f, z + 4), cream, i % 4 == 0 ? red : teal, dark, decor);
                 }
             }
-            var zones = new[] { new Vector3(-10, 0.25f, 26), new Vector3(0, 0.35f, 16), new Vector3(10, 0.25f, 14) };
-            var zoneNames = new[] { "A · 시장", "B · 광장", "C · 정류장" };
-            var citizens = new List<AvalancheCitizen>();
-            var citizenRoot = new GameObject("Citizens - six protected objectives").transform;
-            for (int zone = 0; zone < 3; zone++)
-            {
-                Vector3 center = zones[zone];
-                Ring(center + Vector3.up * 0.025f, 1.6f, line, citizenRoot);
-                for (int i = 0; i < 2; i++)
-                    citizens.Add(Citizen($"{(char)('A' + zone)}-{i + 1}", zoneNames[zone], center + new Vector3(i == 0 ? -0.65f : 0.65f, 0, 0), i == 0 ? teal : yellow, cream, dark, citizenRoot));
-            }
             Market(new Vector3(-16.6f, 0.15f, 26), panel, red, cream, decor);
             BusStop(new Vector3(16.5f, 0.15f, 14), teal, dark, cream, decor);
             Box("Square bench", new Vector3(0, 0.45f, 12.6f), new Vector3(2.3f, 0.2f, 0.6f), panel, decor);
@@ -128,7 +116,7 @@ namespace Avalanche.Editor
             camera.gameObject.AddComponent<AudioListener>();
             camera.gameObject.AddComponent<StageCameraController>();
             var stage = new GameObject("Avalanche - stage context").AddComponent<AvalancheStage>();
-            stage.Configure(camera, collider, waterFilter, citizens.ToArray(),
+            stage.Configure(camera, collider, waterFilter,
                 AssetDatabase.LoadAssetAtPath<Font>("Assets/TextMesh Pro/Resources/Fonts & Materials/NotoSansKR.ttf"), panel, stone, preview, line, friction);
             EditorSceneManager.SaveScene(scene, SCENE_PATH);
             var scenes = new List<EditorBuildSettingsScene>(EditorBuildSettings.scenes);
@@ -197,40 +185,6 @@ namespace Avalanche.Editor
             Box("Bus shelter seat", p + Vector3.up * 0.6f, new Vector3(0.8f, 0.18f, 2.8f), seat, parent);
             for (int i = -1; i <= 1; i += 2)
                 Box("Shelter post", p + new Vector3(0.9f, 1.3f, i * 1.4f), new Vector3(0.12f, 2.6f, 0.12f), frame, parent);
-        }
-
-        /// <summary>Authors a citizen with separate fixed objective position and animated visual body.</summary>
-        private static AvalancheCitizen Citizen(string id, string zone, Vector3 point, Material coat, Material skin, Material marker, Transform parent)
-        {
-            var root = new GameObject("Citizen " + id);
-            root.transform.SetParent(parent, false);
-            root.transform.position = point;
-            var visual = new GameObject("Visual").transform;
-            visual.SetParent(root.transform, false);
-            Primitive("Coat", PrimitiveType.Capsule, point + Vector3.up * 0.85f, new Vector3(0.55f, 0.5f, 0.42f), coat, visual);
-            Primitive("Head", PrimitiveType.Sphere, point + Vector3.up * 1.48f, Vector3.one * 0.36f, skin, visual);
-            for (int i = -1; i <= 1; i += 2)
-            {
-                Box("Boot", point + new Vector3(i * 0.15f, 0.2f, 0), new Vector3(0.18f, 0.4f, 0.25f), marker, visual);
-                var arm = Primitive("Arm", PrimitiveType.Capsule, point + new Vector3(i * 0.34f, 0.9f, 0), new Vector3(0.15f, 0.27f, 0.15f), coat, visual);
-                arm.transform.rotation = Quaternion.Euler(0, 0, i * 16);
-            }
-            Renderer beacon = Primitive("Status beacon", PrimitiveType.Sphere, point + Vector3.up * 2.05f, Vector3.one * 0.23f, marker, root.transform).GetComponent<Renderer>();
-            AvalancheCitizen citizen = root.AddComponent<AvalancheCitizen>();
-            citizen.Configure(id, zone, visual, beacon);
-            return citizen;
-        }
-
-        /// <summary>Marks a reserved citizen terrace without adding a fluid-blocking collider.</summary>
-        private static void Ring(Vector3 center, float radius, Material material, Transform parent)
-        {
-            var line = new GameObject("Citizen terrace boundary").AddComponent<LineRenderer>();
-            line.transform.SetParent(parent, false);
-            line.sharedMaterial = material;
-            line.positionCount = 49;
-            line.startWidth = line.endWidth = 0.065f;
-            line.startColor = line.endColor = new Color(0.98f, 0.87f, 0.47f);
-            for (int i = 0; i <= 48; i++) line.SetPosition(i, center + new Vector3(Mathf.Cos(i * Mathf.PI / 24), 0, Mathf.Sin(i * Mathf.PI / 24)) * radius);
         }
 
         /// <summary>Paints a static flow forecast on the channel bed, distinct from animated water.</summary>
