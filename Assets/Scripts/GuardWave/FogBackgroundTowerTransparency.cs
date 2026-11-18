@@ -6,21 +6,25 @@ using UnityEngine.Rendering;
 namespace GuardWave
 {
     /// <summary>
-    /// Fades background tower opacity linearly over the outer 0%-5% viewport margins,
-    /// using the tower's projected bounds center. Its outline shares the same opacity.
+    /// Fades West/East background towers according to signed camera yaw relative
+    /// to the camera's initial direction, preserving colliders and render order.
     /// </summary>
     [DisallowMultipleComponent]
     public sealed class FogBackgroundTowerTransparency : MonoBehaviour
     {
-        [Header("Viewport fade")]
-        [SerializeField, Range(0f, 0.5f)] private float _fadeThresholdFromEdgeFraction = 0f;
-        [SerializeField, Range(0.01f, 0.5f)] private float _fullFadeFromEdgeFraction = 0.05f;
+        private enum TowerSide { West, East }
+
+        [Header("Camera yaw fade (relative to initial view)")]
+        [SerializeField] private TowerSide _towerSide = TowerSide.West;
+        [SerializeField, Range(0f, 180f)] private float _yawThresholdDegrees = 5f;
         [SerializeField, Range(0f, 1f)] private float _transparentOpacity = 0.05f;
         [SerializeField, Min(0.01f)] private float _outlineWidth = 0.18f;
         [SerializeField] private Color _outlineColor = new Color(0.12f, 0.19f, 0.24f, 1f);
         [SerializeField] private Shader _fadeShader;
 
         private Camera _camera;
+        private float _initialCameraYaw;
+        private bool _hasInitialCameraYaw;
         private Collider _buildingCollider;
         private Renderer[] _renderers;
         private Material[][] _originalMaterials;
@@ -34,6 +38,7 @@ namespace GuardWave
         private void Awake()
         {
             _camera = Camera.main;
+            CaptureInitialCameraYaw();
             _buildingCollider = GetComponent<Collider>();
             _renderers = GetComponentsInChildren<Renderer>(true);
             _originalMaterials = new Material[_renderers.Length][];
@@ -54,19 +59,32 @@ namespace GuardWave
         {
             if (_camera == null) _camera = Camera.main;
             if (_camera == null || _buildingCollider == null || _fadeShader == null) return;
+            if (!_hasInitialCameraYaw) CaptureInitialCameraYaw();
 
-            float fadeAmount = GetViewportFadeAmount(_buildingCollider.bounds);
-            if (fadeAmount <= 0f)
+            // Fog starts with a 45-degree world Y rotation. Measure the user's
+            // +/-5-degree scroll rotation from that initial pose, not world zero.
+            float yawDelta = Mathf.DeltaAngle(_initialCameraYaw,
+                _camera.transform.eulerAngles.y);
+            bool shouldFade = _towerSide == TowerSide.West
+                ? yawDelta >= _yawThresholdDegrees
+                : yawDelta <= -_yawThresholdDegrees;
+            if (!shouldFade)
             {
                 if (_usingFadeMaterials) RestoreOriginalMaterials();
                 return;
             }
 
-            float opacity = Mathf.Lerp(1f, _transparentOpacity, fadeAmount);
-            bool opacityChanged = !Mathf.Approximately(_currentOpacity, opacity);
-            _currentOpacity = opacity;
+            bool opacityChanged = !Mathf.Approximately(_currentOpacity, _transparentOpacity);
+            _currentOpacity = _transparentOpacity;
             if (!_usingFadeMaterials) UseFadeMaterials();
             else if (opacityChanged) UpdateOpacity();
+        }
+
+        private void CaptureInitialCameraYaw()
+        {
+            if (_camera == null) return;
+            _initialCameraYaw = _camera.transform.eulerAngles.y;
+            _hasInitialCameraYaw = true;
         }
 
         private void OnDisable()
@@ -82,47 +100,6 @@ namespace GuardWave
             foreach (Material material in _fadeMaterials.Values)
                 Destroy(material);
             _fadeMaterials.Clear();
-        }
-
-        /// <summary>
-        /// Returns the screen-position-based linear fade amount of a visible
-        /// tower: zero at the screen edge, one at the 5% boundary.
-        /// The projected collider-bounds center is the reference point.
-        /// </summary>
-        private float GetViewportFadeAmount(Bounds worldBounds)
-        {
-            Vector3 min = worldBounds.min;
-            Vector3 max = worldBounds.max;
-            float minX = float.PositiveInfinity;
-            float maxX = float.NegativeInfinity;
-            float minY = float.PositiveInfinity;
-            float maxY = float.NegativeInfinity;
-
-            for (int corner = 0; corner < 8; corner++)
-            {
-                Vector3 position = new Vector3(
-                    (corner & 1) == 0 ? min.x : max.x,
-                    (corner & 2) == 0 ? min.y : max.y,
-                    (corner & 4) == 0 ? min.z : max.z);
-                Vector3 viewport = _camera.WorldToViewportPoint(position);
-                if (viewport.z <= 0f) return 0f;
-
-                minX = Mathf.Min(minX, viewport.x);
-                maxX = Mathf.Max(maxX, viewport.x);
-                minY = Mathf.Min(minY, viewport.y);
-                maxY = Mathf.Max(maxY, viewport.y);
-            }
-
-            if (maxX <= 0f || minX >= 1f || maxY <= 0f || minY >= 1f)
-                return 0f;
-
-            // Fade each tower as a whole based on its projected center, so
-            // upper and lower floors share the same alpha at every position.
-            Vector3 centerViewport = _camera.WorldToViewportPoint(worldBounds.center);
-            float distanceFromEdge = Mathf.Min(centerViewport.x, 1f - centerViewport.x);
-            float fadeStart = _fadeThresholdFromEdgeFraction;
-            float fadeEnd = Mathf.Max(fadeStart + 0.0001f, _fullFadeFromEdgeFraction);
-            return Mathf.Clamp01((distanceFromEdge - fadeStart) / (fadeEnd - fadeStart));
         }
 
         /// <summary>
@@ -147,7 +124,7 @@ namespace GuardWave
                     {
                         replacement = new Material(_fadeShader)
                         {
-                            name = source.name + " (West Background Fade)"
+                            name = source.name + " (Background Fade)"
                         };
                         if (source.HasProperty("_BaseColor"))
                             replacement.SetColor("_BaseColor", source.GetColor("_BaseColor"));
@@ -160,8 +137,8 @@ namespace GuardWave
                     replacements[slot] = replacement;
                 }
 
-                // Set the current position-based alpha before the material swap
-                // so entering the fade region does not flash an unrelated alpha.
+                // Apply the angle-triggered alpha before swapping materials
+                // to avoid a one-frame flash at the threshold.
                 renderer.GetPropertyBlock(_propertyBlock);
                 _propertyBlock.SetFloat("_Opacity", _currentOpacity);
                 _propertyBlock.SetVector("_WorldBoundsMin", bounds.min);
@@ -194,8 +171,7 @@ namespace GuardWave
         }
 
         /// <summary>
-        /// Updates wall, window and edge transparency from current projected
-        /// position using the same alpha across all renderers in this tower.
+        /// Updates wall, window and edge opacity consistently across the tower.
         /// </summary>
         private void UpdateOpacity()
         {
@@ -209,8 +185,8 @@ namespace GuardWave
         }
 
         /// <summary>
-        /// Restores opaque materials and original shadow settings when the tower
-        /// leaves the fade region or the component is deactivated.
+        /// Restores opaque materials and original shadows below the yaw threshold
+        /// or when the component is deactivated.
         /// </summary>
         private void RestoreOriginalMaterials()
         {

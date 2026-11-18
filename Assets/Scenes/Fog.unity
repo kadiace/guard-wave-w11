@@ -260,7 +260,10 @@ PrefabInstance:
     m_RemovedComponents: []
     m_RemovedGameObjects: []
     m_AddedGameObjects: []
-    m_AddedComponents:\n    - targetCorrespondingSourceObject: {fileID: 6001000001, guid: 16cfb8273f944aefb59581c51ddc248c, type: 3}\n      insertIndex: -1\n      addedObject: {fileID: 9000001001}
+    m_AddedComponents:
+    - targetCorrespondingSourceObject: {fileID: 6001000001, guid: 16cfb8273f944aefb59581c51ddc248c, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 9000001001}
   m_SourcePrefab: {fileID: 100100000, guid: 16cfb8273f944aefb59581c51ddc248c, type: 3}
 --- !u!1001 &560976380
 PrefabInstance:
@@ -289,7 +292,10 @@ PrefabInstance:
     m_RemovedComponents: []
     m_RemovedGameObjects: []
     m_AddedGameObjects: []
-    m_AddedComponents:\n    - targetCorrespondingSourceObject: {fileID: 6001000001, guid: 16cfb8273f944aefb59581c51ddc248c, type: 3}\n      insertIndex: -1\n      addedObject: {fileID: 9000001002}
+    m_AddedComponents:
+    - targetCorrespondingSourceObject: {fileID: 6001000001, guid: 16cfb8273f944aefb59581c51ddc248c, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 9000001002}
   m_SourcePrefab: {fileID: 100100000, guid: 16cfb8273f944aefb59581c51ddc248c, type: 3}
 --- !u!1001 &655165482
 PrefabInstance:
@@ -318,7 +324,10 @@ PrefabInstance:
     m_RemovedComponents: []
     m_RemovedGameObjects: []
     m_AddedGameObjects: []
-    m_AddedComponents:\n    - targetCorrespondingSourceObject: {fileID: 6001000001, guid: 16cfb8273f944aefb59581c51ddc248c, type: 3}\n      insertIndex: -1\n      addedObject: {fileID: 9000001003}
+    m_AddedComponents:
+    - targetCorrespondingSourceObject: {fileID: 6001000001, guid: 16cfb8273f944aefb59581c51ddc248c, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 9000001003}
   m_SourcePrefab: {fileID: 100100000, guid: 16cfb8273f944aefb59581c51ddc248c, type: 3}
 --- !u!1 &898836647
 GameObject:
@@ -13453,7 +13462,10 @@ PrefabInstance:
     m_RemovedComponents: []
     m_RemovedGameObjects: []
     m_AddedGameObjects: []
-    m_AddedComponents: []
+    m_AddedComponents:
+    - targetCorrespondingSourceObject: {fileID: 6001000001, guid: 16cfb8273f944aefb59581c51ddc248c, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 9000002001}
   m_SourcePrefab: {fileID: 100100000, guid: 16cfb8273f944aefb59581c51ddc248c, type: 3}
 --- !u!1001 &8000000103
 PrefabInstance:
@@ -13482,7 +13494,10 @@ PrefabInstance:
     m_RemovedComponents: []
     m_RemovedGameObjects: []
     m_AddedGameObjects: []
-    m_AddedComponents: []
+    m_AddedComponents:
+    - targetCorrespondingSourceObject: {fileID: 6001000001, guid: 16cfb8273f944aefb59581c51ddc248c, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 9000002002}
   m_SourcePrefab: {fileID: 100100000, guid: 16cfb8273f944aefb59581c51ddc248c, type: 3}
 --- !u!1001 &8000000105
 PrefabInstance:
@@ -13511,7 +13526,10 @@ PrefabInstance:
     m_RemovedComponents: []
     m_RemovedGameObjects: []
     m_AddedGameObjects: []
-    m_AddedComponents: []
+    m_AddedComponents:
+    - targetCorrespondingSourceObject: {fileID: 6001000001, guid: 16cfb8273f944aefb59581c51ddc248c, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 9000002003}
   m_SourcePrefab: {fileID: 100100000, guid: 16cfb8273f944aefb59581c51ddc248c, type: 3}
 --- !u!1 &9000001011 stripped
 GameObject:
@@ -13530,8 +13548,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a9a2b014c3e44d0e94fd74c92b6917cb, type: 3}
   m_Name:
   m_EditorClassIdentifier: Assembly-CSharp::GuardWave.FogBackgroundTowerTransparency
-  _fadeThresholdFromEdgeFraction: 0
-  _fullFadeFromEdgeFraction: 0.05
+  _towerSide: 0
+  _yawThresholdDegrees: 5
   _transparentOpacity: 0.05
   _outlineWidth: 0.18
   _outlineColor: {r: 0.12, g: 0.19, b: 0.24, a: 1}
@@ -13553,8 +13571,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a9a2b014c3e44d0e94fd74c92b6917cb, type: 3}
   m_Name:
   m_EditorClassIdentifier: Assembly-CSharp::GuardWave.FogBackgroundTowerTransparency
-  _fadeThresholdFromEdgeFraction: 0
-  _fullFadeFromEdgeFraction: 0.05
+  _towerSide: 0
+  _yawThresholdDegrees: 5
   _transparentOpacity: 0.05
   _outlineWidth: 0.18
   _outlineColor: {r: 0.12, g: 0.19, b: 0.24, a: 1}
@@ -13576,8 +13594,77 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a9a2b014c3e44d0e94fd74c92b6917cb, type: 3}
   m_Name:
   m_EditorClassIdentifier: Assembly-CSharp::GuardWave.FogBackgroundTowerTransparency
-  _fadeThresholdFromEdgeFraction: 0
-  _fullFadeFromEdgeFraction: 0.05
+  _towerSide: 0
+  _yawThresholdDegrees: 5
+  _transparentOpacity: 0.05
+  _outlineWidth: 0.18
+  _outlineColor: {r: 0.12, g: 0.19, b: 0.24, a: 1}
+  _fadeShader: {fileID: 4800000, guid: 5c3fe0da15dc487598cbf17d65a081b4, type: 3}
+--- !u!1 &9000002011 stripped
+GameObject:
+  m_CorrespondingSourceObject: {fileID: 6001000001, guid: 16cfb8273f944aefb59581c51ddc248c, type: 3}
+  m_PrefabInstance: {fileID: 8000000101}
+  m_PrefabAsset: {fileID: 0}
+--- !u!114 &9000002001
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 8000000101}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 9000002011}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: a9a2b014c3e44d0e94fd74c92b6917cb, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.FogBackgroundTowerTransparency
+  _towerSide: 1
+  _yawThresholdDegrees: 5
+  _transparentOpacity: 0.05
+  _outlineWidth: 0.18
+  _outlineColor: {r: 0.12, g: 0.19, b: 0.24, a: 1}
+  _fadeShader: {fileID: 4800000, guid: 5c3fe0da15dc487598cbf17d65a081b4, type: 3}
+--- !u!1 &9000002012 stripped
+GameObject:
+  m_CorrespondingSourceObject: {fileID: 6001000001, guid: 16cfb8273f944aefb59581c51ddc248c, type: 3}
+  m_PrefabInstance: {fileID: 8000000103}
+  m_PrefabAsset: {fileID: 0}
+--- !u!114 &9000002002
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 8000000103}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 9000002012}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: a9a2b014c3e44d0e94fd74c92b6917cb, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.FogBackgroundTowerTransparency
+  _towerSide: 1
+  _yawThresholdDegrees: 5
+  _transparentOpacity: 0.05
+  _outlineWidth: 0.18
+  _outlineColor: {r: 0.12, g: 0.19, b: 0.24, a: 1}
+  _fadeShader: {fileID: 4800000, guid: 5c3fe0da15dc487598cbf17d65a081b4, type: 3}
+--- !u!1 &9000002013 stripped
+GameObject:
+  m_CorrespondingSourceObject: {fileID: 6001000001, guid: 16cfb8273f944aefb59581c51ddc248c, type: 3}
+  m_PrefabInstance: {fileID: 8000000105}
+  m_PrefabAsset: {fileID: 0}
+--- !u!114 &9000002003
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 8000000105}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 9000002013}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: a9a2b014c3e44d0e94fd74c92b6917cb, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.FogBackgroundTowerTransparency
+  _towerSide: 1
+  _yawThresholdDegrees: 5
   _transparentOpacity: 0.05
   _outlineWidth: 0.18
   _outlineColor: {r: 0.12, g: 0.19, b: 0.24, a: 1}
