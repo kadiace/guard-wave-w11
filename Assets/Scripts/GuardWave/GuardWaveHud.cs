@@ -146,7 +146,7 @@ namespace GuardWave
             _completePopup.SetActive(false);
             _rulesPopup.SetActive(false);
             _tooltip.SetActive(false);
-            _rulesBody.text = $@"진흙을 선택하면 두 물체의 실제 접촉 지점에 노란 반투명 가이드가 표시됩니다.
+            _rulesBody.text = $@"진흙을 선택하면 실제 접촉 지점 또는 XZ 방향 표면 간격 0.35m 이내에 노란 반투명 가이드가 표시됩니다.
 노란 가이드를 클릭하면 타원형 진흙 한 덩어리로 두 물체가 고정 연결됩니다. 드래그로 칠하지 않습니다.
 A-B, A-C처럼 한 물체에 여러 물체를 각각 연결하거나 냇가 바닥에 붙일 수 있습니다.
 진흙과 통나무는 각각 30개로, 초기 배치된 13개를 제외하고 17개씩 남습니다.
