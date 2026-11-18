@@ -515,8 +515,7 @@ namespace GuardWave
                 return false;
 
             Ray ray = _camera.ScreenPointToRay(screen);
-            return Physics.Raycast(ray, out surface, 300f,
-                       Physics.DefaultRaycastLayers, QueryTriggerInteraction.Ignore) &&
+            return TryRaycastIgnoringBackgroundTowers(ray, out surface) &&
                    CanPlaceAt(surface.point);
         }
 
@@ -966,11 +965,48 @@ namespace GuardWave
                 return null;
 
             Ray ray = _camera.ScreenPointToRay(position);
-            if (!Physics.Raycast(ray, out RaycastHit hit, 300f,
-                    Physics.DefaultRaycastLayers, QueryTriggerInteraction.Ignore))
+            if (!TryRaycastIgnoringBackgroundTowers(ray, out RaycastHit hit))
                 return null;
             GuardWavePiece piece = hit.collider.GetComponentInParent<GuardWavePiece>();
             return piece != null && _pieceSet.Contains(piece) ? piece : null;
+        }
+
+        /// <summary>
+        /// Returns the nearest raycast hit that is not a background tower carrying
+        /// FogBackgroundTowerTransparency, independent of the tower's current opacity.
+        /// Leaves its collider enabled for gameplay physics and gas simulation.
+        /// </summary>
+        private bool TryRaycastIgnoringBackgroundTowers(Ray ray, out RaycastHit hit)
+        {
+            const float maxDistance = 300f;
+            const int layerMask = Physics.DefaultRaycastLayers;
+            const QueryTriggerInteraction triggers = QueryTriggerInteraction.Ignore;
+
+            hit = default;
+            if (!Physics.Raycast(ray, out RaycastHit nearest, maxDistance, layerMask, triggers))
+                return false;
+
+            if (nearest.collider.GetComponentInParent<FogBackgroundTowerTransparency>() == null)
+            {
+                hit = nearest;
+                return true;
+            }
+
+            RaycastHit[] hits = Physics.RaycastAll(ray, maxDistance, layerMask, triggers);
+            float nearestDistance = float.PositiveInfinity;
+            bool found = false;
+            foreach (RaycastHit candidate in hits)
+            {
+                if (candidate.distance >= nearestDistance ||
+                    candidate.collider.GetComponentInParent<FogBackgroundTowerTransparency>() != null)
+                    continue;
+
+                hit = candidate;
+                nearestDistance = candidate.distance;
+                found = true;
+            }
+
+            return found;
         }
 
         /// <summary>Highlights one hovered object; scene sticks and placed pieces use the same render layer.</summary>
@@ -1055,6 +1091,7 @@ namespace GuardWave
 
         /// <summary>배치한 기물의 카탈로그 정보를 제공한다.</summary>
         public GuardWaveMaterial GetPieceMaterial(GuardWavePiece piece) => _catalog.Get(piece.MaterialId);
+        public GameObject DefenseFlag => _defenseFlag;
         public bool AwaitingFailure => _awaitingStage;
         public bool IsFinished => _finished;
         public string StatusMessage => _status;
@@ -1239,7 +1276,7 @@ namespace GuardWave
         /// <summary>현재 회전 방향과 주시 위치를 사용해 카메라 위치를 갱신한다.</summary>
         private void UpdateCameraPosition()
         {
-            _camera.transform.position = _cameraTarget - _camera.transform.forward * 40f;
+            _camera.transform.position = _cameraTarget - _camera.transform.forward * _sceneContext.CameraDistance;
         }
 
         /// <summary>모든 배치와 소모품 상태를 초기화하고 기본 발판을 배치한다.</summary>
@@ -1875,6 +1912,21 @@ namespace GuardWave
             _fluid = null;
         }
 
+        /// <summary>
+        /// Fog's continuous toxic exposure shares the existing failure popup and
+        /// snapshot restoration. The flag need not cross Forest's Z boundary.
+        /// </summary>
+        public void FailFromFogExposure()
+        {
+            if (GetComponent<FogSceneController>() == null || _awaitingStage || _finished)
+                return;
+            DestroyDefenseFlag();
+            if (_awaitingStage)
+                _status = _waveSnapshot == null
+                    ? "깃발이 독안개에 5초 이상 노출되었습니다. 확인을 누르면 다시 시작합니다."
+                    : "깃발이 독안개에 5초 이상 노출되었습니다. 확인을 누르면 배치를 복원합니다.";
+        }
+
         /// <summary>깃발이 파괴되면 팝업을 열되 기물의 속도와 Rigidbody 물리는 유지한다.</summary>
         private void DestroyDefenseFlag()
         {
@@ -2323,6 +2375,10 @@ namespace GuardWave
         public void ConfirmFailure()
         {
             if (!_awaitingStage) return;
+            // Fog keeps simulating behind the popup; confirmation is the
+            // explicit point at which its volume and GPU resources are cleared.
+            FogSceneController fogMode = GetComponent<FogSceneController>();
+            if (fogMode != null) fogMode.ResetAfterFailureConfirmation();
             if (_waveSnapshot == null)
             {
                 ClearEditorSceneSelectionBeforeReload();
