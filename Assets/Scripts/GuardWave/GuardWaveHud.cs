@@ -11,12 +11,12 @@ namespace GuardWave
     /// <summary>원본 2D GuardWave UI 프리팹을 3D 물리 게임의 상태와 연결한다.</summary>
     public sealed class GuardWaveHud : MonoBehaviour
     {
-        private readonly Button[] _cards = new Button[4];
-        private readonly Text[] _names = new Text[4];
-        private readonly Text[] _remainingLabels = new Text[4];
-        private readonly Image[] _silhouettes = new Image[4];
-        private readonly Image[] _backgrounds = new Image[4];
-        private readonly string[] _shownIds = new string[4];
+        private readonly Button[] _cards = new Button[5];
+        private readonly Text[] _names = new Text[5];
+        private readonly Text[] _remainingLabels = new Text[5];
+        private readonly Image[] _silhouettes = new Image[5];
+        private readonly Image[] _backgrounds = new Image[5];
+        private readonly string[] _shownIds = new string[5];
         private readonly Dictionary<string, Sprite> _generatedIcons = new Dictionary<string, Sprite>();
 
         private GuardWaveGame _game;
@@ -100,6 +100,8 @@ namespace GuardWave
             _tooltipText.resizeTextMaxSize = 19;
 
             _candidatePanel = transform.Find("CandidateSelectionRow").GetComponent<RectTransform>();
+            if (_game.StageInfo.palette.Length > 4)
+                _candidatePanel.sizeDelta += new Vector2(180f, 0f);
             _candidatePanelShown = _candidatePanel.anchoredPosition;
 
             _dropGuide = transform.Find("Drop Prediction Dashed Line")
@@ -110,7 +112,9 @@ namespace GuardWave
             for (int i = 0; i < _cards.Length; i++)
             {
                 int index = i;
-                Transform candidate = candidates.GetChild(i);
+                Transform candidate = i < candidates.childCount ? candidates.GetChild(i)
+                    : Instantiate(candidates.GetChild(0), candidates);
+                if (i >= 4) candidate.name = "Candidate Target";
                 _cards[i] = candidate.GetComponent<Button>();
                 _names[i] = candidate.Find("MaterialName").GetComponent<Text>();
                 _remainingLabels[i] = CreateRemainingLabel(candidate, _names[i].font);
@@ -144,12 +148,12 @@ namespace GuardWave
             _tooltip.SetActive(false);
             _rulesBody.text = $@"진흙을 선택하면 두 물체의 실제 접촉 지점에 노란 반투명 가이드가 표시됩니다.
 노란 가이드를 좌클릭하면 해당 지점의 두 물체가 고정 연결됩니다. 드래그로 진흙을 칠하지 않습니다.
-헤어 드라이기를 선택하고 연결 부위의 젖은 진흙을 1초간 좌클릭하면 마릅니다.
 마른 진흙은 새 기물을 부착하지 않고 기존 FixedJoint의 Break Force/Torque가 2배가 됩니다.
 통나무는 {_game.GetPlacementLimit("log")}개, 조약돌은 {_game.GetPlacementLimit("forest_pebble")}개까지 배치할 수 있으며, 남은 개수는 팔레트에 표시됩니다.
 팔레트에서 재료를 선택해 마우스를 누른 채 드래그하면 겹치지 않는 지점마다 연속 배치됩니다.
 선택한 재료는 우클릭으로 해제하기 전까지 계속 사용할 수 있습니다.
 하단의 준비완료를 누르면 홍수가 밀려옵니다.
+깃발은 팔레트 마지막의 금색 목표물입니다. 깃발을 직접 배치해야 준비 완료할 수 있습니다.
 깃발을 지키세요! 절벽 뒤로 밀리거나 물에 충분히 잠긴 상태가 5초 지속되면 방어에 실패합니다.
 실패 팝업에서 확인을 누르면 마지막으로 저장된 배치 상태로 돌아갑니다. 배치한 적이 없다면 씬이 재시작됩니다.
 
@@ -157,17 +161,18 @@ namespace GuardWave
 스크롤: 확대
 우클릭 중 스크롤: 카메라 회전
 Q/E: 기물 회전 / 우클릭 또는 Esc: 선택 취소
-Ctrl+Z: 최근 기물 배치, 진흙 접촉 연결 또는 수동 제거 되돌리기
+Ctrl+Z: 최근 기물 배치, 깃발 배치, 진흙 접촉 연결 또는 수동 제거 되돌리기
 
 홍수에 밀려 절벽 뒤로 넘어간 기물은 파괴됩니다.
 ";
             if (_game.IsLavaStage)
-                _rulesBody.text = "나무집 10개, 돌집 10개, 나무 판자 30개를 사용할 수 있습니다.\n"
+                _rulesBody.text = "목표 깃발을 직접 배치해야 준비 완료할 수 있습니다.\n"
+                    + "나무집 10개, 돌집 10개, 나무 판자 30개를 사용할 수 있습니다.\n"
                     + "사전 배치된 집도 재고에 포함됩니다. 우클릭으로 회수하면 수량이 반환됩니다.\n"
                     + "준비 완료를 누르면 용암이 -Z 방향으로 60초 동안 흐릅니다.\n"
                     + "용암 입자가 가까워지거나 표면이 용암으로 뒤덮이면 불이 붙고 3초 뒤 파괴됩니다. 깃발이 살아남으면 성공합니다.";
             if (_fogMode != null)
-                _rulesBody.text = $"건물을 최대 {_game.GetPlacementLimit("building")}개 배치할 수 있으며, 남은 개수는 팔레트에 표시됩니다.\n"
+                _rulesBody.text = $"깃발을 직접 배치해야 준비 완료할 수 있습니다.\n건물을 최대 {_game.GetPlacementLimit("building")}개 배치할 수 있으며, 남은 개수는 팔레트에 표시됩니다.\n"
                     + "마우스를 누른 채 드래그하면 건물이 겹치지 않는 지점마다 연속 배치됩니다.\n"
                     + "기물을 배치한 후 준비 완료를 누르면 안개가 상류에서 몰려옵니다.\n"
                     + "안개는 건물과 기물을 돌아 -Z 방향으로 흐르며 옆으로 확산됩니다.\n"
@@ -290,7 +295,8 @@ Ctrl+Z: 최근 기물 배치, 진흙 접촉 연결 또는 수동 제거 되돌�
             bool canReady = _fogMode == null ? _game.CanReady : _fogMode.CanReady;
             _readyButton.interactable = canReady;
             bool incoming = _fogMode == null ? _game.WaveHasStarted : _fogMode.IsComing;
-            string readyText = !canReady && incoming ? "오는 중..." : "준비 완료";
+            string readyText = !canReady && incoming ? "오는 중..."
+                : !_game.AllTargetsPlaced ? "목표물 배치 필요" : "준비 완료";
             if (_readyLabel.text != readyText)
                 _readyLabel.text = readyText;
             _detail.text = (_fogMode == null ? _game.StatusMessage : _fogMode.StatusMessage) ?? "";
@@ -332,6 +338,8 @@ Ctrl+Z: 최근 기물 배치, 진흙 접촉 연결 또는 수동 제거 되돌�
                 {
                     _shownIds[i] = info.id;
                     _names[i].text = info.name;
+                    _names[i].color = _game.IsTargetMaterial(info.id)
+                        ? new Color(1f, 0.88f, 0.58f, 1f) : Color.white;
                     _silhouettes[i].sprite = Icon(info);
                     _silhouettes[i].color = Color.white;
                     _silhouettes[i].preserveAspect = true;
@@ -344,19 +352,28 @@ Ctrl+Z: 최근 기물 배치, 진흙 접촉 연결 또는 수동 제거 되돌�
                     if (!counter.gameObject.activeSelf) counter.gameObject.SetActive(true);
                     string quantity = remaining + "/" + limit;
                     if (counter.text != quantity) counter.text = quantity;
-                    counter.color = remaining == 0
-                        ? new Color(1f, 0.48f, 0.43f, 1f) : Color.white;
+                    counter.color = _game.IsTargetMaterial(info.id)
+                        ? new Color(1f, 0.86f, 0.5f, 1f)
+                        : remaining == 0
+                            ? new Color(1f, 0.48f, 0.43f, 1f) : Color.white;
                 }
                 else if (counter.gameObject.activeSelf)
                     counter.gameObject.SetActive(false);
 
                 bool exhausted = limit >= 0 && remaining == 0;
                 _cards[i].interactable = _game.CanSelect && !exhausted;
-                _backgrounds[i].color = exhausted
-                    ? new Color(0.17f, 0.2f, 0.23f, 1f)
-                    : _game.SelectedOffer == i
-                        ? new Color(0.29f, 0.46f, 0.57f, 1f)
-                        : new Color(0.2f, 0.3f, 0.37f, 1f);
+                bool target = _game.IsTargetMaterial(info.id);
+                _backgrounds[i].color = target
+                    ? exhausted
+                        ? new Color(0.34f, 0.25f, 0.12f, 1f)
+                        : _game.SelectedOffer == i
+                            ? new Color(0.85f, 0.55f, 0.18f, 1f)
+                            : new Color(0.54f, 0.35f, 0.14f, 1f)
+                    : exhausted
+                        ? new Color(0.17f, 0.2f, 0.23f, 1f)
+                        : _game.SelectedOffer == i
+                            ? new Color(0.29f, 0.46f, 0.57f, 1f)
+                            : new Color(0.2f, 0.3f, 0.37f, 1f);
             }
 
             if (!_game.CanShowItemInfo)
@@ -436,7 +453,7 @@ Ctrl+Z: 최근 기물 배치, 진흙 접촉 연결 또는 수동 제거 되돌�
             texture.wrapMode = TextureWrapMode.Clamp;
             Material material = Resources.Load<Material>("Materials/" + info.id + "_Base");
             Color color = info.id == "mud" ? new Color(0.42f, 0.28f, 0.16f, 1f)
-                : info.id == "hair_dryer" ? new Color(0.87f, 0.79f, 0.61f, 1f)
+                : info.id == "default_flag" ? new Color(0.99f, 0.76f, 0.29f, 1f)
                 : material == null ? Color.gray : material.color;
             Color shadow = new Color(color.r * 0.53f, color.g * 0.53f, color.b * 0.53f, 1f);
             int shape = Shape(info.id, info.category);
@@ -446,7 +463,10 @@ Ctrl+Z: 최근 기물 배치, 진흙 접촉 연결 또는 수동 제거 되돌�
                 {
                     float u = (x - 15.5f) / 14f;
                     float v = (y - 15.5f) / 14f;
-                    bool filled = shape == 8
+                    bool filled = shape == 9
+                        ? ((Mathf.Abs(u + 0.48f) < 0.12f && v > -0.85f && v < 0.85f) ||
+                           (u > -0.4f && u < 0.72f && v > 0.08f && v < 0.7f))
+                        : shape == 8
                         ? ((u > -0.48f && u < 0.55f && v > 0.12f && v < 0.53f) ||
                            (u > -0.88f && u <= -0.48f && v > 0.19f && v < 0.46f) ||
                            (u > 0.02f && u < 0.27f && v > -0.78f && v <= 0.12f))
@@ -473,7 +493,7 @@ Ctrl+Z: 최근 기물 배치, 진흙 접촉 연결 또는 수동 제거 되돌�
         private static int Shape(string id, string category)
         {
             if (id == "mud") return 7;
-            if (id == "hair_dryer") return 8;
+            if (id == "default_flag") return 9;
             if (id == "tire" || id == "life_ring") return 2;
             if (id == "sunflower" || id == "living_tree" || id == "growing_vine") return 3;
             if (id == "branch" || id == "leafy_branch" || id == "vine") return 0;
@@ -558,11 +578,6 @@ Ctrl+Z: 최근 기물 배치, 진흙 접촉 연결 또는 수동 제거 되돌�
                 case "default_flag":
                 case "building":
                     return BuildCandidateDetails(material);
-                case "hair_dryer":
-                    // The dryer only needs a short sentence on hover.
-                    return material.abilities != null && material.abilities.Length > 0
-                        ? material.name + "\n\n" + material.abilities[0]
-                        : material.name;
                 default:
                     return AbilityTooltip(material.id);
             }
