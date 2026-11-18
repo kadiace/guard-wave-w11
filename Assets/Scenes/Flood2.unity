@@ -9032,7 +9032,7 @@ MonoBehaviour:
   _pitch: 58
   _zoom: 36
   _citizenFocusZoom: 13
-  _scrollSensitivity: 0.015
+  _scrollSensitivity: 0.9
   _orbitYawSensitivity: 0.22
   _orbitPitchSensitivity: 0.18
   _keyboardPanSpeed: 0.7
