@@ -27,11 +27,11 @@ namespace GuardWave
 
         /// <summary>배치 가능 여부에 맞춰 색을 바꾸고 예상 접촉면 위에 자재 미리보기를 표시한다.</summary>
         public void Show(GuardWaveMaterial info, Vector3 placement, Quaternion rotation,
-            float dropHeight, bool canPlace, float fallbackSurfaceY)
+            float dropHeight, bool canPlace, float fallbackSurfaceY, GameObject sourceOverride = null)
         {
             if (info == null) { Hide(); return; }
             if (_instance == null || _materialId != info.id)
-                Rebuild(info);
+                Rebuild(info, sourceOverride);
             if (_instance == null) return;
             SetPlacementValidity(canPlace);
 
@@ -122,10 +122,11 @@ namespace GuardWave
         }
 
         /// <summary>그리기용 프리팹만 복제하고 물리·게임 로직은 비활성화한다.</summary>
-        private void Rebuild(GuardWaveMaterial info)
+        private void Rebuild(GuardWaveMaterial info, GameObject sourceOverride)
         {
             Dispose();
-            GameObject prefab = Resources.Load<GameObject>("Prefabs/Objects/" + info.id);
+            GameObject prefab = sourceOverride != null
+                ? sourceOverride : Resources.Load<GameObject>("Prefabs/Objects/" + info.id);
             if (prefab == null)
             {
                 Debug.LogWarning("[GuardWaveDropPreview] Missing prefab: " + info.id);

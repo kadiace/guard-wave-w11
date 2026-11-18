@@ -98,11 +98,7 @@ namespace GuardWave
         private Vector2 _lastMudCursorScreen;
         private bool _paintingMud;
         private bool _mudStrokePainted;
-        private GuardWaveMudPatch _dryingTarget;
-        private GuardWaveDryerCoverage _dryerCoverage;
         private Collider _creekBedCollider;
-        private float _dryingHoldSeconds;
-        private const float MUD_DRY_HOLD_SECONDS = 1f;
 
         [Header("Mud adhesion")]
         [SerializeField, Min(0f)] private float mudBreakForce = 150f;
@@ -114,7 +110,7 @@ namespace GuardWave
         private readonly List<FixedJointState> _initialSceneJointStates = new List<FixedJointState>();
         private readonly List<SceneParentActiveState> _initialSceneParentStates =
             new List<SceneParentActiveState>();
-        private readonly GuardWaveMaterial[] _offers = new GuardWaveMaterial[4];
+        private readonly GuardWaveMaterial[] _offers = new GuardWaveMaterial[5];
         private ForestSceneContext _sceneContext;
         private GuardWaveCatalog _catalog;
         private GuardWaveStageInfo _stageInfo;
@@ -137,6 +133,7 @@ namespace GuardWave
         private Rigidbody _flagBody;
         private BoxCollider _flagCollider;
         private RigidbodyState _initialFlagState;
+        private bool _flagPlaced;
         private Coroutine _stageFloodRoutine;
         private WaveSnapshot _waveSnapshot;
         private Camera _camera;
@@ -272,7 +269,6 @@ namespace GuardWave
             if (_sceneContext.PauseMenu != null && _sceneContext.PauseMenu.IsOpen)
             {
                 EndPlacementStroke();
-                EndMudDrying();
                 return;
             }
 
@@ -310,7 +306,6 @@ namespace GuardWave
             if (_resolving || _awaitingStage || _finished || _rulesOpen)
             {
                 EndPlacementStroke();
-                EndMudDrying();
                 HideDropPreview();
                 return;
             }
@@ -330,13 +325,6 @@ namespace GuardWave
                 UpdateMudPainting(mouse);
                 return;
             }
-            if (_selected >= 0 && _offers[_selected]?.id == "hair_dryer")
-            {
-                UpdateMudDrying(mouse);
-                return;
-            }
-            EndMudDrying();
-
             UpdateObjectPlacement(mouse);
         }
 
@@ -395,6 +383,11 @@ namespace GuardWave
                 _status = material.name + " 배치 수량을 모두 사용했습니다.";
                 return;
             }
+            if (material.id == "default_flag" && IsTargetMaterial(material.id))
+            {
+                PlaceDefenseFlag(placement);
+                return;
+            }
             GameObject prefab = Resources.Load<GameObject>("Prefabs/Objects/" + material.id);
             if (prefab == null) return;
 
@@ -417,6 +410,43 @@ namespace GuardWave
                 EndPlacementStroke();
                 _status = material.name + " 배치 수량을 모두 사용했습니다.";
             }
+        }
+
+        /// <summary>Move the scene flag: keep existing Rigidbody, meshes and FogFlagDensityProbes.</summary>
+        private void PlaceDefenseFlag(Vector3 placement)
+        {
+            Quaternion rotation = Quaternion.Euler(0f, _objectYaw, 0f);
+            _dropPreview.Show(_offers[_selected], placement, rotation,
+                _placementBounds.max.y + dropHeight, true, _placementBounds.max.y, _defenseFlag);
+            if (!_dropPreview.IsVisible)
+            {
+                _status = "깃발을 배치할 표면을 찾을 수 없습니다.";
+                return;
+            }
+            Vector3 position = _dropPreview.LandingPosition;
+            _dropMouseReleased = false;
+            _lastDropTime = Time.unscaledTime;
+            HideDropPreview();
+            _defenseFlag.SetActive(true);
+            _flagBody.isKinematic = true;
+            _flagBody.useGravity = false;
+            _flagBody.transform.SetPositionAndRotation(position, rotation);
+            _flagBody.position = position;
+            _flagBody.rotation = rotation;
+            Physics.SyncTransforms();
+            _flagBody.isKinematic = false;
+            _flagBody.useGravity = true;
+            _flagBody.linearVelocity = Vector3.zero;
+            _flagBody.angularVelocity = Vector3.zero;
+            _flagBody.WakeUp();
+            _flagPlaced = true;
+            _playerPlacementCount++;
+            WaveSnapshot placedFlagState = SaveEditState(false);
+            GuardWavePiece flagPiece = _defenseFlag.GetComponent<GuardWavePiece>();
+            if (flagPiece != null)
+                StartCoroutine(ResolvePlacementStroke(placedFlagState,
+                    new List<GuardWavePiece> { flagPiece }, _placementStrokeEpoch));
+            _status = "깃발을 배치했습니다. 모든 목표물이 배치되면 준비 완료할 수 있습니다.";
         }
 
         private void DrainPlacementStroke()
@@ -510,7 +540,6 @@ namespace GuardWave
             _paletteOpen = true;
             EndPlacementStroke();
             EndMudPainting();
-            EndMudDrying();
             _selected = -1;
             HideDropPreview();
             _status = "후보를 다시 선택하세요.";
@@ -678,75 +707,6 @@ namespace GuardWave
                 SaveEditState(true);
         }
 
-        /// <summary>
-        /// Blowing must remain on the same visible wet stroke for one second.
-        /// Moving off the stroke, releasing the mouse or changing target resets
-        /// the timer. Each stroke dries once, independently.
-        /// </summary>
-        private void UpdateMudDrying(Mouse mouse)
-        {
-            if (mouse == null || !mouse.leftButton.isPressed ||
-                mouse.rightButton.isPressed || _rulesOpen || _resolving ||
-                !TryGetMudSurface(mouse.position.ReadValue(), out RaycastHit surface))
-            {
-                EndMudDrying();
-                return;
-            }
-
-            GuardWaveMudPatch target = null;
-            float shortestDistance = float.PositiveInfinity;
-            foreach (GuardWaveMudPatch patch in _mudPatches)
-            {
-                if (patch == null ||
-                    !patch.TryGetDryingDistance(surface.collider, surface.point,
-                        surface.normal, out float distanceSqr) ||
-                    distanceSqr >= shortestDistance) continue;
-                target = patch;
-                shortestDistance = distanceSqr;
-            }
-
-            if (target == null)
-            {
-                EndMudDrying();
-                return;
-            }
-
-            if (_dryingTarget != target)
-            {
-                _dryingTarget = target;
-                _dryingHoldSeconds = 0f;
-            }
-
-            _dryingHoldSeconds += Time.deltaTime;
-            if (_dryerCoverage == null)
-                _dryerCoverage = new GuardWaveDryerCoverage();
-            _dryerCoverage.Show(surface.point, surface.normal,
-                Mathf.Clamp01(_dryingHoldSeconds / MUD_DRY_HOLD_SECONDS));
-            if (_dryingHoldSeconds < MUD_DRY_HOLD_SECONDS)
-            {
-                _status = "진흙 건조 중… " +
-                    Mathf.FloorToInt(_dryingHoldSeconds / MUD_DRY_HOLD_SECONDS * 100f) + "%";
-                return;
-            }
-
-            // Refresh the preceding checkpoint immediately before curing so
-            // Ctrl+Z can restore exact pre-cure bond strengths and motion.
-            if (_editHistory.Count > 0)
-                _editHistory[_editHistory.Count - 1] = CaptureWaveSnapshot();
-            target.Dry();
-            EndMudDrying();
-            // One fully dried patch equals one edit; partial heating is not saved.
-            SaveEditState(false);
-            _status = "진흙 건조 완료! 추가 부착 불가, 기존 접착력 2배.";
-        }
-
-        private void EndMudDrying()
-        {
-            _dryingTarget = null;
-            _dryingHoldSeconds = 0f;
-            _dryerCoverage?.Hide();
-        }
-
         // Tracks a patch when a piece is its painted surface or a bonded target.
         // A patch can be indexed under several pieces and a piece under several patches.
         internal void TrackMudPatch(GuardWavePiece piece, GuardWaveMudPatch patch)
@@ -877,11 +837,6 @@ namespace GuardWave
                 return;
             }
             if (_mudPreview != null) _mudPreview.SetActive(false);
-            if (_selected >= 0 && _offers[_selected]?.id == "hair_dryer")
-            {
-                HideDropPreview();
-                return;
-            }
             if (mouse == null || _selected < 0 || mouse.rightButton.isPressed ||
                 _offers[_selected] == null ||
                 !TryGetCursorXZ(mouse.position.ReadValue(), out Vector3 placement))
@@ -897,7 +852,8 @@ namespace GuardWave
             _dropPreview.Show(_offers[_selected], placement,
                 Quaternion.Euler(0f, _objectYaw, 0f),
                 _placementBounds.max.y + dropHeight, canPlace,
-                _placementBounds.max.y);
+                _placementBounds.max.y, _offers[_selected].id == "default_flag"
+                    ? _defenseFlag : null);
 
         }
 
@@ -957,9 +913,6 @@ namespace GuardWave
             SetOutlineTargets(null);
             _dropPreview?.Dispose();
             EndMudPainting();
-            EndMudDrying();
-            _dryerCoverage?.Dispose();
-            _dryerCoverage = null;
             if (_mudPreview != null)
             {
                 MeshFilter filter = _mudPreview.GetComponent<MeshFilter>();
@@ -1103,10 +1056,10 @@ namespace GuardWave
         public bool IsPaletteHidden => false;
         public bool CanReady => (!ambientFlowPreview ||
             (_fluid != null && _fluid.IsShaderPrewarmed)) &&
-            _placementStroke == null &&
+            _placementStroke == null && AllTargetsPlaced &&
             !_stageTransitioning && !_resolving && !_awaitingStage
-            && !_finished && !_rulesOpen && _defenseFlag != null
-            && _defenseFlag.activeInHierarchy;
+            && !_finished && !_rulesOpen && _flagPlaced &&
+            _defenseFlag != null && _defenseFlag.activeInHierarchy;
         public bool IsLavaStage => _isLavaStage;
         public float LavaFlowSecondsRemaining => _lavaFlowSecondsRemaining;
         public bool WaveHasStarted => _waveHasStarted;
@@ -1132,6 +1085,27 @@ namespace GuardWave
         public int PieceCount => _pieces.Count;
         public GuardWaveStageInfo StageInfo => _stageInfo;
 
+        /// <summary>True for mandatory palette entries defined by the stage JSON.</summary>
+        public bool IsTargetMaterial(string materialId)
+        {
+            if (_stageInfo?.palette == null) return false;
+            foreach (GuardWavePaletteEntry entry in _stageInfo.palette)
+                if (entry.target && entry.materialId == materialId) return true;
+            return false;
+        }
+
+        public bool AllTargetsPlaced
+        {
+            get
+            {
+                if (_stageInfo?.palette == null) return false;
+                foreach (GuardWavePaletteEntry entry in _stageInfo.palette)
+                    if (entry.target && GetRemainingPlacements(entry.materialId) > 0)
+                        return false;
+                return true;
+            }
+        }
+
         /// <summary>Each stage controls its own palette quotas through StageInfo.json.</summary>
         public int GetPlacementLimit(string materialId)
         {
@@ -1147,6 +1121,9 @@ namespace GuardWave
         {
             int limit = GetPlacementLimit(materialId);
             if (limit < 0) return int.MaxValue;
+            // The authored flag is activated instead of spawning a duplicate.
+            if (materialId == "default_flag")
+                return Mathf.Max(0, limit - (_flagPlaced ? 1 : 0));
             int used = 0;
             foreach (GuardWavePiece piece in _pieces)
                 if (piece != null && _runtimePieces.Contains(piece) &&
@@ -1170,7 +1147,6 @@ namespace GuardWave
             if (_offers[index] == null) return;
             EndPlacementStroke();
             EndMudPainting();
-            EndMudDrying();
             SetOutlineTargets(null);
             _selected = index;
             _status = _offers[index].name + " 선택";
@@ -1183,7 +1159,6 @@ namespace GuardWave
             {
                 EndPlacementStroke();
                 EndMudPainting();
-                EndMudDrying();
             }
             _rulesOpen = isOpen;
         }
@@ -1320,7 +1295,6 @@ namespace GuardWave
             EndMudPainting();
             _editHistory.Clear();
             _playerPlacementCount = 0;
-            EndMudDrying();
             SetOutlineTargets(null);
             if (_stageFloodRoutine != null)
             {
@@ -1551,6 +1525,8 @@ namespace GuardWave
             _initialFlagState.RestorePose(_flagBody);
             Physics.SyncTransforms();
             _initialFlagState.RestoreMotion(_flagBody);
+            _flagPlaced = false;
+            _defenseFlag.SetActive(false);
         }
 
         /// <summary>Resources/Prefabs에서 3D 기물을 지정한 위치에 생성하고 물리 시스템에 등록한다.</summary>
@@ -1649,9 +1625,17 @@ namespace GuardWave
         {
             if (_stageTransitioning || _resolving || _awaitingStage || _finished ||
                 _rulesOpen || _selected >= 0 || piece == null ||
-                piece.MaterialId == "foundation" ||
-                piece.MaterialId == "default_flag" || piece.gameObject == _defenseFlag)
+                piece.MaterialId == "foundation") return;
+            if (piece.gameObject == _defenseFlag)
+            {
+                if (!_flagPlaced || !IsTargetMaterial("default_flag")) return;
+                SetOutlineTargets(null);
+                _flagPlaced = false;
+                _defenseFlag.SetActive(false);
+                SaveEditState(false);
+                _status = "깃발을 회수했습니다. 다시 배치해야 준비 완료할 수 있습니다.";
                 return;
+            }
             // Manual removal is an edit too, so Ctrl+Z restores the removed piece.
             if (RemovePiece(piece, GuardWaveChangeKind.Removed) > 0)
                 SaveEditState(false);
@@ -1714,10 +1698,9 @@ namespace GuardWave
             if (!CanReady) return;
             EndPlacementStroke();
             EndMudPainting();
-            EndMudDrying();
             SetOutlineTargets(null);
             HideDropPreview();
-            // Include drying-only edits, even without any placed objects.
+            // Preserve the latest user edit as the failure checkpoint.
             _waveSnapshot = _editHistory.Count > 0
                 ? _editHistory[_editHistory.Count - 1] : null;
             _waveHasStarted = true;
@@ -2107,7 +2090,6 @@ namespace GuardWave
                     }
             EndPlacementStroke();
             EndMudPainting();
-            EndMudDrying();
             // Keep the flood coroutine and GPU particle buffers alive so
             // the wave continues flowing behind the failure popup.
             _stageTransitioning = false;
@@ -2144,6 +2126,7 @@ namespace GuardWave
             WaveSnapshot snapshot = new WaveSnapshot
             {
                 Flag = new RigidbodyState(_flagBody),
+                FlagPlaced = _flagPlaced,
                 SelectedOffer = _selected,
                 ObjectYaw = _objectYaw,
                 CameraTarget = _cameraTarget,
@@ -2287,6 +2270,8 @@ namespace GuardWave
             foreach (PieceState state in snapshot.Pieces)
                 if (state.Piece != null) state.Body.RestoreMotion(state.Piece.Body);
             snapshot.Flag.RestoreMotion(_flagBody);
+            _flagPlaced = snapshot.FlagPlaced;
+            _defenseFlag.SetActive(_flagPlaced);
             foreach (SceneBodyState state in snapshot.SceneBodies)
                 if (state.Body != null) state.State.RestoreMotion(state.Body);
             // Broken/moved joints are not restored by Rigidbody poses alone.
@@ -2346,7 +2331,6 @@ namespace GuardWave
             if (_stageTransitioning || _awaitingStage || _finished || _rulesOpen ||
                 _resolving) return;
             EndPlacementStroke();
-            EndMudDrying(); // Cancel partial heating; it is not an edit.
             // Ending a brush gesture commits it first, so Ctrl+Z removes that stroke.
             EndMudPainting();
             if (!_editHistory.TryUndo(true, out WaveSnapshot previousState)) return;
@@ -2376,6 +2360,7 @@ namespace GuardWave
             public readonly List<SceneParentActiveState> SceneParents = new List<SceneParentActiveState>();
             public readonly HashSet<GuardWavePiece> SelectableScenePieces = new HashSet<GuardWavePiece>();
             public RigidbodyState Flag;
+            public bool FlagPlaced;
             public int SelectedOffer;
             public float ObjectYaw;
             public Vector3 CameraTarget;
