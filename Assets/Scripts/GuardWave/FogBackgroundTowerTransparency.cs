@@ -6,16 +6,13 @@ using UnityEngine.Rendering;
 namespace GuardWave
 {
     /// <summary>
-    /// Fades West/East background towers according to the camera's signed world-space Y rotation,
-    /// preserving colliders and render order.
+    /// Fades background towers based on the main camera's signed world-space Y
+    /// rotation. A tower's world X determines its West/East side.
     /// </summary>
     [DisallowMultipleComponent]
     public sealed class FogBackgroundTowerTransparency : MonoBehaviour
     {
-        private enum TowerSide { West, East }
-
         [Header("Camera yaw fade (world Y degrees)")]
-        [SerializeField] private TowerSide _towerSide = TowerSide.West;
         [SerializeField, Range(0f, 180f)] private float _yawThresholdDegrees = 5f;
         [SerializeField, Range(0f, 1f)] private float _transparentOpacity = 0.05f;
         [SerializeField, Min(0.01f)] private float _outlineWidth = 0.18f;
@@ -32,6 +29,10 @@ namespace GuardWave
         private MaterialPropertyBlock _propertyBlock;
         private bool _usingFadeMaterials;
         private float _currentOpacity = 1f;
+#if UNITY_EDITOR
+        private bool _hasLoggedFadeState;
+        private bool _lastFadeState;
+#endif
 
         private void Awake()
         {
@@ -57,11 +58,24 @@ namespace GuardWave
             if (_camera == null) _camera = Camera.main;
             if (_camera == null || _buildingCollider == null || _fadeShader == null) return;
             // Convert Unity's 0..360 world Euler Y into a signed world yaw.
-            // +5 degrees fades West; -5 degrees fades East.
+            // +5 degrees fades West; -5 degrees fades East (including -10).
             float worldYaw = Mathf.DeltaAngle(0f, _camera.transform.eulerAngles.y);
-            bool shouldFade = _towerSide == TowerSide.West
-                ? worldYaw >= _yawThresholdDegrees
-                : worldYaw <= -_yawThresholdDegrees;
+            // All six background towers use one prefab. The scene places West
+            // at world X=-22.5 and East at world X=+22.5. Derive the side from
+            // its world position instead of per-instance serialized overrides.
+            bool isEast = transform.position.x > 0f;
+            bool shouldFade = isEast
+                ? worldYaw <= -_yawThresholdDegrees
+                : worldYaw >= _yawThresholdDegrees;
+#if UNITY_EDITOR
+            if (!_hasLoggedFadeState || shouldFade != _lastFadeState)
+            {
+                Debug.Log($"[FogTowerFade] {name} side={(isEast ? "East" : "West")} " +
+                    $"cameraWorldY={worldYaw:F1} fade={shouldFade}", this);
+                _lastFadeState = shouldFade;
+                _hasLoggedFadeState = true;
+            }
+#endif
             if (!shouldFade)
             {
                 if (_usingFadeMaterials) RestoreOriginalMaterials();

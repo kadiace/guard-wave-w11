@@ -10,6 +10,7 @@ GameObject:
   m_Component:
   - component: {fileID: 6001000002}
   - component: {fileID: 6001000003}
+  - component: {fileID: 6001000004}
   m_Layer: 0
   m_Name: fog_background_building
   m_TagString: Untagged
@@ -368,6 +369,23 @@ BoxCollider:
   serializedVersion: 3
   m_Size: {x: 11, y: 70, z: 12}
   m_Center: {x: 0, y: 35, z: 0}
+--- !u!114 &6001000004
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 6001000001}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: a9a2b014c3e44d0e94fd74c92b6917cb, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.FogBackgroundTowerTransparency
+  _yawThresholdDegrees: 5
+  _transparentOpacity: 0.05
+  _outlineWidth: 0.18
+  _outlineColor: {r: 0.12, g: 0.19, b: 0.24, a: 1}
+  _fadeShader: {fileID: 4800000, guid: 5c3fe0da15dc487598cbf17d65a081b4, type: 3}
 --- !u!1 &6002000000
 GameObject:
   m_ObjectHideFlags: 0
