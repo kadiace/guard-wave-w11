@@ -238,6 +238,10 @@ namespace GuardWave
                 if (candidate != null && IsPlacedPiece(candidate) &&
                     candidate.transform.position.z <= DestructionBoundaryZ)
                 {
+                    // Lava stone houses are immune to automatic destruction,
+                    // including the outflow boundary, but remain manually recoverable.
+                    if (_isLavaStage && candidate.MaterialId == "stone_house")
+                        continue;
                     // Preserve visible ignition rather than allowing the cliff to remove it first.
                     if (_isLavaStage && candidate.GetComponent<GuardWaveLavaBurning>() != null)
                         continue;
@@ -1817,6 +1821,8 @@ namespace GuardWave
                 bool isFlag = body.gameObject == _defenseFlag;
                 GuardWavePiece piece = body.GetComponent<GuardWavePiece>();
                 if (!isFlag && (piece == null || !IsPlacedPiece(piece))) continue;
+                // Lava GPU contacts still affect physics but never ignite stone houses.
+                if (!isFlag && piece.MaterialId == "stone_house") continue;
                 if (body.GetComponent<GuardWaveLavaBurning>() != null) continue;
                 GuardWaveLavaBurning fire = body.gameObject.AddComponent<GuardWaveLavaBurning>();
                 _activeLavaBurns.Add(fire);
@@ -1834,6 +1840,8 @@ namespace GuardWave
         {
             if (!_activeLavaBurns.Remove(fire)) return;
             if (body == null || _awaitingStage || _finished) return;
+            // Defensive guard: ignore any stale ignition that predates immunity.
+            if (_isLavaStage && piece != null && piece.MaterialId == "stone_house") return;
             if (isFlag)
             {
                 if (piece != null)
