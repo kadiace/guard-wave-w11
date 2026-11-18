@@ -14,6 +14,9 @@ EditorBuildSettings:
   - enabled: 1
     path: Assets/Scenes/Fog.unity
     guid: c4d2196b59b0412d8759f30057c03205
+  - enabled: 1
+    path: Assets/Scenes/Lava.unity
+    guid: a1cba80777e64dbab4fc4d913ad331eb
   m_configObjects:
     com.unity.input.settings.actions: {fileID: -944628639613478452, guid: 052faaac586de48259a63d0c4782560b, type: 3}
   m_UseUCBPForAssetBundles: 0

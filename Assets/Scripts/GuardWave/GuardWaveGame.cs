@@ -29,6 +29,9 @@ namespace GuardWave
         [SerializeField, Min(2f)] private float dropHeight = 7f;
         [SerializeField, Range(0.05f, 0.5f)] private float dropClickCooldown = 0.1f;
 
+        [Header("Scene-specific fluid settings (optional)")]
+        [SerializeField] private GuardWaveFluidSettings _sceneFluidSettings;
+
         [Header("Ambient creek and one-shot wave (Ready button)")]
         [SerializeField] private bool ambientFlowPreview = true;
 
@@ -185,7 +188,9 @@ namespace GuardWave
             _sceneContext = GetComponent<ForestSceneContext>();
             _catalog = new GuardWaveCatalog();
             _stageInfo = GuardWaveStageInfoFile.LoadForScene(gameObject.scene.name);
-            _fluidSettings = Resources.Load<GuardWaveFluidSettings>("Datas/GuardWaveFluidSettings");
+            _fluidSettings = _sceneFluidSettings != null
+                ? _sceneFluidSettings
+                : Resources.Load<GuardWaveFluidSettings>("Datas/GuardWaveFluidSettings");
             if (_fluidSettings == null) throw new InvalidOperationException("Missing Resources/Datas/GuardWaveFluidSettings.asset");
             ConfigureScene();
             RegisterScenePieces();

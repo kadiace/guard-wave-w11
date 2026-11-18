@@ -33,6 +33,29 @@
           "placementLimit": 1
         }
       ]
+    },
+    {
+      "sceneName": "Lava",
+      "disasterName": "용암류",
+      "countdownSeconds": 120,
+      "palette": [
+        {
+          "materialId": "mud",
+          "placementLimit": -1
+        },
+        {
+          "materialId": "log",
+          "placementLimit": 100
+        },
+        {
+          "materialId": "forest_pebble",
+          "placementLimit": 100
+        },
+        {
+          "materialId": "hair_dryer",
+          "placementLimit": -1
+        }
+      ]
     }
   ]
 }

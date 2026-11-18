@@ -1,0 +1,74 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 2f1e45a24b63455b91055b969f66307a, type: 3}
+  m_Name: LavaFluidSettings
+  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWaveFluidSettings
+  _particleEffectiveMass: 14
+  _hydroDensity: 70
+  _fluidForceMultiplier: 5
+  _maxImpulsePerBodyMass: 300
+  _minImpulseLimit: 25
+  _angularImpulseMultiplier: 3
+  _pressureClamp: 5000
+  _pressureThreshold: 0.05
+  _ambientWaterDepth: 1
+  _ambientFlowSpeed: 20
+  _ambientFlowVolumeMultiplier: 2
+  _ambientMaxSupplyParticlesPerSecond: 37000
+  _ambientImpactScale: 0.01
+  _waterFlowResponse: 6
+  _verticalFlowResponseScale: 0.35
+  _groundedFlowMultiplier: 0.15
+  _floatingVerticalDamping: 7
+  _floatingSurfaceSmoothingRate: 6
+  _floatingTorqueScale: 0.12
+  _floatingMaxBuoyancyRatio: 1.5
+  _floatingUprightStrength: 1.5
+  _floatingAngularDamping: 5
+  _floatingFlowAlignmentStrength: 10
+  _floatingFlowAlignmentFullSpeed: 4
+  _waveCrestAmplitude: 3
+  _waveCrestWidth: 1.4
+  _waveCrestLength: 8
+  _crestHeightStiffness: 36
+  _crestHeightDamping: 12
+  _crestForwardDamping: 5
+  _crestReleaseDistance: 0.8
+  _minInletSpeed: 30
+  _maxInletSpeed: 60
+  _travelDurationMultiplier: 2
+  _gravityMultiplier: 1
+  _maxParticleSpeed: 120
+  _flipFraction: 0.92
+  _maxFluidSubsteps: 4
+  _targetFluidCfl: 0.35
+  _collisionResponse: 2
+  _collisionSkin: 0.06
+  _cellSize: 0.6
+  _maxParticles: 64000
+  _maxBodies: 384
+  _maxColliders: 256
+  _pressureIterations: 22
+  _spawnInterval: 0.12
+  _spawnRateMultiplier: 3
+  _particleRenderRadius: 0.45
+  _ssfrLavaSurface: 1
+  _ssfrResolutionScale: 0.5
+  _ssfrRadiusScale: 1
+  _ssfrThicknessScale: 1.2
+  _ssfrBlurRadius: 1.5
+  _ssfrDepthSigma: 0.7
+  _ssfrAbsorption: 3
+  _ssfrRefraction: 0
+  _ssfrOpacity: 1
+  _ssfrShallowColor: {r: 1.6, g: 0.42, b: 0.035, a: 1}
+  _ssfrDeepColor: {r: 0.37, g: 0.045, b: 0.014, a: 1}

@@ -140,6 +140,7 @@ namespace GuardWave
         public float ParticleRenderRadius => _particleRenderRadius;
 
         [Header("Screen-space liquid rendering")]
+        [SerializeField] private bool _ssfrLavaSurface;
         [SerializeField, Range(0.25f, 1f)] private float _ssfrResolutionScale = 0.5f;
         [SerializeField, Range(0.5f, 1.7f)] private float _ssfrRadiusScale = 1.0f;
         [SerializeField, Range(0.1f, 5f)] private float _ssfrThicknessScale = 1.2f;
@@ -151,6 +152,7 @@ namespace GuardWave
         [SerializeField] private Color _ssfrShallowColor = new Color(0.13f, 0.60f, 0.87f, 1f);
         [SerializeField] private Color _ssfrDeepColor = new Color(0.015f, 0.24f, 0.52f, 1f);
 
+        public bool SsfrLavaSurface => _ssfrLavaSurface;
         public float SsfrResolutionScale => _ssfrResolutionScale;
         public float SsfrRadiusScale => _ssfrRadiusScale;
         public float SsfrThicknessScale => _ssfrThicknessScale;
