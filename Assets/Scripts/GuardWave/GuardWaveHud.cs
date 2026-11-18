@@ -148,7 +148,6 @@ namespace GuardWave
             _tooltip.SetActive(false);
             _rulesBody.text = $@"진흙을 선택하면 두 물체의 실제 접촉 지점에 노란 반투명 가이드가 표시됩니다.
 노란 가이드를 좌클릭하면 해당 지점의 두 물체가 고정 연결됩니다. 드래그로 진흙을 칠하지 않습니다.
-마른 진흙은 새 기물을 부착하지 않고 기존 FixedJoint의 Break Force/Torque가 2배가 됩니다.
 통나무는 {_game.GetPlacementLimit("log")}개, 조약돌은 {_game.GetPlacementLimit("forest_pebble")}개까지 배치할 수 있으며, 남은 개수는 팔레트에 표시됩니다.
 팔레트에서 재료를 선택해 마우스를 누른 채 드래그하면 겹치지 않는 지점마다 연속 배치됩니다.
 선택한 재료는 우클릭으로 해제하기 전까지 계속 사용할 수 있습니다.
