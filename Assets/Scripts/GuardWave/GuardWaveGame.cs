@@ -123,6 +123,7 @@ namespace GuardWave
         private GuardWaveFlipRenderer _flipRenderer;
         private GuardWaveFluidSettings _fluidSettings;
         private bool _isLavaStage;
+        private GuardWaveLavaAtmosphere _lavaAtmosphere;
         private float _lavaFlowSecondsRemaining;
         private readonly List<GuardWaveFlipFluid.LavaContactEvidence> _lavaContacts =
             new List<GuardWaveFlipFluid.LavaContactEvidence>();
@@ -201,6 +202,12 @@ namespace GuardWave
                 : Resources.Load<GuardWaveFluidSettings>("Datas/GuardWaveFluidSettings");
             if (_fluidSettings == null) throw new InvalidOperationException("Missing Resources/Datas/GuardWaveFluidSettings.asset");
             ConfigureScene();
+            if (_isLavaStage)
+            {
+                // Runtime-only Lava visual effects, isolated from Flood and Fog.
+                _lavaAtmosphere = gameObject.AddComponent<GuardWaveLavaAtmosphere>();
+                _lavaAtmosphere.Initialize(_fluidSettings, _placementBounds);
+            }
             RegisterScenePieces();
             RegisterSceneMudPatches();
             CreateHud();
@@ -1524,6 +1531,7 @@ namespace GuardWave
                     _placementBounds.min.z, _placementBounds.max.y,
                     _lowerCreekBounds.max.y, _fluidSettings.AmbientWaterDepth,
                     floodTravelDuration, _pieces, _flagBody, _fluidSettings, ambientFlow: true);
+                if (_isLavaStage) _lavaAtmosphere?.BindFluid(_fluid);
                 // The authored surface is still visible in the editor; disable
                 // its renderer only in Play Mode to expose the real FLIP water.
                 GameObject upperWater = GameObject.Find("Upper River Water");
@@ -2062,6 +2070,7 @@ namespace GuardWave
         {
             // Unregister before releasing buffers to avoid rendering disposed GPU data.
             _flipRenderer?.Render(null);
+            _lavaAtmosphere?.BindFluid(null);
             _fluid?.Dispose();
             _fluid = null;
         }
