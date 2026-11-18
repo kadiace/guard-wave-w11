@@ -81,6 +81,7 @@ namespace GuardWave
         private FogSceneController _fogMode;
         private Text _disasterName;
         private Text _countdown;
+        private string _preparationDisasterName;
         private float _durationSeconds;
         private float _remainingSeconds;
         private int _displayedHundredths = -1;
@@ -107,7 +108,8 @@ namespace GuardWave
             _countdown.verticalOverflow = VerticalWrapMode.Overflow;
             _defaultFontSize = _countdown.fontSize;
             _defaultCountdownScale = _countdown.rectTransform.localScale;
-            _disasterName.text = stage.disasterName + "가 오기까지";
+            _preparationDisasterName = stage.disasterName + "가 오기까지";
+            _disasterName.text = _preparationDisasterName;
             _durationSeconds = stage.countdownSeconds;
             ResetCountdown();
             _initialized = true;
@@ -129,13 +131,27 @@ namespace GuardWave
             _wasAwaitingFailure = awaitingFailure;
             _wasFinished = finished;
 
+            if (finished && _fogMode != null && _disasterStarted)
+                CompleteFogCountdown();
             if (awaitingFailure || finished || Time.timeScale <= 0f) return;
 
             // After a successful disaster pass, the next preparation gets a full timer.
             if (_disasterStarted)
             {
                 if (CanReady) ResetCountdown();
-                else AnimateCountdown();
+                else
+                {
+                    // This uses the fog solver's simulation clock, so the
+                    // countdown advances twice as fast after simulation t=30.
+                    // AwaitingFailure is handled above: the HUD freezes even
+                    // while FogSceneController continues simulating.
+                    if (_fogMode != null && _fogMode.IsComing)
+                    {
+                        _remainingSeconds = _fogMode.RemainingSimulationSeconds;
+                        RefreshCountdown();
+                    }
+                    AnimateCountdown();
+                }
                 return;
             }
 
@@ -152,17 +168,52 @@ namespace GuardWave
         public void Ready()
         {
             if (!_initialized || _disasterStarted || !CanReady) return;
+            if (_fogMode == null)
+            {
+                _remainingSeconds = 0f;
+                RefreshCountdown();
+                _game.Ready();
+                _disasterStarted = true;
+            }
+            else
+            {
+                // Automatic expiry already starts the impact pulse at 00:00.
+                // Manual Ready skips that transition: explicitly play the
+                // SAME pulse, without restarting one that is already running.
+                if (_pulseKind != PulseKind.Impact)
+                    StartPulse(PulseKind.Impact);
+                _disasterStarted = true;
+                _disasterName.text = "독안개 사라지기까지";
+                _remainingSeconds = _fogMode.MaximumSimulationDurationSeconds;
+                RefreshCountdown();
+                _fogMode.Ready();
+            }
+        }
+
+        /// <summary>
+        /// Fog has a 60-second maximum, not a guaranteed 60-second run.
+        /// If the density clears early, show 00:00 before the victory popup,
+        /// never a misleading countdown such as 00:12.
+        /// </summary>
+        public void CompleteFogCountdown()
+        {
+            if (_fogMode == null || !_disasterStarted || _game.AwaitingFailure)
+                return;
             _remainingSeconds = 0f;
+            // A normal victory is not a second impact. Keep the red label
+            // but stop pulsing once the remaining time snaps to zero.
+            _pulseKind = PulseKind.None;
+            _pulseElapsed = 0f;
             RefreshCountdown();
-            if (_fogMode == null) _game.Ready();
-            else _fogMode.Ready();
-            _disasterStarted = true;
+            ApplyCountdownStyle();
         }
 
         /// <summary>재해 종료, 실패 복원 또는 게임 재시작 시 해당 스테이지의 준비 시간을 재설정한다.</summary>
         private void ResetCountdown()
         {
             _remainingSeconds = _durationSeconds;
+            if (_disasterName != null)
+                _disasterName.text = _preparationDisasterName;
             _displayedHundredths = -1;
             _disasterStarted = false;
             _pulseKind = PulseKind.None;
@@ -190,7 +241,9 @@ namespace GuardWave
             _displayedHundredths = hundredths;
             _countdown.text = $"{hundredths / 100:00}:{hundredths % 100:00}";
 
-            if (previousHundredths >= 0)
+            // Once the fog arrives, keep only the arrival impact animation.
+            // Countdown ticks must not replace it with ten-second pulses.
+            if (previousHundredths >= 0 && !(_fogMode != null && _disasterStarted))
             {
                 if (hundredths == 0 && previousHundredths > 0)
                 {
@@ -240,12 +293,16 @@ namespace GuardWave
 
         private void ApplyCountdownStyle()
         {
+            bool fogInProgress = _fogMode != null && _disasterStarted;
             bool expired = _remainingSeconds <= 0f;
             bool finalTenSeconds = _displayedHundredths > 0 &&
                                    _displayedHundredths <= WARNING_SECONDS * 100;
-            _countdown.fontSize = _defaultFontSize + (expired ? 8 : finalTenSeconds ? 5 : 0);
+            _countdown.fontSize = _defaultFontSize +
+                (expired || fogInProgress ? 8 : finalTenSeconds ? 5 : 0);
 
-            Color color = expired ? ImpactColor :
+            // Arrival is a persistent red warning in Fog, regardless of the
+            // 60:00 countdown replacing the preparation's 00:00.
+            Color color = expired || fogInProgress ? ImpactColor :
                 _remainingSeconds <= WARNING_SECONDS ? WarningColor : Color.white;
             float scale = 1f;
             if (_pulseKind != PulseKind.None)
