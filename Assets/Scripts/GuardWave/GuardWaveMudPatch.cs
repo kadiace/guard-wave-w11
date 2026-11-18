@@ -173,6 +173,9 @@ namespace GuardWave
         /// Create one clicked contact bond. A short mesh marks the seam, but
         /// unlike painted strokes it adds no trigger and cannot auto-glue neighbors.
         /// </summary>
+        public bool IsOnSurface(GuardWavePiece piece) =>
+            piece != null && _surfacePiece == piece;
+
         public bool ConnectContact(GuardWavePiece piece, Vector3 point, Vector3 normal)
         {
             if (_game == null || piece == null || piece.Body == null ||

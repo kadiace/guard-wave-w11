@@ -845,7 +845,7 @@ namespace GuardWave
                     _hasHoveredMudContact = true;
                 }
 
-                if (visible >= MAX_VISIBLE_MUD_GUIDES ||
+                if (visible >= MAX_VISIBLE_MUD_GUIDES - 1 ||
                     projected.x < 0f || projected.y < 0f ||
                     projected.x >= Screen.width || projected.y >= Screen.height)
                     continue;
@@ -858,6 +858,24 @@ namespace GuardWave
                     Quaternion.FromToRotation(Vector3.up, normal));
                 guide.transform.localScale = Vector3.one * 0.8f;
                 guide.SetActive(true);
+            }
+            // Always display the candidate nearest the cursor, even if the
+            // first 47 cached contacts belong to distant objects.
+            if (_hasHoveredMudContact)
+            {
+                MudContactCandidate hovered = _hoveredMudContact;
+                if (TryResolveMudContact(hovered, out GuardWavePiece selected, out _))
+                {
+                    GameObject guide = GetMudGuide(visible++);
+                    Vector3 normal = hovered.Normal.sqrMagnitude < 0.001f
+                        ? Vector3.up : hovered.Normal.normalized;
+                    if (selected != hovered.Piece) normal = -normal;
+                    guide.transform.SetPositionAndRotation(
+                        hovered.Point + normal * 0.03f,
+                        Quaternion.FromToRotation(Vector3.up, normal));
+                    guide.transform.localScale = Vector3.one * 1.1f;
+                    guide.SetActive(true);
+                }
             }
             for (int i = visible; i < _mudGuidePool.Count; i++)
                 if (_mudGuidePool[i] != null) _mudGuidePool[i].SetActive(false);
@@ -1919,7 +1937,19 @@ namespace GuardWave
                 _removalMudPatches.Clear();
                 _removalMudPatches.AddRange(patches);
                 foreach (GuardWaveMudPatch patch in _removalMudPatches)
-                    if (patch != null) patch.DetachPiece(piece);
+                {
+                    if (patch == null) continue;
+                    if (patch.IsOnSurface(piece))
+                    {
+                        // A bond to the soon-inactive support must not survive
+                        // as an orphaned FixedJoint on the connected object.
+                        patch.ClearBonds();
+                        if (!_sceneMudPatches.Contains(patch))
+                            patch.gameObject.SetActive(false);
+                    }
+                    else
+                        patch.DetachPiece(piece);
+                }
                 _removalMudPatches.Clear();
             }
             PublishChange(new GuardWaveChange(piece, piece, reason, 0, piece.transform.position));
