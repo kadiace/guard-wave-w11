@@ -1,3 +1,5 @@
+using System;
+
 using UnityEngine;
 
 namespace Flood2
@@ -8,8 +10,8 @@ namespace Flood2
     [RequireComponent(typeof(Rigidbody), typeof(BoxCollider))]
     public sealed class Flood2Piece : MonoBehaviour
     {
-        private const float WATER_DENSITY = 100f;
         private const float GRAVITY = 9.81f;
+        private PhysicsSettings _settings;
         private Rigidbody _body;
         private BoxCollider _shape;
         private FixedJoint _joint;
@@ -29,9 +31,36 @@ namespace Flood2
         public Vector3 WorldAnchor => transform.TransformPoint(_anchor);
         public bool Broken => EverBonded && !IsBonded;
 
-        /// <summary>Configures the material's real collider, mass, friction and connection indicator.</summary>
-        public void Initialize(int id, Flood2Material kind, PhysicsMaterial friction, Material lineMaterial)
+        [Serializable]
+        internal sealed class PhysicsSettings
         {
+            [Header("Mass and water forces")]
+            [SerializeField, Min(0.01f)] private float _waterDensity = 100f;
+            [SerializeField, Min(0.01f)] private float _panelRelativeDensity = 0.6f;
+            [SerializeField, Min(0.01f)] private float _stoneRelativeDensity = 2.6f;
+            [SerializeField, Min(0f)] private float _flowDrag = 0.45f;
+            [SerializeField, Min(0f)] private float _linearDamping = 0.4f;
+            [SerializeField, Min(0f)] private float _angularDamping = 1.5f;
+
+            [Header("Joint break limits")]
+            [SerializeField, Min(0f)] private float _wetBreakForce = 4500f;
+            [SerializeField, Min(0f)] private float _wetBreakTorque = 2600f;
+            [SerializeField, Min(1f)] private float _curedStrengthMultiplier = 2f;
+            public float WaterDensity => _waterDensity;
+            public float PanelRelativeDensity => _panelRelativeDensity;
+            public float StoneRelativeDensity => _stoneRelativeDensity;
+            public float FlowDrag => _flowDrag;
+            public float LinearDamping => _linearDamping;
+            public float AngularDamping => _angularDamping;
+            public float WetBreakForce => _wetBreakForce;
+            public float WetBreakTorque => _wetBreakTorque;
+            public float CuredStrengthMultiplier => _curedStrengthMultiplier;
+        }
+
+        /// <summary>Configures the material's real collider, mass, friction and connection indicator.</summary>
+        internal void Initialize(int id, Flood2Material kind, PhysicsMaterial friction, Material lineMaterial, PhysicsSettings settings)
+        {
+            _settings = settings;
             Id = id;
             Kind = kind;
             _body = GetComponent<Rigidbody>();
@@ -39,9 +68,9 @@ namespace Flood2
             _shape = GetComponent<BoxCollider>();
             _shape.sharedMaterial = friction;
             Vector3 size = transform.localScale;
-            _body.mass = size.x * size.y * size.z * WATER_DENSITY * (kind == Flood2Material.Panel ? 0.6f : 2.6f);
-            _body.linearDamping = 0.4f;
-            _body.angularDamping = 1.5f;
+            _body.mass = size.x * size.y * size.z * settings.WaterDensity * (kind == Flood2Material.Panel ? settings.PanelRelativeDensity : settings.StoneRelativeDensity);
+            _body.linearDamping = settings.LinearDamping;
+            _body.angularDamping = settings.AngularDamping;
             _body.interpolation = RigidbodyInterpolation.Interpolate;
             _body.collisionDetectionMode = CollisionDetectionMode.ContinuousDynamic;
             _body.solverIterations = 12;
@@ -67,20 +96,20 @@ namespace Flood2
             _joint.autoConfigureConnectedAnchor = false;
             _joint.anchor = _anchor;
             _joint.connectedAnchor = target != null ? target.transform.InverseTransformPoint(point) : point;
-            _joint.breakForce = 4500f;
-            _joint.breakTorque = 2600f;
+            _joint.breakForce = _settings.WetBreakForce;
+            _joint.breakTorque = _settings.WetBreakTorque;
             _joint.enableCollision = true;
             _wasConnected = true;
             if (dry) Cure();
             return true;
         }
 
-        /// <summary>Doubles existing joint limits once; drying never creates a new attachment.</summary>
+        /// <summary>Applies the cured strength multiplier once to the existing joint, without creating a new one.</summary>
         public void Cure()
         {
             if (IsDry) return;
             IsDry = true;
-            if (_joint != null) { _joint.breakForce *= 2f; _joint.breakTorque *= 2f; }
+            if (_joint != null) { _joint.breakForce *= _settings.CuredStrengthMultiplier; _joint.breakTorque *= _settings.CuredStrengthMultiplier; }
         }
 
         /// <summary>Restores consumed adhesion history when a snapshot contained a broken joint.</summary>
@@ -132,7 +161,7 @@ namespace Flood2
                 flowSum += flow;
                 float depth = Mathf.Clamp(surface - bounds.min.y, 0f, bounds.size.y);
                 float faceWidth = side < 2 ? size.z : size.x;
-                float pressure = WATER_DENSITY * GRAVITY * faceWidth * depth * (surface - bounds.min.y - depth * 0.5f);
+                float pressure = _settings.WaterDensity * GRAVITY * faceWidth * depth * (surface - bounds.min.y - depth * 0.5f);
                 Vector3 application = transform.position + normal * extent;
                 application.y = bounds.min.y + depth * 0.4f;
                 _body.AddForceAtPosition(-normal * Mathf.Max(0f, pressure), application);
@@ -140,10 +169,10 @@ namespace Flood2
             if (wet == 0) return;
             float fraction = Mathf.Clamp01((surfaceSum / wet - bounds.min.y) / Mathf.Max(0.1f, bounds.size.y));
             float volume = size.x * size.y * size.z;
-            _body.AddForce(Vector3.up * (WATER_DENSITY * GRAVITY * volume * fraction - _body.linearVelocity.y * _body.mass * fraction * 2f));
+            _body.AddForce(Vector3.up * (_settings.WaterDensity * GRAVITY * volume * fraction - _body.linearVelocity.y * _body.mass * fraction * 2f));
             Vector2 flowAverage = flowSum / wet;
             Vector3 relative = new Vector3(flowAverage.x, 0f, flowAverage.y) - Vector3.ProjectOnPlane(_body.linearVelocity, Vector3.up);
-            _body.AddForce(relative * (0.45f * WATER_DENSITY * size.y * Mathf.Min(size.x, size.z) * fraction * relative.magnitude));
+            _body.AddForce(relative * (_settings.FlowDrag * _settings.WaterDensity * size.y * Mathf.Min(size.x, size.z) * fraction * relative.magnitude));
         }
 
         private void LateUpdate()

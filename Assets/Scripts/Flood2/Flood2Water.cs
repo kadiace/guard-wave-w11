@@ -26,14 +26,46 @@ namespace Flood2
         private readonly Color[] _colors = new Color[W * L * 4];
         private readonly Vector2[] _flowUv = new Vector2[W * L * 4];
         private readonly Mesh _mesh;
+        private readonly FlowSettings _settings;
         private float _renderClock;
         public float Volume { get; private set; }
         public bool IsValid { get; private set; } = true;
         public Mesh Surface => _mesh;
 
-        /// <summary>Allocates the solver and render mesh once; initial water occupies only the channel.</summary>
-        public Flood2Water()
+        [Serializable]
+        internal sealed class FlowSettings
         {
+            [Header("Boundary flow")]
+            [SerializeField] private float _initialSurfaceElevation = -0.65f;
+            [SerializeField, Range(0f, 18f)] private float _inletHalfWidth = 5.5f;
+            [SerializeField, Min(0f)] private float _inletVelocity = 3f;
+            [SerializeField, Min(0f)] private float _inletDepthFeedback = 2f;
+            [SerializeField, Min(0f)] private float _drainCoefficient = 0.65f;
+
+            [Header("Channel flow")]
+            [SerializeField, Min(0f)] private float _flowDamping = 0.3f;
+            [SerializeField, Min(0f)] private float _bedFriction = 0.035f;
+            [Tooltip("An obstacle this far above the bed or closer can block a water cell.")]
+            [SerializeField, Min(0f)] private float _obstacleClearance = 0.35f;
+            [SerializeField, Min(0.01f)] private float _meshRefreshSeconds = 0.05f;
+            public float InitialSurfaceElevation => _initialSurfaceElevation;
+            public float InletHalfWidth => _inletHalfWidth;
+            public float InletVelocity => _inletVelocity;
+            public float InletDepthFeedback => _inletDepthFeedback;
+            public float DrainCoefficient => _drainCoefficient;
+            public float FlowDamping => _flowDamping;
+            public float BedFriction => _bedFriction;
+            public float ObstacleClearance => _obstacleClearance;
+            public float MeshRefreshSeconds => _meshRefreshSeconds;
+        }
+
+        /// <summary>Builds the scene editor's quiet water preview from the default flow settings.</summary>
+        public Flood2Water() : this(new FlowSettings()) { }
+
+        /// <summary>Allocates the solver and render mesh using the scene's flow settings.</summary>
+        internal Flood2Water(FlowSettings settings)
+        {
+            _settings = settings;
             var indices = new int[W * L * 6];
             for (int z = 0; z < L; z++)
             for (int x = 0; x < W; x++)
@@ -66,7 +98,7 @@ namespace Flood2
             Array.Clear(_qx, 0, _qx.Length);
             Array.Clear(_qz, 0, _qz.Length);
             float total = 0f;
-            for (int i = 0; i < _depth.Length; i++) total += _depth[i] = Mathf.Max(0f, -0.65f - _ground[i]);
+            for (int i = 0; i < _depth.Length; i++) total += _depth[i] = Mathf.Max(0f, _settings.InitialSurfaceElevation - _ground[i]);
             Volume = total * DX * DX;
             _renderClock = 0f;
             IsValid = true;
@@ -78,6 +110,7 @@ namespace Flood2
         {
             Array.Copy(_bed, _previous, _bed.Length);
             Array.Copy(_ground, _bed, _ground.Length);
+            float clearance = _settings.ObstacleClearance;
             foreach (Flood2Piece piece in pieces)
             {
                 if (!piece.gameObject.activeSelf) continue;
@@ -91,7 +124,7 @@ namespace Flood2
                 {
                     int i = z * W + x;
                     Vector3 p = Center(x, z);
-                    if (bounds.min.y > _bed[i] + 0.35f) continue;
+                    if (bounds.min.y > _bed[i] + clearance) continue;
                     if (piece.Shape.Raycast(new Ray(p + Vector3.up * 20f, Vector3.down), out RaycastHit hit, 25f))
                         _bed[i] = Mathf.Max(_bed[i], hit.point.y);
                 }
@@ -134,7 +167,7 @@ namespace Flood2
             Volume = total * DX * DX;
             foreach (Flood2Piece piece in pieces) piece.ApplyWater(this);
             _renderClock += dt;
-            if (_renderClock >= 0.05f) { _renderClock = 0f; RefreshMesh(); }
+            if (_renderClock >= _settings.MeshRefreshSeconds) { _renderClock = 0f; RefreshMesh(); }
         }
 
         /// <summary>Updates local inertial discharge; high beds block flow until the water overtops them.</summary>
@@ -145,7 +178,7 @@ namespace Flood2
             float flowDepth = Mathf.Max(0f, Mathf.Max(etaA, etaB) - Mathf.Max(_bed[a], _bed[b]));
             if (flowDepth < DRY) return 0f;
             float flux = (oldFlux - GRAVITY * flowDepth * dt * (etaB - etaA) / DX) /
-                (1f + dt * (0.3f + 0.035f * Mathf.Abs(oldFlux) / Mathf.Max(0.01f, flowDepth * flowDepth)));
+                (1f + dt * (_settings.FlowDamping + _settings.BedFriction * Mathf.Abs(oldFlux) / Mathf.Max(0.01f, flowDepth * flowDepth)));
             return Mathf.Clamp(flux, -flowDepth * 8f, flowDepth * 8f);
         }
 
@@ -170,12 +203,12 @@ namespace Flood2
             }
             for (int x = 0; x < W; x++)
             {
-                _qz[x] = -Mathf.Max(0f, Mathf.Sqrt(GRAVITY * _depth[x]) * _depth[x] * 0.65f);
+                _qz[x] = -Mathf.Max(0f, Mathf.Sqrt(GRAVITY * _depth[x]) * _depth[x] * _settings.DrainCoefficient);
                 _outgoing[x] += -_qz[x];
                 int i = (L - 1) * W + x;
                 float inletX = Center(x, L - 1).x;
-                _qz[L * W + x] = Mathf.Abs(inletX) < 5.5f && inletDepth > 0f
-                    ? -Mathf.Max(0f, 3f * inletDepth + 2f * (inletDepth - _depth[i])) : 0f;
+                _qz[L * W + x] = Mathf.Abs(inletX) < _settings.InletHalfWidth && inletDepth > 0f
+                    ? -Mathf.Max(0f, _settings.InletVelocity * inletDepth + _settings.InletDepthFeedback * (inletDepth - _depth[i])) : 0f;
             }
             for (int i = 0; i < _depth.Length; i++)
                 _scale[i] = _outgoing[i] > 0f ? Mathf.Min(1f, _depth[i] * DX / (dt * _outgoing[i])) : 1f;

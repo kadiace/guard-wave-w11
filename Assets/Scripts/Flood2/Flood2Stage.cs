@@ -25,13 +25,35 @@ namespace Flood2
         [SerializeField] private Material _lineMaterial;
         [SerializeField] private PhysicsMaterial _friction;
 
-        [Header("Prototype rules")]
+        [Header("Attempt timing (seconds)")]
         [SerializeField, Min(10f)] private float _preparationSeconds = 120f;
         [SerializeField, Min(1f)] private float _warningSeconds = 5f;
-        [SerializeField, Min(0.1f)] private float _firstPeakDepth = 2.6f;
-        [SerializeField, Min(0.1f)] private float _secondPeakDepth = 3.4f;
         [SerializeField, Min(20f)] private float _tailObservationSeconds = 25f;
+        [Tooltip("Counts from Ready, including the warning, both waves and the tail observation.")]
         [SerializeField, Min(60f)] private float _attemptLimitSeconds = 150f;
+
+        [Header("Inflow depths (m)")]
+        [SerializeField, Min(0f)] private float _initialInletDepth = 0.2f;
+        [SerializeField, Min(0.1f)] private float _firstPeakDepth = 2.6f;
+        [SerializeField, Min(0f)] private float _intermissionDepth = 0.65f;
+        [SerializeField, Min(0.1f)] private float _secondPeakDepth = 3.4f;
+
+        [Header("Inflow durations (seconds)")]
+        [SerializeField, Min(0.1f)] private float _firstRiseSeconds = 4f;
+        [SerializeField, Min(0.1f)] private float _firstPeakSeconds = 7f;
+        [SerializeField, Min(0.1f)] private float _intermissionSeconds = 5f;
+        [SerializeField, Min(0.1f)] private float _secondRiseSeconds = 2f;
+        [SerializeField, Min(0.1f)] private float _secondPeakSeconds = 6f;
+        [SerializeField, Min(0.1f)] private float _recessionSeconds = 8f;
+
+        [Header("Citizens and clear conditions")]
+        [SerializeField, Min(0.02f)] private float _citizenSampleInterval = 0.1f;
+        [SerializeField, Min(0f)] private float _citizenSafeSeconds = 5f;
+        [SerializeField, Min(0f)] private float _settledWaterSeconds = 3f;
+        [SerializeField] private Flood2Citizen.RiskSettings _citizenRisk = new Flood2Citizen.RiskSettings();
+
+        [Header("Water simulation")]
+        [SerializeField] private Flood2Water.FlowSettings _waterFlow = new Flood2Water.FlowSettings();
         private Flood2Water _water;
         private float _warningClock;
         private float _sampleClock;
@@ -54,6 +76,11 @@ namespace Flood2
         public bool Paused { get; private set; }
         public bool CanEdit => Phase == Flood2Phase.Preparing && !Paused;
         public float PreparationLeft { get; private set; }
+        internal float PreparationSeconds => _preparationSeconds;
+        internal float FirstWaveEnd => _firstRiseSeconds + _firstPeakSeconds;
+        internal float IntermissionEnd => FirstWaveEnd + _intermissionSeconds;
+        internal float SecondWaveEnd => IntermissionEnd + _secondRiseSeconds + _secondPeakSeconds;
+        internal float InflowEnd => SecondWaveEnd + _recessionSeconds;
         public float FloodElapsed { get; private set; }
         public float WarningLeft => Mathf.Max(0f, _warningSeconds - _warningClock);
         public string ResultMessage { get; private set; }
@@ -75,7 +102,7 @@ namespace Flood2
             Cursor.lockState = CursorLockMode.None;
             Construction = GetComponent<Flood2Construction>();
             Hud = GetComponent<Flood2Hud>();
-            _water = new Flood2Water();
+            _water = new Flood2Water(_waterFlow);
             _waterSurface.sharedMesh = _water.Surface;
             Construction.Initialize(this);
             Hud.Initialize(this);
@@ -121,11 +148,11 @@ namespace Flood2
                 End(Flood2Phase.TechnicalError, "물 계산이 안정 범위를 벗어났습니다. 시민 실패로 처리하지 않습니다. 배치를 복원해 다시 시도하세요.");
                 return;
             }
-            if (FloodElapsed >= 32f) Phase = Flood2Phase.Assessing;
+            if (FloodElapsed >= InflowEnd) Phase = Flood2Phase.Assessing;
             _sampleClock += dt;
-            if (_sampleClock >= 0.1f - 0.0001f)
+            if (_sampleClock >= _citizenSampleInterval - 0.0001f)
             {
-                foreach (var citizen in _citizens) citizen.Observe(_water, _sampleClock);
+                foreach (var citizen in _citizens) citizen.Observe(_water, _sampleClock, _citizenRisk);
                 bool settled = true;
                 foreach (var citizen in _citizens)
                 {
@@ -138,8 +165,8 @@ namespace Flood2
                 _sampleClock = 0f;
             }
             bool allSafe = true;
-            foreach (var citizen in _citizens) allSafe &= citizen.SafeSeconds >= 5f && !citizen.InDanger;
-            if (Phase == Flood2Phase.Assessing && FloodElapsed >= 32f + _tailObservationSeconds && _stableClock >= 3f && allSafe)
+            foreach (var citizen in _citizens) allSafe &= citizen.SafeSeconds >= _citizenSafeSeconds && !citizen.InDanger;
+            if (Phase == Flood2Phase.Assessing && FloodElapsed >= InflowEnd + _tailObservationSeconds && _stableClock >= _settledWaterSeconds && allSafe)
             {
                 foreach (var citizen in _citizens) citizen.Protect();
                 End(Flood2Phase.Cleared, "두 차례의 홍수가 지나갔습니다.\n여섯 시민 모두 안전합니다. 여러분이 만든 물길이 마을을 지켰습니다.");
@@ -151,12 +178,12 @@ namespace Flood2
         /// <summary>Returns the deterministic upstream input, measured from the end of the warning.</summary>
         private float InletDepth(float time)
         {
-            if (time < 4f) return Mathf.Lerp(0.2f, _firstPeakDepth, time / 4f);
-            if (time < 11f) return _firstPeakDepth;
-            if (time < 16f) return Mathf.Lerp(_firstPeakDepth, 0.65f, (time - 11f) / 5f);
-            if (time < 18f) return Mathf.Lerp(0.65f, _secondPeakDepth, (time - 16f) / 2f);
-            if (time < 24f) return _secondPeakDepth;
-            if (time < 32f) return Mathf.Lerp(_secondPeakDepth, 0f, (time - 24f) / 8f);
+            if (time < _firstRiseSeconds) return Mathf.Lerp(_initialInletDepth, _firstPeakDepth, time / _firstRiseSeconds);
+            if (time < FirstWaveEnd) return _firstPeakDepth;
+            if (time < IntermissionEnd) return Mathf.Lerp(_firstPeakDepth, _intermissionDepth, (time - FirstWaveEnd) / _intermissionSeconds);
+            if (time < IntermissionEnd + _secondRiseSeconds) return Mathf.Lerp(_intermissionDepth, _secondPeakDepth, (time - IntermissionEnd) / _secondRiseSeconds);
+            if (time < SecondWaveEnd) return _secondPeakDepth;
+            if (time < InflowEnd) return Mathf.Lerp(_secondPeakDepth, 0f, (time - SecondWaveEnd) / _recessionSeconds);
             return 0f;
         }
 

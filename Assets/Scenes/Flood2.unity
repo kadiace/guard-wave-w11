@@ -1483,10 +1483,46 @@ MonoBehaviour:
   _friction: {fileID: 13400000, guid: 34ab0999e1f4c204b8e469aef57764f3, type: 2}
   _preparationSeconds: 120
   _warningSeconds: 5
-  _firstPeakDepth: 2.6
-  _secondPeakDepth: 3.4
   _tailObservationSeconds: 25
   _attemptLimitSeconds: 150
+  _initialInletDepth: 0.2
+  _firstPeakDepth: 2.6
+  _intermissionDepth: 0.65
+  _secondPeakDepth: 3.4
+  _firstRiseSeconds: 4
+  _firstPeakSeconds: 7
+  _intermissionSeconds: 5
+  _secondRiseSeconds: 2
+  _secondPeakSeconds: 6
+  _recessionSeconds: 8
+  _citizenSampleInterval: 0.1
+  _citizenSafeSeconds: 5
+  _settledWaterSeconds: 3
+  _citizenRisk:
+    _probeRadius: 0.4
+    _minimumWetCoverage: 0.25
+    _dangerDepth: 0.45
+    _fastWaterDepth: 0.2
+    _dangerSpeed: 2
+    _severeDepth: 1.1
+    _dangerDelaySeconds: 0.2
+    _exposurePerSecond: 12.5
+    _severeExposurePerSecond: 25
+    _recoveryDelaySeconds: 0.75
+    _recoveryPerSecond: 10
+    _unsettledDepth: 0.1
+    _unsettledSpeed: 0.5
+    _unsettledRisePerSecond: 0.1
+  _waterFlow:
+    _initialSurfaceElevation: -0.65
+    _inletHalfWidth: 5.5
+    _inletVelocity: 3
+    _inletDepthFeedback: 2
+    _drainCoefficient: 0.65
+    _flowDamping: 0.3
+    _bedFriction: 0.035
+    _obstacleClearance: 0.35
+    _meshRefreshSeconds: 0.05
 --- !u!114 &247100592
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -1511,6 +1547,29 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 111a6d3aee62a134f8a5980fd881f703, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::Flood2.Flood2Construction
+  _startingPanels: 24
+  _startingStones: 18
+  _startingAdhesive: 30
+  _panelSize: {x: 3.6, y: 1.2, z: 0.6}
+  _stoneSize: {x: 1.4, y: 0.9, z: 1.1}
+  _placementGrid: 0.3
+  _rotationStep: 15
+  _strokeStartCost: 0.5
+  _brushRadius: 0.48
+  _maxPatches: 96
+  _contactCheckSeconds: 0.1
+  _cureRadius: 0.8
+  _cureSeconds: 1
+  _piecePhysics:
+    _waterDensity: 100
+    _panelRelativeDensity: 0.6
+    _stoneRelativeDensity: 2.6
+    _flowDrag: 0.45
+    _linearDamping: 0.4
+    _angularDamping: 1.5
+    _wetBreakForce: 4500
+    _wetBreakTorque: 2600
+    _curedStrengthMultiplier: 2
 --- !u!4 &247100594
 Transform:
   m_ObjectHideFlags: 0
@@ -8972,6 +9031,11 @@ MonoBehaviour:
   _yaw: -12
   _pitch: 58
   _zoom: 36
+  _citizenFocusZoom: 13
+  _scrollSensitivity: 0.015
+  _orbitYawSensitivity: 0.22
+  _orbitPitchSensitivity: 0.18
+  _keyboardPanSpeed: 0.7
 --- !u!81 &1376346628
 AudioListener:
   m_ObjectHideFlags: 0

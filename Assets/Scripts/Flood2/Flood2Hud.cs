@@ -143,7 +143,13 @@ namespace Flood2
             Fill(new Rect(1318, 116, 258, 325), INK);
             Label(1336, 132, 220, 30, "홍수 예보", AQUA, 21);
             Label(1336, 176, 220, 48, "북쪽 유입 → 분기 수로\n남쪽 열린 배수구", PAPER, 18);
-            string[] rows = { "00–11초   첫 수위 상승", "11–16초   잠시 완화", "16–24초   두 번째 큰 홍수", "24–32초   유입 감소·종료" };
+            string[] rows =
+            {
+                $"00–{_stage.FirstWaveEnd:00.##}초   첫 수위 상승",
+                $"{_stage.FirstWaveEnd:00.##}–{_stage.IntermissionEnd:00.##}초   잠시 완화",
+                $"{_stage.IntermissionEnd:00.##}–{_stage.SecondWaveEnd:00.##}초   두 번째 큰 홍수",
+                $"{_stage.SecondWaveEnd:00.##}–{_stage.InflowEnd:00.##}초   유입 감소·종료"
+            };
             for (int i = 0; i < rows.Length; i++) Label(1336, 240 + i * 31, 232, 26, rows[i], i == 2 ? GOLD : MUTED, 17);
             Label(1336, 373, 225, 56, "시민에게 도착하는 시각은\n물길과 방벽 배치에 따라 달라집니다.", MUTED, 15);
         }
@@ -154,7 +160,14 @@ namespace Flood2
             Fill(new Rect(0, 764, 1600, 136), INK);
             var build = _stage.Construction;
             Label(24, 772, 1290, 28, build.Hint, GOLD, 18);
-            string[] names = { $"1  방벽 패널\n{build.Panels} / 24개", $"2  무거운 돌\n{build.Stones} / 18개", $"3  접합재\n{build.Adhesive:0.0} / 30m", "4  경화 도구\n선 위에서 1초", "5  회수\n설치 자재 클릭" };
+            string[] names =
+            {
+                $"1  방벽 패널\n{build.Panels} / {build.StartingPanels}개",
+                $"2  무거운 돌\n{build.Stones} / {build.StartingStones}개",
+                $"3  접합재\n{build.Adhesive:0.0} / {build.StartingAdhesive:0.##}m",
+                $"4  경화 도구\n선 위에서 {build.CureSeconds:0.##}초",
+                "5  회수\n설치 자재 클릭"
+            };
             GUI.enabled = _stage.CanEdit;
             for (int i = 0; i < names.Length; i++)
                 if (Button(new Rect(24 + i * 210, 809, 198, 66), names[i], (int)build.Tool == i ? AQUA : PAPER)) build.SelectTool((Flood2Tool)i);
@@ -165,7 +178,7 @@ namespace Flood2
             if (build.CureProgress > 0f)
             {
                 Fill(new Rect(650, 677, 300, 23), INK);
-                Fill(new Rect(653, 680, 294 * Mathf.Clamp01(build.CureProgress), 17), GOLD);
+                Fill(new Rect(653, 680, 294 * build.CureProgress, 17), GOLD);
             }
         }
 
@@ -207,7 +220,7 @@ namespace Flood2
         {
             Modal("FLOOD2 / 시민 보호 프로토타입", "홍수가 오기 전, 물길을 만들어 주세요.");
             Label(470, 301, 660, 220,
-                "시장 · 광장 · 정류장에서 시민 두 명씩이 기다립니다.\n\n120초 안에 방벽을 놓고, 돌로 지지하고, 접촉면에 접합재를 바르세요. 젖은 선을 경화하면 기존 연결이 강해집니다.\n\n물을 가둘 수도, 옆으로 흘려보낼 수도 있습니다. 시민 주변의 깊거나 빠른 물이 오래 지속되면 구조가 필요해집니다.", PAPER, 21);
+                $"시장 · 광장 · 정류장에서 시민 두 명씩이 기다립니다.\n\n{_stage.PreparationSeconds:0.##}초 안에 방벽을 놓고, 돌로 지지하고, 접촉면에 접합재를 바르세요. 젖은 선을 경화하면 기존 연결이 강해집니다.\n\n물을 가둘 수도, 옆으로 흘려보낼 수도 있습니다. 시민 주변의 깊거나 빠른 물이 오래 지속되면 구조가 필요해집니다.", PAPER, 21);
             Label(470, 538, 660, 60, "홍수 중에는 배치를 바꿀 수 없습니다. 실패하면 홍수 직전 배치로 돌아와 다시 설계할 수 있습니다.", GOLD, 19);
             if (Button(new Rect(470, 620, 660, 52), "마을 지키기 시작   ·   Enter", AQUA)) _stage.BeginPreparation();
         }
@@ -217,7 +230,8 @@ namespace Flood2
         {
             Modal("시도 결과", _stage.Phase == Flood2Phase.Cleared ? "여섯 시민을 지켰습니다." : _stage.Phase == Flood2Phase.TechnicalError ? "다시 시도할 수 있습니다." : "물길을 다시 설계해 주세요.");
             Label(470, 304, 660, 160, _stage.ResultMessage, PAPER, 22);
-            Label(470, 483, 660, 58, $"사용한 패널 {24 - _stage.Construction.Panels}개 · 돌 {18 - _stage.Construction.Stones}개\n현재 유지 중인 연결 {_stage.Construction.BondCount}개", MUTED, 19);
+            var build = _stage.Construction;
+            Label(470, 483, 660, 58, $"사용한 패널 {build.StartingPanels - build.Panels}개 · 돌 {build.StartingStones - build.Stones}개\n현재 유지 중인 연결 {build.BondCount}개", MUTED, 19);
             if (Button(new Rect(470, 560, 660, 52), "홍수 전 배치로 복원 · 수정하기", AQUA)) _stage.Retry(false);
             if (Button(new Rect(470, 628, 318, 43), "빈 배치로 새로 시작", PAPER)) _stage.Retry(true);
             if (Button(new Rect(804, 628, 326, 43), "스테이지 선택으로", PAPER)) _stage.ReturnToMenu();

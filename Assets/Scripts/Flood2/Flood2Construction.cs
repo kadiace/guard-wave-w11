@@ -11,8 +11,27 @@ namespace Flood2
     /// <summary>Limited construction, contact adhesion, curing and complete editable-layout snapshots.</summary>
     public sealed class Flood2Construction : MonoBehaviour
     {
-        private const float BRUSH_RADIUS = 0.48f;
-        private const int MAX_PATCHES = 96;
+        [Header("Starting inventory")]
+        [SerializeField, Min(0)] private int _startingPanels = 24;
+        [SerializeField, Min(0)] private int _startingStones = 18;
+        [SerializeField, Min(0f)] private float _startingAdhesive = 30f;
+
+        [Header("Placement")]
+        [SerializeField] private Vector3 _panelSize = new Vector3(3.6f, 1.2f, 0.6f);
+        [SerializeField] private Vector3 _stoneSize = new Vector3(1.4f, 0.9f, 1.1f);
+        [SerializeField, Min(0.01f)] private float _placementGrid = 0.3f;
+        [SerializeField, Range(1f, 180f)] private float _rotationStep = 15f;
+
+        [Header("Adhesive and curing")]
+        [SerializeField, Min(0f)] private float _strokeStartCost = 0.5f;
+        [SerializeField, Min(0.01f)] private float _brushRadius = 0.48f;
+        [SerializeField, Min(1)] private int _maxPatches = 96;
+        [SerializeField, Min(0.02f)] private float _contactCheckSeconds = 0.1f;
+        [SerializeField, Min(0.01f)] private float _cureRadius = 0.8f;
+        [SerializeField, Min(0.01f)] private float _cureSeconds = 1f;
+
+        [Header("Rigidbody and joint settings")]
+        [SerializeField] private Flood2Piece.PhysicsSettings _piecePhysics = new Flood2Piece.PhysicsSettings();
         private readonly List<Flood2Piece> _pieces = new List<Flood2Piece>();
         private readonly List<Patch> _patches = new List<Patch>();
         private readonly Stack<Snapshot> _undo = new Stack<Snapshot>();
@@ -36,13 +55,17 @@ namespace Flood2
         private bool _candidateValid;
         public IReadOnlyList<Flood2Piece> Pieces => _pieces;
         public Flood2Tool Tool { get; private set; }
-        public int Panels { get; private set; } = 24;
-        public int Stones { get; private set; } = 18;
-        public float Adhesive { get; private set; } = 30f;
+        public int Panels { get; private set; }
+        public int Stones { get; private set; }
+        public float Adhesive { get; private set; }
+        internal int StartingPanels => _startingPanels;
+        internal int StartingStones => _startingStones;
+        internal float StartingAdhesive => _startingAdhesive;
+        internal float CureSeconds => _cureSeconds;
         public int PatchCount => _patches.Count;
         public int BondCount { get { int n = 0; foreach (var p in _pieces) if (p.IsBonded) n++; return n; } }
         public string Hint { get; private set; } = "방벽을 놓고 돌과 접합재로 보강하세요.";
-        public float CureProgress => _cureTime;
+        public float CureProgress => Mathf.Clamp01(_cureTime / _cureSeconds);
         public bool HasCheckpoint => _checkpoint != null;
 
         private sealed class Patch
@@ -86,6 +109,9 @@ namespace Flood2
         public void Initialize(Flood2Stage stage)
         {
             _stage = stage;
+            Panels = _startingPanels;
+            Stones = _startingStones;
+            Adhesive = _startingAdhesive;
             _preview = GameObject.CreatePrimitive(PrimitiveType.Cube);
             _preview.name = "Placement preview";
             _preview.layer = 2;
@@ -96,16 +122,17 @@ namespace Flood2
             _preview.SetActive(false);
         }
 
-        /// <summary>Returns the world dimensions of a catalog item.</summary>
-        public static Vector3 Size(Flood2Material kind) => kind == Flood2Material.Panel ? new Vector3(3.6f, 1.2f, 0.6f) : new Vector3(1.4f, 0.9f, 1.1f);
+        /// <summary>Returns the catalog dimensions with a minimum size for the placement overlap check.</summary>
+        private Vector3 Size(Flood2Material kind) =>
+            Vector3.Max(kind == Flood2Material.Panel ? _panelSize : _stoneSize, Vector3.one * 0.1f);
 
         /// <summary>Switches tools and finalizes any pending paint gesture.</summary>
         public void SelectTool(Flood2Tool tool)
         {
             FinishInput();
             Tool = tool;
-            Hint = tool == Flood2Tool.Adhesive ? "접촉면 또는 자재 밑동 주변에 드래그 · 시작 0.5m + 도포 길이"
-                : tool == Flood2Tool.Cure ? "젖은 선 위에서 1초 누르기 · 경화 후에는 새 접합을 받지 않습니다."
+            Hint = tool == Flood2Tool.Adhesive ? $"접촉면 또는 자재 밑동 주변에 드래그 · 시작 {_strokeStartCost:0.##}m + 도포 길이"
+                : tool == Flood2Tool.Cure ? $"젖은 선 위에서 {_cureSeconds:0.##}초 누르기 · 경화 후에는 새 접합을 받지 않습니다."
                 : tool == Flood2Tool.Remove ? "설치 자재를 클릭하여 회수합니다. 접합재는 Undo로 되돌릴 수 있습니다."
                 : "클릭: 설치  /  Q·E: 회전  /  Shift: 정밀 배치";
         }
@@ -128,8 +155,8 @@ namespace Flood2
                 if (keyboard.digit3Key.wasPressedThisFrame) SelectTool(Flood2Tool.Adhesive);
                 if (keyboard.digit4Key.wasPressedThisFrame) SelectTool(Flood2Tool.Cure);
                 if (keyboard.digit5Key.wasPressedThisFrame) SelectTool(Flood2Tool.Remove);
-                if (keyboard.qKey.wasPressedThisFrame) _yaw -= 15f;
-                if (keyboard.eKey.wasPressedThisFrame) _yaw += 15f;
+                if (keyboard.qKey.wasPressedThisFrame) _yaw -= _rotationStep;
+                if (keyboard.eKey.wasPressedThisFrame) _yaw += _rotationStep;
                 if (keyboard.zKey.wasPressedThisFrame && keyboard.ctrlKey.isPressed) Undo();
             }
             if (!mouse.leftButton.isPressed) FinishInput();
@@ -143,8 +170,8 @@ namespace Flood2
                 _candidate = hit.point;
                 if (keyboard == null || !keyboard.shiftKey.isPressed)
                 {
-                    _candidate.x = Mathf.Round(_candidate.x / 0.3f) * 0.3f;
-                    _candidate.z = Mathf.Round(_candidate.z / 0.3f) * 0.3f;
+                    _candidate.x = Mathf.Round(_candidate.x / _placementGrid) * _placementGrid;
+                    _candidate.z = Mathf.Round(_candidate.z / _placementGrid) * _placementGrid;
                 }
                 float support = hit.point.y;
                 Quaternion rotation = Quaternion.Euler(0f, _yaw, 0f);
@@ -156,7 +183,7 @@ namespace Flood2
                 }
                 _candidate.y = support + size.y * 0.5f + 0.035f;
                 _candidateValid = CanPlace(kind, _candidate, rotation, out string reason);
-                Hint = _candidateValid ? "클릭: 설치  /  Q·E: 15° 회전  /  Shift: 정밀 배치" : reason;
+                Hint = _candidateValid ? $"클릭: 설치  /  Q·E: {_rotationStep:0.#}° 회전  /  Shift: 정밀 배치" : reason;
                 _preview.SetActive(true);
                 _preview.transform.SetPositionAndRotation(_candidate, rotation);
                 _preview.transform.localScale = size;
@@ -215,7 +242,7 @@ namespace Flood2
             go.transform.localScale = Size(kind);
             go.GetComponent<Renderer>().sharedMaterial = kind == Flood2Material.Panel ? _stage.PanelMaterial : _stage.StoneMaterial;
             Flood2Piece piece = go.AddComponent<Flood2Piece>();
-            piece.Initialize(id, kind, _stage.Friction, _stage.LineMaterial);
+            piece.Initialize(id, kind, _stage.Friction, _stage.LineMaterial, _piecePhysics);
             _pieces.Add(piece);
             return piece;
         }
@@ -243,8 +270,8 @@ namespace Flood2
             float distance = _hasPreviousPaint ? Vector3.Distance(_previousPaint, point) : 0f;
             if (_hasPreviousPaint && distance < 0.18f) return;
             bool newPatch = _currentPatch == null || _currentPatch.Owner != (owner != null ? owner.Id : -1) || distance > 1.5f;
-            if (newPatch && _patches.Count >= MAX_PATCHES) { Hint = "도포 구간 한도 96개에 도달했습니다. Undo로 조정하세요."; return; }
-            float cost = !_painting ? 0.5f : distance > 1.5f ? 0f : distance;
+            if (newPatch && _patches.Count >= _maxPatches) { Hint = $"도포 구간 한도 {_maxPatches}개에 도달했습니다. Undo로 조정하세요."; return; }
+            float cost = !_painting ? _strokeStartCost : distance > 1.5f ? 0f : distance;
             if (Adhesive + 0.0001f < cost) { Hint = "접합재가 부족합니다. 이미 도포한 부분은 유지됩니다."; return; }
             if (!_painting) { _undo.Push(Capture()); _painting = true; }
             if (newPatch)
@@ -289,12 +316,12 @@ namespace Flood2
                 patch.Line.SetPosition(i, WorldPoint(patch, patch.Points[Mathf.Min(i, count - 1)]) + Vector3.up * 0.06f + (count == 1 && i == 1 ? Vector3.right * 0.08f : Vector3.zero));
         }
 
-        /// <summary>Cures the nearest painted patch after one second; existing joint limits double only once.</summary>
+        /// <summary>Accumulates time on the nearest wet patch and strengthens its joints when curing finishes.</summary>
         public void CureAt(Vector3 point, float dt)
         {
             if (!_stage.CanEdit) return;
             Patch nearest = null;
-            float best = 0.8f * 0.8f;
+            float best = _cureRadius * _cureRadius;
             foreach (var patch in _patches)
             {
                 if (patch.Dry) continue;
@@ -307,14 +334,14 @@ namespace Flood2
             if (nearest != _curingPatch) { _curingPatch = nearest; _cureTime = 0f; }
             if (nearest == null) return;
             _cureTime += dt;
-            if (_cureTime < 1f) return;
+            if (_cureTime < _cureSeconds) return;
             _undo.Push(Capture());
             nearest.Dry = true;
             foreach (var piece in _pieces) if (piece.PatchId == nearest.Id) piece.Cure();
             RefreshPatchLine(nearest);
             _curingPatch = null;
             _cureTime = 0f;
-            Hint = "경화 완료 · 기존 접합 강도 2배, 이 선은 새로운 자재를 받지 않습니다.";
+            Hint = $"경화 완료 · 기존 접합 강도 {_piecePhysics.CuredStrengthMultiplier:0.##}배, 이 선은 새로운 자재를 받지 않습니다.";
         }
 
         /// <summary>Finalizes all pending construction input before pause, tool changes or the flood checkpoint.</summary>
@@ -325,11 +352,11 @@ namespace Flood2
             _cureTime = 0f;
         }
 
-        /// <summary>Processes only wet samples at 10Hz, rejecting used bodies before geometric contact checks.</summary>
+        /// <summary>Checks wet adhesive for new contacts when the configured polling interval elapses.</summary>
         public void TickContacts(float dt)
         {
             _contactClock += dt;
-            if (_contactClock < 0.1f) return;
+            if (_contactClock < _contactCheckSeconds) return;
             _contactClock = 0f;
             ResolveContacts();
         }
@@ -337,6 +364,7 @@ namespace Flood2
         /// <summary>Connects touching bodies without ever reattaching a previously bonded body.</summary>
         private void ResolveContacts()
         {
+            float radiusSquared = _brushRadius * _brushRadius;
             foreach (var patch in _patches)
             {
                 if (patch.Dry) continue;
@@ -344,14 +372,14 @@ namespace Flood2
                 foreach (Vector3 local in patch.Points)
                 {
                     Vector3 point = WorldPoint(patch, local);
-                    if (owner != null && !owner.EverBonded && point.y - Flood2Terrain.Height(point.x, point.z) < BRUSH_RADIUS)
+                    if (owner != null && !owner.EverBonded && point.y - Flood2Terrain.Height(point.x, point.z) < _brushRadius)
                         owner.Bond(null, point, patch.Id, false);
                     foreach (var target in _pieces)
                     {
                         if (target == owner || target.EverBonded || !target.gameObject.activeSelf) continue;
                         Vector3 closest = target.Shape.ClosestPoint(point);
-                        if ((closest - point).sqrMagnitude > BRUSH_RADIUS * BRUSH_RADIUS) continue;
-                        if (owner == null && closest.y - Flood2Terrain.Height(closest.x, closest.z) > BRUSH_RADIUS) continue;
+                        if ((closest - point).sqrMagnitude > radiusSquared) continue;
+                        if (owner == null && closest.y - Flood2Terrain.Height(closest.x, closest.z) > _brushRadius) continue;
                         target.Bond(owner, closest, patch.Id, false);
                     }
                 }
@@ -433,7 +461,7 @@ namespace Flood2
         public void ResetLayout(bool empty)
         {
             if (empty || _checkpoint == null)
-                Restore(new Snapshot { Panels = 24, Stones = 18, Adhesive = 30f });
+                Restore(new Snapshot { Panels = _startingPanels, Stones = _startingStones, Adhesive = _startingAdhesive });
             else Restore(_checkpoint);
             if (empty) _checkpoint = null;
             _undo.Clear();

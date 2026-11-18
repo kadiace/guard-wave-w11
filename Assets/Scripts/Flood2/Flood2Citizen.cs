@@ -1,3 +1,5 @@
+using System;
+
 using UnityEngine;
 
 namespace Flood2
@@ -30,6 +32,44 @@ namespace Flood2
         public bool HasUnsettledWater { get; private set; }
         public Flood2CitizenState State { get; private set; }
 
+        [Serializable]
+        internal sealed class RiskSettings
+        {
+            [Header("Danger thresholds")]
+            [SerializeField, Min(0f)] private float _probeRadius = 0.4f;
+            [SerializeField, Range(0f, 1f)] private float _minimumWetCoverage = 0.25f;
+            [SerializeField, Min(0f)] private float _dangerDepth = 0.45f;
+            [SerializeField, Min(0f)] private float _fastWaterDepth = 0.2f;
+            [SerializeField, Min(0f)] private float _dangerSpeed = 2f;
+            [SerializeField, Min(0f)] private float _severeDepth = 1.1f;
+
+            [Header("Exposure (points out of 100)")]
+            [SerializeField, Min(0f)] private float _dangerDelaySeconds = 0.2f;
+            [SerializeField, Min(0f)] private float _exposurePerSecond = 12.5f;
+            [SerializeField, Min(0f)] private float _severeExposurePerSecond = 25f;
+            [SerializeField, Min(0f)] private float _recoveryDelaySeconds = 0.75f;
+            [SerializeField, Min(0f)] private float _recoveryPerSecond = 10f;
+
+            [Header("Residual water")]
+            [SerializeField, Min(0f)] private float _unsettledDepth = 0.1f;
+            [SerializeField, Min(0f)] private float _unsettledSpeed = 0.5f;
+            [SerializeField, Min(0f)] private float _unsettledRisePerSecond = 0.1f;
+            public float ProbeRadius => _probeRadius;
+            public float MinimumWetCoverage => _minimumWetCoverage;
+            public float DangerDepth => _dangerDepth;
+            public float FastWaterDepth => _fastWaterDepth;
+            public float DangerSpeed => _dangerSpeed;
+            public float SevereDepth => _severeDepth;
+            public float DangerDelaySeconds => _dangerDelaySeconds;
+            public float ExposurePerSecond => _exposurePerSecond;
+            public float SevereExposurePerSecond => _severeExposurePerSecond;
+            public float RecoveryDelaySeconds => _recoveryDelaySeconds;
+            public float RecoveryPerSecond => _recoveryPerSecond;
+            public float UnsettledDepth => _unsettledDepth;
+            public float UnsettledSpeedSquared => _unsettledSpeed * _unsettledSpeed;
+            public float UnsettledRisePerSecond => _unsettledRisePerSecond;
+        }
+
         /// <summary>Assigns a stable identity and visual references when authoring the new scene.</summary>
         public void Configure(string id, string zone, Transform visual, Renderer marker)
         {
@@ -46,7 +86,7 @@ namespace Flood2
         }
 
         /// <summary>Uses five water probes to update exposure and detect rising or fast water at the citizen.</summary>
-        public void Observe(Flood2Water water, float dt)
+        internal void Observe(Flood2Water water, float dt, RiskSettings settings)
         {
             if (State == Flood2CitizenState.RescueRequired || State == Flood2CitizenState.Protected) return;
             float depth = 0f;
@@ -56,7 +96,7 @@ namespace Flood2
             int wet = 0;
             for (int i = 0; i < 5; i++)
             {
-                Vector3 offset = i == 0 ? Vector3.zero : new Vector3(Mathf.Cos((i - 1) * Mathf.PI * 0.5f), 0f, Mathf.Sin((i - 1) * Mathf.PI * 0.5f)) * 0.4f;
+                Vector3 offset = i == 0 ? Vector3.zero : new Vector3(Mathf.Cos((i - 1) * Mathf.PI * 0.5f), 0f, Mathf.Sin((i - 1) * Mathf.PI * 0.5f)) * settings.ProbeRadius;
                 Vector3 p = transform.position + offset;
                 if (!water.Sample(p + Vector3.up * 0.08f, out float surface, out Vector2 flow) || surface <= p.y + 0.02f) continue;
                 float probeDepth = surface - p.y;
@@ -64,30 +104,33 @@ namespace Flood2
                 depth += probeDepth;
                 speed += flow.magnitude;
                 peakDepth = Mathf.Max(peakDepth, probeDepth);
-                movingWater |= probeDepth >= 0.1f && flow.sqrMagnitude > 0.25f;
+                movingWater |= probeDepth >= settings.UnsettledDepth && flow.sqrMagnitude > settings.UnsettledSpeedSquared;
             }
-            HasUnsettledWater = movingWater || peakDepth >= 0.1f && peakDepth - _previousPeakDepth > 0.1f * dt;
+            HasUnsettledWater = movingWater || peakDepth >= settings.UnsettledDepth && peakDepth - _previousPeakDepth > settings.UnsettledRisePerSecond * dt;
             _previousPeakDepth = peakDepth;
             Coverage = wet / 5f;
             Depth = wet > 0 ? depth / wet : 0f;
             Speed = wet > 0 ? speed / wet : 0f;
             MaxDepth = Mathf.Max(MaxDepth, Depth);
-            InDanger = Coverage >= 0.25f && (Depth >= 0.45f || Depth >= 0.2f && Speed >= 2f);
+            InDanger = wet > 0 && Coverage >= settings.MinimumWetCoverage &&
+                (Depth >= settings.DangerDepth || Depth >= settings.FastWaterDepth && Speed >= settings.DangerSpeed);
             if (InDanger)
             {
                 _safeTime = 0f;
                 _dangerTime += dt;
                 _exposedSeconds += dt;
-                if (_dangerTime > 0.2f + 0.0001f) Exposure = Mathf.Min(100f, Exposure + (Depth >= 1.1f ? 25f : 12.5f) * dt);
+                if (_dangerTime > settings.DangerDelaySeconds + 0.0001f)
+                    Exposure = Mathf.Min(100f, Exposure + (Depth >= settings.SevereDepth ? settings.SevereExposurePerSecond : settings.ExposurePerSecond) * dt);
             }
             else
             {
                 _dangerTime = 0f;
                 _safeTime += dt;
-                if (_safeTime > 0.75f) Exposure = Mathf.Max(0f, Exposure - 10f * dt);
+                if (_safeTime > settings.RecoveryDelaySeconds) Exposure = Mathf.Max(0f, Exposure - settings.RecoveryPerSecond * dt);
             }
             if (Exposure >= 100f) State = Flood2CitizenState.RescueRequired;
-            else if (Exposure >= 70f || Depth >= 1.1f || State == Flood2CitizenState.Critical && Exposure >= 60f) State = Flood2CitizenState.Critical;
+            else if (Exposure >= 70f || wet > 0 && Depth >= settings.SevereDepth || State == Flood2CitizenState.Critical && Exposure >= 60f)
+                State = Flood2CitizenState.Critical;
             else State = Exposure >= 30f || InDanger ? Flood2CitizenState.Warning : Flood2CitizenState.Safe;
         }
 
