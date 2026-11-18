@@ -1,8 +1,8 @@
 # Avalanche 스테이지 기획 명세
 
-- 상태 — 재구성 전 기획안. 수치와 배치는 첫 구현 및 플레이 검증을 위한 시작값이며 아직 검증되지 않았다.
+- 상태 — 목표 기획 및 인수 기준. 눈 전용 초기 코드와 씬은 구현되어 있으나 Play Mode 검증은 완료되지 않았다.
 - 대상 — `Assets/Scenes/Avalanche.unity`
-- 현재 구현 — 두 차례의 홍수와 시민 노출을 계산하는 프로토타입이다. 현재 조작과 수치는 [Avalanche 프로토타입](AvalanchePrototype.md)에 기록한다. 이 문서는 눈사태 전환 후 목표 사양이다.
+- 현재 구현 — `AvalancheSnow`를 중심으로 이동층·정지층, 두 차례 눈 방출, 방벽 하중, 시민 충돌·매몰, 배치·복원, 공통 HUD를 연결한 초안이다. 미구현 항목과 수동 검증 절차는 [재개 작업 현황](AvalancheResumeStatus.md)을 참고한다. 기존 홍수 실험에 관한 설명은 [Avalanche 프로토타입](AvalanchePrototype.md)에 남긴다.
 
 ## 1. 목표와 플레이 경험
 
