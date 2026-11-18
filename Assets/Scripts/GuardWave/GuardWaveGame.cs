@@ -156,6 +156,7 @@ namespace GuardWave
         private GuardWaveFluidSettings _fluidSettings;
         private bool _isLavaStage;
         private bool _isFogStage;
+        private bool _isFloodStage;
         private GuardWaveLavaAtmosphere _lavaAtmosphere;
         private float _lavaFlowSecondsRemaining;
         private readonly List<GuardWaveFlipFluid.LavaContactEvidence> _lavaContacts =
@@ -230,6 +231,7 @@ namespace GuardWave
             _sceneContext = GetComponent<ForestSceneContext>();
             _isLavaStage = gameObject.scene.name == "Lava";
             _isFogStage = GetComponent<FogSceneController>() != null;
+            _isFloodStage = gameObject.scene.name == "Flood";
             _catalog = new GuardWaveCatalog();
             _stageInfo = GuardWaveStageInfoFile.LoadForScene(gameObject.scene.name);
             _fluidSettings = _sceneFluidSettings != null
@@ -300,7 +302,7 @@ namespace GuardWave
 
         private void UpdateFloodDrowning()
         {
-            if (_isLavaStage || _isFogStage ||
+            if (!_isFloodStage ||
                 _awaitingStage || _finished || _flagBody == null ||
                 _defenseFlag == null || !_defenseFlag.activeInHierarchy)
                 return;
@@ -1311,7 +1313,7 @@ namespace GuardWave
             && !_finished && !_rulesOpen && _flagPlaced &&
             _defenseFlag != null && _defenseFlag.activeInHierarchy;
         public bool IsLavaStage => _isLavaStage;
-        public bool IsFloodDrowning => !_isLavaStage && !_isFogStage &&
+        public bool IsFloodDrowning => _isFloodStage &&
             (_flagFloodImmersed ||
              (_awaitingStage && _floodDrowningSeconds >= floodDrowningDurationSeconds));
         public float FloodDrowningSeconds => _floodDrowningSeconds;
