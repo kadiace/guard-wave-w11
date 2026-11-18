@@ -44,6 +44,16 @@
       "abilityAlternatives": []
     },
     {
+      "id": "fog_barrier",
+      "name": "차폐막",
+      "category": "환경",
+      "startOnly": false,
+      "spawnOnly": false,
+      "abilities": [
+        "넓은 차폐판으로 독안개의 흐름을 좌우와 위쪽으로 우회시킵니다."
+      ]
+    },
+    {
       "id": "default_flag",
       "name": "깃발",
       "category": "목표",
