@@ -36,7 +36,7 @@
     },
     {
       "sceneName": "Lava",
-      "disasterName": "용암류",
+      "disasterName": "용암",
       "countdownSeconds": 120,
       "palette": [
         {
