@@ -53,8 +53,7 @@ namespace GuardWave
         private Collider _surfaceCollider;
         private Rigidbody _surfaceBody;
         private GuardWavePiece _surfacePiece;
-        private float _breakForce;
-        private float _breakTorque;
+        private GuardWaveMudJointSettings _jointSettings;
         private int _triggerSegmentFirstSample;
         private GameObject _triggerSegment;
         private CapsuleCollider _triggerCapsule;
@@ -132,8 +131,6 @@ namespace GuardWave
             public readonly Vector3 Anchor;
             public readonly Vector3 ConnectedAnchor;
             public readonly Rigidbody ConnectedBody;
-            public readonly float BreakForce;
-            public readonly float BreakTorque;
 
             public MudBondState(GuardWaveMudPatch patch, GuardWavePiece piece, FixedJoint joint)
             {
@@ -142,24 +139,29 @@ namespace GuardWave
                 Anchor = joint.anchor;
                 ConnectedAnchor = joint.connectedAnchor;
                 ConnectedBody = joint.connectedBody;
-                BreakForce = joint.breakForce;
-                BreakTorque = joint.breakTorque;
             }
         }
 
-        /// <summary>Initializes a runtime stroke on its surface and creates its mesh and material.</summary>
+        /// <summary>All mud bonds share the Inspector settings on mud.prefab.</summary>
+        private void LoadJointSettings()
+        {
+            _jointSettings = GetComponent<GuardWaveMudJointSettings>();
+            if (_jointSettings == null)
+                _jointSettings = GuardWaveMudJointSettings.LoadPrefabSettings();
+            if (_jointSettings == null)
+                throw new MissingReferenceException(
+                    "Missing GuardWaveMudJointSettings on Resources/Prefabs/Objects/mud.prefab");
+        }
+
         public void Initialize(GuardWaveGame game, Collider surfaceCollider,
-            Rigidbody surfaceBody, float breakForce, float breakTorque)
+            Rigidbody surfaceBody)
         {
             _game = game;
             _surfaceCollider = surfaceCollider;
             _surfaceBody = surfaceBody;
             _surfacePiece = surfaceCollider.GetComponentInParent<GuardWavePiece>();
-            _breakForce = breakForce;
-            _breakTorque = breakTorque;
+            LoadJointSettings();
             TrackSurfacePiece();
-
-            // Explicit mud joints use one oval mesh, not a legacy brush ribbon.
         }
 
         /// <summary>Whether this patch belongs to the support being removed.</summary>
@@ -179,35 +181,19 @@ namespace GuardWave
             CreateBond(piece, anchor, connectedAnchor, _surfaceBody);
             if (!HasBond(piece)) return false;
 
-            GameObject oval = GameObject.CreatePrimitive(PrimitiveType.Sphere);
-            oval.name = "Mud Bond Oval";
-            oval.transform.SetParent(transform, false);
-            oval.transform.localPosition = Vector3.zero;
-            oval.transform.localRotation = Quaternion.identity;
-            oval.transform.localScale = new Vector3(0.70f, 0.28f, 0.44f);
-            Collider ovalCollider = oval.GetComponent<Collider>();
-            if (ovalCollider != null)
-            {
-                ovalCollider.enabled = false;
-                Destroy(ovalCollider);
-            }
-            MeshRenderer renderer = oval.GetComponent<MeshRenderer>();
-            renderer.sharedMaterial = MudMaterial;
-            renderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
-            renderer.receiveShadows = false;
+            // The instantiated mud prefab already provides the oval renderer.
             return true;
         }
 
         /// <summary>씬에 배치된 진흙의 트리거 중심을 접착 표면 샘플로 등록한다.</summary>
         public void InitializeAuthored(GuardWaveGame game, Collider surfaceCollider,
-            Rigidbody surfaceBody, float breakForce, float breakTorque)
+            Rigidbody surfaceBody)
         {
             _game = game;
             _surfaceCollider = surfaceCollider;
             _surfaceBody = surfaceBody;
             _surfacePiece = surfaceCollider.GetComponentInParent<GuardWavePiece>();
-            _breakForce = breakForce;
-            _breakTorque = breakTorque;
+            LoadJointSettings();
             TrackSurfacePiece();
             // Scene-authored mud uses many rendered child meshes under one patch.
             // Cure all together without modifying the shared Mud.mat asset.
@@ -634,13 +620,14 @@ namespace GuardWave
             }
 
             if (!touchesPaint) return false;
+            _jointSettings.ApplyTo(joint);
             _bonds.Add(piece, joint);
             _game.TrackMudPatch(piece, this);
-            _game.RegisterMudBond(piece, joint);
-            // The authored joint has the same wet/dry lifecycle as a painted bond.
+            _game.RegisterMudBond(piece, joint,
+                _jointSettings.SolverIterations, _jointSettings.SolverVelocityIterations);
             GuardWaveInitialLogJoint initialLog = piece.GetComponent<GuardWaveInitialLogJoint>();
             if (initialLog != null)
-                initialLog.Restart(joint, _isDry);
+                initialLog.Restart(joint, _isDry, _jointSettings.BreakForce);
             return true;
         }
 
@@ -767,12 +754,11 @@ namespace GuardWave
             joint.connectedBody = connectedBody;
             joint.anchor = anchor;
             joint.connectedAnchor = connectedAnchor;
-            joint.breakForce = _breakForce * (_isDry ? 2f : 1f);
-            joint.breakTorque = _breakTorque * (_isDry ? 2f : 1f);
-            joint.enableCollision = false;
+            _jointSettings.ApplyTo(joint);
             _bonds[piece] = joint;
             _game?.TrackMudPatch(piece, this);
-            _game?.RegisterMudBond(piece, joint);
+            _game?.RegisterMudBond(piece, joint,
+                _jointSettings.SolverIterations, _jointSettings.SolverVelocityIterations);
         }
 
         public bool HasBond(GuardWavePiece piece)
@@ -828,15 +814,12 @@ namespace GuardWave
                 state.ConnectedBody);
             if (_bonds.TryGetValue(state.Piece, out FixedJoint joint) && joint != null)
             {
-                // Initial definitions are wet; restoring a missing authored
-                // bond into a dried patch must also restore its doubled torque.
-                float dryness = fromInitialDefinition && _isDry ? 2f : 1f;
-                joint.breakForce = state.BreakForce * dryness;
-                joint.breakTorque = state.BreakTorque * dryness;
+                // No stale snapshot may override prefab-authored joint physics.
+                _jointSettings.ApplyTo(joint);
                 GuardWaveInitialLogJoint initialLog =
                     state.Piece.GetComponent<GuardWaveInitialLogJoint>();
                 if (initialLog != null)
-                    initialLog.Restart(joint, _isDry);
+                    initialLog.Restart(joint, _isDry, _jointSettings.BreakForce);
             }
         }
 
