@@ -169,6 +169,38 @@ namespace GuardWave
             renderer.receiveShadows = false;
         }
 
+        /// <summary>
+        /// Create one clicked contact bond. A short mesh marks the seam, but
+        /// unlike painted strokes it adds no trigger and cannot auto-glue neighbors.
+        /// </summary>
+        public bool ConnectContact(GuardWavePiece piece, Vector3 point, Vector3 normal)
+        {
+            if (_game == null || piece == null || piece.Body == null ||
+                _game.HasMudBond(piece) || _game.WasEverMudBonded(piece) ||
+                piece.Body == _surfaceBody)
+                return false;
+
+            Vector3 n = normal.sqrMagnitude > 0.001f ? normal.normalized : Vector3.up;
+            Vector3 tangent = Vector3.Cross(n, Vector3.forward);
+            if (tangent.sqrMagnitude < 0.01f)
+                tangent = Vector3.Cross(n, Vector3.right);
+            tangent.Normalize();
+            for (int i = -1; i <= 1; i += 2)
+            {
+                Vector3 world = point + tangent * (i * 0.15f);
+                int sampleIndex = _points.Count;
+                _points.Add(transform.InverseTransformPoint(world));
+                _normals.Add(transform.InverseTransformDirection(n).normalized);
+                IndexSample(_points[sampleIndex], sampleIndex);
+            }
+            _meshDirty = true;
+            Vector3 anchor = piece.transform.InverseTransformPoint(point);
+            Vector3 connectedAnchor = _surfaceBody == null ? point
+                : _surfaceBody.transform.InverseTransformPoint(point);
+            CreateBond(piece, anchor, connectedAnchor, _surfaceBody);
+            return HasBond(piece);
+        }
+
         /// <summary>씬에 배치된 진흙의 트리거 중심을 접착 표면 샘플로 등록한다.</summary>
         public void InitializeAuthored(GuardWaveGame game, Collider surfaceCollider,
             Rigidbody surfaceBody, float breakForce, float breakTorque)
@@ -222,7 +254,7 @@ namespace GuardWave
             UpdateTriggerSegment(index);
             // Do not wait for OnTriggerEnter/Stay: painting over two surfaces
             // that already touch must glue them immediately.
-            TryBondNearSample(worldPoint, worldNormal);
+            // Explicit contact clicks exclusively create new bonds.
         }
 
         /// <summary>Throttle full mesh uploads while painting; always flush the final brush position.</summary>
@@ -718,6 +750,13 @@ namespace GuardWave
 
         /// <summary>Searches an eligible contact once per physics tick, including contact with the creek bed.</summary>
         private void TryBond(Collider other)
+        {
+            // Contact bonding is now a deliberate palette click. Existing authored
+            // joints remain restorable, but triggers never make new bonds.
+            return;
+        }
+
+        private void LegacyTryBond(Collider other)
         {
             if (_game == null || _isDry || other == null || other.isTrigger ||
                 other == _surfaceCollider) return;

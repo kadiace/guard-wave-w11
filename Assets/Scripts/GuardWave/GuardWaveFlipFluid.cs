@@ -1215,6 +1215,39 @@ namespace GuardWave
         /// uses the same live-pose shape sampler and force formula as the solver,
         /// but never mutates Rigidbody state or triggers a GPU readback.
         /// </summary>
+        /// <summary>
+        /// A fresh FLIP readback must show both sufficient local water coverage and
+        /// a waterline above the specified fraction of the body's actual colliders.
+        /// Unlike the buoyancy diagnostic this also works for sinking/heavy flags.
+        /// </summary>
+        internal bool IsBodySurroundedByWater(Rigidbody body,
+            float minimumCoverage, float submergedHeightFraction)
+        {
+            if (_disposed || body == null || !body.gameObject.activeInHierarchy ||
+                !_indices.TryGetValue(body, out int index) ||
+                _recentWaterlineTime[index] <= 0f ||
+                Time.fixedTime - _recentWaterlineTime[index] > WATERLINE_SAMPLE_MAX_AGE ||
+                _recentFluidCoverage[index] < minimumCoverage)
+                return false;
+
+            float bottom = float.PositiveInfinity;
+            float top = float.NegativeInfinity;
+            foreach (Collider collider in _bodySampleColliders[index])
+            {
+                if (collider == null || !collider.enabled || collider.isTrigger ||
+                    !collider.gameObject.activeInHierarchy ||
+                    collider.attachedRigidbody != body)
+                    continue;
+                Bounds bounds = collider.bounds;
+                bottom = Mathf.Min(bottom, bounds.min.y);
+                top = Mathf.Max(top, bounds.max.y);
+            }
+            if (top <= bottom || float.IsNaN(_recentWaterline[index]))
+                return false;
+            return _recentWaterline[index] >=
+                Mathf.Lerp(bottom, top, Mathf.Clamp01(submergedHeightFraction));
+        }
+
         internal bool TryGetBuoyancyProbeSample(Rigidbody body, out BuoyancyProbeSample sample)
         {
             sample = default;

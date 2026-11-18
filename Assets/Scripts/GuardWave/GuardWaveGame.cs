@@ -16,6 +16,8 @@ namespace GuardWave
         private const float CREEK_PREWAVE_SECONDS = 5f;
         private const float SECOND_CREST_DELAY_SECONDS = 3f;
         private const float FLAG_SURVIVAL_CHECK_SECONDS = 5f;
+        private const int MAX_MUD_CONTACTS_PER_STEP = 96;
+        private const float MUD_CONTACT_GUIDE_RADIUS_PIXELS = 65f;
         private const float LAVA_FLOW_DURATION_SECONDS = 60f;
         private const float FLOOD_DURATION_INCREASE_PER_STAGE = 0.2f;
         private const float FLOOD_DEPTH_INCREASE_PER_STAGE = 0.5f;
@@ -94,15 +96,42 @@ namespace GuardWave
             public int VelocityIterations;
         }
         private GameObject _mudPreview;
-        private GuardWaveMudPatch _activeMudStroke;
-        private Vector2 _lastMudCursorScreen;
-        private bool _paintingMud;
-        private bool _mudStrokePainted;
+        private Material _mudPreviewMaterial;
+        private readonly List<MudContactCandidate> _mudContacts =
+            new List<MudContactCandidate>(MAX_MUD_CONTACTS_PER_STEP);
+        private readonly HashSet<ulong> _mudContactPairs = new HashSet<ulong>();
+        private MudContactCandidate _hoveredMudContact;
+        private bool _hasHoveredMudContact;
+        private readonly struct MudContactCandidate
+        {
+            public readonly GuardWavePiece Piece;
+            public readonly Collider OwnCollider;
+            public readonly Collider OtherCollider;
+            public readonly Vector3 Point;
+            public readonly Vector3 Normal;
+
+            public MudContactCandidate(GuardWavePiece piece, Collider ownCollider,
+                Collider otherCollider, Vector3 point, Vector3 normal)
+            {
+                Piece = piece;
+                OwnCollider = ownCollider;
+                OtherCollider = otherCollider;
+                Point = point;
+                Normal = normal;
+            }
+        }
+        private float _floodDrowningSeconds;
+        private bool _flagFloodImmersed;
         private GuardWaveMudPatch _dryingTarget;
         private GuardWaveDryerCoverage _dryerCoverage;
         private Collider _creekBedCollider;
         private float _dryingHoldSeconds;
         private const float MUD_DRY_HOLD_SECONDS = 1f;
+
+        [Header("Flood flag drowning")]
+        [SerializeField, Min(0.1f)] private float floodDrowningDurationSeconds = 5f;
+        [SerializeField, Range(0f, 1f)] private float floodDrowningMinimumCoverage = 0.6f;
+        [SerializeField, Range(0f, 1f)] private float floodDrowningHeightFraction = 0.65f;
 
         [Header("Mud adhesion")]
         [SerializeField, Min(0f)] private float mudBreakForce = 150f;
@@ -229,6 +258,10 @@ namespace GuardWave
 
         private void FixedUpdate()
         {
+            // Physics calls OnCollisionStay after FixedUpdate: collect contacts
+            // afresh each simulation step, never using stale join candidates.
+            _mudContacts.Clear();
+            _mudContactPairs.Clear();
             PruneDeadMudJoints();
             // Drain every queued crossing this physics step, without an object-count cap.
             while (_pendingOutflowRemovals.Count > 0)
@@ -258,8 +291,35 @@ namespace GuardWave
             // dispatching the next simulation step.
             if (_isLavaStage) DestroyContactedLavaObjects();
             _fluid.ApplyPendingImpulses();
+            UpdateFloodDrowning();
             if (ambientFlowPreview && _ambientFlowRunning)
                 _fluid.Step(Time.fixedDeltaTime, 0f);
+        }
+
+        private void UpdateFloodDrowning()
+        {
+            if (_isLavaStage || GetComponent<FogSceneController>() != null ||
+                _awaitingStage || _finished || _flagBody == null ||
+                _defenseFlag == null || !_defenseFlag.activeInHierarchy)
+                return;
+
+            _flagFloodImmersed = _fluid.IsBodySurroundedByWater(_flagBody,
+                floodDrowningMinimumCoverage, floodDrowningHeightFraction);
+            _floodDrowningSeconds = _flagFloodImmersed
+                ? Mathf.Min(floodDrowningDurationSeconds,
+                    _floodDrowningSeconds + Time.fixedDeltaTime) : 0f;
+            if (_floodDrowningSeconds >= floodDrowningDurationSeconds)
+            {
+                DestroyDefenseFlag();
+                if (_awaitingStage)
+                    _status = "깃발이 5초간 물에 잠겨 익사했습니다. 확인을 누르면 배치를 복원합니다.";
+            }
+        }
+
+        private void ResetFloodDrowning()
+        {
+            _floodDrowningSeconds = 0f;
+            _flagFloodImmersed = false;
         }
 
         private void Update()
@@ -323,11 +383,11 @@ namespace GuardWave
 
             UpdateDropPreview();
 
-            // Unlike an ordinary object drop, painting continues throughout
-            // the held left-button gesture and emits brush samples as it moves.
+            // Mud no longer paints strokes. Only a visible physical contact
+            // candidate can be clicked to create one fixed joint.
             if (_selected >= 0 && _offers[_selected]?.id == "mud")
             {
-                UpdateMudPainting(mouse);
+                UpdateMudContactClick(mouse);
                 return;
             }
             if (_selected >= 0 && _offers[_selected]?.id == "hair_dryer")
@@ -569,113 +629,179 @@ namespace GuardWave
         }
 
         /// <summary>
-        /// Holds one brush stroke while the left mouse button is down.
-        /// Resamples long mouse movements so no visible gaps appear between
-        /// frames, including when the pointer moves quickly.
+        /// Called by physics pieces only. Contacts with other placed pieces or
+        /// the creek bed are candidates; neither overlap tests nor proximity
+        /// alone can create a bond.
         /// </summary>
-        private void UpdateMudPainting(Mouse mouse)
+        internal void ReportMudContact(GuardWavePiece source, Collision collision)
         {
-            if (mouse == null || !mouse.leftButton.isPressed ||
-                mouse.rightButton.isPressed || _rulesOpen || _resolving)
-            {
-                EndMudPainting();
+            if (_selected < 0 || _offers[_selected]?.id != "mud" ||
+                _isLavaStage || GetComponent<FogSceneController>() != null ||
+                _stageTransitioning || _resolving || _awaitingStage || _finished ||
+                !IsPlacedPiece(source) || collision == null ||
+                collision.contactCount == 0 ||
+                _mudContacts.Count >= MAX_MUD_CONTACTS_PER_STEP)
                 return;
-            }
 
-            Vector2 cursorScreen = mouse.position.ReadValue();
-            if (!_paintingMud)
-            {
-                if (!mouse.leftButton.wasPressedThisFrame || !_dropMouseReleased ||
-                    Time.unscaledTime - _lastDropTime < dropClickCooldown ||
-                    !TryGetMudSurface(cursorScreen, out RaycastHit firstHit))
-                    return;
-
-                _paintingMud = true;
-                _dropMouseReleased = false;
-                _lastDropTime = Time.unscaledTime;
-                _lastMudCursorScreen = cursorScreen;
-                PaintMudAt(firstHit);
+            ContactPoint first = collision.GetContact(0);
+            Collider own = first.thisCollider;
+            Collider other = first.otherCollider;
+            if (own == null || other == null || other.isTrigger ||
+                other.attachedRigidbody == source.Body)
                 return;
-            }
+            GuardWavePiece target = other.GetComponentInParent<GuardWavePiece>();
+            if (other != _creekBedCollider &&
+                (target == null || !IsPlacedPiece(target)))
+                return;
 
-            // Interpolate in screen space, not in projected XZ world space.
-            // Each sample gets its own camera ray, so an intervening log
-            // occludes the ground even during a quick mouse drag.
-            float worldUnitsPerPixel = 2f * _camera.orthographicSize /
-                Mathf.Max(Screen.height, 1);
-            float travel = Vector2.Distance(_lastMudCursorScreen, cursorScreen);
-            int segments = Mathf.Clamp(
-                Mathf.CeilToInt(travel * worldUnitsPerPixel /
-                    GuardWaveMudPatch.SampleSpacing), 1, 64);
+            int a = own.GetInstanceID();
+            int b = other.GetInstanceID();
+            ulong key = ((ulong)(uint)Mathf.Min(a, b) << 32) |
+                (uint)Mathf.Max(a, b);
+            if (!_mudContactPairs.Add(key)) return;
 
-            for (int i = 1; i <= segments; i++)
+            // A collider pair may have a broad contact manifold; use the point
+            // nearest the cursor so the guide sits where the player is aiming.
+            Vector2 cursor = Mouse.current != null
+                ? Mouse.current.position.ReadValue() : Vector2.zero;
+            ContactPoint nearest = first;
+            float nearestDistance = float.PositiveInfinity;
+            for (int i = 0; i < Mathf.Min(collision.contactCount, 8); i++)
             {
-                Vector2 screenSample = Vector2.Lerp(
-                    _lastMudCursorScreen, cursorScreen, i / (float)segments);
-                if (TryGetMudSurface(screenSample, out RaycastHit hit))
-                    PaintMudAt(hit);
-                else
-                    _activeMudStroke = null;
+                ContactPoint contact = collision.GetContact(i);
+                Vector3 projected = _camera.WorldToScreenPoint(contact.point);
+                if (projected.z <= 0f) continue;
+                float distance = ((Vector2)projected - cursor).sqrMagnitude;
+                if (distance >= nearestDistance) continue;
+                nearestDistance = distance;
+                nearest = contact;
             }
-            _lastMudCursorScreen = cursorScreen;
+            _mudContacts.Add(new MudContactCandidate(source, own, other,
+                nearest.point, nearest.normal));
         }
 
-        private void PaintMudAt(RaycastHit surface)
+        private bool CanCreateMudBond(GuardWavePiece piece) =>
+            piece != null && IsPlacedPiece(piece) &&
+            !HasMudBond(piece) && !WasEverMudBonded(piece);
+
+        private bool TryResolveMudContact(MudContactCandidate candidate,
+            out GuardWavePiece piece, out Collider support)
         {
-            // One held brush gesture may cross from a log to the creek floor.
-            // Give each surface its own moving mud mesh, but explicitly bond
-            // the surfaces at the brush boundary when they physically meet.
-            GuardWaveMudPatch previousPatch = _activeMudStroke != null &&
-                _activeMudStroke.SurfaceCollider != surface.collider
-                ? _activeMudStroke : null;
-            Vector3 lastPoint = default;
-            Vector3 lastNormal = Vector3.up;
-            bool hasPreviousPoint = previousPatch != null &&
-                previousPatch.TryGetLastSurfaceSample(
-                    out lastPoint, out lastNormal);
-            if (hasPreviousPoint && Vector3.Distance(lastPoint, surface.point) >
-                GuardWaveMudPatch.BrushRadius * 2.5f)
-                hasPreviousPoint = false;
-
-            if (_activeMudStroke == null ||
-                _activeMudStroke.SurfaceCollider != surface.collider ||
-                _activeMudStroke.IsFull ||
-                !_activeMudStroke.CanContinueAt(surface.point, surface.normal))
+            piece = null;
+            support = null;
+            if (candidate.OtherCollider == null || candidate.OwnCollider == null)
+                return false;
+            GuardWavePiece other =
+                candidate.OtherCollider.GetComponentInParent<GuardWavePiece>();
+            if (CanCreateMudBond(candidate.Piece))
             {
-                GameObject strokeObject = new GameObject("Painted Mud Stroke");
-                strokeObject.transform.SetPositionAndRotation(
-                    surface.point, Quaternion.FromToRotation(Vector3.up, surface.normal));
-                // Keep paint attached to the surface as it moves or rotates.
-                // On terrain, the FixedJoint connects to the world; on a log,
-                // the joint connects to the log's Rigidbody.
-                strokeObject.transform.SetParent(surface.collider.transform, true);
-                _activeMudStroke = strokeObject.AddComponent<GuardWaveMudPatch>();
-                _activeMudStroke.Initialize(this, surface.collider,
-                    surface.rigidbody, mudBreakForce, mudBreakTorque);
-                _mudPatches.Add(_activeMudStroke);
+                piece = candidate.Piece;
+                support = candidate.OtherCollider;
+            }
+            else if (CanCreateMudBond(other))
+            {
+                piece = other;
+                support = candidate.OwnCollider;
+            }
+            return piece != null && support != null &&
+                support.attachedRigidbody != piece.Body;
+        }
+
+        private void UpdateMudContactPreview(Vector2 screen)
+        {
+            _hasHoveredMudContact = false;
+            if (_camera == null || screen.x < 0f || screen.y < 0f ||
+                screen.x >= Screen.width || screen.y >= Screen.height ||
+                (EventSystem.current != null &&
+                 EventSystem.current.IsPointerOverGameObject()))
+            {
+                if (_mudPreview != null) _mudPreview.SetActive(false);
+                return;
             }
 
-            _activeMudStroke.AddPoint(surface.point, surface.normal);
-            _mudStrokePainted = true;
-            if (hasPreviousPoint)
+            float nearest = MUD_CONTACT_GUIDE_RADIUS_PIXELS *
+                MUD_CONTACT_GUIDE_RADIUS_PIXELS;
+            foreach (MudContactCandidate candidate in _mudContacts)
             {
-                previousPatch.TryBridgeTo(surface.collider, lastPoint, lastNormal);
-                _activeMudStroke.TryBridgeTo(previousPatch.SurfaceCollider,
-                    surface.point, surface.normal);
+                if (!TryResolveMudContact(candidate, out _, out _)) continue;
+                Vector3 projected = _camera.WorldToScreenPoint(candidate.Point);
+                if (projected.z <= 0f) continue;
+                float distance = ((Vector2)projected - screen).sqrMagnitude;
+                if (distance > nearest) continue;
+                nearest = distance;
+                _hoveredMudContact = candidate;
+                _hasHoveredMudContact = true;
             }
-            _status = "진흙을 바르는 중… 접촉한 표면을 고정합니다.";
+
+            if (!_hasHoveredMudContact)
+            {
+                if (_mudPreview != null) _mudPreview.SetActive(false);
+                return;
+            }
+            if (_mudPreview == null)
+            {
+                _mudPreview = GuardWaveMudPatch.CreatePreview();
+                Shader shader = Shader.Find("Sprites/Default");
+                if (shader == null) shader = Shader.Find("Unlit/Transparent");
+                if (shader == null) shader = Shader.Find("Standard");
+                _mudPreviewMaterial = new Material(shader)
+                {
+                    name = "Mud Contact Candidate (Transparent Yellow)",
+                    color = new Color(1f, 0.86f, 0.1f, 0.48f),
+                    renderQueue = 3000
+                };
+                _mudPreview.GetComponent<MeshRenderer>().sharedMaterial =
+                    _mudPreviewMaterial;
+            }
+            Vector3 normal = _hoveredMudContact.Normal;
+            if (normal.sqrMagnitude < 0.001f) normal = Vector3.up;
+            _mudPreview.transform.SetPositionAndRotation(
+                _hoveredMudContact.Point + normal.normalized * 0.025f,
+                Quaternion.FromToRotation(Vector3.up, normal.normalized));
+            _mudPreview.SetActive(true);
+        }
+
+        private void UpdateMudContactClick(Mouse mouse)
+        {
+            if (mouse == null || !mouse.leftButton.wasPressedThisFrame ||
+                mouse.rightButton.isPressed || !_dropMouseReleased ||
+                !_hasHoveredMudContact ||
+                Time.unscaledTime - _lastDropTime < dropClickCooldown)
+                return;
+            _dropMouseReleased = false;
+            _lastDropTime = Time.unscaledTime;
+            MudContactCandidate candidate = _hoveredMudContact;
+            if (!TryResolveMudContact(candidate, out GuardWavePiece piece,
+                out Collider support)) return;
+
+            GameObject objectAtContact = new GameObject("Mud Contact Bond");
+            objectAtContact.transform.SetPositionAndRotation(candidate.Point,
+                Quaternion.FromToRotation(Vector3.up,
+                    candidate.Normal.sqrMagnitude < 0.001f
+                        ? Vector3.up : candidate.Normal.normalized));
+            objectAtContact.transform.SetParent(support.transform, true);
+            GuardWaveMudPatch patch =
+                objectAtContact.AddComponent<GuardWaveMudPatch>();
+            patch.Initialize(this, support, support.attachedRigidbody,
+                mudBreakForce, mudBreakTorque);
+            if (!patch.ConnectContact(piece, candidate.Point, candidate.Normal))
+            {
+                Destroy(objectAtContact);
+                return;
+            }
+            _mudPatches.Add(patch);
+            SaveEditState(false);
+            _hasHoveredMudContact = false;
+            if (_mudPreview != null) _mudPreview.SetActive(false);
+            _status = "진흙으로 접촉 지점을 연결했습니다. 드라이기로 접착력을 강화할 수 있습니다.";
         }
 
         private void EndMudPainting()
         {
-            bool painted = _mudStrokePainted;
-            _paintingMud = false;
-            _mudStrokePainted = false;
-            _activeMudStroke?.FlushStrokeMesh();
-            _activeMudStroke = null;
-            // One held brush gesture (even if split into patches) is one undo step.
-            if (painted && _initialized && !_stageTransitioning && !_awaitingStage)
-                SaveEditState(true);
+            // Legacy brush entry points still call this during selection reset.
+            // No gesture or extra undo step exists in click-to-bond mode.
+            _hasHoveredMudContact = false;
+            if (_mudPreview != null) _mudPreview.SetActive(false);
         }
 
         /// <summary>
@@ -865,16 +991,10 @@ namespace GuardWave
             {
                 _dropPreview.Hide();
                 _hud.HideDropGuide();
-                if (!mouse.rightButton.isPressed &&
-                    TryGetMudSurface(mouse.position.ReadValue(), out RaycastHit surface))
-                {
-                    if (_mudPreview == null) _mudPreview = GuardWaveMudPatch.CreatePreview();
-                    _mudPreview.transform.SetPositionAndRotation(
-                        surface.point + surface.normal * 0.020f,
-                        Quaternion.FromToRotation(Vector3.up, surface.normal));
-                    _mudPreview.SetActive(true);
-                }
-                else if (_mudPreview != null) _mudPreview.SetActive(false);
+                if (!mouse.rightButton.isPressed)
+                    UpdateMudContactPreview(mouse.position.ReadValue());
+                else
+                    EndMudPainting();
                 return;
             }
             if (_mudPreview != null) _mudPreview.SetActive(false);
@@ -963,6 +1083,7 @@ namespace GuardWave
             EndMudDrying();
             _dryerCoverage?.Dispose();
             _dryerCoverage = null;
+            if (_mudPreviewMaterial != null) Destroy(_mudPreviewMaterial);
             if (_mudPreview != null)
             {
                 MeshFilter filter = _mudPreview.GetComponent<MeshFilter>();
@@ -1111,6 +1232,12 @@ namespace GuardWave
             && !_finished && !_rulesOpen && _defenseFlag != null
             && _defenseFlag.activeInHierarchy;
         public bool IsLavaStage => _isLavaStage;
+        public bool IsFloodDrowning => !_isLavaStage &&
+            GetComponent<FogSceneController>() == null &&
+            (_flagFloodImmersed ||
+             (_awaitingStage && _floodDrowningSeconds >= floodDrowningDurationSeconds));
+        public float FloodDrowningSeconds => _floodDrowningSeconds;
+        public float FloodDrowningLimitSeconds => floodDrowningDurationSeconds;
         public float LavaFlowSecondsRemaining => _lavaFlowSecondsRemaining;
         public bool WaveHasStarted => _waveHasStarted;
         public bool CanSelect => !_resolving && !_awaitingStage && !_finished && !_rulesOpen
@@ -1328,6 +1455,9 @@ namespace GuardWave
             _editHistory.Clear();
             _playerPlacementCount = 0;
             EndMudDrying();
+            ResetFloodDrowning();
+            _mudContacts.Clear();
+            _mudContactPairs.Clear();
             SetOutlineTargets(null);
             if (_stageFloodRoutine != null)
             {
@@ -1414,7 +1544,7 @@ namespace GuardWave
                 ? "건물을 배치하면 +Z 방향 실외기 바람으로 안개를 밀어냅니다. 준비 완료를 누르세요."
                 : _isLavaStage
                     ? "용암에 닿은 기물은 불타다가 파괴됩니다. 깃발을 지키세요."
-                    : "진흙을 바르고 드라이기로 말려 접착력을 강화하세요. 기물 우클릭: 제거, 빈 공간 우클릭: 선택 해제";
+                    : "진흙 선택 후 노란 접촉 가이드를 클릭해 물체를 연결하세요. 드라이기로 접착력 강화, 우클릭: 선택 해제";
             // Initial state enables Ctrl+Z to undo the very first placement.
             SaveEditState(false);
         }
@@ -2076,6 +2206,7 @@ namespace GuardWave
         /// <summary>Releases all GPU fluid resources before reset, rollback or stage exit.</summary>
         private void DisposeFluid()
         {
+            ResetFloodDrowning();
             // Unregister before releasing buffers to avoid rendering disposed GPU data.
             _flipRenderer?.Render(null);
             _lavaAtmosphere?.BindFluid(null);
@@ -2248,6 +2379,7 @@ namespace GuardWave
             if (snapshot == null) return;
             _pendingOutflowRemovals.Clear();
             _queuedOutflowRemovals.Clear();
+            ResetFloodDrowning();
             SetOutlineTargets(null);
             HideDropPreview();
 
