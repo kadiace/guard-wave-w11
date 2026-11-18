@@ -1,9 +1,9 @@
 using UnityEngine;
 
-namespace Flood2
+namespace Avalanche
 {
-    /// <summary>Shared height field used by terrain collision, water and placement in Flood2.</summary>
-    public static class Flood2Terrain
+    /// <summary>Shared height field used by terrain collision, water and placement in Avalanche.</summary>
+    public static class AvalancheTerrain
     {
         public const int WIDTH = 60;
         public const int LENGTH = 100;
@@ -57,7 +57,7 @@ namespace Flood2
                 indices[t] = i; indices[t + 1] = i + stride; indices[t + 2] = i + 1;
                 indices[t + 3] = i + 1; indices[t + 4] = i + stride; indices[t + 5] = i + stride + 1;
             }
-            var mesh = new Mesh { name = "Flood2 river terrain", vertices = vertices, colors = colors, triangles = indices };
+            var mesh = new Mesh { name = "Avalanche river terrain", vertices = vertices, colors = colors, triangles = indices };
             mesh.RecalculateNormals();
             mesh.RecalculateBounds();
             return mesh;

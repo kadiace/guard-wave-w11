@@ -1,29 +1,29 @@
 using UnityEngine;
 
-namespace Flood2
+namespace Avalanche
 {
     /// <summary>Resolution-independent prototype HUD, tools and always-visible citizen observations.</summary>
-    public sealed class Flood2Hud : MonoBehaviour
+    public sealed class AvalancheHud : MonoBehaviour
     {
         private static readonly Color INK = new Color(0.055f, 0.1f, 0.14f, 0.96f);
         private static readonly Color PAPER = new Color(0.93f, 0.96f, 0.91f);
         private static readonly Color MUTED = new Color(0.62f, 0.74f, 0.75f);
         private static readonly Color AQUA = new Color(0.27f, 0.86f, 0.75f);
         private static readonly Color GOLD = new Color(1f, 0.75f, 0.33f);
-        private Flood2Stage _stage;
+        private AvalancheStage _stage;
         private GUIStyle _text;
         private GUIStyle _button;
         private GUIStyle _title;
         private bool _stylesReady;
 
         /// <summary>Connects the HUD to this scene's stage context.</summary>
-        public void Initialize(Flood2Stage stage) => _stage = stage;
+        public void Initialize(AvalancheStage stage) => _stage = stage;
 
         /// <summary>Matches visible HUD panels so clicks cannot place materials through menus.</summary>
         public bool BlocksPointer(Vector2 screen)
         {
             if (_stage == null) return true;
-            if (_stage.Phase == Flood2Phase.Introduction || _stage.IsFinished() || _stage.Paused) return true;
+            if (_stage.Phase == AvalanchePhase.Introduction || _stage.IsFinished() || _stage.Paused) return true;
             float x = screen.x * 1600f / Screen.width;
             float y = (Screen.height - screen.y) * 900f / Screen.height;
             return y < 104f || y > 752f || x < 294f && y < 665f || x > 1306f && y < 452f;
@@ -82,7 +82,7 @@ namespace Flood2
             DrawFloodStatus();
             DrawTools();
             DrawWorldMarkers();
-            if (_stage.Phase == Flood2Phase.Introduction) DrawIntroduction();
+            if (_stage.Phase == AvalanchePhase.Introduction) DrawIntroduction();
             else if (_stage.IsFinished()) DrawResult();
             else if (_stage.Paused) DrawPause();
             GUI.matrix = previous;
@@ -98,15 +98,15 @@ namespace Flood2
             Label(550, 20, 470, 30, "목표  ·  시민 6명 모두 보호", PAPER, 23);
             string phase = _stage.Phase switch
             {
-                Flood2Phase.Introduction => "배치를 설계하고 두 차례 홍수에 대비하세요",
-                Flood2Phase.Preparing => _stage.LimitPreparationTime
+                AvalanchePhase.Introduction => "배치를 설계하고 두 차례 홍수에 대비하세요",
+                AvalanchePhase.Preparing => _stage.LimitPreparationTime
                     ? $"준비 {Mathf.CeilToInt(_stage.PreparationLeft)}초  ·  0초가 되면 홍수가 시작됩니다"
                     : "준비 중  ·  배치를 마치면 준비 완료를 누르세요",
-                Flood2Phase.Warning => $"홍수 경보  ·  {Mathf.CeilToInt(_stage.WarningLeft)}초 후 유입",
-                Flood2Phase.Flooding => $"홍수 진행  {_stage.FloodElapsed:0.0}초  ·  물길과 대피 상황 관찰",
-                Flood2Phase.Assessing => "유입 종료  ·  하류 도달과 잔류 침수 관찰 중",
-                Flood2Phase.Cleared => "시민 전원 보호 완료",
-                Flood2Phase.TechnicalError => "계산 오류  ·  배치를 복원할 수 있습니다",
+                AvalanchePhase.Warning => $"홍수 경보  ·  {Mathf.CeilToInt(_stage.WarningLeft)}초 후 유입",
+                AvalanchePhase.Flooding => $"홍수 진행  {_stage.FloodElapsed:0.0}초  ·  물길과 대피 상황 관찰",
+                AvalanchePhase.Assessing => "유입 종료  ·  하류 도달과 잔류 침수 관찰 중",
+                AvalanchePhase.Cleared => "시민 전원 보호 완료",
+                AvalanchePhase.TechnicalError => "계산 오류  ·  배치를 복원할 수 있습니다",
                 _ => "보호 실패  ·  배치를 수정하고 재도전하세요"
             };
             Label(550, 54, 680, 28, phase, GOLD, 18);
@@ -123,12 +123,12 @@ namespace Flood2
             for (int zone = 0; zone < 3; zone++)
             {
                 float y = 170 + zone * 151;
-                Flood2Citizen first = _stage.Citizens[zone * 2];
+                AvalancheCitizen first = _stage.Citizens[zone * 2];
                 if (Button(new Rect(40, y, 226, 32), first.Zone + "   ↗", new Color(0.73f, 0.83f, 0.8f)))
-                    _stage.ViewCamera.GetComponent<Flood2Camera>().Focus(first.transform.position);
+                    _stage.ViewCamera.GetComponent<AvalancheCamera>().Focus(first.transform.position);
                 for (int j = 0; j < 2; j++)
                 {
-                    Flood2Citizen citizen = _stage.Citizens[zone * 2 + j];
+                    AvalancheCitizen citizen = _stage.Citizens[zone * 2 + j];
                     Color color = CitizenColor(citizen);
                     float row = y + 35 + j * 24;
                     Label(42, row, 104, 24, citizen.CitizenId, PAPER, 16);
@@ -142,7 +142,7 @@ namespace Flood2
                 if (Button(new Rect(155, y + 109, 111, 30), "배수 정비", response.DrainZone == zone ? AQUA : PAPER)) response.AssignDrain(zone);
                 GUI.enabled = true;
             }
-            if (Button(new Rect(40, 618, 226, 25), "전체 마을 보기 · Home", AQUA)) _stage.ViewCamera.GetComponent<Flood2Camera>().Overview();
+            if (Button(new Rect(40, 618, 226, 25), "전체 마을 보기 · Home", AQUA)) _stage.ViewCamera.GetComponent<AvalancheCamera>().Overview();
         }
 
         /// <summary>Shows the upstream input sequence separately from water arrival at the citizens.</summary>
@@ -177,7 +177,7 @@ namespace Flood2
             };
             GUI.enabled = _stage.CanEdit;
             for (int i = 0; i < names.Length; i++)
-                if (Button(new Rect(24 + i * 262, 809, 248, 66), names[i], (int)build.Tool == i ? AQUA : PAPER)) build.SelectTool((Flood2Tool)i);
+                if (Button(new Rect(24 + i * 262, 809, 248, 66), names[i], (int)build.Tool == i ? AQUA : PAPER)) build.SelectTool((AvalancheTool)i);
             if (Button(new Rect(1083, 809, 174, 66), "되돌리기\nCtrl + Z", PAPER)) build.Undo();
             if (Button(new Rect(1270, 809, 306, 66), "준비 완료  →  홍수 시작", GOLD)) _stage.Ready();
             GUI.enabled = true;
@@ -185,17 +185,17 @@ namespace Flood2
         }
 
         /// <summary>Returns a legible citizen status tint.</summary>
-        private static Color CitizenColor(Flood2Citizen citizen) => citizen.State == Flood2CitizenState.Critical || citizen.State == Flood2CitizenState.RescueRequired
-            ? new Color(1f, 0.36f, 0.29f) : citizen.State == Flood2CitizenState.Warning ? GOLD : AQUA;
+        private static Color CitizenColor(AvalancheCitizen citizen) => citizen.State == AvalancheCitizenState.Critical || citizen.State == AvalancheCitizenState.RescueRequired
+            ? new Color(1f, 0.36f, 0.29f) : citizen.State == AvalancheCitizenState.Warning ? GOLD : AQUA;
 
         /// <summary>Overlays observations above each zone, even when structures obscure the figures.</summary>
         private void DrawWorldMarkers()
         {
             for (int i = 0; i < _stage.Citizens.Length; i += 2)
             {
-                Flood2Citizen first = _stage.Citizens[i];
-                Flood2Citizen second = _stage.Citizens[i + 1];
-                Flood2Citizen citizen = second.Exposure > first.Exposure || second.Depth > first.Depth ? second : first;
+                AvalancheCitizen first = _stage.Citizens[i];
+                AvalancheCitizen second = _stage.Citizens[i + 1];
+                AvalancheCitizen citizen = second.Exposure > first.Exposure || second.Depth > first.Depth ? second : first;
                 Vector3 screen = _stage.ViewCamera.WorldToScreenPoint(first.transform.position + new Vector3(0.65f, 3f, 0f));
                 if (screen.z <= 0f) continue;
                 float x = screen.x / Screen.width * 1600f - 85f;
@@ -233,7 +233,7 @@ namespace Flood2
         /// <summary>Shows the observed result and restoration or empty-layout choices.</summary>
         private void DrawResult()
         {
-            Modal("시도 결과", _stage.Phase == Flood2Phase.Cleared ? "여섯 시민을 지켰습니다." : _stage.Phase == Flood2Phase.TechnicalError ? "다시 시도할 수 있습니다." : "물길을 다시 설계해 주세요.");
+            Modal("시도 결과", _stage.Phase == AvalanchePhase.Cleared ? "여섯 시민을 지켰습니다." : _stage.Phase == AvalanchePhase.TechnicalError ? "다시 시도할 수 있습니다." : "물길을 다시 설계해 주세요.");
             Label(470, 304, 660, 160, _stage.ResultMessage, PAPER, 22);
             var response = _stage.Response;
             var build = _stage.Construction;

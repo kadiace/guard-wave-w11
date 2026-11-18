@@ -1,4 +1,4 @@
-Shader "Flood2/Coloured terrain"
+Shader "Avalanche/Coloured terrain"
 {
     SubShader
     {

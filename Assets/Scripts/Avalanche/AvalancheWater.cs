@@ -3,14 +3,14 @@ using System.Collections.Generic;
 
 using UnityEngine;
 
-namespace Flood2
+namespace Avalanche
 {
     /// <summary>Conservative local-inertial shallow water on a height field, with open downstream drainage.</summary>
-    public sealed class Flood2Water : IDisposable
+    public sealed class AvalancheWater : IDisposable
     {
-        private const int W = Flood2Terrain.WIDTH;
-        private const int L = Flood2Terrain.LENGTH;
-        private const float DX = Flood2Terrain.CELL;
+        private const int W = AvalancheTerrain.WIDTH;
+        private const int L = AvalancheTerrain.LENGTH;
+        private const float DX = AvalancheTerrain.CELL;
         private const float GRAVITY = 9.81f;
         private const float DRY = 0.005f;
         private readonly float[] _ground = new float[W * L];
@@ -60,10 +60,10 @@ namespace Flood2
         }
 
         /// <summary>Builds the scene editor's quiet water preview from the default flow settings.</summary>
-        public Flood2Water() : this(new FlowSettings()) { }
+        public AvalancheWater() : this(new FlowSettings()) { }
 
         /// <summary>Allocates the solver and render mesh using the scene's flow settings.</summary>
-        internal Flood2Water(FlowSettings settings)
+        internal AvalancheWater(FlowSettings settings)
         {
             _settings = settings;
             var indices = new int[W * L * 6];
@@ -72,7 +72,7 @@ namespace Flood2
             {
                 int i = z * W + x;
                 Vector3 center = Center(x, z);
-                _ground[i] = Flood2Terrain.Height(center.x, center.z);
+                _ground[i] = AvalancheTerrain.Height(center.x, center.z);
                 int v = i * 4;
                 _vertices[v] = center + new Vector3(-DX / 2, 0, -DX / 2);
                 _vertices[v + 1] = center + new Vector3(-DX / 2, 0, DX / 2);
@@ -82,14 +82,14 @@ namespace Flood2
                 indices[t] = v; indices[t + 1] = v + 1; indices[t + 2] = v + 2;
                 indices[t + 3] = v + 2; indices[t + 4] = v + 1; indices[t + 5] = v + 3;
             }
-            _mesh = new Mesh { name = "Flood2 live water", vertices = _vertices, triangles = indices };
+            _mesh = new Mesh { name = "Avalanche live water", vertices = _vertices, triangles = indices };
             _mesh.MarkDynamic();
             _mesh.bounds = new Bounds(new Vector3(0, 3, 30), new Vector3(38, 18, 62));
             Reset();
         }
 
         /// <summary>Returns a cell's world centre with zero vertical coordinate.</summary>
-        private static Vector3 Center(int x, int z) => new Vector3(Flood2Terrain.MIN_X + (x + 0.5f) * DX, 0, (z + 0.5f) * DX);
+        private static Vector3 Center(int x, int z) => new Vector3(AvalancheTerrain.MIN_X + (x + 0.5f) * DX, 0, (z + 0.5f) * DX);
 
         /// <summary>Restores the quiet pre-flood channel and clears all momentum and diagnostics.</summary>
         public void Reset()
@@ -106,17 +106,17 @@ namespace Flood2
         }
 
         /// <summary>Rasterizes actual box collider silhouettes; submerged elevated objects do not seal the ground.</summary>
-        private void UpdateObstacles(IReadOnlyList<Flood2Piece> pieces)
+        private void UpdateObstacles(IReadOnlyList<AvalanchePiece> pieces)
         {
             Array.Copy(_bed, _previous, _bed.Length);
             Array.Copy(_ground, _bed, _ground.Length);
             float clearance = _settings.ObstacleClearance;
-            foreach (Flood2Piece piece in pieces)
+            foreach (AvalanchePiece piece in pieces)
             {
                 if (!piece.gameObject.activeSelf) continue;
                 Bounds bounds = piece.Shape.bounds;
-                int minX = Mathf.Clamp(Mathf.FloorToInt((bounds.min.x - Flood2Terrain.MIN_X) / DX), 0, W - 1);
-                int maxX = Mathf.Clamp(Mathf.FloorToInt((bounds.max.x - Flood2Terrain.MIN_X) / DX), 0, W - 1);
+                int minX = Mathf.Clamp(Mathf.FloorToInt((bounds.min.x - AvalancheTerrain.MIN_X) / DX), 0, W - 1);
+                int maxX = Mathf.Clamp(Mathf.FloorToInt((bounds.max.x - AvalancheTerrain.MIN_X) / DX), 0, W - 1);
                 int minZ = Mathf.Clamp(Mathf.FloorToInt(bounds.min.z / DX), 0, L - 1);
                 int maxZ = Mathf.Clamp(Mathf.FloorToInt(bounds.max.z / DX), 0, L - 1);
                 for (int z = minZ; z <= maxZ; z++)
@@ -148,7 +148,7 @@ namespace Flood2
         }
 
         /// <summary>Advances surface flow, discharges through an open storm drain and applies water forces to defences.</summary>
-        internal void Step(float dt, float inletDepth, IReadOnlyList<Flood2Piece> pieces, Flood2Response response)
+        internal void Step(float dt, float inletDepth, IReadOnlyList<AvalanchePiece> pieces, AvalancheResponse response)
         {
             UpdateObstacles(pieces);
             float maxSignal = 1f;
@@ -168,7 +168,7 @@ namespace Flood2
                 total += h;
             }
             Volume = total * DX * DX;
-            foreach (Flood2Piece piece in pieces) piece.ApplyWater(this);
+            foreach (AvalanchePiece piece in pieces) piece.ApplyWater(this);
             _renderClock += dt;
             if (_renderClock >= _settings.MeshRefreshSeconds) { _renderClock = 0f; RefreshMesh(); }
         }
@@ -176,8 +176,8 @@ namespace Flood2
         /// <summary>Removes only connected water above the intake lip, limited by the pipe's volume per step.</summary>
         private float Drain(Vector3 intake, float radius, float capacity)
         {
-            int minX = Mathf.Max(0, Mathf.FloorToInt((intake.x - radius - Flood2Terrain.MIN_X) / DX));
-            int maxX = Mathf.Min(W - 1, Mathf.FloorToInt((intake.x + radius - Flood2Terrain.MIN_X) / DX));
+            int minX = Mathf.Max(0, Mathf.FloorToInt((intake.x - radius - AvalancheTerrain.MIN_X) / DX));
+            int maxX = Mathf.Min(W - 1, Mathf.FloorToInt((intake.x + radius - AvalancheTerrain.MIN_X) / DX));
             int minZ = Mathf.Max(0, Mathf.FloorToInt((intake.z - radius) / DX));
             int maxZ = Mathf.Min(L - 1, Mathf.FloorToInt((intake.z + radius) / DX));
             float radiusSquared = radius * radius;
@@ -207,7 +207,7 @@ namespace Flood2
             for (int k = 0; k < samples; k++)
             {
                 Vector3 point = intake + new Vector3(offset.x, 0f, offset.y) * (k / (float)samples);
-                int px = Mathf.FloorToInt((point.x - Flood2Terrain.MIN_X) / DX);
+                int px = Mathf.FloorToInt((point.x - AvalancheTerrain.MIN_X) / DX);
                 int pz = Mathf.FloorToInt(point.z / DX);
                 if (_bed[pz * W + px] >= head) return 0f;
             }
@@ -295,7 +295,7 @@ namespace Flood2
         /// <summary>Samples actual occupied water at a world point; dry or outside cells have no water surface.</summary>
         public bool Sample(Vector3 point, out float surface, out Vector2 flow)
         {
-            int x = Mathf.FloorToInt((point.x - Flood2Terrain.MIN_X) / DX);
+            int x = Mathf.FloorToInt((point.x - AvalancheTerrain.MIN_X) / DX);
             int z = Mathf.FloorToInt(point.z / DX);
             surface = point.y;
             flow = Vector2.zero;

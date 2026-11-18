@@ -2,20 +2,20 @@ using UnityEngine;
 
 using UnityEngine.InputSystem;
 
-namespace Flood2
+namespace Avalanche
 {
-    public enum Flood2Phase { Introduction, Preparing, Warning, Flooding, Assessing, Cleared, Failed, TechnicalError }
+    public enum AvalanchePhase { Introduction, Preparing, Warning, Flooding, Assessing, Cleared, Failed, TechnicalError }
 
     /// <summary>Scene-owned citizen rescue rules and the two-peak flood, isolated from Flood and Fog.</summary>
     [DefaultExecutionOrder(-50)]
-    [RequireComponent(typeof(Flood2Construction), typeof(Flood2Hud), typeof(Flood2Response))]
-    public sealed class Flood2Stage : MonoBehaviour
+    [RequireComponent(typeof(AvalancheConstruction), typeof(AvalancheHud), typeof(AvalancheResponse))]
+    public sealed class AvalancheStage : MonoBehaviour
     {
         [Header("Scene references")]
         [SerializeField] private Camera _viewCamera;
         [SerializeField] private MeshCollider _ground;
         [SerializeField] private MeshFilter _waterSurface;
-        [SerializeField] private Flood2Citizen[] _citizens;
+        [SerializeField] private AvalancheCitizen[] _citizens;
         [SerializeField] private Font _font;
 
         [Header("Construction catalog")]
@@ -51,11 +51,11 @@ namespace Flood2
         [SerializeField, Min(0.02f)] private float _citizenSampleInterval = 0.1f;
         [SerializeField, Min(0f)] private float _citizenSafeSeconds = 5f;
         [SerializeField, Min(0f)] private float _settledWaterSeconds = 3f;
-        [SerializeField] private Flood2Citizen.RiskSettings _citizenRisk = new Flood2Citizen.RiskSettings();
+        [SerializeField] private AvalancheCitizen.RiskSettings _citizenRisk = new AvalancheCitizen.RiskSettings();
 
         [Header("Water simulation")]
-        [SerializeField] private Flood2Water.FlowSettings _waterFlow = new Flood2Water.FlowSettings();
-        private Flood2Water _water;
+        [SerializeField] private AvalancheWater.FlowSettings _waterFlow = new AvalancheWater.FlowSettings();
+        private AvalancheWater _water;
         private float _warningClock;
         private float _sampleClock;
         private float _stableClock;
@@ -63,20 +63,20 @@ namespace Flood2
         private float _previousTimeScale;
         public Camera ViewCamera => _viewCamera;
         public MeshCollider Ground => _ground;
-        public Flood2Citizen[] Citizens => _citizens;
+        public AvalancheCitizen[] Citizens => _citizens;
         public Font Font => _font;
         public Material PanelMaterial => _panelMaterial;
         public Material SandbagMaterial => _stoneMaterial;
         public Material PreviewMaterial => _previewMaterial;
         public Material LineMaterial => _lineMaterial;
         public PhysicsMaterial Friction => _friction;
-        public Flood2Construction Construction { get; private set; }
-        public Flood2Response Response { get; private set; }
-        public Flood2Hud Hud { get; private set; }
-        public Flood2Water Water => _water;
-        public Flood2Phase Phase { get; private set; } = Flood2Phase.Introduction;
+        public AvalancheConstruction Construction { get; private set; }
+        public AvalancheResponse Response { get; private set; }
+        public AvalancheHud Hud { get; private set; }
+        public AvalancheWater Water => _water;
+        public AvalanchePhase Phase { get; private set; } = AvalanchePhase.Introduction;
         public bool Paused { get; private set; }
-        public bool CanEdit => Phase == Flood2Phase.Preparing && !Paused;
+        public bool CanEdit => Phase == AvalanchePhase.Preparing && !Paused;
         public float PreparationLeft { get; private set; }
         internal bool LimitPreparationTime => _limitPreparationTime;
         internal float PreparationSeconds => _preparationSeconds;
@@ -89,8 +89,8 @@ namespace Flood2
         public string ResultMessage { get; private set; }
         public int Attempt { get; private set; } = 1;
 
-        /// <summary>Assigns authored scene references and dedicated Flood2 assets.</summary>
-        public void Configure(Camera view, MeshCollider ground, MeshFilter water, Flood2Citizen[] citizens, Font font,
+        /// <summary>Assigns authored scene references and dedicated Avalanche assets.</summary>
+        public void Configure(Camera view, MeshCollider ground, MeshFilter water, AvalancheCitizen[] citizens, Font font,
             Material panel, Material stone, Material preview, Material line, PhysicsMaterial friction)
         {
             _viewCamera = view; _ground = ground; _waterSurface = water; _citizens = citizens; _font = font;
@@ -103,10 +103,10 @@ namespace Flood2
             Time.timeScale = 0f;
             Cursor.visible = true;
             Cursor.lockState = CursorLockMode.None;
-            Construction = GetComponent<Flood2Construction>();
-            Response = GetComponent<Flood2Response>();
-            Hud = GetComponent<Flood2Hud>();
-            _water = new Flood2Water(_waterFlow);
+            Construction = GetComponent<AvalancheConstruction>();
+            Response = GetComponent<AvalancheResponse>();
+            Hud = GetComponent<AvalancheHud>();
+            _water = new AvalancheWater(_waterFlow);
             _waterSurface.sharedMesh = _water.Surface;
             Construction.Initialize(this);
             Response.Initialize(this);
@@ -119,20 +119,20 @@ namespace Flood2
         {
             Keyboard keyboard = Keyboard.current;
             if (keyboard == null) return;
-            if (keyboard.escapeKey.wasPressedThisFrame && Phase != Flood2Phase.Introduction) TogglePause();
+            if (keyboard.escapeKey.wasPressedThisFrame && Phase != AvalanchePhase.Introduction) TogglePause();
             if (keyboard.enterKey.wasPressedThisFrame)
             {
-                if (Phase == Flood2Phase.Introduction) BeginPreparation();
+                if (Phase == AvalanchePhase.Introduction) BeginPreparation();
                 else if (CanEdit) Ready();
             }
         }
 
         private void FixedUpdate()
         {
-            if (Paused || Phase == Flood2Phase.Introduction || IsFinished()) return;
+            if (Paused || Phase == AvalanchePhase.Introduction || IsFinished()) return;
             float dt = Time.fixedDeltaTime;
             Construction.TickContacts(dt);
-            if (Phase == Flood2Phase.Preparing)
+            if (Phase == AvalanchePhase.Preparing)
             {
                 if (_limitPreparationTime)
                 {
@@ -142,11 +142,11 @@ namespace Flood2
                 return;
             }
             _attemptClock += dt;
-            if (Phase == Flood2Phase.Warning)
+            if (Phase == AvalanchePhase.Warning)
             {
                 Response.Walk(dt);
                 _warningClock += dt;
-                if (_warningClock >= _warningSeconds) Phase = Flood2Phase.Flooding;
+                if (_warningClock >= _warningSeconds) Phase = AvalanchePhase.Flooding;
                 return;
             }
             FloodElapsed += dt;
@@ -154,11 +154,11 @@ namespace Flood2
             _water.Step(dt, inlet, Construction.Pieces, Response);
             if (!_water.IsValid)
             {
-                End(Flood2Phase.TechnicalError, "물 계산이 안정 범위를 벗어났습니다. 시민 실패로 처리하지 않습니다. 배치를 복원해 다시 시도하세요.");
+                End(AvalanchePhase.TechnicalError, "물 계산이 안정 범위를 벗어났습니다. 시민 실패로 처리하지 않습니다. 배치를 복원해 다시 시도하세요.");
                 return;
             }
             Response.Walk(dt);
-            if (FloodElapsed >= InflowEnd) Phase = Flood2Phase.Assessing;
+            if (FloodElapsed >= InflowEnd) Phase = AvalanchePhase.Assessing;
             _sampleClock += dt;
             if (_sampleClock >= _citizenSampleInterval - 0.0001f)
             {
@@ -167,22 +167,22 @@ namespace Flood2
                 foreach (var citizen in _citizens)
                 {
                     settled &= !citizen.HasUnsettledWater;
-                    if (citizen.State != Flood2CitizenState.RescueRequired) continue;
-                    End(Flood2Phase.Failed, $"{citizen.Zone} · {citizen.CitizenId}에게 구조가 필요합니다.\n홍수 {FloodElapsed:0.0}초 / 최대 수심 {citizen.MaxDepth:0.00}m / 현재 유속 {citizen.Speed:0.0}m/s\n위험 노출 {citizen.ExposedSeconds:0.0}초. 물길과 접합 상태를 살펴보세요.");
+                    if (citizen.State != AvalancheCitizenState.RescueRequired) continue;
+                    End(AvalanchePhase.Failed, $"{citizen.Zone} · {citizen.CitizenId}에게 구조가 필요합니다.\n홍수 {FloodElapsed:0.0}초 / 최대 수심 {citizen.MaxDepth:0.00}m / 현재 유속 {citizen.Speed:0.0}m/s\n위험 노출 {citizen.ExposedSeconds:0.0}초. 물길과 접합 상태를 살펴보세요.");
                     return;
                 }
-                _stableClock = Phase == Flood2Phase.Assessing && settled ? _stableClock + _sampleClock : 0f;
+                _stableClock = Phase == AvalanchePhase.Assessing && settled ? _stableClock + _sampleClock : 0f;
                 _sampleClock = 0f;
             }
             bool allSafe = true;
             foreach (var citizen in _citizens) allSafe &= citizen.SafeSeconds >= _citizenSafeSeconds && !citizen.InDanger;
-            if (Phase == Flood2Phase.Assessing && FloodElapsed >= InflowEnd + _tailObservationSeconds && _stableClock >= _settledWaterSeconds && allSafe)
+            if (Phase == AvalanchePhase.Assessing && FloodElapsed >= InflowEnd + _tailObservationSeconds && _stableClock >= _settledWaterSeconds && allSafe)
             {
                 foreach (var citizen in _citizens) citizen.Protect();
-                End(Flood2Phase.Cleared, "두 차례의 홍수가 지나갔으며 여섯 시민 모두 안전합니다.");
+                End(AvalanchePhase.Cleared, "두 차례의 홍수가 지나갔으며 여섯 시민 모두 안전합니다.");
             }
             else if (_attemptClock >= _attemptLimitSeconds)
-                End(Flood2Phase.Failed, "시민 주변에 잔류 홍수 위험이 남아 있습니다.\n물길이 시민을 지나지 않도록 배치를 수정하세요.");
+                End(AvalanchePhase.Failed, "시민 주변에 잔류 홍수 위험이 남아 있습니다.\n물길이 시민을 지나지 않도록 배치를 수정하세요.");
         }
 
         /// <summary>Returns the deterministic upstream input, measured from the end of the warning.</summary>
@@ -200,8 +200,8 @@ namespace Flood2
         /// <summary>Closes the instructions and starts the construction period.</summary>
         public void BeginPreparation()
         {
-            if (Phase != Flood2Phase.Introduction) return;
-            Phase = Flood2Phase.Preparing;
+            if (Phase != AvalanchePhase.Introduction) return;
+            Phase = AvalanchePhase.Preparing;
             Time.timeScale = 1f;
         }
 
@@ -211,22 +211,22 @@ namespace Flood2
             if (!CanEdit) return;
             Construction.SaveCheckpoint();
             _warningClock = _attemptClock = 0f;
-            Phase = Flood2Phase.Warning;
+            Phase = AvalanchePhase.Warning;
         }
 
         /// <summary>Pauses simulation and rule clocks together while leaving the camera and menus usable.</summary>
         public void TogglePause()
         {
-            if (IsFinished() || Phase == Flood2Phase.Introduction) return;
+            if (IsFinished() || Phase == AvalanchePhase.Introduction) return;
             Paused = !Paused;
             Time.timeScale = Paused ? 0f : 1f;
         }
 
         /// <summary>Reports whether the current attempt has reached a terminal result.</summary>
-        public bool IsFinished() => Phase == Flood2Phase.Cleared || Phase == Flood2Phase.Failed || Phase == Flood2Phase.TechnicalError;
+        public bool IsFinished() => Phase == AvalanchePhase.Cleared || Phase == AvalanchePhase.Failed || Phase == AvalanchePhase.TechnicalError;
 
         /// <summary>Emits one terminal result and freezes both bodies and danger accumulation.</summary>
-        private void End(Flood2Phase phase, string message)
+        private void End(AvalanchePhase phase, string message)
         {
             if (IsFinished()) return;
             Phase = phase;
@@ -246,7 +246,7 @@ namespace Flood2
             ResultMessage = "";
             Attempt++;
             Paused = false;
-            Phase = Flood2Phase.Preparing;
+            Phase = AvalanchePhase.Preparing;
             Time.timeScale = 1f;
         }
 

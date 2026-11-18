@@ -4,12 +4,12 @@ using UnityEngine;
 
 using UnityEngine.InputSystem;
 
-namespace Flood2
+namespace Avalanche
 {
-    public enum Flood2Tool { Panel, Sandbag, Adhesive, Remove }
+    public enum AvalancheTool { Panel, Sandbag, Adhesive, Remove }
 
     /// <summary>Manages placement, contact adhesion and editable-layout snapshots.</summary>
-    public sealed class Flood2Construction : MonoBehaviour
+    public sealed class AvalancheConstruction : MonoBehaviour
     {
         private static readonly Color SANDBAG_COLOR = new Color(0.66f, 0.54f, 0.30f);
         private static readonly Color ADHESIVE_COLOR = new Color(0.95f, 0.68f, 0.18f);
@@ -30,15 +30,15 @@ namespace Flood2
         [SerializeField, Min(0.02f)] private float _contactCheckSeconds = 0.1f;
 
         [Header("Rigidbody and joint settings")]
-        [SerializeField] private Flood2Piece.PhysicsSettings _piecePhysics = new Flood2Piece.PhysicsSettings();
+        [SerializeField] private AvalanchePiece.PhysicsSettings _piecePhysics = new AvalanchePiece.PhysicsSettings();
         private MaterialPropertyBlock _sandbagTint;
         private MaterialPropertyBlock _adhesiveTint;
-        private readonly List<Flood2Piece> _pieces = new List<Flood2Piece>();
+        private readonly List<AvalanchePiece> _pieces = new List<AvalanchePiece>();
         private readonly List<AdhesiveBlock> _adhesives = new List<AdhesiveBlock>();
         private readonly Stack<Snapshot> _undo = new Stack<Snapshot>();
         private readonly Collider[] _overlaps = new Collider[64];
         private Collider[] _contacts = new Collider[64];
-        private Flood2Stage _stage;
+        private AvalancheStage _stage;
         private GameObject _preview;
         private Renderer _previewRenderer;
         private MaterialPropertyBlock _previewTint;
@@ -49,8 +49,8 @@ namespace Flood2
         private float _contactClock;
         private Vector3 _candidate;
         private bool _candidateValid;
-        public IReadOnlyList<Flood2Piece> Pieces => _pieces;
-        public Flood2Tool Tool { get; private set; }
+        public IReadOnlyList<AvalanchePiece> Pieces => _pieces;
+        public AvalancheTool Tool { get; private set; }
         public int Panels { get; private set; }
         public int Sandbags { get; private set; }
         public int Adhesive { get; private set; }
@@ -64,7 +64,7 @@ namespace Flood2
         private sealed class AdhesiveBlock
         {
             public int Id { get; set; }
-            public Flood2Piece Owner { get; set; }
+            public AvalanchePiece Owner { get; set; }
             public Vector3 Point { get; set; }
             public GameObject Visual { get; set; }
             public bool Active => Owner == null || Owner.gameObject.activeSelf;
@@ -81,7 +81,7 @@ namespace Flood2
         private sealed class PieceState
         {
             public int Id { get; set; }
-            public Flood2Material Kind { get; set; }
+            public AvalancheMaterial Kind { get; set; }
             public Vector3 Position { get; set; }
             public Quaternion Rotation { get; set; }
             public Vector3 Velocity { get; set; }
@@ -106,7 +106,7 @@ namespace Flood2
         }
 
         /// <summary>Creates the non-colliding placement preview and initializes the stage-specific tools.</summary>
-        public void Initialize(Flood2Stage stage)
+        public void Initialize(AvalancheStage stage)
         {
             _stage = stage;
             Panels = _startingPanels;
@@ -127,15 +127,15 @@ namespace Flood2
         }
 
         /// <summary>Returns the world dimensions of a catalog item.</summary>
-        private Vector3 Size(Flood2Material kind) =>
-            Vector3.Max(kind == Flood2Material.Panel ? _panelSize : _sandbagSize, Vector3.one * 0.1f);
+        private Vector3 Size(AvalancheMaterial kind) =>
+            Vector3.Max(kind == AvalancheMaterial.Panel ? _panelSize : _sandbagSize, Vector3.one * 0.1f);
 
         /// <summary>Switches tools and explains the selected placement or removal action.</summary>
-        public void SelectTool(Flood2Tool tool)
+        public void SelectTool(AvalancheTool tool)
         {
             Tool = tool;
-            Hint = tool == Flood2Tool.Adhesive ? "지면이나 자재를 클릭해 접합 블록을 설치하세요. 닿는 자재를 바로 고정합니다."
-                : tool == Flood2Tool.Remove ? "자재나 접합 블록을 클릭하여 회수합니다."
+            Hint = tool == AvalancheTool.Adhesive ? "지면이나 자재를 클릭해 접합 블록을 설치하세요. 닿는 자재를 바로 고정합니다."
+                : tool == AvalancheTool.Remove ? "자재나 접합 블록을 클릭하여 회수합니다."
                 : "클릭: 설치  /  Q·E: 회전  /  Shift: 정밀 배치";
         }
 
@@ -151,10 +151,10 @@ namespace Flood2
             }
             if (keyboard != null)
             {
-                if (keyboard.digit1Key.wasPressedThisFrame) SelectTool(Flood2Tool.Panel);
-                if (keyboard.digit2Key.wasPressedThisFrame) SelectTool(Flood2Tool.Sandbag);
-                if (keyboard.digit3Key.wasPressedThisFrame) SelectTool(Flood2Tool.Adhesive);
-                if (keyboard.digit4Key.wasPressedThisFrame || keyboard.digit5Key.wasPressedThisFrame) SelectTool(Flood2Tool.Remove);
+                if (keyboard.digit1Key.wasPressedThisFrame) SelectTool(AvalancheTool.Panel);
+                if (keyboard.digit2Key.wasPressedThisFrame) SelectTool(AvalancheTool.Sandbag);
+                if (keyboard.digit3Key.wasPressedThisFrame) SelectTool(AvalancheTool.Adhesive);
+                if (keyboard.digit4Key.wasPressedThisFrame || keyboard.digit5Key.wasPressedThisFrame) SelectTool(AvalancheTool.Remove);
                 if (keyboard.qKey.wasPressedThisFrame) _yaw -= _rotationStep;
                 if (keyboard.eKey.wasPressedThisFrame) _yaw += _rotationStep;
                 if (keyboard.zKey.wasPressedThisFrame && keyboard.ctrlKey.isPressed) Undo();
@@ -162,16 +162,16 @@ namespace Flood2
             if (_stage.Hud.BlocksPointer(mouse.position.ReadValue())) { _preview.SetActive(false); return; }
             Ray ray = _stage.ViewCamera.ScreenPointToRay(mouse.position.ReadValue());
             bool hasHit = Physics.Raycast(ray, out RaycastHit hit, 300f, ~4, QueryTriggerInteraction.Ignore);
-            if (Tool == Flood2Tool.Remove)
+            if (Tool == AvalancheTool.Remove)
             {
                 _preview.SetActive(false);
                 if (mouse.leftButton.wasPressedThisFrame) RemoveAt(ray, hasHit, hit);
                 return;
             }
             if (!hasHit) { _preview.SetActive(false); return; }
-            if (Tool == Flood2Tool.Panel || Tool == Flood2Tool.Sandbag)
+            if (Tool == AvalancheTool.Panel || Tool == AvalancheTool.Sandbag)
             {
-                Flood2Material kind = Tool == Flood2Tool.Panel ? Flood2Material.Panel : Flood2Material.Sandbag;
+                AvalancheMaterial kind = Tool == AvalancheTool.Panel ? AvalancheMaterial.Panel : AvalancheMaterial.Sandbag;
                 Vector3 size = Size(kind);
                 _candidate = hit.point;
                 if (keyboard == null || !keyboard.shiftKey.isPressed)
@@ -185,7 +185,7 @@ namespace Flood2
                 for (int z = -1; z <= 1; z++)
                 {
                     Vector3 p = _candidate + rotation * new Vector3(x * size.x * 0.5f, 0, z * size.z * 0.5f);
-                    support = Mathf.Max(support, Flood2Terrain.Height(p.x, p.z));
+                    support = Mathf.Max(support, AvalancheTerrain.Height(p.x, p.z));
                 }
                 _candidate.y = support + size.y * 0.5f + 0.035f;
                 _candidateValid = CanPlace(kind, _candidate, rotation, out string reason);
@@ -205,10 +205,10 @@ namespace Flood2
         }
 
         /// <summary>Checks inventory, map limits, citizen clearance and actual collider penetration.</summary>
-        private bool CanPlace(Flood2Material kind, Vector3 center, Quaternion rotation, out string reason)
+        private bool CanPlace(AvalancheMaterial kind, Vector3 center, Quaternion rotation, out string reason)
         {
             reason = "";
-            if (kind == Flood2Material.Panel ? Panels <= 0 : Sandbags <= 0) { reason = "이 자재의 재고가 없습니다."; return false; }
+            if (kind == AvalancheMaterial.Panel ? Panels <= 0 : Sandbags <= 0) { reason = "이 자재의 재고가 없습니다."; return false; }
             Vector3 size = Size(kind);
             Vector3 extents = new Vector3(Mathf.Abs((rotation * Vector3.right).x) * size.x + Mathf.Abs((rotation * Vector3.forward).x) * size.z, 0f,
                 Mathf.Abs((rotation * Vector3.right).z) * size.x + Mathf.Abs((rotation * Vector3.forward).z) * size.z) * 0.5f;
@@ -226,18 +226,18 @@ namespace Flood2
         }
 
         /// <summary>Places a validated real Rigidbody and records a resource-aware undo snapshot.</summary>
-        public bool TryPlace(Flood2Material kind, Vector3 center, float yaw)
+        public bool TryPlace(AvalancheMaterial kind, Vector3 center, float yaw)
         {
             if (!_stage.CanEdit || !CanPlace(kind, center, Quaternion.Euler(0f, yaw, 0f), out string reason)) return false;
             _undo.Push(Capture());
             Spawn(_nextId++, kind, center, Quaternion.Euler(0f, yaw, 0f));
-            if (kind == Flood2Material.Panel) Panels--; else Sandbags--;
+            if (kind == AvalancheMaterial.Panel) Panels--; else Sandbags--;
             Physics.SyncTransforms();
             return true;
         }
 
         /// <summary>Instantiates a catalog body; callers handle validation and stock.</summary>
-        private Flood2Piece Spawn(int id, Flood2Material kind, Vector3 position, Quaternion rotation)
+        private AvalanchePiece Spawn(int id, AvalancheMaterial kind, Vector3 position, Quaternion rotation)
         {
             GameObject go = GameObject.CreatePrimitive(PrimitiveType.Cube);
             go.name = $"{kind} {id:00}";
@@ -245,13 +245,13 @@ namespace Flood2
             go.transform.SetPositionAndRotation(position, rotation);
             go.transform.localScale = Size(kind);
             Renderer solid = go.GetComponent<Renderer>();
-            if (kind == Flood2Material.Panel) solid.sharedMaterial = _stage.PanelMaterial;
+            if (kind == AvalancheMaterial.Panel) solid.sharedMaterial = _stage.PanelMaterial;
             else
             {
                 solid.enabled = false;
                 AddSandbagVisual(go.transform);
             }
-            Flood2Piece piece = go.AddComponent<Flood2Piece>();
+            AvalanchePiece piece = go.AddComponent<AvalanchePiece>();
             piece.Initialize(id, kind, _stage.Friction, _stage.LineMaterial, _piecePhysics);
             _pieces.Add(piece);
             return piece;
@@ -274,7 +274,7 @@ namespace Flood2
         }
 
         /// <summary>Finds an editable body by its stable snapshot identifier.</summary>
-        private Flood2Piece FindPiece(int id)
+        private AvalanchePiece FindPiece(int id)
         {
             foreach (var piece in _pieces) if (piece.Id == id) return piece;
             return null;
@@ -290,7 +290,7 @@ namespace Flood2
                 return false;
             }
 
-            Flood2Piece owner = surface.GetComponent<Flood2Piece>();
+            AvalanchePiece owner = surface.GetComponent<AvalanchePiece>();
             if (owner == null && surface != _stage.Ground)
             {
                 Hint = "지면이나 설치한 자재에 접합 블록을 놓으세요.";
@@ -307,7 +307,7 @@ namespace Flood2
         }
 
         /// <summary>Creates a visible connector with a spherical contact region that follows its mounting surface.</summary>
-        private AdhesiveBlock SpawnAdhesive(int id, Flood2Piece owner, Vector3 point)
+        private AdhesiveBlock SpawnAdhesive(int id, AvalanchePiece owner, Vector3 point)
         {
             var block = new AdhesiveBlock { Id = id, Owner = owner, Point = point };
             GameObject visual = GameObject.CreatePrimitive(PrimitiveType.Sphere);
@@ -341,7 +341,7 @@ namespace Flood2
         private void ResolveContacts(AdhesiveBlock block)
         {
             if (!block.Active || _pieces.Count == 0) return;
-            Flood2Piece owner = block.Owner;
+            AvalanchePiece owner = block.Owner;
             Vector3 point = block.WorldPoint;
             int count = Physics.OverlapSphereNonAlloc(point, _adhesiveRadius, _contacts, ~4, QueryTriggerInteraction.Ignore);
             while (count == _contacts.Length)
@@ -362,7 +362,7 @@ namespace Flood2
 
             for (int i = 0; i < count; i++)
             {
-                if (!_contacts[i].TryGetComponent(out Flood2Piece target) || target == owner || target.EverBonded) continue;
+                if (!_contacts[i].TryGetComponent(out AvalanchePiece target) || target == owner || target.EverBonded) continue;
                 if (owner != null && owner.IsBonded && owner.ConnectedId == target.Id) continue;
                 target.Bond(owner, target.Shape.ClosestPoint(point), block.Id);
             }
@@ -402,7 +402,7 @@ namespace Flood2
                 RemoveAdhesive(nearest);
                 Hint = "접합 블록과 해당 연결을 회수했습니다.";
             }
-            else if (hasHit) Remove(hit.collider.GetComponent<Flood2Piece>());
+            else if (hasHit) Remove(hit.collider.GetComponent<AvalanchePiece>());
         }
 
         /// <summary>Returns one block to inventory and releases every bond it created.</summary>
@@ -416,11 +416,11 @@ namespace Flood2
         }
 
         /// <summary>Returns a placed material to inventory; only user-created objects can be removed.</summary>
-        public void Remove(Flood2Piece piece)
+        public void Remove(AvalanchePiece piece)
         {
             if (!_stage.CanEdit || piece == null) return;
             _undo.Push(Capture());
-            if (piece.Kind == Flood2Material.Panel) Panels++; else Sandbags++;
+            if (piece.Kind == AvalancheMaterial.Panel) Panels++; else Sandbags++;
             for (int i = _adhesives.Count - 1; i >= 0; i--)
                 if (_adhesives[i].Owner == piece) RemoveAdhesive(_adhesives[i]);
             foreach (var other in _pieces) other.RemoveSupport(piece);
@@ -457,14 +457,14 @@ namespace Flood2
             _contactClock = 0f;
             foreach (var state in snapshot.Pieces)
             {
-                Flood2Piece piece = Spawn(state.Id, state.Kind, state.Position, state.Rotation);
+                AvalanchePiece piece = Spawn(state.Id, state.Kind, state.Position, state.Rotation);
                 piece.Body.linearVelocity = state.Velocity; piece.Body.angularVelocity = state.Angular;
                 piece.gameObject.SetActive(state.Active);
             }
             Physics.SyncTransforms();
             foreach (var state in snapshot.Pieces)
             {
-                Flood2Piece piece = FindPiece(state.Id);
+                AvalanchePiece piece = FindPiece(state.Id);
                 if (state.Bonded) piece.Bond(FindPiece(state.Connected), state.Anchor, state.AdhesiveId);
                 else if (state.EverBonded) piece.RestoreBroken(state.AdhesiveId);
             }

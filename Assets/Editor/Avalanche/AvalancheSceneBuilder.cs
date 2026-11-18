@@ -9,19 +9,19 @@ using UnityEditor;
 using UnityEditor.SceneManagement;
 using UnityEngine.Rendering.Universal;
 
-namespace Flood2.Editor
+namespace Avalanche.Editor
 {
     /// <summary>Authors the standalone prototype scene and its dedicated assets without touching Flood.</summary>
-    public static class Flood2SceneBuilder
+    public static class AvalancheSceneBuilder
     {
-        private const string SCENE_PATH = "Assets/Scenes/Flood2.unity";
-        private const string ASSET_ROOT = "Assets/Flood2";
+        private const string SCENE_PATH = "Assets/Scenes/Avalanche.unity";
+        private const string ASSET_ROOT = "Assets/Avalanche";
 
-        /// <summary>Opens the existing Flood2 scene or creates it once, preserving any edited scene content.</summary>
-        [MenuItem("Tools/Guard Wave/Open Flood2 Prototype")]
+        /// <summary>Opens the existing Avalanche scene or creates it once, preserving any edited scene content.</summary>
+        [MenuItem("Tools/Guard Wave/Open Avalanche Prototype")]
         public static void OpenOrCreate()
         {
-            if (EditorApplication.isPlaying) throw new InvalidOperationException("Exit Play Mode before opening Flood2.");
+            if (EditorApplication.isPlaying) throw new InvalidOperationException("Exit Play Mode before opening Avalanche.");
             if (!EditorSceneManager.SaveCurrentModifiedScenesIfUserWantsTo()) return;
             if (File.Exists(SCENE_PATH)) { EditorSceneManager.OpenScene(SCENE_PATH); return; }
             Create();
@@ -30,15 +30,15 @@ namespace Flood2.Editor
         /// <summary>Creates a new authored village with terrain, six citizens, dedicated art and a playable context.</summary>
         public static void Create()
         {
-            if (File.Exists(SCENE_PATH)) throw new InvalidOperationException("Flood2 already exists; creation never overwrites a scene.");
+            if (File.Exists(SCENE_PATH)) throw new InvalidOperationException("Avalanche already exists; creation never overwrites a scene.");
             if (UnityEngine.SceneManagement.SceneManager.GetActiveScene().isDirty)
-                throw new InvalidOperationException("Save the current scene before creating Flood2.");
+                throw new InvalidOperationException("Save the current scene before creating Avalanche.");
             var scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
             RenderSettings.ambientMode = AmbientMode.Flat;
             RenderSettings.ambientLight = new Color(0.7f, 0.78f, 0.8f);
             RenderSettings.fog = false;
-            var groundMaterial = Material("Riverbed", new Color(0.6f, 0.7f, 0.6f), Shader.Find("Flood2/Coloured terrain"));
-            var waterMaterial = Material("Water", Color.white, Shader.Find("Flood2/Flow surface"));
+            var groundMaterial = Material("Riverbed", new Color(0.6f, 0.7f, 0.6f), Shader.Find("Avalanche/Coloured terrain"));
+            var waterMaterial = Material("Water", Color.white, Shader.Find("Avalanche/Flow surface"));
             var panel = Material("Panel", new Color(0.89f, 0.59f, 0.29f));
             var stone = Material("Stone", new Color(0.38f, 0.43f, 0.48f));
             var dark = Material("Structure", new Color(0.14f, 0.24f, 0.28f));
@@ -55,9 +55,9 @@ namespace Flood2.Editor
             preview.SetFloat("_ZWrite", 0f);
             preview.EnableKeyword("_SURFACE_TYPE_TRANSPARENT");
             preview.renderQueue = 3000;
-            var friction = new PhysicsMaterial("Flood2 construction friction") { dynamicFriction = 0.7f, staticFriction = 0.85f, bounciness = 0f, frictionCombine = PhysicsMaterialCombine.Maximum };
+            var friction = new PhysicsMaterial("Avalanche construction friction") { dynamicFriction = 0.7f, staticFriction = 0.85f, bounciness = 0f, frictionCombine = PhysicsMaterialCombine.Maximum };
             AssetDatabase.CreateAsset(friction, ASSET_ROOT + "/Friction.physicMaterial");
-            Mesh terrainMesh = Flood2Terrain.CreateMesh();
+            Mesh terrainMesh = AvalancheTerrain.CreateMesh();
             AssetDatabase.CreateAsset(terrainMesh, ASSET_ROOT + "/Terrain.asset");
             var terrain = new GameObject("Terrain - shared water bed");
             terrain.AddComponent<MeshFilter>().sharedMesh = terrainMesh;
@@ -69,9 +69,9 @@ namespace Flood2.Editor
             var water = new GameObject("Water - live depth and flow");
             MeshFilter waterFilter = water.AddComponent<MeshFilter>();
             water.AddComponent<MeshRenderer>().sharedMaterial = waterMaterial;
-            var previewWater = new Flood2Water();
+            var previewWater = new AvalancheWater();
             Mesh quietMesh = UnityEngine.Object.Instantiate(previewWater.Surface);
-            quietMesh.name = "Flood2 quiet water preview";
+            quietMesh.name = "Avalanche quiet water preview";
             AssetDatabase.CreateAsset(quietMesh, ASSET_ROOT + "/QuietWater.asset");
             waterFilter.sharedMesh = quietMesh;
             UnityEngine.Object.DestroyImmediate(previewWater.Surface);
@@ -88,7 +88,7 @@ namespace Flood2.Editor
             }
             var zones = new[] { new Vector3(-10, 0.25f, 26), new Vector3(0, 0.35f, 16), new Vector3(10, 0.25f, 14) };
             var zoneNames = new[] { "A · 시장", "B · 광장", "C · 정류장" };
-            var citizens = new List<Flood2Citizen>();
+            var citizens = new List<AvalancheCitizen>();
             var citizenRoot = new GameObject("Citizens - six protected objectives").transform;
             for (int zone = 0; zone < 3; zone++)
             {
@@ -103,8 +103,8 @@ namespace Flood2.Editor
             for (int z = 7; z < 55; z += 8)
             {
                 float branch = z > 34 ? 0f : 7f;
-                Arrow(new Vector3(branch, Flood2Terrain.Height(branch, z) + 0.04f, z), cream, decor);
-                if (branch > 0f) Arrow(new Vector3(-branch, Flood2Terrain.Height(-branch, z) + 0.04f, z), cream, decor);
+                Arrow(new Vector3(branch, AvalancheTerrain.Height(branch, z) + 0.04f, z), cream, decor);
+                if (branch > 0f) Arrow(new Vector3(-branch, AvalancheTerrain.Height(-branch, z) + 0.04f, z), cream, decor);
             }
             var light = new GameObject("Soft morning light").AddComponent<Light>();
             light.type = LightType.Directional;
@@ -112,7 +112,7 @@ namespace Flood2.Editor
             light.color = new Color(1f, 0.93f, 0.8f);
             light.transform.rotation = Quaternion.Euler(48, -38, 0);
             light.shadows = LightShadows.Soft;
-            var camera = new GameObject("Flood2 overview camera").AddComponent<Camera>();
+            var camera = new GameObject("Avalanche overview camera").AddComponent<Camera>();
             camera.tag = "MainCamera";
             camera.orthographic = true;
             camera.orthographicSize = 36;
@@ -124,8 +124,8 @@ namespace Flood2.Editor
             camera.transform.position = new Vector3(0, 0, 29) - camera.transform.forward * 90f;
             camera.gameObject.AddComponent<UniversalAdditionalCameraData>().renderPostProcessing = false;
             camera.gameObject.AddComponent<AudioListener>();
-            camera.gameObject.AddComponent<Flood2Camera>();
-            var stage = new GameObject("Flood2 - stage context").AddComponent<Flood2Stage>();
+            camera.gameObject.AddComponent<AvalancheCamera>();
+            var stage = new GameObject("Avalanche - stage context").AddComponent<AvalancheStage>();
             stage.Configure(camera, collider, waterFilter, citizens.ToArray(),
                 AssetDatabase.LoadAssetAtPath<Font>("Assets/TextMesh Pro/Resources/Fonts & Materials/NotoSansKR.ttf"), panel, stone, preview, line, friction);
             EditorSceneManager.SaveScene(scene, SCENE_PATH);
@@ -139,7 +139,7 @@ namespace Flood2.Editor
         /// <summary>Creates a dedicated material asset with a URP shader and no external dependencies.</summary>
         private static Material Material(string name, Color color, Shader shader = null)
         {
-            var material = new Material(shader != null ? shader : Shader.Find("Universal Render Pipeline/Lit")) { name = "Flood2 " + name };
+            var material = new Material(shader != null ? shader : Shader.Find("Universal Render Pipeline/Lit")) { name = "Avalanche " + name };
             if (material.HasProperty("_BaseColor")) material.SetColor("_BaseColor", color);
             if (material.HasProperty("_Smoothness")) material.SetFloat("_Smoothness", 0.22f);
             AssetDatabase.CreateAsset(material, ASSET_ROOT + "/" + name + ".mat");
@@ -198,7 +198,7 @@ namespace Flood2.Editor
         }
 
         /// <summary>Authors a citizen with separate fixed objective position and animated visual body.</summary>
-        private static Flood2Citizen Citizen(string id, string zone, Vector3 point, Material coat, Material skin, Material marker, Transform parent)
+        private static AvalancheCitizen Citizen(string id, string zone, Vector3 point, Material coat, Material skin, Material marker, Transform parent)
         {
             var root = new GameObject("Citizen " + id);
             root.transform.SetParent(parent, false);
@@ -214,7 +214,7 @@ namespace Flood2.Editor
                 arm.transform.rotation = Quaternion.Euler(0, 0, i * 16);
             }
             Renderer beacon = Primitive("Status beacon", PrimitiveType.Sphere, point + Vector3.up * 2.05f, Vector3.one * 0.23f, marker, root.transform).GetComponent<Renderer>();
-            Flood2Citizen citizen = root.AddComponent<Flood2Citizen>();
+            AvalancheCitizen citizen = root.AddComponent<AvalancheCitizen>();
             citizen.Configure(id, zone, visual, beacon);
             return citizen;
         }
