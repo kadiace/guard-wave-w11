@@ -138,6 +138,13 @@ namespace GuardWave
             // After a successful disaster pass, the next preparation gets a full timer.
             if (_disasterStarted)
             {
+                if (_game.IsLavaStage)
+                {
+                    _remainingSeconds = _game.LavaFlowSecondsRemaining;
+                    RefreshCountdown();
+                    AnimateCountdown();
+                    return;
+                }
                 if (CanReady) ResetCountdown();
                 else
                 {
@@ -174,6 +181,12 @@ namespace GuardWave
                 RefreshCountdown();
                 _game.Ready();
                 _disasterStarted = true;
+                if (_game.IsLavaStage)
+                {
+                    _disasterName.text = "용암류가 지나가기까지";
+                    _remainingSeconds = _game.LavaFlowSecondsRemaining;
+                    RefreshCountdown();
+                }
             }
             else
             {

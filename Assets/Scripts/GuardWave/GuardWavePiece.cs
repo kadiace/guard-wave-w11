@@ -66,6 +66,8 @@ namespace GuardWave
             // as an ordinary piece at the outflow boundary.
             if (_game == null || !removeOutsideBoundary || materialId == "foundation" ||
                 materialId == "default_flag" || !_game.IsPlacedPiece(this)) return;
+            // Stone houses survive Lava, including crossing the outflow boundary.
+            if (_game.IsLavaStage && materialId == "stone_house") return;
             if (transform.position.z <= _game.DestructionBoundaryZ)
                 _game.RemoveOutsideBoundary(this);
         }

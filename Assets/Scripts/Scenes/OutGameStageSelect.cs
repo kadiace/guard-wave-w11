@@ -6,12 +6,12 @@ using UnityEngine.UI;
 
 /// <summary>
 /// Menu-only stage carousel, authored in Game.unity. The menu is intentionally independent
-/// of Forest and Fog simulation systems; it changes scenes through SceneManagerEx.
+/// of Flood, Fog and Lava simulation systems; it changes scenes through SceneManagerEx.
 /// </summary>
 [DisallowMultipleComponent]
 public sealed class OutGameStageSelect : MonoBehaviour, IBeginDragHandler, IDragHandler, IEndDragHandler
 {
-    [Header("Poster cards: Forest, Fog")]
+    [Header("Poster cards: Flood, Fog, Lava")]
     [SerializeField] private RectTransform[] _posters;
     [SerializeField] private CanvasGroup[] _posterOpacity;
     [SerializeField] private Image[] _posterFrames;
@@ -36,12 +36,13 @@ public sealed class OutGameStageSelect : MonoBehaviour, IBeginDragHandler, IDrag
     [SerializeField, Min(0.1f)] private float _transitionSpeed = 10f;
     [SerializeField, Min(20f)] private float _swipeThreshold = 65f;
 
-    private static readonly Scene[] Destinations = { Scene.Flood, Scene.Fog };
-    private static readonly string[] Names = { "THE LAST DAM", "GREEN SILENCE" };
+    private static readonly Scene[] Destinations = { Scene.Flood, Scene.Fog, Scene.Lava };
+    private static readonly string[] Names = { "THE LAST DAM", "GREEN SILENCE", "OVERFLOW" };
     private static readonly string[] Descriptions =
     {
         "FOREST  /  BUILD A DAM. HOLD THE FLOOD.",
-        "FOG  /  SURVIVE THE ROLLING TOXIC CLOUD."
+        "FOG  /  SURVIVE THE ROLLING TOXIC CLOUD.",
+        "LAVA  /  WITHSTAND THE VOLCANIC FLOW."
     };
 
     private readonly Color _activeFrame = new Color(0.95f, 0.78f, 0.50f, 1f);
@@ -358,7 +359,8 @@ public sealed class OutGameStageSelect : MonoBehaviour, IBeginDragHandler, IDrag
         if (Mathf.Abs(delta) < _swipeThreshold) return;
 
         _ignoreClickUntil = Time.unscaledTime + 0.2f;
-        Select(_selected + (delta < 0f ? 1 : -1));
+        // Snap to the poster nearest the dragged position, even when several cards were crossed.
+        Select(Mathf.RoundToInt(_animatedIndex));
     }
 
     public void LaunchSelectedStage()

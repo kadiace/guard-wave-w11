@@ -139,7 +139,33 @@ namespace GuardWave
         public float SpawnRateMultiplier => _spawnRateMultiplier;
         public float ParticleRenderRadius => _particleRenderRadius;
 
+        [Header("Lava contact physics")]
+        [SerializeField] private bool _destroyOnFluidContact;
+        [Tooltip("Separate from CollisionSkin (the physical particle bounce distance).")]
+        [SerializeField, Min(0.01f)] private float _lavaDestroyContactDistance = 0.20f;
+        [Tooltip("Fraction of 54 Collider surface points covered by physical 3D lava occupancy.")]
+        [SerializeField, Range(0.01f, 1f)] private float _lavaSurfaceCoverageThreshold = 0.12f;
+        [Tooltip("Minimum 3D cell occupancy for a surface point to count as wet.")]
+        [SerializeField, Range(0.001f, 1f)] private float _lavaSurfaceWetnessThreshold = 0.08f;
+        [Tooltip("Outward distance of the physical fluid occupancy probes from the Collider surface.")]
+        [SerializeField, Min(0.01f)] private float _lavaSurfaceSampleOffset = 0.35f;
+        [Tooltip("Seconds of visible fire after first irreversible lava contact.")]
+        [SerializeField, Min(0.05f)] private float _lavaBurnDurationSeconds = 3f;
+        public bool DestroyOnFluidContact => _destroyOnFluidContact;
+        public float LavaDestroyContactDistance => Mathf.Max(_collisionSkin, _lavaDestroyContactDistance);
+        public float LavaSurfaceCoverageThreshold => _lavaSurfaceCoverageThreshold;
+        public float LavaSurfaceWetnessThreshold => _lavaSurfaceWetnessThreshold;
+        public float LavaSurfaceSampleOffset => _lavaSurfaceSampleOffset;
+        public float LavaBurnDurationSeconds => Mathf.Max(0.05f, _lavaBurnDurationSeconds);
+
+        [Header("Lava atmosphere particle effects")]
+        [SerializeField, Min(0f)] private float _lavaSmokeParticlesPerSecond = 48f;
+        [SerializeField, Min(0f)] private float _lavaEmberParticlesPerSecond = 52f;
+        public float LavaSmokeParticlesPerSecond => _lavaSmokeParticlesPerSecond;
+        public float LavaEmberParticlesPerSecond => _lavaEmberParticlesPerSecond;
+
         [Header("Screen-space liquid rendering")]
+        [SerializeField] private bool _ssfrLavaSurface;
         [SerializeField, Range(0.25f, 1f)] private float _ssfrResolutionScale = 0.5f;
         [SerializeField, Range(0.5f, 1.7f)] private float _ssfrRadiusScale = 1.0f;
         [SerializeField, Range(0.1f, 5f)] private float _ssfrThicknessScale = 1.2f;
@@ -151,6 +177,7 @@ namespace GuardWave
         [SerializeField] private Color _ssfrShallowColor = new Color(0.13f, 0.60f, 0.87f, 1f);
         [SerializeField] private Color _ssfrDeepColor = new Color(0.015f, 0.24f, 0.52f, 1f);
 
+        public bool SsfrLavaSurface => _ssfrLavaSurface;
         public float SsfrResolutionScale => _ssfrResolutionScale;
         public float SsfrRadiusScale => _ssfrRadiusScale;
         public float SsfrThicknessScale => _ssfrThicknessScale;
@@ -161,5 +188,12 @@ namespace GuardWave
         public float SsfrOpacity => _ssfrOpacity;
         public Color SsfrShallowColor => _ssfrShallowColor;
         public Color SsfrDeepColor => _ssfrDeepColor;
+
+        [Header("Lava emission")]
+        [ColorUsage(false, true)]
+        [SerializeField] private Color _lavaEmissionColor = new Color(1f, 0.25f, 0.035f, 1f);
+        [SerializeField, Min(0f)] private float _lavaEmissionIntensity = 2f;
+        public Color LavaEmissionColor => _lavaEmissionColor;
+        public float LavaEmissionIntensity => _lavaEmissionIntensity;
     }
 }

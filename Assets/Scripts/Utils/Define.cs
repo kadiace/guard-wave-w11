@@ -4,6 +4,7 @@ public enum Scene
     Game,
     Flood,
     Fog,
+    Lava,
 }
 
 public enum InputMode

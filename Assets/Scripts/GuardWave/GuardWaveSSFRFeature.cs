@@ -14,17 +14,28 @@ namespace GuardWave
     public sealed class GuardWaveSSFRFeature : ScriptableRendererFeature
     {
         private Material _material;
+        private Material _lavaMaterial;
         private FluidPass _pass;
+        private FluidPass _lavaPass;
 
         /// <summary>Creates the reusable screen-space water shader and render pass.</summary>
         public override void Create()
         {
             CoreUtils.Destroy(_material);
+            CoreUtils.Destroy(_lavaMaterial);
             _pass = null;
+            _lavaPass = null;
             Shader shader = Resources.Load<Shader>("Textures/GuardWaveSSFR");
             if (shader == null) return;
             _material = CoreUtils.CreateEngineMaterial(shader);
             _pass = new FluidPass(_material);
+
+            Shader lavaShader = Resources.Load<Shader>("Textures/GuardWaveSSFRLava");
+            if (lavaShader != null)
+            {
+                _lavaMaterial = CoreUtils.CreateEngineMaterial(lavaShader);
+                _lavaPass = new FluidPass(_lavaMaterial);
+            }
         }
 
         /// <summary>Enqueues SSFR only for the active gameplay camera and live GPU water.</summary>
@@ -33,15 +44,22 @@ namespace GuardWave
         {
             if (_pass == null || renderingData.cameraData.cameraType != CameraType.Game ||
                 GuardWaveFlipRenderer.ActiveFluid == null) return;
-            renderer.EnqueuePass(_pass);
+            GuardWaveFluidSettings sceneSettings = GuardWaveFlipRenderer.ActiveSettings;
+            if (sceneSettings != null && sceneSettings.SsfrLavaSurface && _lavaPass != null)
+                renderer.EnqueuePass(_lavaPass);
+            else
+                renderer.EnqueuePass(_pass);
         }
 
         /// <summary>Disposes the renderer-local shader material.</summary>
         protected override void Dispose(bool disposing)
         {
             CoreUtils.Destroy(_material);
+            CoreUtils.Destroy(_lavaMaterial);
             _material = null;
+            _lavaMaterial = null;
             _pass = null;
+            _lavaPass = null;
         }
 
         private sealed class FluidPass : ScriptableRenderPass
@@ -84,6 +102,11 @@ namespace GuardWave
                 _material.SetFloat("_Opacity", settings.SsfrOpacity);
                 _material.SetColor("_ShallowColor", settings.SsfrShallowColor);
                 _material.SetColor("_DeepColor", settings.SsfrDeepColor);
+                if (settings.SsfrLavaSurface)
+                {
+                    _material.SetColor("_EmissionColor", settings.LavaEmissionColor);
+                    _material.SetFloat("_EmissionIntensity", settings.LavaEmissionIntensity);
+                }
 
                 RenderTextureDescriptor descriptor = camera.cameraTargetDescriptor;
                 descriptor.width = Mathf.Max(1, Mathf.RoundToInt(
