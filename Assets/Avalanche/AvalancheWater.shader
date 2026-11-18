@@ -7,7 +7,7 @@ Shader "Avalanche/Flow surface"
         {
             Tags { "LightMode"="UniversalForward" }
             Blend SrcAlpha OneMinusSrcAlpha
-            ZWrite Off
+            ZWrite On
             Cull Off
             HLSLPROGRAM
             #pragma vertex Vert
@@ -27,10 +27,9 @@ Shader "Avalanche/Flow surface"
             half4 Frag(Output input) : SV_Target
             {
                 clip(input.color.a - 0.01);
-                float2 uv = input.positionWS.xz - input.flow * _Time.y * 0.55;
-                float ripple = sin(uv.x * 4.7 + uv.y * 2.1) * sin(uv.y * 6.1 - uv.x * 1.9);
-                float glint = pow(saturate(ripple), 10) * (0.08 + saturate(length(input.flow) / 3) * 0.15);
-                return half4(input.color.rgb + glint, input.color.a);
+                float2 uv = input.positionWS.xz - input.flow * _Time.y * 0.25;
+                float grain = sin(uv.x * 12.7 + uv.y * 7.1) * sin(uv.y * 13.1 - uv.x * 9.9);
+                return half4(input.color.rgb * (0.94 + grain * 0.035), 1);
             }
             ENDHLSL
         }

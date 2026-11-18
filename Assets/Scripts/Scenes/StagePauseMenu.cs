@@ -20,6 +20,7 @@ public sealed class StagePauseMenu : MonoBehaviour
     private GuardWaveHud _hud;
     private Func<bool> _canOpen;
     private Action<bool> _onPauseChanged;
+    private Func<bool> _consumeEscape;
 
     public bool IsOpen { get; private set; }
 
@@ -37,10 +38,11 @@ public sealed class StagePauseMenu : MonoBehaviour
     }
 
     /// <summary>스테이지의 일시정지 조건, 상태 변경과 빈 배치 재시작을 연결한다.</summary>
-    public void Initialize(Func<bool> canOpen, Action<bool> onPauseChanged, Action restart)
+    public void Initialize(Func<bool> canOpen, Action<bool> onPauseChanged, Action restart, Func<bool> consumeEscape = null)
     {
         _canOpen = canOpen;
         _onPauseChanged = onPauseChanged;
+        _consumeEscape = consumeEscape;
         Button restartButton = Instantiate(_returnButton, _returnButton.transform.parent);
         restartButton.name = "RestartButton";
         restartButton.onClick.RemoveAllListeners();
@@ -62,6 +64,7 @@ public sealed class StagePauseMenu : MonoBehaviour
             return;
 
         if (IsOpen) Resume();
+        else if (_consumeEscape != null && _consumeEscape()) return;
         else if (_hud != null && _hud.IsRulesOpen) _hud.HideRules();
         else Open();
     }

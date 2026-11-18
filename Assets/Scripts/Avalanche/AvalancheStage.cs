@@ -8,9 +8,9 @@ using GuardWave;
 
 namespace Avalanche
 {
-    public enum AvalanchePhase { Introduction, Preparing, Warning, Flooding, Assessing, Cleared, Failed, TechnicalError }
+    public enum AvalanchePhase { Introduction, Preparing, Warning, Sliding, Assessing, Cleared, Failed, TechnicalError }
 
-    /// <summary>Scene-owned citizen rescue rules and the two-peak flood, isolated from Flood and Fog.</summary>
+    /// <summary>Owns the two snow releases, citizen rescue rules and scene-specific construction settings.</summary>
     [DefaultExecutionOrder(-50)]
     [RequireComponent(typeof(AvalancheConstruction), typeof(AvalancheHud))]
     public sealed class AvalancheStage : MonoBehaviour
@@ -20,48 +20,43 @@ namespace Avalanche
         [SerializeField] private MeshCollider _ground;
         [SerializeField] private MeshFilter _waterSurface;
         [SerializeField] private Font _font;
-
         [Header("Construction catalog")]
         [SerializeField] private Material _panelMaterial;
         [SerializeField] private Material _stoneMaterial;
         [SerializeField] private Material _previewMaterial;
         [SerializeField] private Material _lineMaterial;
         [SerializeField] private PhysicsMaterial _friction;
-
-        [Header("Attempt timing (seconds)")]
-        [SerializeField, Min(1f)] private float _warningSeconds = 5f;
-        [SerializeField, Min(20f)] private float _tailObservationSeconds = 25f;
-        [Tooltip("Counts from Ready, including the warning, both waves and the tail observation.")]
-        [SerializeField, Min(60f)] private float _attemptLimitSeconds = 150f;
-
-        [Header("Inflow depths (m)")]
-        [SerializeField, Min(0f)] private float _initialInletDepth = 0.2f;
-        [SerializeField, Min(0.1f)] private float _firstPeakDepth = 2.6f;
-        [SerializeField, Min(0f)] private float _intermissionDepth = 0.65f;
-        [SerializeField, Min(0.1f)] private float _secondPeakDepth = 3.4f;
-
-        [Header("Inflow durations (seconds)")]
-        [SerializeField, Min(0.1f)] private float _firstRiseSeconds = 4f;
-        [SerializeField, Min(0.1f)] private float _firstPeakSeconds = 7f;
-        [SerializeField, Min(0.1f)] private float _intermissionSeconds = 5f;
-        [SerializeField, Min(0.1f)] private float _secondRiseSeconds = 2f;
-        [SerializeField, Min(0.1f)] private float _secondPeakSeconds = 6f;
-        [SerializeField, Min(0.1f)] private float _recessionSeconds = 8f;
-
-        [Header("Citizens and clear conditions")]
+        [Header("Disaster timing")]
+        [SerializeField, Min(0f)] private float _warningSeconds = 5f;
+        [SerializeField, Min(1f)] private float _secondReleaseSeconds = 12f;
+        [SerializeField, Min(1f)] private float _observationStartSeconds = 20f;
+        [SerializeField, Min(1f)] private float _disasterLimitSeconds = 60f;
+        [SerializeField, Min(0.1f)] private float _safeObservationSeconds = 3f;
+        [Header("Snow releases")]
+        [SerializeField] private Vector2 _firstSource = new Vector2(-2f, 52f);
+        [SerializeField] private Vector2 _secondSource = new Vector2(2f, 52f);
+        [SerializeField] private Vector2 _sourceRadius = new Vector2(3.6f, 4.8f);
+        [SerializeField] private Vector2 _sourceVelocity = new Vector2(0f, -1f);
+        [SerializeField, Min(1f)] private float _firstVolume = 50f;
+        [SerializeField, Min(1f)] private float _secondVolume = 90f;
+        [Header("Citizens")]
         [SerializeField, Min(0.02f)] private float _citizenSampleInterval = 0.1f;
-        [SerializeField, Min(0f)] private float _citizenSafeSeconds = 5f;
-        [SerializeField, Min(0f)] private float _settledWaterSeconds = 3f;
+        [SerializeField, Range(0.001f, 0.1f)] private float _activeVolumeFraction = 0.01f;
         [SerializeField] private AvalancheCitizen.RiskSettings _citizenRisk = new AvalancheCitizen.RiskSettings();
-
-        [Header("Water simulation")]
-        [SerializeField] private AvalancheWater.FlowSettings _waterFlow = new AvalancheWater.FlowSettings();
-        private AvalancheWater _water;
+        [Header("Terrain and snow")]
+        [SerializeField] private AvalancheTerrain.Settings _terrainSettings = new AvalancheTerrain.Settings();
+        [SerializeField] private AvalancheSnow.Settings _snowSettings = new AvalancheSnow.Settings();
+        private AvalancheSnow _snow;
+        private Mesh _terrainMesh;
+        private Material _snowMaterial;
         private float _warningClock;
         private float _sampleClock;
         private float _stableClock;
-        private float _attemptClock;
         private float _previousTimeScale;
+        private bool _firstReleased;
+        private bool _secondReleased;
+        private AudioSource _avalancheAudio;
+        private AudioClip _rumble;
         private GuardWaveStageInfo _stageInfo;
         private StagePreparationClock _preparationClock;
         private StagePauseMenu _pauseMenu;
@@ -76,29 +71,25 @@ namespace Avalanche
         public PhysicsMaterial Friction => _friction;
         public AvalancheConstruction Construction { get; private set; }
         public AvalancheHud Hud { get; private set; }
-        public AvalancheWater Water => _water;
+        public AvalancheSnow Snow => _snow;
         public AvalanchePhase Phase { get; private set; } = AvalanchePhase.Introduction;
         public bool Paused { get; private set; }
-        public bool CanEdit => Phase == AvalanchePhase.Preparing && !Paused;
-        public bool AllTargetsPlaced => _stageInfo.AreTargetsPlaced(Construction.GetRemainingPlacements);
+        public bool CanEdit => Phase == AvalanchePhase.Preparing && !Paused && !Hud.RulesOpen;
+        public bool AllTargetsPlaced => _stageInfo.AreTargetsPlaced(Construction.GetRemainingPlacements) && Construction.AllZonesOccupied;
         public float PreparationLeft => _preparationClock.Remaining;
         internal bool LimitPreparationTime => _preparationClock.Enabled;
-        internal float PreparationSeconds => _stageInfo.countdownSeconds;
         internal GuardWaveStageInfo StageInfo => _stageInfo;
-        internal float FirstWaveEnd => _firstRiseSeconds + _firstPeakSeconds;
-        internal float IntermissionEnd => FirstWaveEnd + _intermissionSeconds;
-        internal float SecondWaveEnd => IntermissionEnd + _secondRiseSeconds + _secondPeakSeconds;
-        internal float InflowEnd => SecondWaveEnd + _recessionSeconds;
-        public float FloodElapsed { get; private set; }
+        public float Elapsed { get; private set; }
+        public float SecondReleaseSeconds => _secondReleaseSeconds;
         public float WarningLeft => Mathf.Max(0f, _warningSeconds - _warningClock);
-        public string ResultMessage { get; private set; }
+        public string ResultMessage { get; private set; } = "";
         public int Attempt { get; private set; } = 1;
 
-        /// <summary>Assigns authored scene references and dedicated Avalanche assets.</summary>
-        public void Configure(Camera view, MeshCollider ground, MeshFilter water, Font font,
+        /// <summary>Assigns authored scene references and materials for the snow stage.</summary>
+        public void Configure(Camera view, MeshCollider ground, MeshFilter surface, Font font,
             Material panel, Material stone, Material preview, Material line, PhysicsMaterial friction)
         {
-            _viewCamera = view; _ground = ground; _waterSurface = water; _font = font;
+            _viewCamera = view; _ground = ground; _waterSurface = surface; _font = font;
             _panelMaterial = panel; _stoneMaterial = stone; _previewMaterial = preview; _lineMaterial = line; _friction = friction;
         }
 
@@ -111,145 +102,174 @@ namespace Avalanche
             Cursor.lockState = CursorLockMode.None;
             _stageInfo = GuardWaveStageInfoFile.LoadForScene(gameObject.scene.name);
             _preparationClock = new StagePreparationClock(_stageInfo);
+            AvalancheTerrain.Configure(_terrainSettings);
+            _terrainMesh = AvalancheTerrain.CreateMesh();
+            _ground.sharedMesh = _terrainMesh;
+            _ground.GetComponent<MeshFilter>().sharedMesh = _terrainMesh;
+            _snow = new AvalancheSnow(_snowSettings);
+            _waterSurface.sharedMesh = _snow.Surface;
+            _snowMaterial = new Material(Shader.Find("Avalanche/Flow surface"));
+            _waterSurface.GetComponent<Renderer>().sharedMaterial = _snowMaterial;
             Construction = GetComponent<AvalancheConstruction>();
             Hud = GetComponent<AvalancheHud>();
-            _water = new AvalancheWater(_waterFlow);
-            _waterSurface.sharedMesh = _water.Surface;
             Construction.Initialize(this);
             Hud.Initialize(this);
-            _viewCamera.GetComponent<StageCameraController>().InitializeOverview(Hud.BlocksPointer);
+            _viewCamera.GetComponent<StageCameraController>().InitializeOverview(Hud.BlocksPointer, true);
             _pauseMenu = Instantiate(Resources.Load<StagePauseMenu>("Prefabs/UIs/StagePauseMenu"), transform);
             _pauseMenu.Initialize(() => Phase != AvalanchePhase.Introduction && !IsFinished(),
-                SetPaused, () => Retry(true));
+                SetPaused, () => Retry(true), ConsumeEscape);
+            CreateForecast(_firstSource, "First snow release");
+            CreateForecast(_secondSource, "Second snow release");
+            CreateAudio();
         }
 
         private void Update()
         {
-            Keyboard keyboard = Keyboard.current;
-            if (keyboard == null) return;
-            if (keyboard.enterKey.wasPressedThisFrame)
-            {
-                if (Phase == AvalanchePhase.Introduction) BeginPreparation();
-                else if (CanEdit) Ready();
-            }
+            if (Keyboard.current == null || !Keyboard.current.enterKey.wasPressedThisFrame) return;
+            if (Phase == AvalanchePhase.Introduction) BeginPreparation();
+            else if (CanEdit) Ready();
         }
 
         private void FixedUpdate()
         {
-            if (Paused || Phase == AvalanchePhase.Introduction || IsFinished()) return;
+            if (Paused || Hud.RulesOpen || Phase == AvalanchePhase.Introduction || IsFinished()) return;
             float dt = Time.fixedDeltaTime;
             Construction.TickContacts(dt);
             if (Phase == AvalanchePhase.Preparing)
             {
-                if (LimitPreparationTime)
-                {
-                    _preparationClock.Advance(dt);
-                    if (_preparationClock.Expired) Ready();
-                }
+                _preparationClock.Advance(dt);
+                if (_preparationClock.Expired) Ready();
                 return;
             }
-            _attemptClock += dt;
             if (Phase == AvalanchePhase.Warning)
             {
                 _warningClock += dt;
-                if (_warningClock >= _warningSeconds) Phase = AvalanchePhase.Flooding;
+                if (_warningClock >= _warningSeconds) Phase = AvalanchePhase.Sliding;
                 return;
             }
-            FloodElapsed += dt;
-            float inlet = InletDepth(FloodElapsed);
-            _water.Step(dt, inlet, Construction.Pieces);
-            if (!_water.IsValid)
-            {
-                End(AvalanchePhase.TechnicalError, "물 계산이 안정 범위를 벗어났습니다. 시민 실패로 처리하지 않습니다. 배치를 복원해 다시 시도하세요.");
-                return;
-            }
-            if (FloodElapsed >= InflowEnd) Phase = AvalanchePhase.Assessing;
+            if (!_firstReleased) { _snow.Release(_firstSource, _sourceRadius, _firstVolume, _sourceVelocity); _firstReleased = true; _avalancheAudio.PlayOneShot(_rumble); }
+            if (!_secondReleased && Elapsed + 0.0001f >= _secondReleaseSeconds)
+            { _snow.Release(_secondSource, _sourceRadius, _secondVolume, _sourceVelocity); _secondReleased = true; _avalancheAudio.PlayOneShot(_rumble); }
+            _snow.Step(dt, _firstVolume + _secondVolume, Construction.Pieces);
+            Elapsed += dt;
+            if (!_snow.IsValid) { End(AvalanchePhase.TechnicalError, _snow.Error + "\n배치를 복원해 다시 시도할 수 있습니다."); return; }
             _sampleClock += dt;
-            if (_sampleClock >= _citizenSampleInterval - 0.0001f)
+            if (_sampleClock + 0.0001f >= _citizenSampleInterval)
             {
-                foreach (var citizen in Citizens) citizen.Observe(_water, _sampleClock, _citizenRisk);
-                bool settled = true;
-                foreach (var citizen in Citizens)
+                AvalancheCitizen failed = null;
+                bool allSafe = true;
+                foreach (AvalancheCitizen citizen in Citizens)
                 {
-                    settled &= !citizen.HasUnsettledWater;
-                    if (citizen.State != AvalancheCitizenState.RescueRequired) continue;
-                    End(AvalanchePhase.Failed, $"{citizen.Zone} · {citizen.CitizenId}에게 구조가 필요합니다.\n홍수 {FloodElapsed:0.0}초 / 최대 수심 {citizen.MaxDepth:0.00}m / 현재 유속 {citizen.Speed:0.0}m/s\n위험 노출 {citizen.ExposedSeconds:0.0}초. 물길과 접합 상태를 살펴보세요.");
+                    citizen.Observe(_snow, _sampleClock, _citizenRisk);
+                    allSafe &= citizen.IsSafe;
+                    if (citizen.State == AvalancheCitizenState.RescueRequired && (failed == null || citizen.PlacementId < failed.PlacementId)) failed = citizen;
+                }
+                if (failed != null)
+                {
+                    End(AvalanchePhase.Failed, $"{failed.CitizenId} · {failed.FailureReason}\n{Elapsed:0.0}초 / 적설 {failed.Depth:0.00}m / 속도 {failed.Speed:0.0}m/s\n충돌 {failed.ImpactSeconds:0.0}초 · 매몰 {failed.BurialSeconds:0.0}초");
                     return;
                 }
-                _stableClock = Phase == AvalanchePhase.Assessing && settled ? _stableClock + _sampleClock : 0f;
+                bool settled = _secondReleased && Elapsed >= Mathf.Max(_observationStartSeconds, _secondReleaseSeconds)
+                    && _snow.ActiveVolume < (_firstVolume + _secondVolume) * _activeVolumeFraction && allSafe;
+                _stableClock = settled ? _stableClock + _sampleClock : 0f;
                 _sampleClock = 0f;
             }
-            bool allSafe = true;
-            foreach (var citizen in Citizens) allSafe &= citizen.SafeSeconds >= _citizenSafeSeconds && !citizen.InDanger;
-            if (Phase == AvalanchePhase.Assessing && FloodElapsed >= InflowEnd + _tailObservationSeconds && _stableClock >= _settledWaterSeconds && allSafe)
+            if (Elapsed >= _observationStartSeconds) Phase = AvalanchePhase.Assessing;
+            if (_stableClock + 0.0001f >= _safeObservationSeconds)
             {
-                foreach (var citizen in Citizens) citizen.Protect();
-                End(AvalanchePhase.Cleared, $"두 차례의 홍수가 지나갔으며 시민 {Citizens.Count}명 모두 안전합니다.");
+                foreach (AvalancheCitizen citizen in Citizens) citizen.Protect();
+                End(AvalanchePhase.Cleared, $"두 차례의 눈사태에서 시민 {Citizens.Count}명을 지켰습니다.");
             }
-            else if (_attemptClock >= _attemptLimitSeconds)
-                End(AvalanchePhase.Failed, "시민 주변에 잔류 홍수 위험이 남아 있습니다.\n물길이 시민을 지나지 않도록 배치를 수정하세요.");
+            else if (Elapsed >= _disasterLimitSeconds)
+                End(AvalanchePhase.Failed, "관찰 시간이 끝났습니다.\n시민 주변의 위험이나 움직이는 눈이 남아 있습니다.");
         }
 
-        /// <summary>Returns the deterministic upstream input, measured from the end of the warning.</summary>
-        private float InletDepth(float time)
-        {
-            if (time < _firstRiseSeconds) return Mathf.Lerp(_initialInletDepth, _firstPeakDepth, time / _firstRiseSeconds);
-            if (time < FirstWaveEnd) return _firstPeakDepth;
-            if (time < IntermissionEnd) return Mathf.Lerp(_firstPeakDepth, _intermissionDepth, (time - FirstWaveEnd) / _intermissionSeconds);
-            if (time < IntermissionEnd + _secondRiseSeconds) return Mathf.Lerp(_intermissionDepth, _secondPeakDepth, (time - IntermissionEnd) / _secondRiseSeconds);
-            if (time < SecondWaveEnd) return _secondPeakDepth;
-            if (time < InflowEnd) return Mathf.Lerp(_secondPeakDepth, 0f, (time - SecondWaveEnd) / _recessionSeconds);
-            return 0f;
-        }
+        /// <summary>Starts unrestricted preparation after closing the stage introduction.</summary>
+        public void BeginPreparation() { if (Phase != AvalanchePhase.Introduction) return; Phase = AvalanchePhase.Preparing; Time.timeScale = 1f; }
 
-        /// <summary>Closes the instructions and starts the construction period.</summary>
-        public void BeginPreparation()
-        {
-            if (Phase != AvalanchePhase.Introduction) return;
-            Phase = AvalanchePhase.Preparing;
-            Time.timeScale = 1f;
-        }
-
-        /// <summary>Finalizes edits and saves the layout before locking tools for the warning.</summary>
+        /// <summary>Requires every citizen and zone condition before saving and locking the construction.</summary>
         public void Ready()
         {
             if (!CanEdit || !AllTargetsPlaced) return;
             Construction.SaveCheckpoint();
-            _warningClock = _attemptClock = 0f;
+            Construction.CancelSelection();
+            _warningClock = 0f;
             Phase = AvalanchePhase.Warning;
+            _avalancheAudio.PlayOneShot(_rumble, 0.35f);
         }
 
-        /// <summary>Pauses simulation and rule clocks together while leaving the camera and menus usable.</summary>
-        public void TogglePause()
+        /// <summary>Cancels rules or the current tool before Escape can open the pause menu.</summary>
+        private bool ConsumeEscape()
         {
-            if (_pauseMenu.IsOpen) _pauseMenu.Resume();
-            else _pauseMenu.Open();
+            if (Hud.RulesOpen) { Hud.CloseRules(); return true; }
+            return CanEdit && Construction.CancelSelection();
         }
 
-        /// <summary>공통 일시정지 메뉴의 상태를 스테이지 편집 잠금에 반영한다.</summary>
-        private void SetPaused(bool paused) => Paused = paused;
+        /// <summary>Reflects the shared pause menu state in construction and simulation.</summary>
+        private void SetPaused(bool paused)
+        {
+            Paused = paused;
+            if (paused) _avalancheAudio.Pause(); else _avalancheAudio.UnPause();
+        }
 
-        /// <summary>Reports whether the current attempt has reached a terminal result.</summary>
+        /// <summary>Marks a release ellipse and its direction without adding a physics obstacle.</summary>
+        private void CreateForecast(Vector2 center, string name)
+        {
+            LineRenderer line = new GameObject(name).AddComponent<LineRenderer>();
+            line.transform.SetParent(transform, false);
+            line.sharedMaterial = _lineMaterial;
+            line.startWidth = line.endWidth = 0.08f;
+            line.startColor = line.endColor = new Color(0.95f, 0.65f, 0.25f);
+            line.positionCount = 49;
+            for (int i = 0; i < 49; i++)
+            {
+                float angle = i * Mathf.PI / 24f;
+                float x = center.x + Mathf.Cos(angle) * _sourceRadius.x;
+                float z = center.y + Mathf.Sin(angle) * _sourceRadius.y;
+                line.SetPosition(i, new Vector3(x, AvalancheTerrain.Height(x, z) + 0.06f, z));
+            }
+        }
+
+        /// <summary>Creates a quiet procedural low rumble to identify warnings and the two releases.</summary>
+        private void CreateAudio()
+        {
+            _avalancheAudio = gameObject.AddComponent<AudioSource>();
+            _avalancheAudio.playOnAwake = false;
+            _avalancheAudio.volume = 0.2f;
+            float[] samples = new float[44100 * 2];
+            System.Random random = new System.Random(42);
+            float low = 0f;
+            for (int i = 0; i < samples.Length; i++)
+            {
+                low = low * 0.95f + ((float)random.NextDouble() * 2f - 1f) * 0.05f;
+                samples[i] = low * Mathf.Sin(Mathf.PI * i / samples.Length);
+            }
+            _rumble = AudioClip.Create("Avalanche rumble", samples.Length, 1, 44100, false);
+            _rumble.SetData(samples, 0);
+        }
+
+        /// <summary>Reports a terminal citizen, success or technical outcome.</summary>
         public bool IsFinished() => Phase == AvalanchePhase.Cleared || Phase == AvalanchePhase.Failed || Phase == AvalanchePhase.TechnicalError;
 
-        /// <summary>Emits one terminal result and freezes both bodies and danger accumulation.</summary>
+        /// <summary>Freezes the attempt and records a successful stage in the shared session.</summary>
         private void End(AvalanchePhase phase, string message)
         {
             if (IsFinished()) return;
             Phase = phase;
             ResultMessage = message;
-            if (phase == AvalanchePhase.Cleared)
-                StageClearSession.MarkCleared(Scene.Avalanche);
+            if (phase == AvalanchePhase.Cleared) StageClearSession.MarkCleared(Scene.Avalanche);
             Time.timeScale = 0f;
+            _avalancheAudio.Stop();
         }
 
-        /// <summary>Restores the pre-flood layout or clears it, with fresh water, citizen state and timers.</summary>
+        /// <summary>Restores the pre-disaster checkpoint or empties the stage and resets all snow and risk histories.</summary>
         public void Retry(bool empty)
         {
             Construction.ResetLayout(empty);
-            _water.Reset();
-            foreach (var citizen in Citizens) citizen.ResetState();
-            _warningClock = _sampleClock = _stableClock = _attemptClock = FloodElapsed = 0f;
+            _snow.Reset();
+            _avalancheAudio.Stop();
+            _firstReleased = _secondReleased = false;
+            _warningClock = _sampleClock = _stableClock = Elapsed = 0f;
             _preparationClock.Reset();
             ResultMessage = "";
             Attempt++;
@@ -258,16 +278,15 @@ namespace Avalanche
             Time.timeScale = 1f;
         }
 
-        /// <summary>Returns to the existing stage-selection scene without altering its stage catalog.</summary>
-        public void ReturnToMenu()
-        {
-            Time.timeScale = 1f;
-            Managers.Scene.Load(Scene.Game);
-        }
+        /// <summary>Returns to the shared stage carousel with cleared transient managers.</summary>
+        public void ReturnToMenu() { Time.timeScale = 1f; Managers.Clear(); Managers.Scene.Load(Scene.Game); }
 
         private void OnDestroy()
         {
-            _water?.Dispose();
+            _snow?.Dispose();
+            if (_terrainMesh != null) Destroy(_terrainMesh);
+            if (_snowMaterial != null) Destroy(_snowMaterial);
+            if (_rumble != null) Destroy(_rumble);
             Time.timeScale = _previousTimeScale > 0f ? _previousTimeScale : 1f;
         }
     }

@@ -22,6 +22,8 @@ namespace Avalanche
         private AvalanchePiece _connectedPiece;
         private Vector3 _anchor;
         private bool _wasConnected;
+        private readonly Vector3[] _snowForces = new Vector3[4];
+        private readonly Vector3[] _snowPoints = new Vector3[4];
         public int Id { get; private set; }
         public AvalancheMaterial Kind { get; private set; }
         public Rigidbody Body => _body;
@@ -36,21 +38,19 @@ namespace Avalanche
         [Serializable]
         internal sealed class PhysicsSettings
         {
-            [Header("Mass and water forces")]
-            [SerializeField, Min(0.01f)] private float _waterDensity = 100f;
+            [Header("Mass and damping")]
+            [SerializeField, Min(0.01f)] private float _materialDensity = 100f;
             [SerializeField, Min(0.01f)] private float _panelRelativeDensity = 0.6f;
             [SerializeField, Min(1f)] private float _sandbagRelativeDensity = 2f;
-            [SerializeField, Min(0f)] private float _flowDrag = 0.45f;
             [SerializeField, Min(0f)] private float _linearDamping = 0.4f;
             [SerializeField, Min(0f)] private float _angularDamping = 1.5f;
 
             [Header("Joint break limits")]
             [SerializeField, Min(0f)] private float _breakForce = 9000f;
             [SerializeField, Min(0f)] private float _breakTorque = 5200f;
-            public float WaterDensity => _waterDensity;
+            public float MaterialDensity => _materialDensity;
             public float PanelRelativeDensity => _panelRelativeDensity;
             public float SandbagRelativeDensity => _sandbagRelativeDensity;
-            public float FlowDrag => _flowDrag;
             public float LinearDamping => _linearDamping;
             public float AngularDamping => _angularDamping;
             public float BreakForce => _breakForce;
@@ -68,7 +68,7 @@ namespace Avalanche
             _shape = GetComponent<BoxCollider>();
             _shape.sharedMaterial = friction;
             Vector3 size = transform.localScale;
-            _body.mass = size.x * size.y * size.z * settings.WaterDensity * (kind == AvalancheMaterial.Panel ? settings.PanelRelativeDensity : settings.SandbagRelativeDensity);
+            _body.mass = size.x * size.y * size.z * settings.MaterialDensity * (kind == AvalancheMaterial.Panel ? settings.PanelRelativeDensity : settings.SandbagRelativeDensity);
             _body.linearDamping = settings.LinearDamping;
             _body.angularDamping = settings.AngularDamping;
             _body.interpolation = RigidbodyInterpolation.Interpolate;
@@ -138,42 +138,40 @@ namespace Avalanche
                 gameObject.SetActive(false);
         }
 
-        /// <summary>Applies buoyancy, relative-flow drag and a pressure difference across each physical box face.</summary>
-        public void ApplyWater(AvalancheWater water)
+        /// <summary>Applies capped snow impact and stationary pressure at the actual contact height of each box face.</summary>
+        internal void ApplySnow(AvalancheSnow snow, AvalancheSnow.Settings settings)
         {
             if (!gameObject.activeSelf || _body.isKinematic) return;
             Vector3 size = transform.localScale;
             Bounds bounds = _shape.bounds;
-            float surfaceSum = 0f;
-            Vector2 flowSum = Vector2.zero;
-            int wet = 0;
+            Vector3[] forces = _snowForces;
+            Vector3[] points = _snowPoints;
+            Array.Clear(forces, 0, forces.Length);
+            float sum = 0f;
             for (int side = 0; side < 4; side++)
             {
                 Vector3 normal = side < 2 ? transform.right : transform.forward;
                 if (side % 2 == 1) normal = -normal;
                 normal.y = 0f;
                 normal.Normalize();
-                float extent = side < 2 ? size.x * 0.5f : size.z * 0.5f;
-                Vector3 probe = transform.position + normal * (extent + 0.65f);
-                probe.y = Mathf.Max(bounds.min.y, AvalancheTerrain.Height(probe.x, probe.z)) + 0.09f;
-                if (!water.Sample(probe, out float surface, out Vector2 flow) || surface <= bounds.min.y) continue;
-                wet++;
-                surfaceSum += surface;
-                flowSum += flow;
-                float depth = Mathf.Clamp(surface - bounds.min.y, 0f, bounds.size.y);
-                float faceWidth = side < 2 ? size.z : size.x;
-                float pressure = _settings.WaterDensity * GRAVITY * faceWidth * depth * (surface - bounds.min.y - depth * 0.5f);
-                Vector3 application = transform.position + normal * extent;
-                application.y = bounds.min.y + depth * 0.4f;
-                _body.AddForceAtPosition(-normal * Mathf.Max(0f, pressure), application);
+                float extent = (side < 2 ? size.x : size.z) * 0.5f;
+                Vector3 probe = transform.position + normal * (extent + 0.35f);
+                if (!snow.Sample(probe, out float moving, out float deposited, out Vector2 velocity)) continue;
+                float surface = AvalancheTerrain.Height(probe.x, probe.z) + moving + deposited;
+                float height = Mathf.Clamp(surface - bounds.min.y, 0f, bounds.size.y);
+                if (height <= 0f) continue;
+                Vector3 relative = new Vector3(velocity.x, 0f, velocity.y) - _body.linearVelocity;
+                float approach = Mathf.Max(0f, Vector3.Dot(relative, -normal));
+                float area = height * (side < 2 ? size.z : size.x);
+                float load = area * settings.Density * (approach * approach + 0.5f * settings.PressureCoefficient * GRAVITY * height);
+                forces[side] = -normal * load;
+                points[side] = transform.position + normal * extent;
+                points[side].y = bounds.min.y + height * 0.5f;
+                sum += load;
             }
-            if (wet == 0) return;
-            float fraction = Mathf.Clamp01((surfaceSum / wet - bounds.min.y) / Mathf.Max(0.1f, bounds.size.y));
-            float volume = size.x * size.y * size.z;
-            _body.AddForce(Vector3.up * (_settings.WaterDensity * GRAVITY * volume * fraction - _body.linearVelocity.y * _body.mass * fraction * 2f));
-            Vector2 flowAverage = flowSum / wet;
-            Vector3 relative = new Vector3(flowAverage.x, 0f, flowAverage.y) - Vector3.ProjectOnPlane(_body.linearVelocity, Vector3.up);
-            _body.AddForce(relative * (_settings.FlowDrag * _settings.WaterDensity * size.y * Mathf.Min(size.x, size.z) * fraction * relative.magnitude));
+            float scale = sum > settings.MaximumLoad ? settings.MaximumLoad / sum : 1f;
+            for (int side = 0; side < 4; side++)
+                if (forces[side].sqrMagnitude > 0f) _body.AddForceAtPosition(forces[side] * scale, points[side]);
         }
 
         private void LateUpdate()

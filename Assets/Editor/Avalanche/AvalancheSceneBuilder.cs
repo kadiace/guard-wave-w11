@@ -70,7 +70,7 @@ namespace Avalanche.Editor
             var water = new GameObject("Water - live depth and flow");
             MeshFilter waterFilter = water.AddComponent<MeshFilter>();
             water.AddComponent<MeshRenderer>().sharedMaterial = waterMaterial;
-            var previewWater = new AvalancheWater();
+            var previewWater = new AvalancheSnow(new AvalancheSnow.Settings());
             Mesh quietMesh = UnityEngine.Object.Instantiate(previewWater.Surface);
             quietMesh.name = "Avalanche quiet water preview";
             AssetDatabase.CreateAsset(quietMesh, ASSET_ROOT + "/QuietWater.asset");
@@ -124,6 +124,82 @@ namespace Avalanche.Editor
             EditorBuildSettings.scenes = scenes.ToArray();
             AssetDatabase.SaveAssets();
             Selection.activeObject = stage.gameObject;
+        }
+
+        /// <summary>Updates the existing scene to the authored snow terrain and winter presentation while preserving its scene identity.</summary>
+        [MenuItem("Tools/Guard Wave/Rebuild Avalanche Snow Stage")]
+        public static void RebuildSnowStage()
+        {
+            if (EditorApplication.isPlaying) return;
+            var current = UnityEngine.SceneManagement.SceneManager.GetActiveScene();
+            if (current.name != "Avalanche" && current.isDirty) { Debug.LogWarning("Save the open scene before rebuilding Avalanche."); return; }
+            var scene = current.name == "Avalanche" ? current : EditorSceneManager.OpenScene(SCENE_PATH);
+            AvalancheTerrain.Configure(new AvalancheTerrain.Settings());
+            Mesh terrain = AvalancheTerrain.CreateMesh();
+            Mesh savedTerrain = AssetDatabase.LoadAssetAtPath<Mesh>(ASSET_ROOT + "/Terrain.asset");
+            EditorUtility.CopySerialized(terrain, savedTerrain);
+            UnityEngine.Object.DestroyImmediate(terrain);
+            AvalancheStage stage = UnityEngine.Object.FindFirstObjectByType<AvalancheStage>();
+            MeshCollider ground = stage.GetComponent<AvalancheStage>().Ground;
+            ground.sharedMesh = savedTerrain;
+            ground.GetComponent<MeshFilter>().sharedMesh = savedTerrain;
+            ground.name = "Snow mountain - shared height field";
+            foreach (MeshFilter filter in UnityEngine.Object.FindObjectsByType<MeshFilter>(FindObjectsSortMode.None))
+            {
+                if (!filter.name.StartsWith("Water -")) continue;
+                filter.name = "Snow - moving and deposited layers";
+                var snow = new AvalancheSnow(new AvalancheSnow.Settings());
+                Mesh saved = AssetDatabase.LoadAssetAtPath<Mesh>(ASSET_ROOT + "/QuietWater.asset");
+                EditorUtility.CopySerialized(snow.Surface, saved);
+                filter.sharedMesh = saved;
+                UnityEngine.Object.DestroyImmediate(snow.Surface);
+            }
+            Transform oldDecor = GameObject.Find("Village scenery - outside simulation banks")?.transform;
+            if (oldDecor != null) UnityEngine.Object.DestroyImmediate(oldDecor.gameObject);
+            Transform existing = GameObject.Find("Winter village scenery")?.transform;
+            if (existing != null) UnityEngine.Object.DestroyImmediate(existing.gameObject);
+            Transform decor = new GameObject("Winter village scenery").transform;
+            Material wood = AssetDatabase.LoadAssetAtPath<Material>(ASSET_ROOT + "/Panel.mat");
+            Material plaster = AssetDatabase.LoadAssetAtPath<Material>(ASSET_ROOT + "/Plaster.mat");
+            Material dark = AssetDatabase.LoadAssetAtPath<Material>(ASSET_ROOT + "/Structure.mat");
+            Material green = AssetDatabase.LoadAssetAtPath<Material>(ASSET_ROOT + "/Foliage.mat");
+            Material roof = AssetDatabase.LoadAssetAtPath<Material>(ASSET_ROOT + "/Teal.mat");
+            for (int side = -1; side <= 1; side += 2)
+            {
+                for (int i = 0; i < 7; i++)
+                {
+                    Vector3 p = new Vector3(side * 20f, 0f, 7f + i * 7f);
+                    p.y = AvalancheTerrain.Height(p.x, p.z);
+                    Tree(p, green, wood, decor);
+                }
+            }
+            House(new Vector3(-7.5f, AvalancheTerrain.Height(-7.5f, 17f), 17f), plaster, roof, dark, decor);
+            House(new Vector3(7.5f, AvalancheTerrain.Height(7.5f, 18f), 18f), plaster, roof, dark, decor);
+            Box("Village bench", new Vector3(0f, AvalancheTerrain.Height(0f, 11f) + 0.45f, 11f), new Vector3(2.3f, 0.2f, 0.6f), wood, decor);
+            Camera.main.backgroundColor = new Color(0.57f, 0.66f, 0.76f);
+            RenderSettings.ambientLight = new Color(0.72f, 0.79f, 0.88f);
+            EditorUtility.SetDirty(savedTerrain);
+            EditorSceneManager.MarkSceneDirty(scene);
+            EditorSceneManager.SaveScene(scene, SCENE_PATH);
+            AssetDatabase.SaveAssets();
+            Debug.Log("[Avalanche] Snow stage scene rebuilt.");
+        }
+
+        /// <summary>Consumes a local rebuild request after Unity imports the updated implementation.</summary>
+        [InitializeOnLoadMethod]
+        private static void ScheduleRebuild()
+        {
+            EditorApplication.delayCall += ConsumeRebuildRequest;
+        }
+
+        /// <summary>Runs the authorized scene migration once when the editor is ready and idle.</summary>
+        private static void ConsumeRebuildRequest()
+        {
+            const string request = "Temp/AvalancheRebuild.request";
+            if (!File.Exists(request) || EditorApplication.isPlayingOrWillChangePlaymode) return;
+            if (EditorApplication.isCompiling || EditorApplication.isUpdating) { EditorApplication.delayCall += ConsumeRebuildRequest; return; }
+            RebuildSnowStage();
+            File.Delete(request);
         }
 
         /// <summary>Creates a dedicated material asset with a URP shader and no external dependencies.</summary>

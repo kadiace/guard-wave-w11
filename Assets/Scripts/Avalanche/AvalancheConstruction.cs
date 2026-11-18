@@ -8,7 +8,7 @@ using GuardWave;
 
 namespace Avalanche
 {
-    public enum AvalancheTool { Panel, Sandbag, Adhesive, Remove, Citizen }
+    public enum AvalancheTool { None = -1, Panel, Sandbag, Adhesive, Citizen, Remove }
 
     /// <summary>Manages placement, contact adhesion and editable-layout snapshots.</summary>
     public sealed class AvalancheConstruction : MonoBehaviour
@@ -21,6 +21,12 @@ namespace Avalanche
         [SerializeField] private Vector3 _sandbagSize = new Vector3(1.4f, 0.55f, 1.1f);
         [SerializeField, Min(0.01f)] private float _placementGrid = 0.3f;
         [SerializeField, Range(1f, 180f)] private float _rotationStep = 15f;
+        [SerializeField, Min(0.01f)] private float _continuousPlacementSeconds = 0.1f;
+
+        [Header("Citizen areas (min X, max X, min Z, max Z)")]
+        [SerializeField] private Vector4[] _citizenAreas = { new Vector4(-5.8f, -2.2f, 13f, 20f), new Vector4(-1.8f, 1.8f, 13f, 20f), new Vector4(2.2f, 5.8f, 13f, 20f) };
+        [SerializeField, Min(0f)] private float _citizenClearance = 0.6f;
+        [SerializeField, Range(0f, 45f)] private float _citizenMaxSlope = 15f;
 
         [Header("Adhesive blocks")]
         [SerializeField, Min(0.01f)] private float _adhesiveRadius = 0.48f;
@@ -52,9 +58,13 @@ namespace Avalanche
         private float _contactClock;
         private Vector3 _candidate;
         private bool _candidateValid;
+        private bool _rightGesture;
+        private bool _rightMoved;
+        private Vector2 _rightOrigin;
+        private float _lastPlaced;
         public IReadOnlyList<AvalanchePiece> Pieces => _pieces;
         public IReadOnlyList<AvalancheCitizen> Citizens => _citizens;
-        public AvalancheTool Tool { get; private set; }
+        public AvalancheTool Tool { get; private set; } = AvalancheTool.None;
         public int Panels { get; private set; }
         public int Sandbags { get; private set; }
         public int Adhesive { get; private set; }
@@ -63,6 +73,8 @@ namespace Avalanche
         public int StartingAdhesive => _startingAdhesive;
         public int StartingCitizens => _startingCitizens;
         public int RemainingCitizens => Mathf.Max(0, _startingCitizens - _citizens.Count);
+        public bool AllZonesOccupied { get { for (int i = 0; i < _citizenAreas.Length; i++) if (ZoneCount(i) == 0) return false; return true; } }
+        public int ZoneTotal => _citizenAreas.Length;
         public int BondCount { get { int n = 0; foreach (var p in _pieces) if (p.IsBonded) n++; return n; } }
         public string Hint { get; private set; } = "물막이판으로 흐름을 돌리고 모래주머니로 낮은 틈을 보강하세요.";
         public bool HasCheckpoint => _checkpoint != null;
@@ -144,6 +156,22 @@ namespace Avalanche
             _previewRenderer.sharedMaterial = stage.PreviewMaterial;
             _previewTint = new MaterialPropertyBlock();
             _preview.SetActive(false);
+            for (int i = 0; i < _citizenAreas.Length; i++)
+            {
+                Vector4 area = _citizenAreas[i];
+                LineRenderer border = new GameObject("Citizen area " + i).AddComponent<LineRenderer>();
+                border.transform.SetParent(transform, false);
+                border.sharedMaterial = stage.LineMaterial;
+                border.startColor = border.endColor = new Color(1f, 0.8f, 0.3f);
+                border.startWidth = border.endWidth = 0.06f;
+                border.positionCount = 5;
+                for (int corner = 0; corner < 5; corner++)
+                {
+                    float x = corner == 1 || corner == 2 ? area.y : area.x;
+                    float z = corner == 2 || corner == 3 ? area.w : area.z;
+                    border.SetPosition(corner, new Vector3(x, AvalancheTerrain.Height(x, z) + 0.04f, z));
+                }
+            }
         }
 
         /// <summary>Returns the configured finite inventory for an Avalanche material.</summary>
@@ -158,7 +186,41 @@ namespace Avalanche
         public int GetRemainingPlacements(string materialId)
         {
             if (materialId == "citizen") return RemainingCitizens;
+            if (materialId == "panel") return Panels;
+            if (materialId == "sandbag") return Sandbags;
+            if (materialId == "adhesive") return Adhesive;
             throw new System.InvalidOperationException("Unsupported Avalanche target: " + materialId);
+        }
+
+        /// <summary>Returns the editable citizen region index, or -1 outside every region.</summary>
+        public int ZoneAt(Vector3 position)
+        {
+            for (int i = 0; i < _citizenAreas.Length; i++)
+            {
+                Vector4 area = _citizenAreas[i];
+                if (position.x >= area.x && position.x <= area.y && position.z >= area.z && position.z <= area.w) return i;
+            }
+            return -1;
+        }
+
+        /// <summary>Counts placed citizens inside one region for readiness and the area overlay.</summary>
+        public int ZoneCount(int index)
+        {
+            int count = 0;
+            foreach (AvalancheCitizen citizen in _citizens) if (ZoneAt(citizen.transform.position) == index) count++;
+            return count;
+        }
+
+        /// <summary>Returns the configured region rectangle for visualizing valid placement ground.</summary>
+        public Vector4 ZoneBounds(int index) => _citizenAreas[index];
+
+        /// <summary>Clears the active palette selection and hides the placement projection.</summary>
+        public bool CancelSelection()
+        {
+            if (Tool == AvalancheTool.None) return false;
+            Tool = AvalancheTool.None;
+            _preview.SetActive(false);
+            return true;
         }
 
         /// <summary>Returns the world dimensions of a catalog item.</summary>
@@ -190,15 +252,31 @@ namespace Avalanche
                 if (keyboard.digit1Key.wasPressedThisFrame) SelectTool(AvalancheTool.Panel);
                 if (keyboard.digit2Key.wasPressedThisFrame) SelectTool(AvalancheTool.Sandbag);
                 if (keyboard.digit3Key.wasPressedThisFrame) SelectTool(AvalancheTool.Adhesive);
-                if (keyboard.digit4Key.wasPressedThisFrame) SelectTool(AvalancheTool.Remove);
-                if (keyboard.digit5Key.wasPressedThisFrame) SelectTool(AvalancheTool.Citizen);
+                if (keyboard.digit4Key.wasPressedThisFrame) SelectTool(AvalancheTool.Citizen);
                 if (keyboard.qKey.wasPressedThisFrame) _yaw -= _rotationStep;
                 if (keyboard.eKey.wasPressedThisFrame) _yaw += _rotationStep;
                 if (keyboard.zKey.wasPressedThisFrame && keyboard.ctrlKey.isPressed) Undo();
             }
-            if (_stage.Hud.BlocksPointer(mouse.position.ReadValue())) { _preview.SetActive(false); return; }
+            if (mouse.rightButton.wasPressedThisFrame)
+            {
+                _rightGesture = !_stage.Hud.BlocksPointer(mouse.position.ReadValue());
+                _rightMoved = false;
+                _rightOrigin = mouse.position.ReadValue();
+            }
+            if (_rightGesture && ((mouse.position.ReadValue() - _rightOrigin).sqrMagnitude > 36f || Mathf.Abs(mouse.scroll.ReadValue().y) > 0.01f)) _rightMoved = true;
+            if (_stage.Hud.BlocksPointer(mouse.position.ReadValue())) { _preview.SetActive(false); if (mouse.rightButton.wasReleasedThisFrame) _rightGesture = false; return; }
             Ray ray = _stage.ViewCamera.ScreenPointToRay(mouse.position.ReadValue());
             bool hasHit = Physics.Raycast(ray, out RaycastHit hit, 300f, ~4, QueryTriggerInteraction.Ignore);
+            if (mouse.rightButton.wasReleasedThisFrame)
+            {
+                if (_rightGesture && !_rightMoved)
+                {
+                    if (!CancelSelection()) RemoveAt(ray, hasHit, hit);
+                }
+                _rightGesture = false;
+                return;
+            }
+            if (mouse.rightButton.isPressed || Tool == AvalancheTool.None) { _preview.SetActive(false); return; }
             if (Tool == AvalancheTool.Remove)
             {
                 _preview.SetActive(false);
@@ -244,7 +322,7 @@ namespace Avalanche
                 _preview.transform.localScale = size;
                 _previewTint.SetColor("_BaseColor", _candidateValid ? new Color(0.2f, 0.95f, 0.7f, 0.45f) : new Color(1f, 0.25f, 0.2f, 0.45f));
                 _previewRenderer.SetPropertyBlock(_previewTint);
-                if (mouse.leftButton.wasPressedThisFrame) TryPlace(kind, _candidate, _yaw);
+                if (mouse.leftButton.isPressed && Time.unscaledTime - _lastPlaced >= _continuousPlacementSeconds && TryPlace(kind, _candidate, _yaw)) _lastPlaced = Time.unscaledTime;
             }
             else
             {
@@ -256,15 +334,21 @@ namespace Avalanche
         /// <summary>시민의 재고, 지면 경계 및 다른 배치물과의 간격을 확인한다.</summary>
         private bool CanPlaceCitizen(Vector3 position)
         {
-            if (RemainingCitizens <= 0 || Mathf.Abs(position.x) > 17.2f || position.z < 1f || position.z > 53f)
+            int zone = ZoneAt(position);
+            if (RemainingCitizens <= 0 || zone < 0 || ZoneCount(zone) >= _startingCitizens - _citizenAreas.Length + 1)
                 return false;
+            Vector3 normal = new Vector3(AvalancheTerrain.Height(position.x - 0.1f, position.z) - AvalancheTerrain.Height(position.x + 0.1f, position.z), 0.2f,
+                AvalancheTerrain.Height(position.x, position.z - 0.1f) - AvalancheTerrain.Height(position.x, position.z + 0.1f));
+            if (Vector3.Angle(normal, Vector3.up) > _citizenMaxSlope) return false;
             foreach (AvalancheCitizen citizen in _citizens)
             {
                 Vector3 offset = citizen.transform.position - position;
-                if (new Vector2(offset.x, offset.z).sqrMagnitude < 1.44f) return false;
+                if (new Vector2(offset.x, offset.z).sqrMagnitude < _citizenClearance * _citizenClearance * 4f) return false;
             }
             Vector3 center = position + Vector3.up * 0.9f;
-            return Physics.OverlapBoxNonAlloc(center, new Vector3(0.325f, 0.875f, 0.325f), _overlaps, Quaternion.identity, ~4, QueryTriggerInteraction.Ignore) == 0;
+            int count = Physics.OverlapBoxNonAlloc(center, new Vector3(_citizenClearance, 0.875f, _citizenClearance), _overlaps, Quaternion.identity, ~4, QueryTriggerInteraction.Ignore);
+            for (int i = 0; i < count; i++) if (_overlaps[i] != _stage.Ground) return false;
+            return count < _overlaps.Length;
         }
 
         /// <summary>시민을 배치하고 되돌리기 기록에 이전 배치를 저장한다.</summary>
@@ -288,7 +372,7 @@ namespace Avalanche
             Vector3 size = Size(kind);
             Vector3 extents = new Vector3(Mathf.Abs((rotation * Vector3.right).x) * size.x + Mathf.Abs((rotation * Vector3.forward).x) * size.z, 0f,
                 Mathf.Abs((rotation * Vector3.right).z) * size.x + Mathf.Abs((rotation * Vector3.forward).z) * size.z) * 0.5f;
-            if (Mathf.Abs(center.x) + extents.x > 17.8f || center.z - extents.z < 1f || center.z + extents.z > 53f || center.y > 5f)
+            if (Mathf.Abs(center.x) + extents.x > 17.4f || center.z - extents.z < 1f || center.z + extents.z >= 48f)
             { reason = "표시된 마을 안에 설치하세요. 상류 유입부는 비워 둡니다."; return false; }
             foreach (var citizen in _stage.Citizens)
             {
