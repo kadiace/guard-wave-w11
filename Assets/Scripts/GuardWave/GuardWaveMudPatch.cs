@@ -159,49 +159,43 @@ namespace GuardWave
             _breakTorque = breakTorque;
             TrackSurfacePiece();
 
-            MeshFilter filter = gameObject.AddComponent<MeshFilter>();
-            MeshRenderer renderer = gameObject.AddComponent<MeshRenderer>();
-            _mesh = new Mesh { name = "Wet Mud Brush Stroke" };
-            _mesh.MarkDynamic();
-            filter.sharedMesh = _mesh;
-            renderer.sharedMaterial = CreateInstanceMaterial(MudMaterial);
-            renderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
-            renderer.receiveShadows = false;
+            // Explicit mud joints use one oval mesh, not a legacy brush ribbon.
         }
 
-        /// <summary>
-        /// Create one clicked contact bond. A short mesh marks the seam, but
-        /// unlike painted strokes it adds no trigger and cannot auto-glue neighbors.
-        /// </summary>
+        /// <summary>Whether this patch belongs to the support being removed.</summary>
         public bool IsOnSurface(GuardWavePiece piece) =>
             piece != null && _surfacePiece == piece;
 
+        /// <summary>Join two touching bodies with one 3D ellipsoidal mud lump.</summary>
         public bool ConnectContact(GuardWavePiece piece, Vector3 point, Vector3 normal)
         {
             if (_game == null || piece == null || piece.Body == null ||
-                _game.HasMudBond(piece) || _game.WasEverMudBonded(piece) ||
-                piece.Body == _surfaceBody)
+                piece.Body == _surfaceBody ||
+                _game.HasMudBondBetween(piece.Body, _surfaceBody))
                 return false;
-
-            Vector3 n = normal.sqrMagnitude > 0.001f ? normal.normalized : Vector3.up;
-            Vector3 tangent = Vector3.Cross(n, Vector3.forward);
-            if (tangent.sqrMagnitude < 0.01f)
-                tangent = Vector3.Cross(n, Vector3.right);
-            tangent.Normalize();
-            for (int i = -1; i <= 1; i += 2)
-            {
-                Vector3 world = point + tangent * (i * 0.15f);
-                int sampleIndex = _points.Count;
-                _points.Add(transform.InverseTransformPoint(world));
-                _normals.Add(transform.InverseTransformDirection(n).normalized);
-                IndexSample(_points[sampleIndex], sampleIndex);
-            }
-            _meshDirty = true;
             Vector3 anchor = piece.transform.InverseTransformPoint(point);
             Vector3 connectedAnchor = _surfaceBody == null ? point
                 : _surfaceBody.transform.InverseTransformPoint(point);
             CreateBond(piece, anchor, connectedAnchor, _surfaceBody);
-            return HasBond(piece);
+            if (!HasBond(piece)) return false;
+
+            GameObject oval = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+            oval.name = "Mud Bond Oval";
+            oval.transform.SetParent(transform, false);
+            oval.transform.localPosition = Vector3.zero;
+            oval.transform.localRotation = Quaternion.identity;
+            oval.transform.localScale = new Vector3(0.70f, 0.28f, 0.44f);
+            Collider ovalCollider = oval.GetComponent<Collider>();
+            if (ovalCollider != null)
+            {
+                ovalCollider.enabled = false;
+                Destroy(ovalCollider);
+            }
+            MeshRenderer renderer = oval.GetComponent<MeshRenderer>();
+            renderer.sharedMaterial = MudMaterial;
+            renderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+            renderer.receiveShadows = false;
+            return true;
         }
 
         /// <summary>씬에 배치된 진흙의 트리거 중심을 접착 표면 샘플로 등록한다.</summary>
@@ -229,8 +223,11 @@ namespace GuardWave
 
             foreach (SphereCollider trigger in GetComponents<SphereCollider>())
             {
-                if (trigger.isTrigger && trigger.enabled)
+                if (trigger.isTrigger)
+                {
                     _adhesionTriggers.Add(trigger);
+                    trigger.enabled = false;
+                }
                 Vector3 point = trigger.center - Vector3.up * 0.24f;
                 int index = _points.Count;
                 _points.Add(point);
@@ -619,7 +616,7 @@ namespace GuardWave
                 !piece.gameObject.activeInHierarchy || _points.Count == 0 ||
                 !_game.IsPlacedPiece(piece) ||
                 joint.connectedBody != _surfaceBody ||
-                _game.HasMudBond(piece) || _game.WasEverMudBonded(piece) ||
+                _game.HasMudBondBetween(piece.Body, joint.connectedBody) ||
                 HasBond(piece))
                 return false;
 
@@ -675,7 +672,8 @@ namespace GuardWave
             if (piece == null || !_game.IsPlacedPiece(piece) ||
                 piece.Body == null || piece.Body.isKinematic ||
                 (!bindSourceToGround && piece.Body == _surfaceBody) ||
-                _game.HasMudBond(piece) || _game.WasEverMudBonded(piece))
+                _game.HasMudBondBetween(piece.Body,
+                    bindSourceToGround ? null : _surfaceBody))
                 return false;
 
             connectedBody = bindSourceToGround ? null : _surfaceBody;
@@ -761,7 +759,9 @@ namespace GuardWave
         private void CreateBond(GuardWavePiece piece, Vector3 anchor,
             Vector3 connectedAnchor, Rigidbody connectedBody)
         {
-            if (piece == null || HasBond(piece)) return;
+            if (piece == null || HasBond(piece) ||
+                (_game != null && _game.HasMudBondBetween(piece.Body, connectedBody)))
+                return;
             FixedJoint joint = piece.gameObject.AddComponent<FixedJoint>();
             joint.autoConfigureConnectedAnchor = false;
             joint.connectedBody = connectedBody;

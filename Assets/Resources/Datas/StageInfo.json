@@ -8,12 +8,12 @@
       "palette": [
         {
           "materialId": "mud",
-          "placementLimit": 20,
+          "placementLimit": 30,
           "target": false
         },
         {
           "materialId": "log",
-          "placementLimit": 10,
+          "placementLimit": 30,
           "target": false
         },
         {
