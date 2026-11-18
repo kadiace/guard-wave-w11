@@ -359,7 +359,8 @@ public sealed class OutGameStageSelect : MonoBehaviour, IBeginDragHandler, IDrag
         if (Mathf.Abs(delta) < _swipeThreshold) return;
 
         _ignoreClickUntil = Time.unscaledTime + 0.2f;
-        Select(_selected + (delta < 0f ? 1 : -1));
+        // Snap to the poster nearest the dragged position, even when several cards were crossed.
+        Select(Mathf.RoundToInt(_animatedIndex));
     }
 
     public void LaunchSelectedStage()
