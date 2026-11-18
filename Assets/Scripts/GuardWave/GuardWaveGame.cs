@@ -72,8 +72,6 @@ namespace GuardWave
         private readonly Dictionary<Rigidbody, SolverOverride> _solverOverrides =
             new Dictionary<Rigidbody, SolverOverride>();
         private readonly List<FixedJoint> _expiredMudJoints = new List<FixedJoint>();
-        private const int MudSolverIterations = 16;
-        private const int MudSolverVelocityIterations = 8;
 
         private readonly struct MudJointState
         {
@@ -137,9 +135,6 @@ namespace GuardWave
         [SerializeField, Range(0f, 1f)] private float floodDrowningMinimumCoverage = 0.6f;
         [SerializeField, Range(0f, 1f)] private float floodDrowningHeightFraction = 0.65f;
 
-        [Header("Mud adhesion")]
-        [SerializeField, Min(0f)] private float mudBreakForce = 300f;
-        [SerializeField, Min(0f)] private float mudBreakTorque = 2800f;
         private readonly HashSet<GuardWavePiece> _pieceSet = new HashSet<GuardWavePiece>();
         private readonly HashSet<GuardWavePiece> _scenePieces = new HashSet<GuardWavePiece>();
         private readonly List<SceneBodyState> _initialScenePieceStates = new List<SceneBodyState>();
@@ -936,14 +931,18 @@ namespace GuardWave
             Vector3 bondNormal = candidate.Normal.sqrMagnitude < 0.001f
                 ? Vector3.up : candidate.Normal.normalized;
             if (piece != candidate.Piece) bondNormal = -bondNormal;
-            GameObject objectAtContact = new GameObject("Mud Contact Bond");
-            objectAtContact.transform.SetPositionAndRotation(candidate.Point,
-                Quaternion.FromToRotation(Vector3.up, bondNormal));
-            objectAtContact.transform.SetParent(support.transform, true);
+            GameObject mudPrefab = Resources.Load<GameObject>("Prefabs/Objects/mud");
+            if (mudPrefab == null)
+            {
+                Debug.LogError("Missing Resources/Prefabs/Objects/mud.prefab");
+                return;
+            }
+            GameObject objectAtContact = Instantiate(mudPrefab, candidate.Point,
+                Quaternion.FromToRotation(Vector3.up, bondNormal), support.transform);
+            objectAtContact.name = "Mud Contact Bond";
             GuardWaveMudPatch patch =
                 objectAtContact.AddComponent<GuardWaveMudPatch>();
-            patch.Initialize(this, support, support.attachedRigidbody,
-                mudBreakForce, mudBreakTorque);
+            patch.Initialize(this, support, support.attachedRigidbody);
             if (!patch.ConnectContact(piece, candidate.Point, bondNormal))
             {
                 Destroy(objectAtContact);
@@ -998,7 +997,8 @@ namespace GuardWave
             return false;
         }
 
-        internal void RegisterMudBond(GuardWavePiece piece, FixedJoint joint)
+        internal void RegisterMudBond(GuardWavePiece piece, FixedJoint joint,
+            int solverIterations, int solverVelocityIterations)
         {
             if (piece == null || joint == null) return;
             // Applies to fresh, adopted scene-authored and restored mud joints alike:
@@ -1008,8 +1008,8 @@ namespace GuardWave
             Rigidbody body = piece.Body;
             Rigidbody connected = joint.connectedBody;
             _activeMudJoints.Add(joint, new MudJointState(joint, piece, body, connected));
-            RetainMudSolver(body);
-            RetainMudSolver(connected);
+            RetainMudSolver(body, solverIterations, solverVelocityIterations);
+            RetainMudSolver(connected, solverIterations, solverVelocityIterations);
         }
 
         internal void ReleaseMudBond(GuardWavePiece piece, FixedJoint joint)
@@ -1022,24 +1022,26 @@ namespace GuardWave
             _activeMudJoints.Remove(joint);
         }
 
-        private void RetainMudSolver(Rigidbody body)
+        private void RetainMudSolver(Rigidbody body, int iterations, int velocityIterations)
         {
             if (body == null) return;
             if (_solverOverrides.TryGetValue(body, out SolverOverride value))
             {
                 value.Count++;
                 _solverOverrides[body] = value;
-                return;
             }
-            _solverOverrides[body] = new SolverOverride
+            else
             {
-                Count = 1,
-                Iterations = body.solverIterations,
-                VelocityIterations = body.solverVelocityIterations
-            };
-            body.solverIterations = Mathf.Max(body.solverIterations, MudSolverIterations);
+                _solverOverrides[body] = new SolverOverride
+                {
+                    Count = 1,
+                    Iterations = body.solverIterations,
+                    VelocityIterations = body.solverVelocityIterations
+                };
+            }
+            body.solverIterations = Mathf.Max(body.solverIterations, iterations);
             body.solverVelocityIterations =
-                Mathf.Max(body.solverVelocityIterations, MudSolverVelocityIterations);
+                Mathf.Max(body.solverVelocityIterations, velocityIterations);
         }
 
         private void ReleaseMudSolver(Rigidbody body)
@@ -1700,8 +1702,7 @@ namespace GuardWave
                 FindObjectsInactive.Include, FindObjectsSortMode.None))
             {
                 if (patch.gameObject.scene.handle != gameObject.scene.handle) continue;
-                patch.InitializeAuthored(this, creekBed, creekBed.attachedRigidbody,
-                    mudBreakForce, mudBreakTorque);
+                patch.InitializeAuthored(this, creekBed, creekBed.attachedRigidbody);
                 _sceneMudPatches.Add(patch);
                 _mudPatches.Add(patch);
             }
