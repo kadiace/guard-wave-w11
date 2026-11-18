@@ -1061,8 +1061,12 @@ namespace GuardWave
                 Debug.LogError("Missing Resources/Prefabs/Objects/mud.prefab");
                 return;
             }
-            GameObject objectAtContact = Instantiate(mudPrefab, candidate.Point,
-                Quaternion.FromToRotation(Vector3.up, bondNormal), support.transform);
+            // Instantiate at world scale before parenting: support objects such
+            // as logs have non-unit scales and must not deform the mud oval.
+            GameObject objectAtContact = Instantiate(mudPrefab);
+            objectAtContact.transform.SetPositionAndRotation(candidate.Point,
+                Quaternion.FromToRotation(Vector3.up, bondNormal));
+            objectAtContact.transform.SetParent(support.transform, true);
             objectAtContact.name = "Mud Contact Bond";
             GuardWaveMudPatch patch =
                 objectAtContact.AddComponent<GuardWaveMudPatch>();
