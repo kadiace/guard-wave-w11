@@ -218,7 +218,6 @@ namespace Flood2
         public void TogglePause()
         {
             if (IsFinished() || Phase == Flood2Phase.Introduction) return;
-            Construction.FinishInput();
             Paused = !Paused;
             Time.timeScale = Paused ? 0f : 1f;
         }

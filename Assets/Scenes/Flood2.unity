@@ -1556,12 +1556,8 @@ MonoBehaviour:
   _sandbagSize: {x: 1.4, y: 0.55, z: 1.1}
   _placementGrid: 0.3
   _rotationStep: 15
-  _strokeStartCost: 0.5
-  _brushRadius: 0.48
-  _maxPatches: 96
+  _adhesiveRadius: 0.48
   _contactCheckSeconds: 0.1
-  _cureRadius: 0.8
-  _cureSeconds: 1
   _piecePhysics:
     _waterDensity: 100
     _panelRelativeDensity: 0.6
@@ -1569,9 +1565,8 @@ MonoBehaviour:
     _flowDrag: 0.45
     _linearDamping: 0.4
     _angularDamping: 1.5
-    _wetBreakForce: 4500
-    _wetBreakTorque: 2600
-    _curedStrengthMultiplier: 2
+    _breakForce: 9000
+    _breakTorque: 5200
 --- !u!4 &247100594
 Transform:
   m_ObjectHideFlags: 0

@@ -172,22 +172,16 @@ namespace Flood2
             {
                 $"1  물막이판\n{build.Panels} / {build.StartingPanels}개",
                 $"2  모래주머니\n{build.Sandbags} / {build.StartingSandbags}개",
-                $"3  고정용 접합재\n{build.Adhesive:0.0} / {build.StartingAdhesive:0.##}m",
-                $"4  경화 도구\n선 위에서 {build.CureSeconds:0.##}초",
-                "5  회수\n설치 자재 클릭"
+                $"3  접합 블록\n{build.Adhesive} / {build.StartingAdhesive}개",
+                "4  회수\n자재 또는 접합 블록 클릭"
             };
             GUI.enabled = _stage.CanEdit;
             for (int i = 0; i < names.Length; i++)
-                if (Button(new Rect(24 + i * 210, 809, 198, 66), names[i], (int)build.Tool == i ? AQUA : PAPER)) build.SelectTool((Flood2Tool)i);
+                if (Button(new Rect(24 + i * 262, 809, 248, 66), names[i], (int)build.Tool == i ? AQUA : PAPER)) build.SelectTool((Flood2Tool)i);
             if (Button(new Rect(1083, 809, 174, 66), "되돌리기\nCtrl + Z", PAPER)) build.Undo();
             if (Button(new Rect(1270, 809, 306, 66), "준비 완료  →  홍수 시작", GOLD)) _stage.Ready();
             GUI.enabled = true;
             Label(306, 720, 990, 27, "WASD 이동  ·  휠 확대  ·  우클릭 드래그 회전  ·  중클릭 드래그 이동  ·  Esc 일시정지", INK, 16);
-            if (build.CureProgress > 0f)
-            {
-                Fill(new Rect(650, 677, 300, 23), INK);
-                Fill(new Rect(653, 680, 294 * build.CureProgress, 17), GOLD);
-            }
         }
 
         /// <summary>Returns a legible citizen status tint.</summary>
@@ -232,7 +226,7 @@ namespace Flood2
                 : "준비 단계에서";
             Label(470, 301, 660, 220,
                 $"시장 · 광장 · 정류장에 시민 두 명씩이 있습니다.\n\n{preparation} 대피팀과 배수팀을 각각 한 구역에 배치하세요. 대피팀은 경보가 울리면 시민을 높은 대피대로 안내합니다. 초록색 통로를 비워 두세요.\n\n물막이판으로 물을 우회시키고 모래주머니로 낮은 틈을 보강하세요. 파란 배수구 주변은 물이 들어갈 수 있게 비워 두세요.", PAPER, 21);
-            Label(470, 538, 660, 60, "두 차례 물이 들어옵니다. 배치와 팀 지정은 경보 전에 끝내세요.", GOLD, 19);
+            Label(470, 538, 660, 60, "접합 블록을 놓으면 닿는 자재가 자동으로 연결됩니다. 배치와 팀 지정은 경보 전에 끝내세요.", GOLD, 19);
             if (Button(new Rect(470, 620, 660, 52), "마을 지키기 시작   ·   Enter", AQUA)) _stage.BeginPreparation();
         }
 
@@ -243,7 +237,7 @@ namespace Flood2
             Label(470, 304, 660, 160, _stage.ResultMessage, PAPER, 22);
             var response = _stage.Response;
             var build = _stage.Construction;
-            Label(470, 483, 660, 58, $"대피대 도착 {response.ShelteredCount}명 · 하류로 배수한 물 {response.DrainedVolume:0.0}m³\n사용한 물막이판 {build.StartingPanels - build.Panels}개 · 모래주머니 {build.StartingSandbags - build.Sandbags}개", MUTED, 19);
+            Label(470, 483, 660, 58, $"대피대 도착 {response.ShelteredCount}명 · 하류로 배수한 물 {response.DrainedVolume:0.0}m³\n사용한 물막이판 {build.StartingPanels - build.Panels}개 · 모래주머니 {build.StartingSandbags - build.Sandbags}개 · 접합 블록 {build.StartingAdhesive - build.Adhesive}개", MUTED, 19);
             if (Button(new Rect(470, 560, 660, 52), "홍수 전 배치로 복원 · 수정하기", AQUA)) _stage.Retry(false);
             if (Button(new Rect(470, 628, 318, 43), "빈 배치로 새로 시작", PAPER)) _stage.Retry(true);
             if (Button(new Rect(804, 628, 326, 43), "스테이지 선택으로", PAPER)) _stage.ReturnToMenu();

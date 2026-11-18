@@ -11,6 +11,7 @@ namespace Flood2
     public sealed class Flood2Piece : MonoBehaviour
     {
         private const float GRAVITY = 9.81f;
+        private static readonly Color BOND_COLOR = new Color(0.95f, 0.8f, 0.32f);
         private PhysicsSettings _settings;
         private Rigidbody _body;
         private BoxCollider _shape;
@@ -25,8 +26,7 @@ namespace Flood2
         public BoxCollider Shape => _shape;
         public bool EverBonded { get; private set; }
         public bool IsBonded => _joint != null;
-        public bool IsDry { get; private set; }
-        public int PatchId { get; private set; } = -1;
+        public int AdhesiveId { get; private set; } = -1;
         public int ConnectedId => _connectedPiece != null ? _connectedPiece.Id : -1;
         public Vector3 WorldAnchor => transform.TransformPoint(_anchor);
         public bool Broken => EverBonded && !IsBonded;
@@ -43,18 +43,16 @@ namespace Flood2
             [SerializeField, Min(0f)] private float _angularDamping = 1.5f;
 
             [Header("Joint break limits")]
-            [SerializeField, Min(0f)] private float _wetBreakForce = 4500f;
-            [SerializeField, Min(0f)] private float _wetBreakTorque = 2600f;
-            [SerializeField, Min(1f)] private float _curedStrengthMultiplier = 2f;
+            [SerializeField, Min(0f)] private float _breakForce = 9000f;
+            [SerializeField, Min(0f)] private float _breakTorque = 5200f;
             public float WaterDensity => _waterDensity;
             public float PanelRelativeDensity => _panelRelativeDensity;
             public float SandbagRelativeDensity => _sandbagRelativeDensity;
             public float FlowDrag => _flowDrag;
             public float LinearDamping => _linearDamping;
             public float AngularDamping => _angularDamping;
-            public float WetBreakForce => _wetBreakForce;
-            public float WetBreakTorque => _wetBreakTorque;
-            public float CuredStrengthMultiplier => _curedStrengthMultiplier;
+            public float BreakForce => _breakForce;
+            public float BreakTorque => _breakTorque;
         }
 
         /// <summary>Configures the material's real collider, mass, friction and connection indicator.</summary>
@@ -79,16 +77,17 @@ namespace Flood2
             _connection.transform.SetParent(transform, false);
             _connection.sharedMaterial = lineMaterial;
             _connection.startWidth = _connection.endWidth = 0.075f;
+            _connection.startColor = _connection.endColor = BOND_COLOR;
             _connection.positionCount = 2;
             _connection.enabled = false;
         }
 
-        /// <summary>Creates one finite-strength joint at the painted contact; broken pieces cannot attach again.</summary>
-        public bool Bond(Flood2Piece target, Vector3 point, int patchId, bool dry)
+        /// <summary>Creates one full-strength joint at the adhesive contact. Broken pieces cannot attach again.</summary>
+        public bool Bond(Flood2Piece target, Vector3 point, int adhesiveId)
         {
             if (EverBonded || target == this) return false;
             EverBonded = true;
-            PatchId = patchId;
+            AdhesiveId = adhesiveId;
             _connectedPiece = target;
             _anchor = transform.InverseTransformPoint(point);
             _joint = gameObject.AddComponent<FixedJoint>();
@@ -96,34 +95,39 @@ namespace Flood2
             _joint.autoConfigureConnectedAnchor = false;
             _joint.anchor = _anchor;
             _joint.connectedAnchor = target != null ? target.transform.InverseTransformPoint(point) : point;
-            _joint.breakForce = _settings.WetBreakForce;
-            _joint.breakTorque = _settings.WetBreakTorque;
+            _joint.breakForce = _settings.BreakForce;
+            _joint.breakTorque = _settings.BreakTorque;
             _joint.enableCollision = true;
             _wasConnected = true;
-            if (dry) Cure();
             return true;
         }
 
-        /// <summary>Applies the cured strength multiplier once to the existing joint, without creating a new one.</summary>
-        public void Cure()
+        /// <summary>Releases a joint when its block is retrieved so the piece can attach again.</summary>
+        internal void RemoveAdhesive(int adhesiveId)
         {
-            if (IsDry) return;
-            IsDry = true;
-            if (_joint != null) { _joint.breakForce *= _settings.CuredStrengthMultiplier; _joint.breakTorque *= _settings.CuredStrengthMultiplier; }
+            if (AdhesiveId != adhesiveId || !IsBonded) return;
+            DetachJoint();
+            AdhesiveId = -1;
+            EverBonded = false;
         }
 
         /// <summary>Restores consumed adhesion history when a snapshot contained a broken joint.</summary>
-        public void RestoreBroken(int patchId, bool dry)
+        public void RestoreBroken(int adhesiveId)
         {
             EverBonded = true;
-            PatchId = patchId;
-            IsDry = dry;
+            AdhesiveId = adhesiveId;
         }
 
         /// <summary>Breaks an incoming connection when its support is removed, retaining the used-bond history.</summary>
         public void RemoveSupport(Flood2Piece support)
         {
             if (_connectedPiece != support) return;
+            DetachJoint();
+        }
+
+        /// <summary>Destroys the current joint and clears its live target and indicator state.</summary>
+        private void DetachJoint()
+        {
             if (_joint != null) Destroy(_joint);
             _joint = null;
             _connectedPiece = null;
@@ -179,8 +183,6 @@ namespace Flood2
         {
             _connection.enabled = IsBonded;
             if (!IsBonded) return;
-            Color tint = IsDry ? new Color(0.95f, 0.8f, 0.32f) : new Color(0.7f, 0.4f, 0.18f);
-            _connection.startColor = _connection.endColor = tint;
             _connection.SetPosition(0, transform.position + Vector3.up * 0.15f);
             _connection.SetPosition(1, _connectedPiece != null ? _connectedPiece.transform.position : _joint.connectedAnchor);
         }

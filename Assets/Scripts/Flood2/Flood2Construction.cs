@@ -6,17 +6,18 @@ using UnityEngine.InputSystem;
 
 namespace Flood2
 {
-    public enum Flood2Tool { Panel, Sandbag, Adhesive, Cure, Remove }
+    public enum Flood2Tool { Panel, Sandbag, Adhesive, Remove }
 
-    /// <summary>Limited construction, contact adhesion, curing and complete editable-layout snapshots.</summary>
+    /// <summary>Manages placement, contact adhesion and editable-layout snapshots.</summary>
     public sealed class Flood2Construction : MonoBehaviour
     {
         private static readonly Color SANDBAG_COLOR = new Color(0.66f, 0.54f, 0.30f);
+        private static readonly Color ADHESIVE_COLOR = new Color(0.95f, 0.68f, 0.18f);
 
         [Header("Starting inventory")]
         [SerializeField, Min(0)] private int _startingPanels = 24;
         [SerializeField, Min(0)] private int _startingSandbags = 18;
-        [SerializeField, Min(0f)] private float _startingAdhesive = 30f;
+        [SerializeField, Min(0)] private int _startingAdhesive = 30;
 
         [Header("Placement")]
         [SerializeField] private Vector3 _panelSize = new Vector3(3.6f, 1.2f, 0.6f);
@@ -24,60 +25,57 @@ namespace Flood2
         [SerializeField, Min(0.01f)] private float _placementGrid = 0.3f;
         [SerializeField, Range(1f, 180f)] private float _rotationStep = 15f;
 
-        [Header("Adhesive and curing")]
-        [SerializeField, Min(0f)] private float _strokeStartCost = 0.5f;
-        [SerializeField, Min(0.01f)] private float _brushRadius = 0.48f;
-        [SerializeField, Min(1)] private int _maxPatches = 96;
+        [Header("Adhesive blocks")]
+        [SerializeField, Min(0.01f)] private float _adhesiveRadius = 0.48f;
         [SerializeField, Min(0.02f)] private float _contactCheckSeconds = 0.1f;
-        [SerializeField, Min(0.01f)] private float _cureRadius = 0.8f;
-        [SerializeField, Min(0.01f)] private float _cureSeconds = 1f;
 
         [Header("Rigidbody and joint settings")]
         [SerializeField] private Flood2Piece.PhysicsSettings _piecePhysics = new Flood2Piece.PhysicsSettings();
         private MaterialPropertyBlock _sandbagTint;
+        private MaterialPropertyBlock _adhesiveTint;
         private readonly List<Flood2Piece> _pieces = new List<Flood2Piece>();
-        private readonly List<Patch> _patches = new List<Patch>();
+        private readonly List<AdhesiveBlock> _adhesives = new List<AdhesiveBlock>();
         private readonly Stack<Snapshot> _undo = new Stack<Snapshot>();
         private readonly Collider[] _overlaps = new Collider[64];
+        private Collider[] _contacts = new Collider[64];
         private Flood2Stage _stage;
         private GameObject _preview;
         private Renderer _previewRenderer;
         private MaterialPropertyBlock _previewTint;
         private Snapshot _checkpoint;
         private int _nextId;
-        private int _nextPatchId;
+        private int _nextAdhesiveId;
         private float _yaw;
         private float _contactClock;
-        private bool _painting;
-        private bool _hasPreviousPaint;
-        private Vector3 _previousPaint;
-        private Patch _currentPatch;
-        private Patch _curingPatch;
-        private float _cureTime;
         private Vector3 _candidate;
         private bool _candidateValid;
         public IReadOnlyList<Flood2Piece> Pieces => _pieces;
         public Flood2Tool Tool { get; private set; }
         public int Panels { get; private set; }
         public int Sandbags { get; private set; }
-        public float Adhesive { get; private set; }
+        public int Adhesive { get; private set; }
         public int StartingPanels => _startingPanels;
         public int StartingSandbags => _startingSandbags;
-        public float StartingAdhesive => _startingAdhesive;
-        internal float CureSeconds => _cureSeconds;
-        public int PatchCount => _patches.Count;
+        public int StartingAdhesive => _startingAdhesive;
         public int BondCount { get { int n = 0; foreach (var p in _pieces) if (p.IsBonded) n++; return n; } }
         public string Hint { get; private set; } = "물막이판으로 흐름을 돌리고 모래주머니로 낮은 틈을 보강하세요.";
-        public float CureProgress => Mathf.Clamp01(_cureTime / _cureSeconds);
         public bool HasCheckpoint => _checkpoint != null;
 
-        private sealed class Patch
+        private sealed class AdhesiveBlock
+        {
+            public int Id { get; set; }
+            public Flood2Piece Owner { get; set; }
+            public Vector3 Point { get; set; }
+            public GameObject Visual { get; set; }
+            public bool Active => Owner == null || Owner.gameObject.activeSelf;
+            public Vector3 WorldPoint => Owner != null ? Owner.transform.TransformPoint(Point) : Point;
+        }
+
+        private sealed class AdhesiveState
         {
             public int Id { get; set; }
             public int Owner { get; set; }
-            public bool Dry { get; set; }
-            public List<Vector3> Points { get; set; } = new List<Vector3>();
-            public LineRenderer Line { get; set; }
+            public Vector3 Point { get; set; }
         }
 
         private sealed class PieceState
@@ -90,22 +88,21 @@ namespace Flood2
             public Vector3 Angular { get; set; }
             public bool Bonded { get; set; }
             public bool EverBonded { get; set; }
-            public bool Dry { get; set; }
             public bool Active { get; set; }
             public int Connected { get; set; }
-            public int PatchId { get; set; }
+            public int AdhesiveId { get; set; }
             public Vector3 Anchor { get; set; }
         }
 
         private sealed class Snapshot
         {
             public List<PieceState> Pieces { get; set; } = new List<PieceState>();
-            public List<Patch> Patches { get; set; } = new List<Patch>();
+            public List<AdhesiveState> Adhesives { get; set; } = new List<AdhesiveState>();
             public int Panels { get; set; }
             public int Sandbags { get; set; }
-            public float Adhesive { get; set; }
+            public int Adhesive { get; set; }
             public int NextId { get; set; }
-            public int NextPatchId { get; set; }
+            public int NextAdhesiveId { get; set; }
         }
 
         /// <summary>Creates the non-colliding placement preview and initializes the stage-specific tools.</summary>
@@ -117,6 +114,8 @@ namespace Flood2
             Adhesive = _startingAdhesive;
             _sandbagTint = new MaterialPropertyBlock();
             _sandbagTint.SetColor("_BaseColor", SANDBAG_COLOR);
+            _adhesiveTint = new MaterialPropertyBlock();
+            _adhesiveTint.SetColor("_BaseColor", ADHESIVE_COLOR);
             _preview = GameObject.CreatePrimitive(PrimitiveType.Cube);
             _preview.name = "Placement preview";
             _preview.layer = 2;
@@ -131,14 +130,12 @@ namespace Flood2
         private Vector3 Size(Flood2Material kind) =>
             Vector3.Max(kind == Flood2Material.Panel ? _panelSize : _sandbagSize, Vector3.one * 0.1f);
 
-        /// <summary>Switches tools and finalizes any pending paint gesture.</summary>
+        /// <summary>Switches tools and explains the selected placement or removal action.</summary>
         public void SelectTool(Flood2Tool tool)
         {
-            FinishInput();
             Tool = tool;
-            Hint = tool == Flood2Tool.Adhesive ? $"접촉면 또는 자재 밑동 주변에 드래그 · 시작 {_strokeStartCost:0.##}m + 도포 길이"
-                : tool == Flood2Tool.Cure ? $"젖은 선 위에서 {_cureSeconds:0.##}초 누르기 · 경화 후에는 새 접합을 받지 않습니다."
-                : tool == Flood2Tool.Remove ? "설치 자재를 클릭하여 회수합니다. 접합재는 Undo로 되돌릴 수 있습니다."
+            Hint = tool == Flood2Tool.Adhesive ? "지면이나 자재를 클릭해 접합 블록을 설치하세요. 닿는 자재를 바로 고정합니다."
+                : tool == Flood2Tool.Remove ? "자재나 접합 블록을 클릭하여 회수합니다."
                 : "클릭: 설치  /  Q·E: 회전  /  Shift: 정밀 배치";
         }
 
@@ -150,7 +147,6 @@ namespace Flood2
             if (!_stage.CanEdit || mouse == null)
             {
                 _preview.SetActive(false);
-                FinishInput();
                 return;
             }
             if (keyboard != null)
@@ -158,16 +154,21 @@ namespace Flood2
                 if (keyboard.digit1Key.wasPressedThisFrame) SelectTool(Flood2Tool.Panel);
                 if (keyboard.digit2Key.wasPressedThisFrame) SelectTool(Flood2Tool.Sandbag);
                 if (keyboard.digit3Key.wasPressedThisFrame) SelectTool(Flood2Tool.Adhesive);
-                if (keyboard.digit4Key.wasPressedThisFrame) SelectTool(Flood2Tool.Cure);
-                if (keyboard.digit5Key.wasPressedThisFrame) SelectTool(Flood2Tool.Remove);
+                if (keyboard.digit4Key.wasPressedThisFrame || keyboard.digit5Key.wasPressedThisFrame) SelectTool(Flood2Tool.Remove);
                 if (keyboard.qKey.wasPressedThisFrame) _yaw -= _rotationStep;
                 if (keyboard.eKey.wasPressedThisFrame) _yaw += _rotationStep;
                 if (keyboard.zKey.wasPressedThisFrame && keyboard.ctrlKey.isPressed) Undo();
             }
-            if (!mouse.leftButton.isPressed) FinishInput();
-            if (_stage.Hud.BlocksPointer(mouse.position.ReadValue())) { _preview.SetActive(false); FinishInput(); return; }
+            if (_stage.Hud.BlocksPointer(mouse.position.ReadValue())) { _preview.SetActive(false); return; }
             Ray ray = _stage.ViewCamera.ScreenPointToRay(mouse.position.ReadValue());
-            if (!Physics.Raycast(ray, out RaycastHit hit, 300f, ~4, QueryTriggerInteraction.Ignore)) { _preview.SetActive(false); FinishInput(); return; }
+            bool hasHit = Physics.Raycast(ray, out RaycastHit hit, 300f, ~4, QueryTriggerInteraction.Ignore);
+            if (Tool == Flood2Tool.Remove)
+            {
+                _preview.SetActive(false);
+                if (mouse.leftButton.wasPressedThisFrame) RemoveAt(ray, hasHit, hit);
+                return;
+            }
+            if (!hasHit) { _preview.SetActive(false); return; }
             if (Tool == Flood2Tool.Panel || Tool == Flood2Tool.Sandbag)
             {
                 Flood2Material kind = Tool == Flood2Tool.Panel ? Flood2Material.Panel : Flood2Material.Sandbag;
@@ -199,9 +200,7 @@ namespace Flood2
             else
             {
                 _preview.SetActive(false);
-                if (Tool == Flood2Tool.Adhesive && mouse.leftButton.isPressed) Paint(hit.collider, hit.point);
-                if (Tool == Flood2Tool.Cure && mouse.leftButton.isPressed) CureAt(hit.point, Time.deltaTime);
-                if (Tool == Flood2Tool.Remove && mouse.leftButton.wasPressedThisFrame) Remove(hit.collider.GetComponent<Flood2Piece>());
+                if (mouse.leftButton.wasPressedThisFrame) TryPlaceAdhesive(hit.collider, hit.point);
             }
         }
 
@@ -281,141 +280,139 @@ namespace Flood2
             return null;
         }
 
-        /// <summary>Returns the current world position of a local adhesive sample.</summary>
-        private Vector3 WorldPoint(Patch patch, Vector3 point)
+        /// <summary>Installs one adhesive block on an eligible surface and checks its immediate contacts.</summary>
+        public bool TryPlaceAdhesive(Collider surface, Vector3 point)
         {
-            Flood2Piece owner = FindPiece(patch.Owner);
-            return owner != null ? owner.transform.TransformPoint(point) : point;
-        }
+            if (!_stage.CanEdit) return false;
+            if (Adhesive <= 0)
+            {
+                Hint = "접합 블록이 모두 사용되었습니다.";
+                return false;
+            }
 
-        /// <summary>Starts one paid gesture, charges only drawn distance and retains the stroke when stock runs out.</summary>
-        public void Paint(Collider surface, Vector3 point)
-        {
-            if (!_stage.CanEdit) return;
             Flood2Piece owner = surface.GetComponent<Flood2Piece>();
-            if (owner == null && surface != _stage.Ground) { Hint = "설치 자재 또는 지면에만 도포할 수 있습니다."; return; }
-            float distance = _hasPreviousPaint ? Vector3.Distance(_previousPaint, point) : 0f;
-            if (_hasPreviousPaint && distance < 0.18f) return;
-            bool newPatch = _currentPatch == null || _currentPatch.Owner != (owner != null ? owner.Id : -1) || distance > 1.5f;
-            if (newPatch && _patches.Count >= _maxPatches) { Hint = $"도포 구간 한도 {_maxPatches}개에 도달했습니다. Undo로 조정하세요."; return; }
-            float cost = !_painting ? _strokeStartCost : distance > 1.5f ? 0f : distance;
-            if (Adhesive + 0.0001f < cost) { Hint = "접합재가 부족합니다. 이미 도포한 부분은 유지됩니다."; return; }
-            if (!_painting) { _undo.Push(Capture()); _painting = true; }
-            if (newPatch)
+            if (owner == null && surface != _stage.Ground)
             {
-                _currentPatch = new Patch { Id = _nextPatchId++, Owner = owner != null ? owner.Id : -1 };
-                _patches.Add(_currentPatch);
-                CreatePatchLine(_currentPatch);
+                Hint = "지면이나 설치한 자재에 접합 블록을 놓으세요.";
+                return false;
             }
-            Vector3 local = owner != null ? owner.transform.InverseTransformPoint(point) : point;
-            _currentPatch.Points.Add(local);
-            Adhesive = Mathf.Max(0f, Adhesive - cost);
-            _previousPaint = point;
-            _hasPreviousPaint = true;
-            RefreshPatchLine(_currentPatch);
-            ResolveContacts();
-            Hint = $"접합재 {Adhesive:0.0}m · 젖은 선은 나중에 닿는 자재도 연결합니다.";
-        }
 
-        /// <summary>Creates the persistent visible adhesive line attached to its painted surface.</summary>
-        private void CreatePatchLine(Patch patch)
-        {
-            GameObject go = new GameObject($"Adhesive {patch.Id}");
-            Flood2Piece owner = FindPiece(patch.Owner);
-            go.transform.SetParent(owner != null ? owner.transform : transform, false);
-            patch.Line = go.AddComponent<LineRenderer>();
-            patch.Line.sharedMaterial = _stage.LineMaterial;
-            patch.Line.useWorldSpace = true;
-            patch.Line.startWidth = patch.Line.endWidth = 0.13f;
-            patch.Line.numCapVertices = 3;
-            RefreshPatchLine(patch);
-        }
-
-        /// <summary>Updates paint appearance and follows the owner without physics trigger colliders.</summary>
-        private void RefreshPatchLine(Patch patch)
-        {
-            int count = patch.Points.Count;
-            patch.Line.positionCount = Mathf.Max(2, count);
-            if (count == 0) return;
-            Color color = patch.Dry ? new Color(1f, 0.76f, 0.27f) : new Color(0.46f, 0.24f, 0.1f);
-            patch.Line.startColor = patch.Line.endColor = color;
-            for (int i = 0; i < patch.Line.positionCount; i++)
-                patch.Line.SetPosition(i, WorldPoint(patch, patch.Points[Mathf.Min(i, count - 1)]) + Vector3.up * 0.06f + (count == 1 && i == 1 ? Vector3.right * 0.08f : Vector3.zero));
-        }
-
-        /// <summary>Accumulates time on the nearest wet patch and strengthens its joints when curing finishes.</summary>
-        public void CureAt(Vector3 point, float dt)
-        {
-            if (!_stage.CanEdit) return;
-            Patch nearest = null;
-            float best = _cureRadius * _cureRadius;
-            foreach (var patch in _patches)
-            {
-                if (patch.Dry) continue;
-                foreach (var sample in patch.Points)
-                {
-                    float distance = (WorldPoint(patch, sample) - point).sqrMagnitude;
-                    if (distance < best) { best = distance; nearest = patch; }
-                }
-            }
-            if (nearest != _curingPatch) { _curingPatch = nearest; _cureTime = 0f; }
-            if (nearest == null) return;
-            _cureTime += dt;
-            if (_cureTime < _cureSeconds) return;
             _undo.Push(Capture());
-            nearest.Dry = true;
-            foreach (var piece in _pieces) if (piece.PatchId == nearest.Id) piece.Cure();
-            RefreshPatchLine(nearest);
-            _curingPatch = null;
-            _cureTime = 0f;
-            Hint = $"경화 완료 · 기존 접합 강도 {_piecePhysics.CuredStrengthMultiplier:0.##}배, 이 선은 새로운 자재를 받지 않습니다.";
+            Vector3 local = owner != null ? owner.transform.InverseTransformPoint(point) : point;
+            AdhesiveBlock block = SpawnAdhesive(_nextAdhesiveId++, owner, local);
+            Adhesive--;
+            ResolveContacts(block);
+            Hint = $"접합 블록 {Adhesive}개 남음 · 나중에 닿는 자재도 고정합니다.";
+            return true;
         }
 
-        /// <summary>Finalizes all pending construction input before pause, tool changes or the flood checkpoint.</summary>
-        public void FinishInput()
+        /// <summary>Creates a visible connector with a spherical contact region that follows its mounting surface.</summary>
+        private AdhesiveBlock SpawnAdhesive(int id, Flood2Piece owner, Vector3 point)
         {
-            _painting = _hasPreviousPaint = false;
-            _currentPatch = _curingPatch = null;
-            _cureTime = 0f;
+            var block = new AdhesiveBlock { Id = id, Owner = owner, Point = point };
+            GameObject visual = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+            visual.name = $"Adhesive block {id:00}";
+            visual.transform.SetParent(transform, false);
+            visual.transform.position = block.WorldPoint;
+            visual.transform.localScale = Vector3.one * (_adhesiveRadius * 2f);
+            Collider collider = visual.GetComponent<Collider>();
+            collider.enabled = false;
+            Destroy(collider);
+            Renderer renderer = visual.GetComponent<Renderer>();
+            renderer.sharedMaterial = _stage.PanelMaterial;
+            renderer.SetPropertyBlock(_adhesiveTint);
+            visual.SetActive(block.Active);
+            block.Visual = visual;
+            _adhesives.Add(block);
+            return block;
         }
 
-        /// <summary>Checks wet adhesive for new contacts when the configured polling interval elapses.</summary>
+        /// <summary>Checks existing blocks at the configured interval so moving pieces can attach later.</summary>
         public void TickContacts(float dt)
         {
+            if (_adhesives.Count == 0 || _pieces.Count == 0) return;
             _contactClock += dt;
             if (_contactClock < _contactCheckSeconds) return;
             _contactClock = 0f;
-            ResolveContacts();
+            foreach (var block in _adhesives) ResolveContacts(block);
         }
 
-        /// <summary>Connects touching bodies without ever reattaching a previously bonded body.</summary>
-        private void ResolveContacts()
+        /// <summary>Checks solid overlaps near one block and immediately creates full-strength bonds.</summary>
+        private void ResolveContacts(AdhesiveBlock block)
         {
-            float radiusSquared = _brushRadius * _brushRadius;
-            foreach (var patch in _patches)
+            if (!block.Active || _pieces.Count == 0) return;
+            Flood2Piece owner = block.Owner;
+            Vector3 point = block.WorldPoint;
+            int count = Physics.OverlapSphereNonAlloc(point, _adhesiveRadius, _contacts, ~4, QueryTriggerInteraction.Ignore);
+            while (count == _contacts.Length)
             {
-                if (patch.Dry) continue;
-                Flood2Piece owner = FindPiece(patch.Owner);
-                foreach (Vector3 local in patch.Points)
+                _contacts = new Collider[_contacts.Length * 2];
+                count = Physics.OverlapSphereNonAlloc(point, _adhesiveRadius, _contacts, ~4, QueryTriggerInteraction.Ignore);
+            }
+
+            if (owner != null && !owner.EverBonded)
+            {
+                for (int i = 0; i < count; i++)
                 {
-                    Vector3 point = WorldPoint(patch, local);
-                    if (owner != null && !owner.EverBonded && point.y - Flood2Terrain.Height(point.x, point.z) < _brushRadius)
-                        owner.Bond(null, point, patch.Id, false);
-                    foreach (var target in _pieces)
-                    {
-                        if (target == owner || target.EverBonded || !target.gameObject.activeSelf) continue;
-                        Vector3 closest = target.Shape.ClosestPoint(point);
-                        if ((closest - point).sqrMagnitude > radiusSquared) continue;
-                        if (owner == null && closest.y - Flood2Terrain.Height(closest.x, closest.z) > _brushRadius) continue;
-                        target.Bond(owner, closest, patch.Id, false);
-                    }
+                    if (_contacts[i] != _stage.Ground) continue;
+                    owner.Bond(null, point, block.Id);
+                    break;
                 }
+            }
+
+            for (int i = 0; i < count; i++)
+            {
+                if (!_contacts[i].TryGetComponent(out Flood2Piece target) || target == owner || target.EverBonded) continue;
+                if (owner != null && owner.IsBonded && owner.ConnectedId == target.Id) continue;
+                target.Bond(owner, target.Shape.ClosestPoint(point), block.Id);
             }
         }
 
         private void LateUpdate()
         {
-            foreach (var patch in _patches) if (patch.Owner >= 0) RefreshPatchLine(patch);
+            foreach (var block in _adhesives)
+            {
+                bool active = block.Active;
+                if (block.Visual.activeSelf != active) block.Visual.SetActive(active);
+                if (active && block.Owner != null) block.Visual.transform.position = block.WorldPoint;
+            }
+        }
+
+        /// <summary>Selects the nearest visible connector or solid hit, allowing connectors to be retrieved separately.</summary>
+        private void RemoveAt(Ray ray, bool hasHit, RaycastHit hit)
+        {
+            AdhesiveBlock nearest = null;
+            float distance = hasHit ? hit.distance : 300f;
+            foreach (var block in _adhesives)
+            {
+                if (!block.Active) continue;
+                Vector3 offset = block.WorldPoint - ray.origin;
+                float projection = Vector3.Dot(offset, ray.direction);
+                float discriminant = _adhesiveRadius * _adhesiveRadius - (offset.sqrMagnitude - projection * projection);
+                if (projection < 0f || discriminant < 0f) continue;
+                float front = Mathf.Max(0f, projection - Mathf.Sqrt(discriminant));
+                if (front >= distance) continue;
+                nearest = block;
+                distance = front;
+            }
+
+            if (nearest != null)
+            {
+                _undo.Push(Capture());
+                RemoveAdhesive(nearest);
+                Hint = "접합 블록과 해당 연결을 회수했습니다.";
+            }
+            else if (hasHit) Remove(hit.collider.GetComponent<Flood2Piece>());
+        }
+
+        /// <summary>Returns one block to inventory and releases every bond it created.</summary>
+        private void RemoveAdhesive(AdhesiveBlock block)
+        {
+            foreach (var piece in _pieces) piece.RemoveAdhesive(block.Id);
+            _adhesives.Remove(block);
+            block.Visual.SetActive(false);
+            Destroy(block.Visual);
+            Adhesive++;
         }
 
         /// <summary>Returns a placed material to inventory; only user-created objects can be removed.</summary>
@@ -424,34 +421,39 @@ namespace Flood2
             if (!_stage.CanEdit || piece == null) return;
             _undo.Push(Capture());
             if (piece.Kind == Flood2Material.Panel) Panels++; else Sandbags++;
-            _patches.RemoveAll(patch => patch.Owner == piece.Id);
+            for (int i = _adhesives.Count - 1; i >= 0; i--)
+                if (_adhesives[i].Owner == piece) RemoveAdhesive(_adhesives[i]);
             foreach (var other in _pieces) other.RemoveSupport(piece);
             _pieces.Remove(piece);
             piece.gameObject.SetActive(false);
             Destroy(piece.gameObject);
         }
 
-        /// <summary>Captures physical poses, joint topology, paint, stock and identifier counters.</summary>
+        /// <summary>Captures physical poses, joint topology, placed connectors and stock.</summary>
         private Snapshot Capture()
         {
-            var snapshot = new Snapshot { Panels = Panels, Sandbags = Sandbags, Adhesive = Adhesive, NextId = _nextId, NextPatchId = _nextPatchId };
+            var snapshot = new Snapshot { Panels = Panels, Sandbags = Sandbags, Adhesive = Adhesive, NextId = _nextId, NextAdhesiveId = _nextAdhesiveId };
             foreach (var piece in _pieces)
                 snapshot.Pieces.Add(new PieceState { Id = piece.Id, Kind = piece.Kind, Position = piece.transform.position, Rotation = piece.transform.rotation,
                     Velocity = piece.Body.linearVelocity, Angular = piece.Body.angularVelocity, Bonded = piece.IsBonded, EverBonded = piece.EverBonded,
-                    Dry = piece.IsDry, Active = piece.gameObject.activeSelf, Connected = piece.ConnectedId, PatchId = piece.PatchId, Anchor = piece.WorldAnchor });
-            foreach (var patch in _patches) snapshot.Patches.Add(new Patch { Id = patch.Id, Owner = patch.Owner, Dry = patch.Dry, Points = new List<Vector3>(patch.Points) });
+                    Active = piece.gameObject.activeSelf, Connected = piece.ConnectedId, AdhesiveId = piece.AdhesiveId, Anchor = piece.WorldAnchor });
+            foreach (var block in _adhesives)
+                snapshot.Adhesives.Add(new AdhesiveState { Id = block.Id, Owner = block.Owner != null ? block.Owner.Id : -1, Point = block.Point });
             return snapshot;
         }
 
         /// <summary>Recreates a snapshot in two passes so every restored joint targets a restored body.</summary>
         private void Restore(Snapshot snapshot)
         {
-            FinishInput();
-            foreach (var patch in _patches) { patch.Line.gameObject.SetActive(false); Destroy(patch.Line.gameObject); }
+            foreach (var block in _adhesives)
+            {
+                block.Visual.SetActive(false);
+                Destroy(block.Visual);
+            }
             foreach (var piece in _pieces) { piece.gameObject.SetActive(false); Destroy(piece.gameObject); }
-            _patches.Clear(); _pieces.Clear();
+            _adhesives.Clear(); _pieces.Clear();
             Panels = snapshot.Panels; Sandbags = snapshot.Sandbags; Adhesive = snapshot.Adhesive;
-            _nextId = snapshot.NextId; _nextPatchId = snapshot.NextPatchId;
+            _nextId = snapshot.NextId; _nextAdhesiveId = snapshot.NextAdhesiveId;
             _contactClock = 0f;
             foreach (var state in snapshot.Pieces)
             {
@@ -463,14 +465,11 @@ namespace Flood2
             foreach (var state in snapshot.Pieces)
             {
                 Flood2Piece piece = FindPiece(state.Id);
-                if (state.Bonded) piece.Bond(FindPiece(state.Connected), state.Anchor, state.PatchId, state.Dry);
-                else if (state.EverBonded) piece.RestoreBroken(state.PatchId, state.Dry);
+                if (state.Bonded) piece.Bond(FindPiece(state.Connected), state.Anchor, state.AdhesiveId);
+                else if (state.EverBonded) piece.RestoreBroken(state.AdhesiveId);
             }
-            foreach (var original in snapshot.Patches)
-            {
-                var patch = new Patch { Id = original.Id, Owner = original.Owner, Dry = original.Dry, Points = new List<Vector3>(original.Points) };
-                _patches.Add(patch); CreatePatchLine(patch);
-            }
+            foreach (var original in snapshot.Adhesives)
+                SpawnAdhesive(original.Id, FindPiece(original.Owner), original.Point);
         }
 
         /// <summary>Undoes one complete edit, including its inventory and joint changes.</summary>
@@ -482,7 +481,7 @@ namespace Flood2
         }
 
         /// <summary>Saves the finalized pre-warning construction checkpoint.</summary>
-        public void SaveCheckpoint() { FinishInput(); _checkpoint = Capture(); }
+        public void SaveCheckpoint() => _checkpoint = Capture();
 
         /// <summary>Restores the last flood layout, or an empty new layout when requested.</summary>
         public void ResetLayout(bool empty)
