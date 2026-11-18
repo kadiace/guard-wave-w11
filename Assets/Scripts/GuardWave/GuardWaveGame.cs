@@ -1000,8 +1000,11 @@ namespace GuardWave
 
         internal void RegisterMudBond(GuardWavePiece piece, FixedJoint joint)
         {
-            if (piece == null || joint == null || _activeMudJoints.ContainsKey(joint))
-                return;
+            if (piece == null || joint == null) return;
+            // Applies to fresh, adopted scene-authored and restored mud joints alike:
+            // the two glued bodies should not collide with one another.
+            joint.enableCollision = false;
+            if (_activeMudJoints.ContainsKey(joint)) return;
             Rigidbody body = piece.Body;
             Rigidbody connected = joint.connectedBody;
             _activeMudJoints.Add(joint, new MudJointState(joint, piece, body, connected));
