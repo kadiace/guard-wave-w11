@@ -46,12 +46,10 @@ MonoBehaviour:
   m_Name:
   m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWaveMudJointSettings
   breakForce: 300
-  infiniteBreakTorque: 1
-  finiteBreakTorque: 2800
+  breakTorque: Infinity
   enablePreprocessing: 1
   massScale: 1
   connectedMassScale: 1
-  jointAxis: {x: 1, y: 0, z: 0}
   solverIterations: 16
   solverVelocityIterations: 8
 --- !u!1 &100200

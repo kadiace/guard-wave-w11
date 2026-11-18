@@ -13,23 +13,21 @@ namespace GuardWave
 
         [Header("Mud FixedJoint - breaking")]
         [SerializeField, Min(0f)] private float breakForce = 300f;
-        [Tooltip("Infinite torque by default: a mud joint only breaks on its breakForce.")]
-        [SerializeField] private bool infiniteBreakTorque = true;
-        [SerializeField, Min(0f)] private float finiteBreakTorque = 2800f;
+        [Tooltip("Enter Infinity for no torque breakage, or a nonnegative numeric limit.")]
+        [SerializeField, Min(0f)] private float breakTorque = Mathf.Infinity;
 
         [Header("Mud FixedJoint - stability")]
         [Tooltip("Collision between the joined bodies is always disabled.")]
         [SerializeField] private bool enablePreprocessing = true;
         [SerializeField, Min(0.01f)] private float massScale = 1f;
         [SerializeField, Min(0.01f)] private float connectedMassScale = 1f;
-        [SerializeField] private Vector3 jointAxis = Vector3.right;
 
         [Header("Connected Rigidbody solver")]
         [SerializeField, Min(1)] private int solverIterations = 16;
         [SerializeField, Min(1)] private int solverVelocityIterations = 8;
 
         public float BreakForce => breakForce;
-        public float BreakTorque => infiniteBreakTorque ? Mathf.Infinity : finiteBreakTorque;
+        public float BreakTorque => breakTorque;
         public int SolverIterations => Mathf.Max(1, solverIterations);
         public int SolverVelocityIterations => Mathf.Max(1, solverVelocityIterations);
 
@@ -48,8 +46,8 @@ namespace GuardWave
             joint.enablePreprocessing = enablePreprocessing;
             joint.massScale = Mathf.Max(0.01f, massScale);
             joint.connectedMassScale = Mathf.Max(0.01f, connectedMassScale);
-            joint.axis = jointAxis.sqrMagnitude > 0.0001f
-                ? jointAxis.normalized : Vector3.right;
+            // FixedJoint constrains all relative motion. GuardWaveMudPatch
+            // computes the correct local anchors separately for each contact.
         }
     }
 }
