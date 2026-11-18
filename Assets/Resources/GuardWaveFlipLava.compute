@@ -1,0 +1,1213 @@
+// GuardWave 3D particle-in-cell solver. All fluid state stays on the GPU.
+#pragma kernel ClearLavaContacts
+#pragma kernel ClearGrid
+#pragma kernel ClearWaterColumns
+#pragma kernel ClassifyGrid
+#pragma kernel Spawn
+#pragma kernel InitializeAmbient
+#pragma kernel RecycleAmbient
+#pragma kernel DriveInlet
+#pragma kernel EmitCrest
+#pragma kernel ParticleToGrid
+#pragma kernel NormalizeGrid
+#pragma kernel JacobiPressure
+#pragma kernel ProjectGrid
+#pragma kernel GridToParticle
+#pragma kernel PressureToBodies
+#pragma kernel BuildWaterColumns
+#pragma kernel SmoothWaterColumns
+#pragma kernel RelativeDensityToBodies
+#pragma kernel Waterfall
+
+#define SCALE 2048.0
+#define MAX_COLLIDERS 256
+#define BUOYANCY_MAX_VERTICAL_LAYERS 8
+
+struct FluidParticle
+{
+    float4 position; // xyz and alive flag
+    float4 velocity;
+    float4 affineX;
+    float4 affineY;
+    float4 affineZ;
+};
+struct FluidCollider
+{
+    float4 centerBody; // xyz, body index (-1 for static)
+    float4 extentType; // xyz half-extents, w type: 0 box, 1 sphere, 2 capsule
+    float4 rotation;
+    float4 velocity;
+    float4 angular; // xyz: angular velocity; w: flow alignment opt-in
+    float4 bodyCenter;
+    float4 fluidProperties; // density, grounded drag, mass share, sampling shape
+};
+RWStructuredBuffer<FluidParticle> _Particles;
+RWStructuredBuffer<uint> _FlowCounters; // [0] missing base water (initial + losses), [1] total supplied, [2] per-tick claims, [3] cliff exits
+RWStructuredBuffer<uint> _CrestMetrics; // active wave particles, peak height centimeters, released count
+RWStructuredBuffer<int4> _Accum;
+RWStructuredBuffer<uint> _LavaContacts; // One bit per Rigidbody
+RWStructuredBuffer<int4> _BodyImpulses; // force impulse in xyz, torque in next xyz
+RWStructuredBuffer<int> _WaterSurface; // raw highest particle surface in XZ, 4096 units/m
+RWStructuredBuffer<int> _SmoothedWaterSurface; // persistent, temporally stable surface
+RWStructuredBuffer<int4> _WaterFlow; // summed local particle velocities x256, count in w
+RWStructuredBuffer<float3> _GridVelocity;
+RWStructuredBuffer<float3> _GridBefore;
+RWStructuredBuffer<float> _PressureSrc;
+RWStructuredBuffer<float> _PressureDst;
+RWStructuredBuffer<uint> _Solid;
+StructuredBuffer<FluidCollider> _Colliders;
+StructuredBuffer<int> _ColliderZOffsets;
+StructuredBuffer<int> _ColliderZIndices;
+int _WarmupOnly;
+int _ClearBodyImpulses; // preserve accumulated body impulses across internal GPU substeps
+int3 _GridSize;
+float3 _GridOrigin;
+float _CellSize;
+float _LiquidParticleVolume; // physical volume represented by one active FLIP particle
+float _Dt;
+float _Gravity;
+float _FlipFraction;
+float _ParticleMass;
+float _HydroDensity;
+float _FlowForceMultiplier;
+float _PressureClamp;
+float _PressureThreshold;
+float _CollisionResponse;
+float _CollisionSkin;
+float _FlowResponse;
+float _VerticalFlowResponseScale;
+float _FloatVerticalDamping;
+float _FloatTorqueScale;
+float _FloatMaxBuoyancyRatio;
+float _FloatUprightStrength;
+float _FloatFlowAlignmentStrength;
+float _FloatFlowAlignmentFullSpeed;
+float _MaxFluidVelocity;
+float _FloorY;
+float _ExitZ;
+float _WaterfallEndY;
+float _HalfWidth;
+float _InletZ;
+float _WaveHeight;
+float _InletVelocity;
+float _AmbientDepth;
+float _CrestHeightStiffness;
+float _CrestHeightDamping;
+float _CrestForwardDamping;
+float _CrestReleaseDistance;
+uint _CrestSlotStart;
+uint _CrestEmissionIndex;
+int3 _AmbientGrid;
+uint _AmbientEnabled;
+uint _AmbientRefillBudget;
+int3 _CrestGrid;
+float _CrestAmplitude;
+float _CrestSpeed;
+float _CrestWidth;
+float _CrestLength;
+float _CrestCenterZ;
+uint _ParticleCount;
+uint _SpawnStart;
+uint _SpawnCount;
+uint _SpawnSeed;
+uint _ColliderCount;
+uint _BodyCount;
+
+uint Flatten(int3 c)
+{
+    return (uint)((c.z * _GridSize.y + c.y) * _GridSize.x + c.x);
+}
+bool Inside(int3 c)
+{
+    return all(c >= 0) && all(c < _GridSize);
+}
+float3 Center(int3 c)
+{
+    return _GridOrigin + ((float3)c + 0.5) * _CellSize;
+}
+float3 Rotate(float4 q, float3 v)
+{
+    return v + 2.0 * cross(q.xyz, cross(q.xyz, v) + q.w * v);
+}
+float SignedDistance(FluidCollider b, float3 p)
+{
+    float4 inv = float4(-b.rotation.xyz, b.rotation.w);
+    float3 local = Rotate(inv, p - b.centerBody.xyz);
+    if (b.extentType.w > 1.5)
+    {
+        local.y -= clamp(local.y, -b.extentType.y, b.extentType.y);
+        return length(local) - b.extentType.x;
+    }
+    if (b.extentType.w > 0.5)
+        return length(local) - b.extentType.x;
+    float3 q = abs(local) - b.extentType.xyz;
+    return length(max(q, 0)) + min(max(q.x, max(q.y, q.z)), 0);
+}
+float3 ColliderNormal(FluidCollider b, float3 p)
+{
+    float e = _CellSize * 0.1;
+    float3 n = float3(
+        SignedDistance(b, p + float3(e, 0, 0)) - SignedDistance(b, p - float3(e, 0, 0)),
+        SignedDistance(b, p + float3(0, e, 0)) - SignedDistance(b, p - float3(0, e, 0)),
+        SignedDistance(b, p + float3(0, 0, e)) - SignedDistance(b, p - float3(0, 0, e)));
+    return dot(n, n) > 0.000001 ? normalize(n) : float3(0, 1, 0);
+}
+// The downstream (-Z) face is an outlet, not a no-flow solid wall.
+// Other domain faces retain their previous solid boundary conditions.
+bool IsOpenOutflow(int3 c)
+{
+    return c.z < 0 && c.x >= 0 && c.x < _GridSize.x
+        && c.y >= 0 && c.y < _GridSize.y;
+}
+bool IsSolid(int3 c)
+{
+    if (IsOpenOutflow(c)) return false;
+    if (!Inside(c)) return true;
+    return _Solid[Flatten(c)] != 0;
+}
+bool IsFluid(int3 c)
+{
+    return Inside(c) && !IsSolid(c) && _Accum[Flatten(c)].w > (int)(SCALE * 0.01);
+}
+// The physical lip, not the far end of the four-cell grid buffer, is the
+// pressure outlet. Buffer cells are still available to particle interpolation.
+bool IsOutletBuffer(int3 c)
+{
+    return Inside(c) && Center(c).z < _ExitZ;
+}
+float3 VelocityAt(int3 c)
+{
+    if (IsFluid(c)) return _GridVelocity[Flatten(c)];
+    // A dry cell immediately downstream is not motionless water. Extend the
+    // last upstream liquid velocity into the open outlet (zero normal gradient)
+    // instead of introducing an artificial zero-velocity wall in divergence.
+    if (IsOpenOutflow(c) || IsOutletBuffer(c))
+    {
+        int firstRiverZ = clamp(
+            (int)ceil((_ExitZ - _GridOrigin.z) / _CellSize - 0.5),
+            0, _GridSize.z - 1);
+        int3 riverCell = int3(c.x, c.y, firstRiverZ);
+        if (IsFluid(riverCell)) return _GridVelocity[Flatten(riverCell)];
+    }
+    return 0;
+}
+float PressureAt(int3 c, float own)
+{
+    // Atmospheric pressure begins at the physical waterfall lip, including
+    // grid cells in the downstream interpolation buffer.
+    if (IsOpenOutflow(c) || IsOutletBuffer(c)) return 0.0;
+    if (IsSolid(c)) return own;
+    return IsFluid(c) ? _PressureSrc[Flatten(c)] : 0.0;
+}
+[numthreads(128,1,1)]
+void ClearGrid(uint id : SV_DispatchThreadID)
+{
+    if (_WarmupOnly != 0) return;
+    uint cells = _GridSize.x * _GridSize.y * _GridSize.z;
+    if (id < cells)
+    {
+        _Accum[id] = int4(0,0,0,0);
+        _GridVelocity[id] = 0;
+        _GridBefore[id] = 0;
+        _PressureSrc[id] = 0;
+        _PressureDst[id] = 0;
+    }
+    if (id < _BodyCount * 2 && _ClearBodyImpulses != 0)
+        _BodyImpulses[id] = int4(0,0,0,0);
+    if (id < 3)
+        _CrestMetrics[id] = 0u;
+    // Keep pending refill debt and its global sequence across physics ticks.
+    if (id == 0 && _AmbientEnabled != 0)
+        _FlowCounters[2] = 0u;
+}
+[numthreads(128,1,1)]
+void ClearLavaContacts(uint id : SV_DispatchThreadID)
+{
+    if (_WarmupOnly != 0 || id >= _BodyCount) return;
+    _LavaContacts[id] = 0u;
+}
+// Separate the 2D surface/current clear from ClearGrid to keep each
+// D3D11 compute kernel within the maximum of eight writable UAV slots.
+[numthreads(128,1,1)]
+void ClearWaterColumns(uint id : SV_DispatchThreadID)
+{
+    if (_WarmupOnly != 0) return;
+    if (id >= (uint)(_GridSize.x * _GridSize.z)) return;
+    _WaterSurface[id] = 0;
+    _WaterFlow[id] = int4(0,0,0,0);
+}
+[numthreads(128,1,1)]
+void ClassifyGrid(uint id : SV_DispatchThreadID)
+{
+    if (_WarmupOnly != 0) return;
+    uint cells = _GridSize.x * _GridSize.y * _GridSize.z;
+    if (id >= cells) return;
+    int x = id % _GridSize.x;
+    int y = (id / _GridSize.x) % _GridSize.y;
+    int z = id / (_GridSize.x * _GridSize.y);
+    float3 pos = Center(int3(x,y,z));
+    // The bed ends at the actual waterfall lip. Do not continue its
+    // collision/pressure wall into the downstream outlet buffer.
+    bool solid = (pos.y <= _FloorY && pos.z >= _ExitZ) ||
+        abs(pos.x) >= _HalfWidth;
+    uint beginCollider = (uint)_ColliderZOffsets[z];
+    uint endCollider = (uint)_ColliderZOffsets[z + 1];
+    [loop]
+    for (uint i = beginCollider; i < endCollider && !solid; ++i)
+    {
+        FluidCollider b = _Colliders[_ColliderZIndices[i]];
+        float3 dr = pos - b.centerBody.xyz;
+        if (dot(dr, dr) > b.velocity.w * b.velocity.w) continue;
+        solid = SignedDistance(b, pos) <= 0;
+    }
+    _Solid[id] = solid ? 1 : 0;
+}
+[numthreads(128,1,1)]
+void Spawn(uint id : SV_DispatchThreadID)
+{
+    if (_WarmupOnly != 0) return;
+    if (id >= _SpawnCount) return;
+    uint index = _SpawnStart + id;
+    // Mix the candidate lattice coordinates instead of filling the river from one side.
+    uint widthCells = max(1u, (uint)floor(_HalfWidth * 2.0 / (_CellSize * 0.85)));
+    uint heightCells = max(1u, (uint)floor(_WaveHeight / (_CellSize * 0.85)));
+    uint layerCells = 3;
+    uint span = widthCells * heightCells * layerCells;
+    uint chosen = (id * 7919u + _SpawnSeed * 1543u) % span;
+    uint ix = chosen % widthCells;
+    uint iy = (chosen / widthCells) % heightCells;
+    uint iz = (chosen / (widthCells * heightCells)) % layerCells;
+    float spacing = _CellSize * 0.85;
+    FluidParticle p = (FluidParticle)0;
+    p.position = float4(
+        (ix + 0.5) * (2.0 * _HalfWidth / widthCells) - _HalfWidth,
+        _FloorY + (iy + 0.5) * (_WaveHeight / heightCells),
+        _InletZ - (iz + 0.5) * spacing, 1);
+    p.velocity = float4(0, 0, -_InletVelocity, 0);
+    _Particles[index] = p;
+}
+// The ambient creek starts dry. The shared supply debt fills it from upstream.
+[numthreads(128,1,1)]
+void InitializeAmbient(uint id : SV_DispatchThreadID)
+{
+    if (_WarmupOnly != 0) return;
+    if (id >= _ParticleCount) return;
+    _Particles[id] = (FluidParticle)0;
+}
+
+// Preserve the initial-fill and lost-water debt until inactive slots become
+// available, including while waterfall spray occupies the spare GPU slots.
+// Crest particles (velocity.w = 1) never count as baseline water.
+[numthreads(128,1,1)]
+void RecycleAmbient(uint id : SV_DispatchThreadID)
+{
+    if (_WarmupOnly != 0) return;
+    // Preserve dedicated wave slots even when the river is full of waterfall
+    // spray. Otherwise EmitCrest randomly skips candidates as slots run out.
+    if (id >= _ParticleCount || id >= _CrestSlotStart) return;
+    FluidParticle p = _Particles[id];
+    if (p.position.w != 0.0) return;
+
+    // The shared per-tick supply cap applies to startup filling and losses.
+    // Claim budget before withdrawing a missing-water ticket.
+    uint claim;
+    InterlockedAdd(_FlowCounters[2], 1u, claim);
+    if (claim >= _AmbientRefillBudget) return;
+
+    uint pending;
+    InterlockedAdd(_FlowCounters[0], 0u, pending);
+    while (pending > 0u)
+    {
+        uint observed;
+        InterlockedCompareExchange(_FlowCounters[0], pending, pending - 1u, observed);
+        if (observed == pending)
+        {
+            uint ticket;
+            InterlockedAdd(_FlowCounters[1], 1u, ticket);
+            uint width = (uint)_AmbientGrid.x;
+            uint layers = (uint)_AmbientGrid.y;
+            uint chosen = (ticket * 7919u + _SpawnSeed * 1543u) %
+                (width * layers * 2u);
+            uint x = chosen % width;
+            uint y = (chosen / width) % layers;
+            uint z = chosen / (width * layers);
+            p = (FluidParticle)0;
+            p.position = float4(
+                -_HalfWidth + (x + 0.5) * (2.0 * _HalfWidth / width),
+                _FloorY + (y + 0.5) * (_AmbientDepth / layers),
+                _InletZ + _CellSize + (z + 0.5) * (_CellSize * 0.85), 1.0);
+            p.velocity = float4(0, 0, -_InletVelocity, 0);
+            _Particles[id] = p;
+            return;
+        }
+        pending = observed;
+    }
+}
+
+// A steady inlet keeps the background creek moving even when its P2G/pressure
+// projection slows the flow. The stronger wave particles are not affected.
+[numthreads(128,1,1)]
+void DriveInlet(uint id : SV_DispatchThreadID)
+{
+    if (_WarmupOnly != 0) return;
+    if (id >= _ParticleCount) return;
+    FluidParticle p = _Particles[id];
+    if (p.position.w != 1.0 || p.velocity.w > 0.5) return;
+    float distance = _InletZ - p.position.z;
+    float region = 3.0;
+    if (distance < -_CellSize * 2.0 || distance > region) return;
+    float influence = saturate((region - max(distance, 0.0)) / region);
+    p.velocity.z = lerp(p.velocity.z, -_InletVelocity,
+        saturate(_Dt * 6.0 * influence));
+    _Particles[id] = p;
+}
+
+// One Ready event emits a deterministic, contiguous 3m excess-water volume.
+// Its entire lattice occupies GPU slots reserved at initialization, so
+// active waterfall or ambient particles cannot steal some of the wave.
+[numthreads(128,1,1)]
+void EmitCrest(uint id : SV_DispatchThreadID)
+{
+    if (_WarmupOnly != 0) return;
+    uint width = (uint)_CrestGrid.x;
+    uint layers = (uint)_CrestGrid.y;
+    uint rows = (uint)_CrestGrid.z;
+    uint crestSize = width * layers * rows;
+    if (id >= crestSize) return;
+    // Separate banks protect the first crest from the second dispatch.
+    uint slot = _CrestSlotStart + _CrestEmissionIndex * crestSize + id;
+    if (slot >= _ParticleCount) return;
+
+    uint x = id % width;
+    uint y = (id / width) % layers;
+    uint z = id / (width * layers);
+    float fraction = (z + 0.5) / rows;
+    float worldZ = _InletZ - (z + 0.5) * (_CrestLength / rows);
+    float taper = clamp(_CrestWidth / _CrestLength, 0.05, 0.45);
+    float front = smoothstep(0.0, taper, fraction);
+    float back = smoothstep(0.0, taper, 1.0 - fraction);
+    float excess = (y + 0.5) * (_CrestAmplitude / layers);
+
+    // Always overwrite the reserved slot, even at the tapered ends.
+    FluidParticle p = (FluidParticle)0;
+    if (excess <= _CrestAmplitude * min(front, back))
+    {
+        p.position = float4(
+            -_HalfWidth + (x + 0.5) * (2.0 * _HalfWidth / width),
+            _FloorY + _AmbientDepth + excess,
+            worldZ, 1.0);
+        p.velocity = float4(0, 0, -_CrestSpeed, 1.0);
+        // APIC affine .w channels are unused by P2G. Keep the intended
+        // height and a sticky collision-release bit across FLIP steps.
+        p.affineX.w = excess;
+        p.affineY.w = 0.0;
+    }
+    _Particles[slot] = p;
+}
+
+[numthreads(128,1,1)]
+void ParticleToGrid(uint id : SV_DispatchThreadID)
+{
+    if (_WarmupOnly != 0) return;
+    if (id >= _ParticleCount) return;
+    FluidParticle p = _Particles[id];
+    if (p.position.w != 1.0) return;
+    float3 g = (p.position.xyz - _GridOrigin) / _CellSize - 0.5;
+    int3 baseCell = (int3)floor(g);
+    float3 f = frac(g);
+    [unroll]
+    for (int z = 0; z <= 1; z++)
+    [unroll]
+    for (int y = 0; y <= 1; y++)
+    [unroll]
+    for (int x = 0; x <= 1; x++)
+    {
+        int3 c = baseCell + int3(x,y,z);
+        if (!Inside(c) || IsSolid(c)) continue;
+        float3 d = Center(c) - p.position.xyz;
+        float3 affine = p.affineX.xyz * d.x + p.affineY.xyz * d.y + p.affineZ.xyz * d.z;
+        float3 v = p.velocity.xyz + affine;
+        float w = (x == 0 ? 1-f.x : f.x) * (y == 0 ? 1-f.y : f.y) *
+            (z == 0 ? 1-f.z : f.z);
+        uint idx = Flatten(c);
+        InterlockedAdd(_Accum[idx].x, (int)round(v.x * w * SCALE));
+        InterlockedAdd(_Accum[idx].y, (int)round(v.y * w * SCALE));
+        InterlockedAdd(_Accum[idx].z, (int)round(v.z * w * SCALE));
+        InterlockedAdd(_Accum[idx].w, (int)round(w * SCALE));
+    }
+}
+[numthreads(128,1,1)]
+void NormalizeGrid(uint id : SV_DispatchThreadID)
+{
+    if (_WarmupOnly != 0) return;
+    uint cells = _GridSize.x * _GridSize.y * _GridSize.z;
+    if (id >= cells) return;
+    int4 sum = _Accum[id];
+    float3 v = sum.w > 0 ? float3(sum.xyz) / sum.w : 0;
+    _GridBefore[id] = v;
+    _GridVelocity[id] = _Solid[id] == 0 && sum.w > 0
+        ? v + float3(0, -_Gravity * _Dt, 0) : 0;
+}
+[numthreads(128,1,1)]
+void JacobiPressure(uint id : SV_DispatchThreadID)
+{
+    if (_WarmupOnly != 0) return;
+    uint cells = _GridSize.x * _GridSize.y * _GridSize.z;
+    if (id >= cells) return;
+    int3 c = int3(id % _GridSize.x,
+        (id / _GridSize.x) % _GridSize.y,
+        id / (_GridSize.x * _GridSize.y));
+    if (!IsFluid(c) || IsOutletBuffer(c)) { _PressureDst[id] = 0; return; }
+    int3 ex = int3(1,0,0), ey = int3(0,1,0), ez = int3(0,0,1);
+    float div = (VelocityAt(c+ex).x-VelocityAt(c-ex).x +
+        VelocityAt(c+ey).y-VelocityAt(c-ey).y +
+        VelocityAt(c+ez).z-VelocityAt(c-ez).z) / (2*_CellSize);
+    float own = _PressureSrc[id];
+    float sum = PressureAt(c+ex,own)+PressureAt(c-ex,own)+
+        PressureAt(c+ey,own)+PressureAt(c-ey,own)+
+        PressureAt(c+ez,own)+PressureAt(c-ez,own);
+    // Solid neighbors contribute the current pressure (Neumann boundary).
+    // Therefore the Jacobi denominator remains six rather than six-minus-solids.
+    float n = 6.0;
+    // Unit density in the grid; pressure is a velocity potential.
+    _PressureDst[id] = (sum - div*_CellSize*_CellSize/max(_Dt,0.0001)) / max(n,1);
+}
+[numthreads(128,1,1)]
+void ProjectGrid(uint id : SV_DispatchThreadID)
+{
+    if (_WarmupOnly != 0) return;
+    uint cells = _GridSize.x * _GridSize.y * _GridSize.z;
+    if (id >= cells) return;
+    int3 c = int3(id % _GridSize.x,
+        (id / _GridSize.x) % _GridSize.y,
+        id / (_GridSize.x * _GridSize.y));
+    if (!IsFluid(c)) return;
+    if (IsOutletBuffer(c))
+    {
+        // Do not let pressure projection push falling water back into the river.
+        float3 outletVelocity = _GridVelocity[id];
+        outletVelocity.z = min(outletVelocity.z, 0.0);
+        _GridVelocity[id] = outletVelocity;
+        return;
+    }
+    int3 ex = int3(1,0,0), ey = int3(0,1,0), ez = int3(0,0,1);
+    float p = _PressureSrc[id];
+    float3 grad = float3(
+        PressureAt(c+ex,p)-PressureAt(c-ex,p),
+        PressureAt(c+ey,p)-PressureAt(c-ey,p),
+        PressureAt(c+ez,p)-PressureAt(c-ez,p)) / (2*_CellSize);
+    float3 v = _GridVelocity[id] - _Dt*grad;
+    if (IsSolid(c+ex) && v.x>0 || IsSolid(c-ex) && v.x<0) v.x=0;
+    if (IsSolid(c+ey) && v.y>0 || IsSolid(c-ey) && v.y<0) v.y=0;
+    // The negative-Z open outlet must not zero the exiting velocity.
+    // IsSolid(c-ez) is false outside the outlet; upper inlet stays closed.
+    if ((IsSolid(c+ez) && v.z>0) || (IsSolid(c-ez) && v.z<0)) v.z=0;
+    // A free outlet must not acquire +Z velocity from pressure projection.
+    // This does not impose a target river speed or accelerate the waterfall.
+    if (Center(c).z < _ExitZ + 2.0 * _CellSize)
+        v.z = min(v.z, 0.0);
+    _GridVelocity[id] = v;
+}
+[numthreads(128,1,1)]
+void GridToParticle(uint id : SV_DispatchThreadID)
+{
+    if (_WarmupOnly != 0) return;
+    if (id >= _ParticleCount) return;
+    FluidParticle p = _Particles[id];
+    if (p.position.w != 1.0) return;
+    float3 g = (p.position.xyz - _GridOrigin) / _CellSize - 0.5;
+    int3 baseCell = (int3)floor(g);
+    float3 f = frac(g);
+    float3 pic = 0, flipDelta = 0, c0 = 0, c1 = 0, c2 = 0;
+    float3 offsetMoment = 0;
+    float weight = 0;
+    [unroll]
+    for (int z=0; z<=1; z++)
+    [unroll]
+    for (int y=0; y<=1; y++)
+    [unroll]
+    for (int x=0; x<=1; x++)
+    {
+        int3 c = baseCell + int3(x,y,z);
+        if (!IsFluid(c)) continue;
+        uint idx = Flatten(c);
+        float w = (x==0?1-f.x:f.x)*(y==0?1-f.y:f.y)*(z==0?1-f.z:f.z);
+        float3 v = _GridVelocity[idx];
+        float3 d = Center(c) - p.position.xyz;
+        pic += w*v;
+        flipDelta += w*(v-_GridBefore[idx]);
+        c0 += w*v*d.x;
+        c1 += w*v*d.y;
+        c2 += w*v*d.z;
+        offsetMoment += w*d;
+        weight += w;
+    }
+    // Cache the longitudinal velocity on entry to the last two grid cells.
+    // It is an advective/open-boundary condition, not a pull toward the edge:
+    // the parcel keeps the speed it already had when it reached the lip.
+    bool nearOutlet = p.position.z >= _ExitZ &&
+        p.position.z < _ExitZ + 2.0 * _CellSize;
+    if (nearOutlet && p.affineZ.w == 0.0)
+        p.affineZ.w = p.velocity.z < -0.01 ? -p.velocity.z : -1.0;
+    if (weight > 0.001)
+    {
+        pic /= weight;
+        flipDelta /= weight;
+        p.velocity.xyz = lerp(pic, p.velocity.xyz + flipDelta, _FlipFraction);
+        float scale = 4.0 / (_CellSize * _CellSize * weight);
+        // A truncated free-surface/outlet stencil has a biased centroid.
+        // Center APIC moments so constant velocity cannot manufacture a
+        // spurious gradient (and then reverse a neighboring particle).
+        p.affineX = float4((c0 - pic * offsetMoment.x)*scale,p.affineX.w);
+        p.affineY = float4((c1 - pic * offsetMoment.y)*scale,p.affineY.w);
+        p.affineZ = float4((c2 - pic * offsetMoment.z)*scale,p.affineZ.w);
+    }
+    else p.velocity.y -= _Gravity * _Dt;
+    if (nearOutlet && p.affineZ.w > 0.0)
+    {
+        p.velocity.z = -p.affineZ.w;
+        // No longitudinal APIC shear in the outgoing ballistic handoff.
+        p.affineX.z = 0;
+        p.affineY.z = 0;
+        p.affineZ.z = 0;
+    }
+    p.velocity.xyz = clamp(p.velocity.xyz, -_MaxFluidVelocity, _MaxFluidVelocity);
+    p.position.xyz += p.velocity.xyz * _Dt;
+    // Fixed banks/floor are collision boundaries, not a prescribed wave shape.
+    if (p.position.x < -_HalfWidth + 0.05)
+    {
+        p.position.x = -_HalfWidth + 0.05;
+        p.velocity.x = max(p.velocity.x, 0);
+    }
+    if (p.position.x > _HalfWidth - 0.05)
+    {
+        p.position.x = _HalfWidth - 0.05;
+        p.velocity.x = min(p.velocity.x, 0);
+    }
+    if (p.position.y < _FloorY + 0.05 && p.position.z >= _ExitZ)
+    {
+        p.position.y = _FloorY + 0.05;
+        p.velocity.y = max(p.velocity.y, 0);
+    }
+    [loop]
+    for (uint i=0; i<_ColliderCount; i++)
+    {
+        FluidCollider b = _Colliders[i];
+        float3 dr = p.position.xyz - b.centerBody.xyz;
+        if (dot(dr, dr) > b.velocity.w * b.velocity.w) continue;
+        float d = SignedDistance(b, p.position.xyz);
+        if (_AmbientEnabled != 0 && p.velocity.w > 0.5 &&
+            d < _CrestReleaseDistance)
+            p.affineY.w = 1.0; // Collision: stop holding this parcel up.
+        if (d >= _CollisionSkin) continue;
+        int hitBody = (int)b.centerBody.w;
+        if (hitBody >= 0 && hitBody < (int)_BodyCount)
+            InterlockedOr(_LavaContacts[hitBody], 1u);
+        // An actual obstacle may stop or reverse flow even at the outlet.
+        // -1 means release the cached outflow speed until leaving the band.
+        p.affineZ.w = -1.0;
+        float3 n = ColliderNormal(b, p.position.xyz);
+        float3 r = p.position.xyz - b.bodyCenter.xyz;
+        float3 bv = b.velocity.xyz + cross(b.angular.xyz, r);
+        float3 before = p.velocity.xyz;
+        float3 relative = before - bv;
+        float approaching = min(dot(relative, n), 0.0);
+        p.velocity.xyz -= n * approaching * _CollisionResponse;
+        p.position.xyz += n * (_CollisionSkin-d);
+        int bi = (int)b.centerBody.w;
+        // Game pieces with relative density use displaced-volume buoyancy and
+        // coherent current drag instead of thousands of particle reactions.
+        // Particle/surface collision still happens on the liquid side.
+        // Non-piece bodies (the defense flag) retain the original impact.
+        if (bi>=0 && bi<(int)_BodyCount && b.fluidProperties.x <= 0.0)
+        {
+            float3 impulse = (before-p.velocity.xyz) * _ParticleMass;
+            float3 torque = cross(r, impulse);
+            uint dst = bi*2;
+            InterlockedAdd(_BodyImpulses[dst].x, (int)round(impulse.x*SCALE));
+            InterlockedAdd(_BodyImpulses[dst].y, (int)round(impulse.y*SCALE));
+            InterlockedAdd(_BodyImpulses[dst].z, (int)round(impulse.z*SCALE));
+            InterlockedAdd(_BodyImpulses[dst+1].x, (int)round(torque.x*SCALE));
+            InterlockedAdd(_BodyImpulses[dst+1].y, (int)round(torque.y*SCALE));
+            InterlockedAdd(_BodyImpulses[dst+1].z, (int)round(torque.z*SCALE));
+        }
+    }
+    // The temporary wave is a deformable volume, not a rigid mesh.
+    // The original FLIP pressure solver severely compresses this extra
+    // high column into the 1m surface. Counter only that initial collapse
+    // with a damped, height-preserving spring on unimpeded crest parcels.
+    // Obstacles permanently release the spring, restoring free 3D physics.
+    if (_AmbientEnabled != 0 && p.velocity.w > 0.5 && p.affineX.w > 0.0 &&
+        p.affineY.w < 0.5 && p.position.z >= _ExitZ)
+    {
+        float targetY = _FloorY + _AmbientDepth + p.affineX.w;
+        float verticalAcceleration = _Gravity +
+            _CrestHeightStiffness * (targetY - p.position.y) -
+            _CrestHeightDamping * p.velocity.y;
+        p.velocity.y += verticalAcceleration * _Dt;
+        p.velocity.z = lerp(p.velocity.z, -_CrestSpeed,
+            saturate(_CrestForwardDamping * _Dt));
+    }
+    // Crest diagnostics are unused in Lava: free the eighth GPU UAV slot.
+    if (p.position.z < _ExitZ)
+    {
+        // Cross the physical lip and leave the pressure solver immediately.
+        // Keep the full G2P velocity (including its single gravity step);
+        // Waterfall continues ballistic integration from the next tick.
+        p.position.w = 2;
+        // G2P already integrated this tick's gravity and position. Do not
+        // add a second downward impulse at the lip; Waterfall takes over next tick.
+        if (_AmbientEnabled != 0)
+        {
+            InterlockedAdd(_FlowCounters[3], 1u); // Total true cliff crossings.
+            if (p.velocity.w < 0.5)
+                InterlockedAdd(_FlowCounters[0], 1u);
+        }
+    }
+    else if (p.position.y > _GridOrigin.y + _GridSize.y*_CellSize - 0.1)
+    {
+        p.position.w = 0;
+        if (_AmbientEnabled != 0 && p.velocity.w < 0.5)
+            InterlockedAdd(_FlowCounters[0], 1u);
+    }
+    _Particles[id] = p;
+}
+
+
+ 
+// Aggregate live water particles into a coarse XZ surface and current map.
+// This uses actual particle velocities after FLIP/obstacle interactions,
+// so a log follows lateral/return currents rather than a hardcoded -Z push.
+[numthreads(128,1,1)]
+void BuildWaterColumns(uint id : SV_DispatchThreadID)
+{
+    if (_WarmupOnly != 0) return;
+    if (id >= _ParticleCount) return;
+    FluidParticle p = _Particles[id];
+    if (p.position.w != 1.0) return; // falling waterfall particles are not a pool
+    int2 cell = (int2)floor((p.position.xz - _GridOrigin.xz) / _CellSize);
+    if (any(cell < 0) || cell.x >= _GridSize.x || cell.y >= _GridSize.z) return;
+    uint index = (uint)(cell.y * _GridSize.x + cell.x);
+    // A particle center lies below the rendered free surface; use a small
+    // effective particle radius to reconstruct the waterline.
+    int height = max(1, (int)round((p.position.y - _FloorY +
+        0.35 * _CellSize) * 4096.0));
+    InterlockedMax(_WaterSurface[index], height);
+    InterlockedAdd(_WaterFlow[index].x, (int)round(p.velocity.x * 256.0));
+    InterlockedAdd(_WaterFlow[index].y, (int)round(p.velocity.y * 256.0));
+    InterlockedAdd(_WaterFlow[index].z, (int)round(p.velocity.z * 256.0));
+    InterlockedAdd(_WaterFlow[index].w, 1);
+}
+
+// Spatially average each water column and low-pass its height over time.
+// The raw maximum is very sensitive to one stray particle, which makes
+// floating Rigidbody objects jerk from one physics step to the next.
+// The persistent buffer is initialized to zero once, not reset each frame.
+[numthreads(128,1,1)]
+void SmoothWaterColumns(uint id : SV_DispatchThreadID)
+{
+    if (_WarmupOnly != 0) return;
+    uint columns = (uint)(_GridSize.x * _GridSize.z);
+    if (id >= columns) return;
+    int4 ownFlow = _WaterFlow[id];
+    int2 cell = int2(id % _GridSize.x, id / _GridSize.x);
+    float weightedSurface = 0;
+    float totalWeight = 0;
+    float particleCount = 0;
+    float sampledCellCount = 0;
+    float neighborhoodHeights[9];
+    int heightCount = 0;
+    [loop]
+    for (int z = -1; z <= 1; ++z)
+    [loop]
+    for (int x = -1; x <= 1; ++x)
+    {
+        int2 n = cell + int2(x, z);
+        if (any(n < 0) || n.x >= _GridSize.x || n.y >= _GridSize.z) continue;
+        uint index = (uint)(n.y * _GridSize.x + n.x);
+        // Count the entire neighborhood area, including its empty cells.
+        // A few splash particles must not masquerade as a full-depth pool.
+        sampledCellCount += 1.0;
+        particleCount += max(0, _WaterFlow[index].w);
+        if (_WaterFlow[index].w <= 0) continue;
+        float height = (float)_WaterSurface[index];
+        neighborhoodHeights[heightCount++] = height;
+        float weight = x == 0 && z == 0 ? 3.0 : 1.0;
+        weightedSurface += weight * height;
+        totalWeight += weight;
+    }
+    // Experiment: only particle-occupied columns have a water surface.
+    // Do not fill empty columns by looking at nearby fluid.
+    if (ownFlow.w <= 0)
+    {
+        _SmoothedWaterSurface[id] = 0;
+        return;
+    }
+    // A single flying FLIP parcel must not become the water surface of a
+    // whole floating Rigidbody. Keep the existing spatial average, but cap
+    // isolated upward spikes against the neighborhood median. Contiguous
+    // wave crests still raise the median and therefore the buoyancy waterline.
+    [loop]
+    for (int i = 1; i < heightCount; ++i)
+    {
+        float key = neighborhoodHeights[i];
+        int j = i - 1;
+        [loop]
+        while (j >= 0)
+        {
+            // Do not rely on HLSL short-circuiting a negative array index.
+            if (neighborhoodHeights[j] <= key) break;
+            neighborhoodHeights[j + 1] = neighborhoodHeights[j];
+            --j;
+        }
+        neighborhoodHeights[j + 1] = key;
+    }
+    float median = neighborhoodHeights[(heightCount - 1) / 2];
+    float target = min(weightedSurface / max(totalWeight, 1.0),
+        median + _CellSize * 0.35 * 4096.0);
+    // Water height is also constrained by the volume of water actually
+    // present in the full 3x3 footprint. Particle count is a volume sample,
+    // not a boolean proof that an arbitrarily deep pool exists.
+    float availableVolume = particleCount * _LiquidParticleVolume;
+    float footprintArea = max(1.0, sampledCellCount) * _CellSize * _CellSize;
+    target = min(target, availableVolume / footprintArea * 4096.0);
+    int oldSurface = _SmoothedWaterSurface[id];
+    // Smooth changes but allow immediate first immersion after river reaches
+    // a previously empty column.
+    float response = 1.0 - exp(-8.0 * _Dt);
+    float nextSurface = oldSurface <= 0 ?
+        target : lerp((float)oldSurface, target, response);
+    // The history filter must never invent water volume after the river
+    // drains. A single surviving droplet cannot preserve yesterday's
+    // full-height surface merely because the filter decays slowly.
+    nextSurface = min(nextSurface, availableVolume / footprintArea * 4096.0);
+    _SmoothedWaterSurface[id] = (int)round(nextSurface);
+}
+
+// Sample a weighted neighborhood. Zero particles means zero influence.
+// Fluid occupancy is sampled independently of collider solid-cell masking.
+float SampleWater(float3 pos, out float surfaceY, out float3 waterVelocity)
+{
+    surfaceY = _FloorY;
+    waterVelocity = 0;
+    if (pos.z < _ExitZ || abs(pos.x) >= _HalfWidth) return 0.0;
+    float2 grid = (pos.xz - _GridOrigin.xz) / _CellSize - 0.5;
+    int2 baseCell = (int2)floor(grid);
+    float2 f = frac(grid);
+    float coverage = 0.0;
+    float sumHeight = 0.0;
+    float3 sumVelocity = 0;
+    float velocityCoverage = 0;
+    [unroll]
+    for (int z = 0; z < 2; z++)
+    [unroll]
+    for (int x = 0; x < 2; x++)
+    {
+        int2 c = baseCell + int2(x,z);
+        if (any(c < 0) || c.x >= _GridSize.x || c.y >= _GridSize.z) continue;
+        uint index = (uint)(c.y * _GridSize.x + c.x);
+        int4 flow = _WaterFlow[index];
+        int top = _SmoothedWaterSurface[index];
+        // Require real water particles in this sampled column.
+        if (flow.w <= 0 || top <= 0) continue;
+        float weight = (x == 0 ? 1.0 - f.x : f.x) *
+            (z == 0 ? 1.0 - f.y : f.y);
+        coverage += weight;
+        sumHeight += weight * ((float)top / 4096.0);
+        if (flow.w > 0)
+        {
+            sumVelocity += weight * (float3(flow.xyz) / (256.0 * flow.w));
+            velocityCoverage += weight;
+        }
+    }
+    if (coverage <= 0.001) return 0.0;
+    surfaceY = _FloorY + sumHeight / coverage;
+    waterVelocity = velocityCoverage > 0.001
+        ? sumVelocity / velocityCoverage : 0.0;
+    return saturate(coverage);
+}
+
+// Physical fluid occupancy at a 3D point: trilinearly interpolated deposited
+// FLIP particle volume divided by the corresponding grid-cell volume.
+// A 2D free surface on its own is NOT evidence of water touching an object.
+// Particle deposition already excludes solid collider interiors, so callers
+// probe immediately outside the body's actual surface.
+float SampleFluidOccupancy3D(float3 pos)
+{
+    float3 grid = (pos - _GridOrigin) / _CellSize - 0.5;
+    int3 baseCell = (int3)floor(grid);
+    float3 f = frac(grid);
+    float occupancy = 0.0;
+    float cellVolume = max(_CellSize * _CellSize * _CellSize, 0.000001);
+    [unroll]
+    for (int z = 0; z <= 1; ++z)
+    [unroll]
+    for (int y = 0; y <= 1; ++y)
+    [unroll]
+    for (int x = 0; x <= 1; ++x)
+    {
+        int3 cell = baseCell + int3(x, y, z);
+        if (!Inside(cell) || IsSolid(cell)) continue;
+        float weight = (x == 0 ? 1.0 - f.x : f.x) *
+            (y == 0 ? 1.0 - f.y : f.y) *
+            (z == 0 ? 1.0 - f.z : f.z);
+        float depositedParticleCount =
+            max(0, _Accum[Flatten(cell)].w) / SCALE;
+        float cellFill = saturate(
+            depositedParticleCount * _LiquidParticleVolume / cellVolume);
+        occupancy += weight * cellFill;
+    }
+    return saturate(occupancy);
+}
+
+// Per-collider 3D volume sampling. Each sample contributes equally to total
+// immersed volume. Upward buoyancy is mass * gravity * (immersed/density);
+// current following depends on actual sampled fluid velocity, not face normal.
+[numthreads(128,1,1)]
+void RelativeDensityToBodies(uint id : SV_DispatchThreadID)
+{
+    if (_WarmupOnly != 0) return;
+    if (id >= _ColliderCount) return;
+    FluidCollider body = _Colliders[id];
+    int bi = (int)body.centerBody.w;
+    if (bi < 0 || bi >= (int)_BodyCount || body.fluidProperties.x <= 0) return;
+    // No FLIP forces after the body's center crosses the waterfall lip,
+    // even if some upstream probe samples still find water behind it.
+    if (body.bodyCenter.z <= _ExitZ) return;
+    float density = max(0.01, body.fluidProperties.x);
+    float mass = max(0, body.fluidProperties.z);
+    if (mass <= 0) return;
+    // For every buoyant collider, record one full sampling footprint, even
+    // when no water is found. This is the denominator of the actual wetted
+    // footprint ratio. The float-body linear Y slot is a sample count, not
+    // a force; its force is evaluated on the current Rigidbody pose in Unity.
+    if (density < 1.0)
+        InterlockedAdd(_BodyImpulses[(uint)bi * 2].y, (int)SCALE);
+    float shape = body.fluidProperties.w;
+    float3 halfSize = body.extentType.xyz;
+    if (body.extentType.w > 1.5)
+        halfSize = float3(body.extentType.x,
+            body.extentType.y + body.extentType.x, body.extentType.x);
+    else if (body.extentType.w > 0.5)
+        halfSize = float3(body.extentType.x,
+            body.extentType.x, body.extentType.x);
+    int axis = halfSize.y >= halfSize.x && halfSize.y >= halfSize.z ? 1 :
+        halfSize.x >= halfSize.z ? 0 : 2;
+    // 5x5x5 regular samples; cylinder and sphere discard outside points.
+    float samples = shape > 1.5 ? 81.0 : shape > 0.5 ? 105.0 : 125.0;
+    // FLIP excludes liquid from a collider's interior. Probe the actual
+    // surrounding fluid across the collider's FULL height, rather than only
+    // half a cell below the free surface. A crest can leave a dry void below.
+    float3 ex = Rotate(body.rotation, float3(halfSize.x, 0, 0));
+    float3 ey = Rotate(body.rotation, float3(0, halfSize.y, 0));
+    float3 ez = Rotate(body.rotation, float3(0, 0, halfSize.z));
+    float2 footprint = float2(
+        abs(ex.x) + abs(ey.x) + abs(ez.x),
+        abs(ex.z) + abs(ey.z) + abs(ez.z));
+    float2 outside = footprint + _CellSize * 0.5;
+    float bodyHalfHeight = abs(ex.y) + abs(ey.y) + abs(ez.y);
+    float bodyBottom = body.centerBody.y - bodyHalfHeight;
+    float bodyTop = body.centerBody.y + bodyHalfHeight;
+
+    // Sample eight fixed-height bands around the FULL collider height.
+    // Do not use dynamically indexed local arrays: some Unity HLSL backends
+    // fail compiling large compute kernels with nested variable-index arrays.
+    int layerCount = clamp(
+        (int)ceil((bodyTop - bodyBottom) / max(_CellSize, 0.001)),
+        2, BUOYANCY_MAX_VERTICAL_LAYERS);
+    float layerHeight = (bodyTop - bodyBottom) / (float)layerCount;
+    float coverage0 = 0.0, coverage1 = 0.0;
+    float coverage2 = 0.0, coverage3 = 0.0;
+    float coverage4 = 0.0, coverage5 = 0.0;
+    float coverage6 = 0.0, coverage7 = 0.0;
+    float waterline = 0.0;
+    float3 current = 0.0;
+    float available = 0.0;
+    [loop]
+    for (int layer = 0; layer < layerCount; ++layer)
+    {
+        float sampleY = bodyBottom + ((float)layer + 0.5) * layerHeight;
+        float support = 0.0;
+        [unroll]
+        for (int i = 0; i < 8; ++i)
+        {
+            float dx = (i == 0 || i == 4 || i == 5) ? 1.0 :
+                ((i == 1 || i == 6 || i == 7) ? -1.0 : 0.0);
+            float dz = (i == 2 || i == 4 || i == 6) ? 1.0 :
+                ((i == 3 || i == 5 || i == 7) ? -1.0 : 0.0);
+            float3 samplePos = body.centerBody.xyz +
+                float3(dx * outside.x, 0, dz * outside.y);
+            samplePos.y = sampleY;
+            float localHeight = 0.0;
+            float3 localCurrent = 0.0;
+            float presence = SampleWater(samplePos, localHeight, localCurrent);
+            if (presence <= 0.0) continue;
+            float beneathSurface = saturate(
+                (localHeight - sampleY) /
+                max(_CellSize * 0.5, 0.001) + 0.5);
+            if (beneathSurface <= 0.0) continue;
+            presence *= beneathSurface * SampleFluidOccupancy3D(samplePos);
+            if (presence <= 0.0) continue;
+            support += presence;
+            available += presence;
+            waterline += localHeight * presence;
+            current += localCurrent * presence;
+        }
+        float coverage = saturate(support / 8.0);
+        if (layer == 0) coverage0 = coverage;
+        else if (layer == 1) coverage1 = coverage;
+        else if (layer == 2) coverage2 = coverage;
+        else if (layer == 3) coverage3 = coverage;
+        else if (layer == 4) coverage4 = coverage;
+        else if (layer == 5) coverage5 = coverage;
+        else if (layer == 6) coverage6 = coverage;
+        else coverage7 = coverage;
+    }
+    if (available <= 0.001) return;
+    waterline /= available;
+    current /= available;
+
+    float wet = 0;
+    float supportedWet = 0;
+    float3 buoyancyTorque = 0;
+    float3 dragDelta = 0;
+    float3 dragTorque = 0;
+    [loop]
+    for (int a = 0; a < 5; a++)
+    [loop]
+    for (int u = 0; u < 5; u++)
+    [loop]
+    for (int v = 0; v < 5; v++)
+    {
+        float t = ((float)a - 2.0) * 0.4;
+        float h = ((float)u - 2.0) * 0.4;
+        float k = ((float)v - 2.0) * 0.4;
+        float3 q;
+        if (axis == 0) q = float3(t, h, k);
+        else if (axis == 1) q = float3(h, t, k);
+        else q = float3(h, k, t);
+        if (shape > 1.5 && dot(q, q) > 1.001) continue;
+        if (shape > 0.5 && shape < 1.5)
+        {
+            float2 radial = axis == 0 ? q.yz : axis == 1 ? q.xz : q.xy;
+            if (dot(radial,radial) > 1.001) continue;
+        }
+        float3 samplePosition = body.centerBody.xyz +
+            Rotate(body.rotation, q * halfSize);
+        // Only geometry determines immersed fraction once surrounding water
+        // is confirmed. Never scale displacement by empty solid-interior cells.
+        float immersion = saturate((waterline - samplePosition.y) /
+            max(_CellSize * 0.25, 0.001) + 0.5);
+        // Integrate actual neighboring water occupancy for each shape point.
+        // The world-space Y is important when the collider is tilted.
+        float layerCoord = (samplePosition.y - bodyBottom) /
+            max(layerHeight, 0.001) - 0.5;
+        int lower = clamp((int)floor(layerCoord), 0, layerCount - 1);
+        int upper = min(lower + 1, layerCount - 1);
+        float mixLayers = saturate(layerCoord - (float)lower);
+        // Scalar selection avoids variable-indexed HLSL arrays.
+        float lowerCoverage = lower == 0 ? coverage0 :
+            lower == 1 ? coverage1 : lower == 2 ? coverage2 :
+            lower == 3 ? coverage3 : lower == 4 ? coverage4 :
+            lower == 5 ? coverage5 : lower == 6 ? coverage6 : coverage7;
+        float upperCoverage = upper == 0 ? coverage0 :
+            upper == 1 ? coverage1 : upper == 2 ? coverage2 :
+            upper == 3 ? coverage3 : upper == 4 ? coverage4 :
+            upper == 5 ? coverage5 : upper == 6 ? coverage6 : coverage7;
+        float localCoverage = lerp(lowerCoverage, upperCoverage, mixLayers);
+        float displaced = immersion * localCoverage;
+        wet += immersion;
+        if (displaced <= 0.0001) continue;
+        supportedWet += displaced;
+        float3 r = samplePosition - body.bodyCenter.xyz;
+        buoyancyTorque += displaced * cross(r, float3(0,1,0));
+        float3 bodyPointVelocity = body.velocity.xyz + cross(body.angular.xyz,r);
+        // Grounded heavy props follow a reduced target current, not merely
+        // a weaker spring that would eventually reach full water speed.
+        float3 targetVelocity = current;
+        targetVelocity.xz *= saturate(body.fluidProperties.y);
+        float3 relativeVelocity = targetVelocity - bodyPointVelocity;
+        // Floating bodies get vertical lift from displaced volume, not from
+        // noisy upward velocities of individual FLIP water parcels. Follow
+        // horizontal currents normally; damp vertical movement toward rest.
+        // Dense bodies retain their original full 3D fluid response.
+        relativeVelocity.y = density < 1.0
+            ? -bodyPointVelocity.y
+            : relativeVelocity.y * _VerticalFlowResponseScale;
+        dragDelta += displaced * relativeVelocity;
+        dragTorque += displaced * cross(r, relativeVelocity);
+    }
+    if (supportedWet <= 0.001) return;
+    // Genuine wetted volume, not surface-height fraction multiplied by a
+    // single water occupancy reading. Divide by geometric immersion only to
+    // transmit a live-pose-compatible coverage factor to the CPU.
+    float submerged = saturate(supportedWet / samples);
+    float fluidCoverage = wet > 0.001
+        ? saturate(supportedWet / wet) : 0.0;
+    bool floating = density < 1.0;
+
+    // CPU evaluates current-pose geometric immersion and multiplies it by
+    // this measured fraction of that volume actually supported by water.
+    // Keep the existing readback lanes and collider-weight normalization.
+    if (floating)
+    {
+        uint bodySlot = (uint)bi * 2;
+        InterlockedAdd(_BodyImpulses[bodySlot].x,
+            (int)round(current.x * fluidCoverage * SCALE));
+        InterlockedAdd(_BodyImpulses[bodySlot].z,
+            (int)round(current.z * fluidCoverage * SCALE));
+        InterlockedAdd(_BodyImpulses[bodySlot].w,
+            (int)round(waterline * fluidCoverage * SCALE));
+        InterlockedAdd(_BodyImpulses[bodySlot + 1].w,
+            (int)round(fluidCoverage * SCALE));
+    }
+
+    float3 force = 0.0;
+    if (!floating)
+        force.y = mass * _Gravity * _Dt * submerged / density;
+    // Shape-point buoyancy torque is already weighted by water occupancy.
+    float3 torque = mass * _Gravity * _Dt / (density * samples)
+        * buoyancyTorque;
+
+    // Saturating by equilibrium submergence ensures even cork-like objects
+    // follow the water while most of their volume stays above its surface.
+    float immersionFactor = saturate(submerged / min(density, 1.0));
+    // Floating objects should quickly approach the surrounding current,
+    // including flow along their long axis. Limit their instantaneous impulse
+    // below so faster convergence cannot bring back particle-like kicks.
+    float responseRate = _FlowResponse * (floating ? 2.0 : 1.0);
+    float following = (1.0 - exp(-responseRate * _Dt)) *
+        immersionFactor;
+    float dragScale = mass * following / supportedWet;
+    // Dense bodies continue to use GPU linear buoyancy and drag.
+    // Float bodies return their sampled surface/current for live CPU forces.
+    if (!floating) force += dragScale * dragDelta * _FlowForceMultiplier;
+    torque += dragScale * dragTorque * _FlowForceMultiplier;
+    if (floating)
+    {
+        // Vertical damping is applied on the CPU using the present Rigidbody
+        // velocity; never send delayed velocity-feedback impulses from the GPU.
+        // Waves can still tilt an object, but buoyancy and drag are not
+        // allowed to generate full-scale high-frequency rotational impulses.
+        torque *= _FloatTorqueScale;
+        // Light box-shaped props (duck, bottle) gently self-right. Cylindrical
+        // logs are free to roll. Righting is added AFTER noisy torque scaling.
+        if (shape < 0.5 && density < 0.5)
+        {
+            float3 worldUp = Rotate(body.rotation, float3(0,1,0));
+            torque += mass * _Dt * _FloatUprightStrength *
+                cross(worldUp, float3(0,1,0)) * immersionFactor;
+        }
+    }
+    // Streamline only eligible floating pieces (logs and flag) when buoyancy
+    // supports them. Their existing high angular damping still suppresses
+    // particle-scale wobble; alignment is a separate, deliberate steering torque.
+    // For a box/cylinder, pointing its longest axis along the flow minimizes
+    // the frontal projected area. Nearly isotropic shapes receive no steering.
+    if (floating && body.angular.w > 0.0 && _FloatFlowAlignmentStrength > 0.0)
+    {
+        float flowSpeed = length(current);
+        float afloat = smoothstep(0.55, 0.95, submerged / density);
+        float fullSpeed = max(0.01, _FloatFlowAlignmentFullSpeed);
+        float major = axis == 0 ? halfSize.x : axis == 1 ? halfSize.y : halfSize.z;
+        float second = axis == 0 ? max(halfSize.y, halfSize.z) :
+            axis == 1 ? max(halfSize.x, halfSize.z) : max(halfSize.x, halfSize.y);
+        float anisotropy = saturate((major - second) / max(major, 0.001));
+        if (flowSpeed > 0.01 && afloat > 0.001 && anisotropy > 0.001)
+        {
+            float3 localLongAxis = axis == 0 ? float3(1,0,0) :
+                axis == 1 ? float3(0,1,0) : float3(0,0,1);
+            float3 worldLongAxis = Rotate(body.rotation, localLongAxis);
+            float3 flowDirection = current / flowSpeed;
+            // A rod has two equally streamlined ends. Choose the nearer one,
+            // but still exert full steering at 90 degrees (upright in a river).
+            if (dot(worldLongAxis, flowDirection) < 0.0)
+                flowDirection = -flowDirection;
+            float3 alignmentError = cross(worldLongAxis, flowDirection);
+            float flowWeight = saturate(flowSpeed / fullSpeed);
+            // Mass is already shared between a compound body's colliders.
+            // Apply AFTER _FloatTorqueScale, so jitter suppression stays intact.
+            torque += mass * _Dt * _FloatFlowAlignmentStrength *
+                anisotropy * afloat * flowWeight * alignmentError;
+        }
+    }
+
+    uint dst = (uint)bi * 2;
+    InterlockedAdd(_BodyImpulses[dst].x, (int)round(force.x * SCALE));
+    InterlockedAdd(_BodyImpulses[dst].y, (int)round(force.y * SCALE));
+    InterlockedAdd(_BodyImpulses[dst].z, (int)round(force.z * SCALE));
+    InterlockedAdd(_BodyImpulses[dst + 1].x, (int)round(torque.x * SCALE));
+    InterlockedAdd(_BodyImpulses[dst + 1].y, (int)round(torque.y * SCALE));
+    InterlockedAdd(_BodyImpulses[dst + 1].z, (int)round(torque.z * SCALE));
+}
+
+[numthreads(128,1,1)]
+void PressureToBodies(uint id : SV_DispatchThreadID)
+{
+    if (_WarmupOnly != 0) return;
+    uint cells = _GridSize.x * _GridSize.y * _GridSize.z;
+    if (id >= cells) return;
+    int3 c = int3(id % _GridSize.x,
+        (id / _GridSize.x) % _GridSize.y,
+        id / (_GridSize.x * _GridSize.y));
+    if (!IsFluid(c)) return;
+    float pressure = clamp(_PressureSrc[id], 0.0, _PressureClamp);
+    if (pressure < _PressureThreshold) return;
+    float3 pos = Center(c);
+    [loop]
+    for (uint i = 0; i < _ColliderCount; ++i)
+    {
+        FluidCollider body = _Colliders[i];
+        int bi = (int)body.centerBody.w;
+        if (bi < 0 || bi >= (int)_BodyCount) continue;
+        // Relative-density game pieces, including heavy stones, already get
+        // volumetric buoyancy and flow forces. Per-cell pressure impulses
+        // are unbounded at the riverbed and can launch a 2.6-density stone.
+        // Preserve this impact path for non-piece bodies such as the flag.
+        if (body.fluidProperties.x > 0.0) continue;
+        float3 dr = pos - body.centerBody.xyz;
+        float radius = body.velocity.w + _CellSize;
+        if (dot(dr, dr) > radius * radius) continue;
+        float distance = SignedDistance(body, pos);
+        if (distance < 0 || distance > _CellSize) continue;
+        float3 normal = ColliderNormal(body, pos);
+        // Reaction of the pressure gradient on the solid surface.
+        float3 impulse = -normal * pressure * _HydroDensity * _Dt *
+            _CellSize * _CellSize;
+        float3 torque = cross(pos - body.bodyCenter.xyz, impulse);
+        uint index = (uint)bi * 2;
+        InterlockedAdd(_BodyImpulses[index].x, (int)round(impulse.x * SCALE));
+        InterlockedAdd(_BodyImpulses[index].y, (int)round(impulse.y * SCALE));
+        InterlockedAdd(_BodyImpulses[index].z, (int)round(impulse.z * SCALE));
+        InterlockedAdd(_BodyImpulses[index+1].x, (int)round(torque.x * SCALE));
+        InterlockedAdd(_BodyImpulses[index+1].y, (int)round(torque.y * SCALE));
+        InterlockedAdd(_BodyImpulses[index+1].z, (int)round(torque.z * SCALE));
+    }
+}
+
+[numthreads(128,1,1)]
+void Waterfall(uint id : SV_DispatchThreadID)
+{
+    if (_WarmupOnly != 0) return;
+    if (id >= _ParticleCount) return;
+    FluidParticle p = _Particles[id];
+    if (p.position.w < 1.5) return;
+    // Water beyond the -Z cliff is free-falling spray. The 3D pressure domain
+    // stays small; inactive falling particles are excluded from P2G/G2P.
+    p.velocity.y -= _Gravity * _Dt;
+    p.position.xyz += p.velocity.xyz * _Dt;
+    [loop]
+    for (uint i = 0; i < _ColliderCount; ++i)
+    {
+        FluidCollider b = _Colliders[i];
+        int bi = (int)b.centerBody.w;
+        if (bi < 0 || bi >= (int)_BodyCount) continue;
+        float3 delta = p.position.xyz - b.centerBody.xyz;
+        if (dot(delta, delta) > b.velocity.w * b.velocity.w) continue;
+        if (SignedDistance(b, p.position.xyz) < _CollisionSkin)
+            InterlockedOr(_LavaContacts[bi], 1u);
+    }
+    if (p.position.y < _WaterfallEndY || p.position.z < _ExitZ - 80)
+        p.position.w = 0;
+    _Particles[id] = p;
+}

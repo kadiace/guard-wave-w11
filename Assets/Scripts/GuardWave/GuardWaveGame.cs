@@ -121,6 +121,9 @@ namespace GuardWave
         private GuardWaveDropPreview _dropPreview;
         private GuardWaveFlipRenderer _flipRenderer;
         private GuardWaveFluidSettings _fluidSettings;
+        private bool _isLavaStage;
+        private float _lavaFlowSecondsRemaining;
+        private readonly List<Rigidbody> _lavaContacts = new List<Rigidbody>();
         private GuardWaveFlipFluid _fluid;
         private Bounds _placementBounds;
         private Bounds _lowerCreekBounds;
@@ -186,6 +189,7 @@ namespace GuardWave
         private void Start()
         {
             _sceneContext = GetComponent<ForestSceneContext>();
+            _isLavaStage = gameObject.scene.name == "Lava";
             _catalog = new GuardWaveCatalog();
             _stageInfo = GuardWaveStageInfoFile.LoadForScene(gameObject.scene.name);
             _fluidSettings = _sceneFluidSettings != null
@@ -228,6 +232,7 @@ namespace GuardWave
             if (_fluid == null) return;
             // Drain at most one completed GPU step per physics tick, before
             // dispatching the next simulation step.
+            if (_isLavaStage) DestroyContactedLavaObjects();
             _fluid.ApplyPendingImpulses();
             if (ambientFlowPreview && _ambientFlowRunning)
                 _fluid.Step(Time.fixedDeltaTime, 0f);
@@ -265,6 +270,7 @@ namespace GuardWave
             // Ambient flow can destroy the flag before the first Ready click.
             if (!_awaitingStage && !_finished &&
                 _defenseFlag != null && _defenseFlag.activeSelf &&
+                !_isLavaStage &&
                 _defenseFlag.transform.position.z <= DestructionBoundaryZ)
                 DestroyDefenseFlag();
             // Shader variants are compiled in small, mutation-free batches
@@ -1080,6 +1086,8 @@ namespace GuardWave
             !_stageTransitioning && !_resolving && !_awaitingStage
             && !_finished && !_rulesOpen && _defenseFlag != null
             && _defenseFlag.activeInHierarchy;
+        public bool IsLavaStage => _isLavaStage;
+        public float LavaFlowSecondsRemaining => _lavaFlowSecondsRemaining;
         public bool WaveHasStarted => _waveHasStarted;
         public bool CanSelect => !_resolving && !_awaitingStage && !_finished && !_rulesOpen
             && _paletteOpen && !_stageTransitioning;
@@ -1303,6 +1311,8 @@ namespace GuardWave
             _stageTransitioning = false;
             _waveHasStarted = false;
             _ambientFlowRunning = false;
+            _lavaFlowSecondsRemaining = 0f;
+            _lavaContacts.Clear();
             CommitWaveSnapshot();
 
             foreach (GuardWaveMudPatch patch in _mudPatches)
@@ -1370,7 +1380,9 @@ namespace GuardWave
             if (ambientFlowPreview) BeginAmbientCreekFlow();
             _status = GetComponent<FogSceneController>() != null
                 ? "건물을 배치하면 +Z 방향 실외기 바람으로 안개를 밀어냅니다. 준비 완료를 누르세요."
-                : "진흙을 바르고 드라이기로 말려 접착력을 강화하세요. 기물 우클릭: 제거, 빈 공간 우클릭: 선택 해제";
+                : _isLavaStage
+                    ? "용암에 닿는 기물은 즉시 파괴됩니다. 깃발을 지키세요."
+                    : "진흙을 바르고 드라이기로 말려 접착력을 강화하세요. 기물 우클릭: 제거, 빈 공간 우클릭: 선택 해제";
             // Initial state enables Ctrl+Z to undo the very first placement.
             SaveEditState(false);
         }
@@ -1590,7 +1602,9 @@ namespace GuardWave
             _pendingDrops--;
             RefreshLatestEditState(placementState);
             if (_pendingDrops == 0 && !_stageTransitioning && !_awaitingStage)
-                _status = "배치 완료. 준비완료를 누르면 파도가 시작됩니다.";
+                _status = _isLavaStage
+                    ? "배치 완료. 준비 완료를 누르면 용암이 흐릅니다."
+                    : "배치 완료. 준비완료를 누르면 파도가 시작됩니다.";
         }
 
         /// <summary>
@@ -1619,7 +1633,7 @@ namespace GuardWave
 
         /// <summary>Removes one object while retaining scene-authored sticks for reload or rollback.</summary>
         private int RemovePiece(GuardWavePiece piece, GuardWaveChangeKind reason = GuardWaveChangeKind.Destroyed,
-            float destructionDelay = 0f)
+            float destructionDelay = 0f, bool destroyImmediately = false)
         {
             // Never remove the defense flag through the ordinary piece pipeline.
             if (piece == null || piece.MaterialId == "default_flag" ||
@@ -1638,6 +1652,13 @@ namespace GuardWave
                 _removalMudPatches.Clear();
             }
             PublishChange(new GuardWaveChange(piece, piece, reason, 0, piece.transform.position));
+            if (destroyImmediately)
+            {
+                piece.gameObject.SetActive(false);
+                SafeDestroySelectedObject(piece.gameObject);
+                Destroy(piece.gameObject);
+                return 1;
+            }
             if (_scenePieces.Contains(piece) || _runtimePieces.Contains(piece))
             {
                 if (destructionDelay > 0f)
@@ -1676,6 +1697,13 @@ namespace GuardWave
             _waveHasStarted = true;
             _stageTransitioning = true;
             _resolving = true;
+            if (_isLavaStage)
+            {
+                _ambientFlowRunning = true;
+                _status = "용암이 흐르고 있습니다. 접촉한 기물은 즉시 파괴됩니다.";
+                _stageFloodRoutine = StartCoroutine(ResolveLavaFlow());
+                return;
+            }
             if (ambientFlowPreview)
             {
                 _ambientFlowRunning = true;
@@ -1689,8 +1717,84 @@ namespace GuardWave
         }
 
         /// <summary>
-        /// Start the current at Ready, emit a crest after five seconds and a second
-        /// three seconds later, then check flag survival after both waves pass.
+        /// Advances only the existing ambient FLIP fluid, without emitting any crest.
+        /// The flag must survive until lava has traversed the scene.
+        /// </summary>
+        private IEnumerator ResolveLavaFlow()
+        {
+            float travelDistance = Mathf.Max(0f,
+                _placementBounds.max.z - _defenseFlag.transform.position.z);
+            _lavaFlowSecondsRemaining = travelDistance /
+                Mathf.Max(0.1f, _fluidSettings.AmbientFlowSpeed)
+                + FLAG_SURVIVAL_CHECK_SECONDS;
+            while (_lavaFlowSecondsRemaining > 0f)
+            {
+                yield return new WaitForFixedUpdate();
+                if (_awaitingStage)
+                {
+                    _stageFloodRoutine = null;
+                    yield break;
+                }
+                _lavaFlowSecondsRemaining = Mathf.Max(0f,
+                    _lavaFlowSecondsRemaining - Time.fixedDeltaTime);
+            }
+            // Freeze the source, then drain all outstanding GPU contact results.
+            // This includes the last particle step even when readback was saturated.
+            _ambientFlowRunning = false;
+            _fluid.RequestFinalLavaContactSnapshot();
+            while (_fluid.HasPendingLavaContactReadbacks)
+            {
+                yield return new WaitForFixedUpdate();
+                DestroyContactedLavaObjects();
+                if (_awaitingStage)
+                {
+                    _stageFloodRoutine = null;
+                    yield break;
+                }
+            }
+            DestroyContactedLavaObjects();
+            if (_awaitingStage)
+            {
+                _stageFloodRoutine = null;
+                yield break;
+            }
+            _stageTransitioning = false;
+            _resolving = false;
+            _stageFloodRoutine = null;
+            CompleteStage();
+        }
+
+        /// <summary>
+        /// Removes contacted rigidbody pieces now rather than retaining them
+        /// for the cliff's one-second delayed disappearance.
+        /// </summary>
+        private void DestroyContactedLavaObjects()
+        {
+            if (_fluid == null || !_isLavaStage) return;
+            _lavaContacts.Clear();
+            _fluid.DrainLavaContacts(_lavaContacts);
+            foreach (Rigidbody body in _lavaContacts)
+            {
+                if (body == null || !body.gameObject.activeInHierarchy) continue;
+                if (body.gameObject == _defenseFlag)
+                {
+                    GuardWavePiece flagPiece = body.GetComponent<GuardWavePiece>();
+                    if (flagPiece != null)
+                        PublishChange(new GuardWaveChange(flagPiece, flagPiece,
+                            GuardWaveChangeKind.Destroyed, 0, body.position));
+                    DestroyDefenseFlag();
+                    continue;
+                }
+                GuardWavePiece piece = body.GetComponent<GuardWavePiece>();
+                if (piece != null && IsPlacedPiece(piece))
+                    RemovePiece(piece, GuardWaveChangeKind.Destroyed,
+                        destroyImmediately: true);
+            }
+            _lavaContacts.Clear();
+        }
+
+        /// <summary>
+        /// Run the original Flood wave sequence in the Flood scene only.
         /// </summary>
         private IEnumerator ResolveAmbientWave()
         {
@@ -1895,7 +1999,7 @@ namespace GuardWave
         {
             if (_finished || _awaitingStage) return;
             if (_defenseFlag == null || !_defenseFlag.activeInHierarchy ||
-                _defenseFlag.transform.position.z <= DestructionBoundaryZ)
+                (!_isLavaStage && _defenseFlag.transform.position.z <= DestructionBoundaryZ))
             {
                 DestroyDefenseFlag();
                 return;
@@ -1904,6 +2008,7 @@ namespace GuardWave
             _stageTransitioning = false;
             _resolving = false;
             _finished = true;
+            _lavaFlowSecondsRemaining = 0f;
             _status = "재해가 지나갔습니다. 깃발을 지켜냈습니다.";
             StageClearSession.MarkCleared(Managers.Scene.CurrentScene);
         }
@@ -1955,10 +2060,19 @@ namespace GuardWave
             _resolving = false;
             _awaitingStage = true;
             _finished = false;
-            _status = _waveSnapshot == null
-                ? "깃발이 파괴되었습니다. 확인을 누르면 씬을 다시 시작합니다."
-                : "깃발이 파괴되었습니다. 확인을 누르면 마지막 배치 상태로 돌아갑니다.";
-            StartCoroutine(DeactivateDefenseFlagAfterDelay());
+            _status = _isLavaStage
+                ? "깃발이 용암에 닿아 파괴되었습니다. 확인을 누르면 씬이 재시작됩니다."
+                : _waveSnapshot == null
+                    ? "깃발이 파괴되었습니다. 확인을 누르면 씬을 다시 시작합니다."
+                    : "깃발이 파괴되었습니다. 확인을 누르면 마지막 배치 상태로 돌아갑니다.";
+            if (_isLavaStage)
+            {
+                _defenseFlag.SetActive(false);
+                SafeDestroySelectedObject(_defenseFlag);
+                Destroy(_defenseFlag);
+            }
+            else
+                StartCoroutine(DeactivateDefenseFlagAfterDelay());
         }
 
         /// <summary>파괴된 깃발도 일반 기물처럼 1초간 남기되 되돌린 깃발은 숨기지 않는다.</summary>
@@ -2380,6 +2494,12 @@ namespace GuardWave
         public void ConfirmFailure()
         {
             if (!_awaitingStage) return;
+            if (_isLavaStage)
+            {
+                ClearEditorSceneSelectionBeforeReload();
+                Managers.Scene.ReloadCurrentScene();
+                return;
+            }
             // Fog keeps simulating behind the popup; confirmation is the
             // explicit point at which its volume and GPU resources are cleared.
             FogSceneController fogMode = GetComponent<FogSceneController>();

@@ -139,6 +139,10 @@ namespace GuardWave
         public float SpawnRateMultiplier => _spawnRateMultiplier;
         public float ParticleRenderRadius => _particleRenderRadius;
 
+        [Header("Lava contact physics")]
+        [SerializeField] private bool _destroyOnFluidContact;
+        public bool DestroyOnFluidContact => _destroyOnFluidContact;
+
         [Header("Screen-space liquid rendering")]
         [SerializeField] private bool _ssfrLavaSurface;
         [SerializeField, Range(0.25f, 1f)] private float _ssfrResolutionScale = 0.5f;

@@ -90,6 +90,11 @@ namespace GuardWave
         private readonly ComputeBuffer _colliderZIndicesBuffer;
         private readonly int[] _colliderZOffsetsData;
         private readonly int[] _colliderZIndicesData;
+        private readonly ComputeBuffer _lavaContactBuffer;
+        private readonly HashSet<Rigidbody> _pendingLavaContacts = new HashSet<Rigidbody>();
+        private int _pendingLavaReadbacks;
+        private const int MAX_PENDING_LAVA_READBACKS = 4;
+        private readonly int _clearLavaContactsKernel;
         private readonly ComputeBuffer _impulses;
         private readonly ComputeBuffer _waterSurface;
         private readonly ComputeBuffer _smoothedWaterSurface;
@@ -199,9 +204,11 @@ namespace GuardWave
             if (!SystemInfo.supportsComputeShaders)
                 throw new NotSupportedException("GPU FLIP water requires compute shader support.");
 
-            ComputeShader asset = Resources.Load<ComputeShader>("GuardWaveFlip");
+            string shaderName = _settings.DestroyOnFluidContact
+                ? "GuardWaveFlipLava" : "GuardWaveFlip";
+            ComputeShader asset = Resources.Load<ComputeShader>(shaderName);
             if (asset == null)
-                throw new InvalidOperationException("Missing Resources/GuardWaveFlip.compute");
+                throw new InvalidOperationException("Missing Resources/" + shaderName + ".compute");
             _compute = UnityEngine.Object.Instantiate(asset);
             _floorY = groundY;
             _waveHeight = ambientFlow ? _settings.AmbientWaterDepth :
@@ -242,6 +249,11 @@ namespace GuardWave
             _colliderZOffsetsData = new int[_grid.z + 1];
             _colliderZIndicesData = new int[_grid.z * _settings.MaxColliders];
             _impulses = new ComputeBuffer(_settings.MaxBodies * 2, sizeof(int) * 4);
+            if (_settings.DestroyOnFluidContact)
+            {
+                _lavaContactBuffer = new ComputeBuffer(_settings.MaxBodies, sizeof(uint));
+                _lavaContactBuffer.SetData(new uint[_settings.MaxBodies]);
+            }
             _waterSurface = new ComputeBuffer(_grid.x * _grid.z, sizeof(int));
             _smoothedWaterSurface = new ComputeBuffer(_grid.x * _grid.z, sizeof(int));
             // Unlike raw water columns, this history must survive fixed steps.
@@ -252,6 +264,8 @@ namespace GuardWave
             _crestMetrics = new ComputeBuffer(3, sizeof(uint));
             _crestMetrics.SetData(new uint[3]);
 
+            _clearLavaContactsKernel = _lavaContactBuffer != null
+                ? _compute.FindKernel("ClearLavaContacts") : -1;
             _clearKernel = _compute.FindKernel("ClearGrid");
             _clearWaterColumnsKernel = _compute.FindKernel("ClearWaterColumns");
             _classifyKernel = _compute.FindKernel("ClassifyGrid");
@@ -374,7 +388,13 @@ namespace GuardWave
             Bind(_g2pKernel, "_Colliders", _colliderBuffer);
             Bind(_g2pKernel, "_BodyImpulses", _impulses);
             Bind(_g2pKernel, "_FlowCounters", _flowCounters);
-            Bind(_g2pKernel, "_CrestMetrics", _crestMetrics);
+            if (_lavaContactBuffer != null)
+            {
+                Bind(_clearLavaContactsKernel, "_LavaContacts", _lavaContactBuffer);
+                Bind(_g2pKernel, "_LavaContacts", _lavaContactBuffer);
+            }
+            else
+                Bind(_g2pKernel, "_CrestMetrics", _crestMetrics);
             Bind(_pressureBodyKernel, "_Accum", _accum);
             Bind(_pressureBodyKernel, "_Solid", _solid);
             Bind(_pressureBodyKernel, "_Colliders", _colliderBuffer);
@@ -391,6 +411,11 @@ namespace GuardWave
             Bind(_buoyancyBodyKernel, "_Accum", _accum);
             Bind(_buoyancyBodyKernel, "_Solid", _solid);
             Bind(_buoyancyBodyKernel, "_BodyImpulses", _impulses);
+            if (_lavaContactBuffer != null)
+            {
+                Bind(_waterfallKernel, "_Colliders", _colliderBuffer);
+                Bind(_waterfallKernel, "_LavaContacts", _lavaContactBuffer);
+            }
             Bind(_waterfallKernel, "_Particles", _particles);
             CollectBodies(pieces, flagBody);
             UpdateColliders();
@@ -440,7 +465,8 @@ namespace GuardWave
             long crestCandidates = (long)columns * crestLayers * crestRows;
             // Reserve two disjoint crest lattices. Neither background refill
             // nor waterfall spray may overwrite either wave's reserved bank.
-            long totalCrestSlots = crestCandidates * RESERVED_CREST_COUNT;
+            long totalCrestSlots = _settings.DestroyOnFluidContact
+                ? 0 : crestCandidates * RESERVED_CREST_COUNT;
             if (crestCandidates > int.MaxValue ||
                 requested + totalCrestSlots >= _settings.MaxParticles)
                 throw new InvalidOperationException(
@@ -734,6 +760,8 @@ namespace GuardWave
             _elapsed += dt;
             _gpuStep++;
             UpdateColliders();
+            if (_lavaContactBuffer != null && _bodies.Count > 0)
+                Dispatch(_clearLavaContactsKernel, _bodies.Count);
             // The 20 m/s inlet crosses ~0.67 cells per 0.02s tick. Two GPU
             // substeps restore the previous ~0.33-cell displacement per solve.
             // Unity rigidbody physics stays at 50 Hz; only the FLIP solve subdivides.
@@ -839,6 +867,13 @@ namespace GuardWave
                     AsyncGPUReadback.Request(_flowCounters, OnFlowCountersReady);
                 }
             }
+            if (_lavaContactBuffer != null && _pendingLavaReadbacks < MAX_PENDING_LAVA_READBACKS)
+            {
+                _pendingLavaReadbacks++;
+                int requestedCount = _bodies.Count;
+                AsyncGPUReadback.Request(_lavaContactBuffer,
+                    request => OnLavaContactsReady(request, requestedCount));
+            }
             if (_bodies.Count > 0 &&
                 _pendingImpulseReadbacks < MAX_PENDING_IMPULSE_READBACKS)
             {
@@ -853,6 +888,45 @@ namespace GuardWave
                     request => OnImpulsesReady(request, requestedBodyCount,
                         requestFrame, sourceStep, sourceTime));
             }
+        }
+
+        public bool HasPendingLavaContactReadbacks => _pendingLavaReadbacks > 0;
+
+        /// <summary>
+        /// Captures the final GPU contact bitmap even when regular readbacks
+        /// were saturated. Called after the Lava inlet has stopped stepping.
+        /// </summary>
+        public void RequestFinalLavaContactSnapshot()
+        {
+            if (_disposed || _lavaContactBuffer == null) return;
+            _pendingLavaReadbacks++;
+            int bodyCount = _bodies.Count;
+            AsyncGPUReadback.Request(_lavaContactBuffer,
+                request => OnLavaContactsReady(request, bodyCount));
+        }
+
+        /// <summary>Collects GPU-confirmed collision bits; never operates on a disposed solver.</summary>
+        private void OnLavaContactsReady(AsyncGPUReadbackRequest request, int bodyCount)
+        {
+            _pendingLavaReadbacks = Mathf.Max(0, _pendingLavaReadbacks - 1);
+            if (_disposed || request.hasError) return;
+            NativeArray<uint> values = request.GetData<uint>();
+            int count = Mathf.Min(bodyCount, Mathf.Min(values.Length, _bodies.Count));
+            for (int i = 0; i < count; i++)
+            {
+                Rigidbody body = _bodies[i];
+                if (values[i] != 0u && body != null && body.gameObject.activeInHierarchy)
+                    _pendingLavaContacts.Add(body);
+            }
+        }
+
+        /// <summary>Transfers confirmed particle contacts into the next Unity physics tick.</summary>
+        public void DrainLavaContacts(List<Rigidbody> destination)
+        {
+            if (_disposed || _lavaContactBuffer == null) return;
+            foreach (Rigidbody body in _pendingLavaContacts)
+                if (body != null) destination.Add(body);
+            _pendingLavaContacts.Clear();
         }
 
         /// <summary>Samples visible wave particle height to distinguish loss from collapse.</summary>
@@ -1338,6 +1412,8 @@ namespace GuardWave
             if (_disposed) return;
             _disposed = true;
             _completedImpulseFrames.Clear();
+            _pendingLavaContacts.Clear();
+            _lavaContactBuffer?.Release();
             _particles.Release();
             _accum.Release();
             _velocity.Release();

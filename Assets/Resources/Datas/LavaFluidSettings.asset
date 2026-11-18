@@ -21,7 +21,7 @@ MonoBehaviour:
   _pressureClamp: 5000
   _pressureThreshold: 0.05
   _ambientWaterDepth: 1
-  _ambientFlowSpeed: 20
+  _ambientFlowSpeed: 2
   _ambientFlowVolumeMultiplier: 2
   _ambientMaxSupplyParticlesPerSecond: 37000
   _ambientImpactScale: 0.01
@@ -47,7 +47,7 @@ MonoBehaviour:
   _maxInletSpeed: 60
   _travelDurationMultiplier: 2
   _gravityMultiplier: 1
-  _maxParticleSpeed: 120
+  _maxParticleSpeed: 12
   _flipFraction: 0.92
   _maxFluidSubsteps: 4
   _targetFluidCfl: 0.35
@@ -61,6 +61,7 @@ MonoBehaviour:
   _spawnInterval: 0.12
   _spawnRateMultiplier: 3
   _particleRenderRadius: 0.45
+  _destroyOnFluidContact: 1
   _ssfrLavaSurface: 1
   _ssfrResolutionScale: 0.5
   _ssfrRadiusScale: 1
