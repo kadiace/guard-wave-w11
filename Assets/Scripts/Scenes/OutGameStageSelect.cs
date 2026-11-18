@@ -37,7 +37,7 @@ public sealed class OutGameStageSelect : MonoBehaviour, IBeginDragHandler, IDrag
     [SerializeField, Min(20f)] private float _swipeThreshold = 65f;
 
     private static readonly Scene[] Destinations = { Scene.Flood, Scene.Fog, Scene.Lava };
-    private static readonly string[] Names = { "THE LAST DAM", "GREEN SILENCE", "overflow" };
+    private static readonly string[] Names = { "THE LAST DAM", "GREEN SILENCE", "OVERFLOW" };
     private static readonly string[] Descriptions =
     {
         "FOREST  /  BUILD A DAM. HOLD THE FLOOD.",
