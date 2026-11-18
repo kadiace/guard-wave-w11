@@ -16,6 +16,7 @@ namespace GuardWave
         private const float CREEK_PREWAVE_SECONDS = 5f;
         private const float SECOND_CREST_DELAY_SECONDS = 3f;
         private const float FLAG_SURVIVAL_CHECK_SECONDS = 5f;
+        private const float LAVA_FLOW_DURATION_SECONDS = 60f;
         private const float FLOOD_DURATION_INCREASE_PER_STAGE = 0.2f;
         private const float FLOOD_DEPTH_INCREASE_PER_STAGE = 0.5f;
         private const float CAMERA_DRAG_THRESHOLD_PIXELS = 6f;
@@ -1717,16 +1718,12 @@ namespace GuardWave
         }
 
         /// <summary>
-        /// Advances only the existing ambient FLIP fluid, without emitting any crest.
-        /// The flag must survive until lava has traversed the scene.
+        /// Advances only the existing ambient FLIP fluid for 60 seconds, without
+        /// emitting crests. The flag must survive the full Lava flow duration.
         /// </summary>
         private IEnumerator ResolveLavaFlow()
         {
-            float travelDistance = Mathf.Max(0f,
-                _placementBounds.max.z - _defenseFlag.transform.position.z);
-            _lavaFlowSecondsRemaining = travelDistance /
-                Mathf.Max(0.1f, _fluidSettings.AmbientFlowSpeed)
-                + FLAG_SURVIVAL_CHECK_SECONDS;
+            _lavaFlowSecondsRemaining = LAVA_FLOW_DURATION_SECONDS;
             while (_lavaFlowSecondsRemaining > 0f)
             {
                 yield return new WaitForFixedUpdate();
