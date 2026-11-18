@@ -34,7 +34,7 @@
         },
         {
           "materialId": "fog_barrier",
-          "placementLimit": 10
+          "placementLimit": 2
         }
       ]
     },
