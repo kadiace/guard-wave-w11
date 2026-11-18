@@ -57,6 +57,25 @@ namespace GuardWave
             public int W;
         }
 
+        [StructLayout(LayoutKind.Sequential)]
+        private struct Int2
+        {
+            public int X;
+            public int Y;
+        }
+
+        /// <summary>One permanently latched GPU contact record per registered Rigidbody.</summary>
+        public struct LavaContactEvidence
+        {
+            public Rigidbody Body;
+            public int TriggerFlags;
+            public float MinSdfMeters;
+            public float SurfaceCoverage;
+            public int WetSurfaceSamples;
+            public bool SdfTriggered => (TriggerFlags & 1) != 0;
+            public bool CoverageTriggered => (TriggerFlags & 2) != 0;
+        }
+
         private readonly List<Rigidbody> _bodies = new List<Rigidbody>();
         // Only scene-authored Initial Wall logs carry these components.
         private readonly List<GuardWaveInitialLogJoint> _initialLogJoints =
@@ -91,10 +110,17 @@ namespace GuardWave
         private readonly int[] _colliderZOffsetsData;
         private readonly int[] _colliderZIndicesData;
         private readonly ComputeBuffer _lavaContactBuffer;
-        private readonly HashSet<Rigidbody> _pendingLavaContacts = new HashSet<Rigidbody>();
+        private readonly ComputeBuffer _lavaSmokeBuffer;
+        private readonly int _lavaSurfaceContactKernel;
+        private readonly int _lavaSmokePackKernel;
+        private readonly Dictionary<Rigidbody, LavaContactEvidence> _pendingLavaContacts =
+            new Dictionary<Rigidbody, LavaContactEvidence>();
+        private readonly HashSet<Rigidbody> _reportedLavaContacts = new HashSet<Rigidbody>();
+        private readonly List<Vector3> _lavaSmokePositions = new List<Vector3>();
         private int _pendingLavaReadbacks;
         private const int MAX_PENDING_LAVA_READBACKS = 4;
-        private readonly int _clearLavaContactsKernel;
+        private bool _lavaSmokeReadbackPending;
+        private float _lavaSmokeReadbackClock;
         private readonly ComputeBuffer _impulses;
         private readonly ComputeBuffer _waterSurface;
         private readonly ComputeBuffer _smoothedWaterSurface;
@@ -251,8 +277,12 @@ namespace GuardWave
             _impulses = new ComputeBuffer(_settings.MaxBodies * 2, sizeof(int) * 4);
             if (_settings.DestroyOnFluidContact)
             {
-                _lavaContactBuffer = new ComputeBuffer(_settings.MaxBodies, sizeof(uint));
-                _lavaContactBuffer.SetData(new uint[_settings.MaxBodies]);
+                _lavaContactBuffer = new ComputeBuffer(_settings.MaxBodies, sizeof(int) * 4);
+                Int4[] evidence = new Int4[_settings.MaxBodies];
+                for (int i = 0; i < evidence.Length; i++)
+                    evidence[i].Y = int.MaxValue;
+                _lavaContactBuffer.SetData(evidence);
+                _lavaSmokeBuffer = new ComputeBuffer(_grid.x * _grid.z, sizeof(int) * 2);
             }
             _waterSurface = new ComputeBuffer(_grid.x * _grid.z, sizeof(int));
             _smoothedWaterSurface = new ComputeBuffer(_grid.x * _grid.z, sizeof(int));
@@ -264,8 +294,10 @@ namespace GuardWave
             _crestMetrics = new ComputeBuffer(3, sizeof(uint));
             _crestMetrics.SetData(new uint[3]);
 
-            _clearLavaContactsKernel = _lavaContactBuffer != null
-                ? _compute.FindKernel("ClearLavaContacts") : -1;
+            _lavaSurfaceContactKernel = _lavaContactBuffer != null
+                ? _compute.FindKernel("LavaSurfaceContact") : -1;
+            _lavaSmokePackKernel = _lavaContactBuffer != null
+                ? _compute.FindKernel("PackLavaSmokeColumns") : -1;
             _clearKernel = _compute.FindKernel("ClearGrid");
             _clearWaterColumnsKernel = _compute.FindKernel("ClearWaterColumns");
             _classifyKernel = _compute.FindKernel("ClassifyGrid");
@@ -324,6 +356,13 @@ namespace GuardWave
             _compute.SetFloat("_PressureThreshold", _settings.PressureThreshold);
             _compute.SetFloat("_CollisionResponse", _settings.CollisionResponse);
             _compute.SetFloat("_CollisionSkin", _settings.CollisionSkin);
+            if (_lavaContactBuffer != null)
+            {
+                _compute.SetFloat("_LavaDestroyContactDistance", _settings.LavaDestroyContactDistance);
+                _compute.SetFloat("_LavaSurfaceCoverageThreshold", _settings.LavaSurfaceCoverageThreshold);
+                _compute.SetFloat("_LavaSurfaceWetnessThreshold", _settings.LavaSurfaceWetnessThreshold);
+                _compute.SetFloat("_LavaSurfaceSampleOffset", _settings.LavaSurfaceSampleOffset);
+            }
             _compute.SetFloat("_FlowResponse", _settings.WaterFlowResponse);
             _compute.SetFloat("_VerticalFlowResponseScale", _settings.VerticalFlowResponseScale);
             _compute.SetFloat("_FloatVerticalDamping", _settings.FloatingVerticalDamping);
@@ -390,8 +429,14 @@ namespace GuardWave
             Bind(_g2pKernel, "_FlowCounters", _flowCounters);
             if (_lavaContactBuffer != null)
             {
-                Bind(_clearLavaContactsKernel, "_LavaContacts", _lavaContactBuffer);
                 Bind(_g2pKernel, "_LavaContacts", _lavaContactBuffer);
+                Bind(_lavaSurfaceContactKernel, "_LavaContacts", _lavaContactBuffer);
+                Bind(_lavaSurfaceContactKernel, "_Colliders", _colliderBuffer);
+                Bind(_lavaSurfaceContactKernel, "_Accum", _accum);
+                Bind(_lavaSurfaceContactKernel, "_Solid", _solid);
+                Bind(_lavaSmokePackKernel, "_WaterSurface", _waterSurface);
+                Bind(_lavaSmokePackKernel, "_WaterFlow", _waterFlow);
+                Bind(_lavaSmokePackKernel, "_LavaSmokeColumns", _lavaSmokeBuffer);
             }
             else
                 Bind(_g2pKernel, "_CrestMetrics", _crestMetrics);
@@ -760,8 +805,8 @@ namespace GuardWave
             _elapsed += dt;
             _gpuStep++;
             UpdateColliders();
-            if (_lavaContactBuffer != null && _bodies.Count > 0)
-                Dispatch(_clearLavaContactsKernel, _bodies.Count);
+            // Lava contact data is monotonic throughout this solver's lifetime.
+            // Do not clear a hit while any asynchronous readback is pending.
             // The 20 m/s inlet crosses ~0.67 cells per 0.02s tick. Two GPU
             // substeps restore the previous ~0.33-cell displacement per solve.
             // Unity rigidbody physics stays at 50 Hz; only the FLIP solve subdivides.
@@ -803,6 +848,8 @@ namespace GuardWave
                 if (_particleCount == 0) continue;
                 _compute.SetInt("_ParticleCount", _particleCount);
                 Dispatch(_p2gKernel, _particleCount);
+                if (_lavaContactBuffer != null && _bodies.Count > 0)
+                    Dispatch(_lavaSurfaceContactKernel, _settings.MaxColliders);
                 Dispatch(_normalizeKernel, _gridCount);
 
                 ComputeBuffer src = _pressureA;
@@ -874,6 +921,17 @@ namespace GuardWave
                 AsyncGPUReadback.Request(_lavaContactBuffer,
                     request => OnLavaContactsReady(request, requestedCount));
             }
+            if (_lavaSmokeBuffer != null)
+            {
+                _lavaSmokeReadbackClock += dt;
+                if (_lavaSmokeReadbackClock >= 0.5f && !_lavaSmokeReadbackPending)
+                {
+                    _lavaSmokeReadbackClock = 0f;
+                    Dispatch(_lavaSmokePackKernel, _grid.x * _grid.z);
+                    _lavaSmokeReadbackPending = true;
+                    AsyncGPUReadback.Request(_lavaSmokeBuffer, OnLavaSmokeReady);
+                }
+            }
             if (_bodies.Count > 0 &&
                 _pendingImpulseReadbacks < MAX_PENDING_IMPULSE_READBACKS)
             {
@@ -905,28 +963,74 @@ namespace GuardWave
                 request => OnLavaContactsReady(request, bodyCount));
         }
 
-        /// <summary>Collects GPU-confirmed collision bits; never operates on a disposed solver.</summary>
+        /// <summary>Monotonic GPU flags survive readback congestion and permit exact first-hit diagnostics.</summary>
         private void OnLavaContactsReady(AsyncGPUReadbackRequest request, int bodyCount)
         {
             _pendingLavaReadbacks = Mathf.Max(0, _pendingLavaReadbacks - 1);
             if (_disposed || request.hasError) return;
-            NativeArray<uint> values = request.GetData<uint>();
+            NativeArray<Int4> values = request.GetData<Int4>();
             int count = Mathf.Min(bodyCount, Mathf.Min(values.Length, _bodies.Count));
             for (int i = 0; i < count; i++)
             {
+                Int4 data = values[i];
+                if (data.X == 0) continue;
                 Rigidbody body = _bodies[i];
-                if (values[i] != 0u && body != null && body.gameObject.activeInHierarchy)
-                    _pendingLavaContacts.Add(body);
+                if (body == null || !body.gameObject.activeInHierarchy ||
+                    _reportedLavaContacts.Contains(body)) continue;
+                LavaContactEvidence evidence = new LavaContactEvidence
+                {
+                    Body = body,
+                    TriggerFlags = data.X,
+                    MinSdfMeters = data.Y == int.MaxValue ? float.PositiveInfinity : data.Y / 10000f,
+                    SurfaceCoverage = Mathf.Clamp01(data.Z / 10000f),
+                    WetSurfaceSamples = data.W
+                };
+                if (_pendingLavaContacts.TryGetValue(body, out LavaContactEvidence old))
+                {
+                    evidence.TriggerFlags |= old.TriggerFlags;
+                    evidence.MinSdfMeters = Mathf.Min(old.MinSdfMeters, evidence.MinSdfMeters);
+                    if (old.SurfaceCoverage > evidence.SurfaceCoverage)
+                    {
+                        evidence.SurfaceCoverage = old.SurfaceCoverage;
+                        evidence.WetSurfaceSamples = old.WetSurfaceSamples;
+                    }
+                }
+                _pendingLavaContacts[body] = evidence;
             }
         }
 
-        /// <summary>Transfers confirmed particle contacts into the next Unity physics tick.</summary>
-        public void DrainLavaContacts(List<Rigidbody> destination)
+        /// <summary>Once a body has been delivered, later readbacks do not re-trigger it.</summary>
+        public void DrainLavaContacts(List<LavaContactEvidence> destination)
         {
             if (_disposed || _lavaContactBuffer == null) return;
-            foreach (Rigidbody body in _pendingLavaContacts)
-                if (body != null) destination.Add(body);
+            foreach (var entry in _pendingLavaContacts)
+                if (entry.Key != null && _reportedLavaContacts.Add(entry.Key))
+                    destination.Add(entry.Value);
             _pendingLavaContacts.Clear();
+        }
+
+        /// <summary>GPU-confirmed surface positions for Lava-only smoke VFX; no SSFR blur proxy.</summary>
+        public IReadOnlyList<Vector3> LavaSmokePositions => _lavaSmokePositions;
+
+        private void OnLavaSmokeReady(AsyncGPUReadbackRequest request)
+        {
+            _lavaSmokeReadbackPending = false;
+            if (_disposed || request.hasError) return;
+            NativeArray<Int2> columns = request.GetData<Int2>();
+            _lavaSmokePositions.Clear();
+            int count = Mathf.Min(columns.Length, _grid.x * _grid.z);
+            for (int i = 0; i < count; ++i)
+            {
+                Int2 cell = columns[i];
+                if (cell.X <= 0 || cell.Y < 2) continue;
+                int x = i % _grid.x;
+                int z = i / _grid.x;
+                float wx = _origin.x + (x + 0.5f) * _cellSize;
+                float wz = _origin.z + (z + 0.5f) * _cellSize;
+                if (Mathf.Abs(wx) >= 12f || wz < _endZ || wz > _startZ) continue;
+                _lavaSmokePositions.Add(new Vector3(wx,
+                    _floorY + cell.X / 4096f, wz));
+            }
         }
 
         /// <summary>Samples visible wave particle height to distinguish loss from collapse.</summary>
@@ -1413,6 +1517,9 @@ namespace GuardWave
             _disposed = true;
             _completedImpulseFrames.Clear();
             _pendingLavaContacts.Clear();
+            _reportedLavaContacts.Clear();
+            _lavaSmokePositions.Clear();
+            _lavaSmokeBuffer?.Release();
             _lavaContactBuffer?.Release();
             _particles.Release();
             _accum.Release();

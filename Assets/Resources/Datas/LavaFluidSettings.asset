@@ -62,7 +62,13 @@ MonoBehaviour:
   _spawnRateMultiplier: 3
   _particleRenderRadius: 0.45
   _destroyOnFluidContact: 1
-  _lavaBurnDurationSeconds: 0.8
+  _lavaDestroyContactDistance: 0.2
+  _lavaSurfaceCoverageThreshold: 0.12
+  _lavaSurfaceWetnessThreshold: 0.08
+  _lavaSurfaceSampleOffset: 0.35
+  _lavaBurnDurationSeconds: 3
+  _lavaSmokeParticlesPerSecond: 48
+  _lavaEmberParticlesPerSecond: 52
   _ssfrLavaSurface: 1
   _ssfrResolutionScale: 0.5
   _ssfrRadiusScale: 1

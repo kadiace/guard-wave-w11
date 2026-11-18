@@ -1,5 +1,6 @@
 // GuardWave 3D particle-in-cell solver. All fluid state stays on the GPU.
-#pragma kernel ClearLavaContacts
+#pragma kernel LavaSurfaceContact
+#pragma kernel PackLavaSmokeColumns
 #pragma kernel ClearGrid
 #pragma kernel ClearWaterColumns
 #pragma kernel ClassifyGrid
@@ -45,7 +46,10 @@ RWStructuredBuffer<FluidParticle> _Particles;
 RWStructuredBuffer<uint> _FlowCounters; // [0] missing base water (initial + losses), [1] total supplied, [2] per-tick claims, [3] cliff exits
 RWStructuredBuffer<uint> _CrestMetrics; // active wave particles, peak height centimeters, released count
 RWStructuredBuffer<int4> _Accum;
-RWStructuredBuffer<uint> _LavaContacts; // One bit per Rigidbody
+// Persistent per-Rigidbody evidence: x=trigger bits, y=min observed signed
+// distance (1/10000 m), z=max surface coverage (1/10000), w=wet samples.
+RWStructuredBuffer<int4> _LavaContacts;
+RWStructuredBuffer<int2> _LavaSmokeColumns; // physical height and count for each XZ cell
 RWStructuredBuffer<int4> _BodyImpulses; // force impulse in xyz, torque in next xyz
 RWStructuredBuffer<int> _WaterSurface; // raw highest particle surface in XZ, 4096 units/m
 RWStructuredBuffer<int> _SmoothedWaterSurface; // persistent, temporally stable surface
@@ -74,6 +78,10 @@ float _PressureClamp;
 float _PressureThreshold;
 float _CollisionResponse;
 float _CollisionSkin;
+float _LavaDestroyContactDistance; // independent of physical collision skin
+float _LavaSurfaceCoverageThreshold;
+float _LavaSurfaceWetnessThreshold;
+float _LavaSurfaceSampleOffset;
 float _FlowResponse;
 float _VerticalFlowResponseScale;
 float _FloatVerticalDamping;
@@ -219,12 +227,6 @@ void ClearGrid(uint id : SV_DispatchThreadID)
     // Keep pending refill debt and its global sequence across physics ticks.
     if (id == 0 && _AmbientEnabled != 0)
         _FlowCounters[2] = 0u;
-}
-[numthreads(128,1,1)]
-void ClearLavaContacts(uint id : SV_DispatchThreadID)
-{
-    if (_WarmupOnly != 0 || id >= _BodyCount) return;
-    _LavaContacts[id] = 0u;
 }
 // Separate the 2D surface/current clear from ClearGrid to keep each
 // D3D11 compute kernel within the maximum of eight writable UAV slots.
@@ -599,10 +601,17 @@ void GridToParticle(uint id : SV_DispatchThreadID)
         if (_AmbientEnabled != 0 && p.velocity.w > 0.5 &&
             d < _CrestReleaseDistance)
             p.affineY.w = 1.0; // Collision: stop holding this parcel up.
-        if (d >= _CollisionSkin) continue;
         int hitBody = (int)b.centerBody.w;
         if (hitBody >= 0 && hitBody < (int)_BodyCount)
-            InterlockedOr(_LavaContacts[hitBody], 1u);
+        {
+            // Persist the smallest *measured* particle-center SDF across all
+            // frames, even when below the render radius but not yet touching.
+            InterlockedMin(_LavaContacts[hitBody].y,
+                (int)round(clamp(d, -1000.0, 1000.0) * 10000.0));
+            if (d < _LavaDestroyContactDistance)
+                InterlockedOr(_LavaContacts[hitBody].x, 1);
+        }
+        if (d >= _CollisionSkin) continue;
         // An actual obstacle may stop or reverse flow even at the outlet.
         // -1 means release the cached outflow speed until leaving the band.
         p.affineZ.w = -1.0;
@@ -858,6 +867,84 @@ float SampleFluidOccupancy3D(float3 pos)
         occupancy += weight * cellFill;
     }
     return saturate(occupancy);
+}
+
+// Evaluate *physical* FLIP occupancy at samples just outside each collider's
+// six faces, not the blurred 2D SSFR image. This can trigger contact even if
+// individual particle centers were pushed away by physical collision response.
+[numthreads(128,1,1)]
+void LavaSurfaceContact(uint id : SV_DispatchThreadID)
+{
+    if (_WarmupOnly != 0 || id >= _ColliderCount) return;
+    FluidCollider body = _Colliders[id];
+    int bi = (int)body.centerBody.w;
+    if (bi < 0 || bi >= (int)_BodyCount) return;
+    float3 half = max(body.extentType.xyz, 0.001);
+    uint wetSamples = 0;
+    const uint samplesPerFace = 9;
+    [loop]
+    for (uint face = 0; face < 6; ++face)
+    {
+        [loop]
+        for (uint y = 0; y < 3; ++y)
+        {
+            [loop]
+            for (uint x = 0; x < 3; ++x)
+            {
+                float u = ((float)x - 1.0) * 0.70;
+                float v = ((float)y - 1.0) * 0.70;
+                float side = face % 2 == 0 ? -1.0 : 1.0;
+                uint axis = face / 2;
+                float3 pointLocal, normalLocal;
+                if (axis == 0)
+                {
+                    pointLocal = float3(side * half.x, u * half.y, v * half.z);
+                    normalLocal = float3(side, 0, 0);
+                }
+                else if (axis == 1)
+                {
+                    pointLocal = float3(u * half.x, side * half.y, v * half.z);
+                    normalLocal = float3(0, side, 0);
+                }
+                else
+                {
+                    pointLocal = float3(u * half.x, v * half.y, side * half.z);
+                    normalLocal = float3(0, 0, side);
+                }
+                if (body.extentType.w > 0.5 && body.extentType.w < 1.5)
+                {
+                    // Sphere: project the candidate onto the real radius.
+                    normalLocal = normalize(pointLocal);
+                    pointLocal = normalLocal * half.x;
+                }
+                else if (body.extentType.w > 1.5)
+                {
+                    // Capsule Y-axis proxy: cylinder plus spherical endcaps.
+                    float3 closest = float3(0, clamp(pointLocal.y, -half.y, half.y), 0);
+                    normalLocal = normalize(pointLocal - closest + float3(0.000001, 0, 0));
+                    pointLocal = closest + normalLocal * half.x;
+                }
+                float3 outside = pointLocal + normalLocal * _LavaSurfaceSampleOffset;
+                float3 samplePos = body.centerBody.xyz + Rotate(body.rotation, outside);
+                float wetness = SampleFluidOccupancy3D(samplePos);
+                if (wetness >= _LavaSurfaceWetnessThreshold) wetSamples++;
+            }
+        }
+    }
+    float coverage = (float)wetSamples / (6.0 * samplesPerFace);
+    InterlockedMax(_LavaContacts[bi].z, (int)round(coverage * 10000.0));
+    InterlockedMax(_LavaContacts[bi].w, (int)wetSamples);
+    if (wetSamples >= 2 && coverage >= _LavaSurfaceCoverageThreshold)
+        InterlockedOr(_LavaContacts[bi].x, 2);
+}
+
+// The smoke emitter uses positions backed by real active particle columns.
+// Packing into one readback reduces CPU/GPU synchronization overhead.
+[numthreads(128,1,1)]
+void PackLavaSmokeColumns(uint id : SV_DispatchThreadID)
+{
+    if (_WarmupOnly != 0 || id >= (uint)(_GridSize.x * _GridSize.z)) return;
+    _LavaSmokeColumns[id] = int2(_WaterSurface[id], _WaterFlow[id].w);
 }
 
 // Per-collider 3D volume sampling. Each sample contributes equally to total
@@ -1204,8 +1291,11 @@ void Waterfall(uint id : SV_DispatchThreadID)
         if (bi < 0 || bi >= (int)_BodyCount) continue;
         float3 delta = p.position.xyz - b.centerBody.xyz;
         if (dot(delta, delta) > b.velocity.w * b.velocity.w) continue;
-        if (SignedDistance(b, p.position.xyz) < _CollisionSkin)
-            InterlockedOr(_LavaContacts[bi], 1u);
+        float distance = SignedDistance(b, p.position.xyz);
+        InterlockedMin(_LavaContacts[bi].y,
+            (int)round(clamp(distance, -1000.0, 1000.0) * 10000.0));
+        if (distance < _LavaDestroyContactDistance)
+            InterlockedOr(_LavaContacts[bi].x, 1);
     }
     if (p.position.y < _WaterfallEndY || p.position.z < _ExitZ - 80)
         p.position.w = 0;

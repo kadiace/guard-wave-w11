@@ -21,23 +21,32 @@ namespace GuardWave
         private string _label;
 
         public void Ignite(GuardWaveGame game, Rigidbody body,
-            GuardWavePiece piece, bool isFlag, float skin, float duration)
+            GuardWavePiece piece, bool isFlag, float skin, float contactDistance,
+            float coverageThreshold, GuardWaveFlipFluid.LavaContactEvidence hit,
+            float duration)
         {
             _game = game;
             _body = body;
             _piece = piece;
             _isFlag = isFlag;
             _duration = Mathf.Max(0.05f, duration);
-            _nextLog = 0.25f;
+            _nextLog = 0.5f;
             _label = $"{gameObject.name}#{gameObject.GetInstanceID()}";
             string material = piece != null ? piece.MaterialId : (isFlag ? "default_flag" : "unknown");
             float density = piece != null ? piece.RelativeFluidDensity : 0f;
+            string minimumSdf = float.IsPositiveInfinity(hit.MinSdfMeters)
+                ? "NOT_OBSERVED" : hit.MinSdfMeters.ToString("F4");
+            string trigger = hit.SdfTriggered && hit.CoverageTriggered ? "SDF_AND_SURFACE"
+                : hit.SdfTriggered ? "SDF_DISTANCE" : "SURFACE_COVERAGE";
             Debug.Log($"[LavaDestroy][CONTACT] object={_label} material={material} " +
                 $"isFlag={isFlag} mass={body.mass:F2} relativeDensity={density:F2} " +
                 $"position={body.position.ToString("F2")} simulationTime={Time.fixedTime:F3}s " +
-                $"GPU_contact=TRUE criterion=SDF<CollisionSkin skin={skin:F3}m " +
-                $"requiresRepeatedHits=FALSE requiresDamage=FALSE " +
-                $"burnThreshold={_duration:F3}s", this);
+                $"reason={trigger} triggerBits={hit.TriggerFlags} " +
+                $"minMeasuredSdf={minimumSdf}m sdfThreshold={contactDistance:F3}m " +
+                $"physicsCollisionSkin={skin:F3}m " +
+                $"surfaceCoverage={hit.SurfaceCoverage:P1} coverageThreshold={coverageThreshold:P1} " +
+                $"wetSurfaceSamples={hit.WetSurfaceSamples}/54 " +
+                $"oneHitIsEnough=true burnThreshold={_duration:F3}s", this);
             CreateFire();
         }
 
@@ -61,7 +70,7 @@ namespace GuardWave
                     $"elapsed={_seconds:F3}s duration={_duration:F3}s " +
                     $"remaining={Mathf.Max(0f, _duration-_seconds):F3}s " +
                     $"decision=DESTROY_PENDING flameActive={_fire != null}", this);
-                _nextLog += 0.25f;
+                _nextLog += 0.5f;
             }
         }
 

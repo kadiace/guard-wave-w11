@@ -124,7 +124,8 @@ namespace GuardWave
         private GuardWaveFluidSettings _fluidSettings;
         private bool _isLavaStage;
         private float _lavaFlowSecondsRemaining;
-        private readonly List<Rigidbody> _lavaContacts = new List<Rigidbody>();
+        private readonly List<GuardWaveFlipFluid.LavaContactEvidence> _lavaContacts =
+            new List<GuardWaveFlipFluid.LavaContactEvidence>();
         private readonly HashSet<GuardWaveLavaBurning> _activeLavaBurns =
             new HashSet<GuardWaveLavaBurning>();
         private GuardWaveFlipFluid _fluid;
@@ -1793,16 +1794,17 @@ namespace GuardWave
         }
 
         /// <summary>
-        /// An SDF-qualified GPU contact starts an irreversible burn exactly once.
-        /// Later particle hits do not change the destruction deadline.
+        /// First particle SDF hit OR verified 3D surface coverage starts a
+        /// three-second irreversible burn. GPU hit evidence is permanently latched.
         /// </summary>
         private void DestroyContactedLavaObjects()
         {
             if (_fluid == null || !_isLavaStage) return;
             _lavaContacts.Clear();
             _fluid.DrainLavaContacts(_lavaContacts);
-            foreach (Rigidbody body in _lavaContacts)
+            foreach (GuardWaveFlipFluid.LavaContactEvidence hit in _lavaContacts)
             {
+                Rigidbody body = hit.Body;
                 if (body == null || !body.gameObject.activeInHierarchy) continue;
                 bool isFlag = body.gameObject == _defenseFlag;
                 GuardWavePiece piece = body.GetComponent<GuardWavePiece>();
@@ -1811,7 +1813,9 @@ namespace GuardWave
                 GuardWaveLavaBurning fire = body.gameObject.AddComponent<GuardWaveLavaBurning>();
                 _activeLavaBurns.Add(fire);
                 fire.Ignite(this, body, piece, isFlag,
-                    _fluidSettings.CollisionSkin, _fluidSettings.LavaBurnDurationSeconds);
+                    _fluidSettings.CollisionSkin, _fluidSettings.LavaDestroyContactDistance,
+                    _fluidSettings.LavaSurfaceCoverageThreshold, hit,
+                    _fluidSettings.LavaBurnDurationSeconds);
             }
             _lavaContacts.Clear();
         }

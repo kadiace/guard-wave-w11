@@ -141,10 +141,28 @@ namespace GuardWave
 
         [Header("Lava contact physics")]
         [SerializeField] private bool _destroyOnFluidContact;
-        [Tooltip("Seconds of visible fire after the first confirmed GPU particle contact.")]
-        [SerializeField, Min(0.05f)] private float _lavaBurnDurationSeconds = 0.8f;
+        [Tooltip("Separate from CollisionSkin (the physical particle bounce distance).")]
+        [SerializeField, Min(0.01f)] private float _lavaDestroyContactDistance = 0.20f;
+        [Tooltip("Fraction of 54 Collider surface points covered by physical 3D lava occupancy.")]
+        [SerializeField, Range(0.01f, 1f)] private float _lavaSurfaceCoverageThreshold = 0.12f;
+        [Tooltip("Minimum 3D cell occupancy for a surface point to count as wet.")]
+        [SerializeField, Range(0.001f, 1f)] private float _lavaSurfaceWetnessThreshold = 0.08f;
+        [Tooltip("Outward distance of the physical fluid occupancy probes from the Collider surface.")]
+        [SerializeField, Min(0.01f)] private float _lavaSurfaceSampleOffset = 0.35f;
+        [Tooltip("Seconds of visible fire after first irreversible lava contact.")]
+        [SerializeField, Min(0.05f)] private float _lavaBurnDurationSeconds = 3f;
         public bool DestroyOnFluidContact => _destroyOnFluidContact;
+        public float LavaDestroyContactDistance => Mathf.Max(_collisionSkin, _lavaDestroyContactDistance);
+        public float LavaSurfaceCoverageThreshold => _lavaSurfaceCoverageThreshold;
+        public float LavaSurfaceWetnessThreshold => _lavaSurfaceWetnessThreshold;
+        public float LavaSurfaceSampleOffset => _lavaSurfaceSampleOffset;
         public float LavaBurnDurationSeconds => Mathf.Max(0.05f, _lavaBurnDurationSeconds);
+
+        [Header("Lava atmosphere particle effects")]
+        [SerializeField, Min(0f)] private float _lavaSmokeParticlesPerSecond = 48f;
+        [SerializeField, Min(0f)] private float _lavaEmberParticlesPerSecond = 52f;
+        public float LavaSmokeParticlesPerSecond => _lavaSmokeParticlesPerSecond;
+        public float LavaEmberParticlesPerSecond => _lavaEmberParticlesPerSecond;
 
         [Header("Screen-space liquid rendering")]
         [SerializeField] private bool _ssfrLavaSurface;
