@@ -6,15 +6,15 @@ using UnityEngine.Rendering;
 namespace GuardWave
 {
     /// <summary>
-    /// Fades West/East background towers according to signed camera yaw relative
-    /// to the camera's initial direction, preserving colliders and render order.
+    /// Fades West/East background towers according to the camera's signed world-space Y rotation,
+    /// preserving colliders and render order.
     /// </summary>
     [DisallowMultipleComponent]
     public sealed class FogBackgroundTowerTransparency : MonoBehaviour
     {
         private enum TowerSide { West, East }
 
-        [Header("Camera yaw fade (relative to initial view)")]
+        [Header("Camera yaw fade (world Y degrees)")]
         [SerializeField] private TowerSide _towerSide = TowerSide.West;
         [SerializeField, Range(0f, 180f)] private float _yawThresholdDegrees = 5f;
         [SerializeField, Range(0f, 1f)] private float _transparentOpacity = 0.05f;
@@ -23,8 +23,6 @@ namespace GuardWave
         [SerializeField] private Shader _fadeShader;
 
         private Camera _camera;
-        private float _initialCameraYaw;
-        private bool _hasInitialCameraYaw;
         private Collider _buildingCollider;
         private Renderer[] _renderers;
         private Material[][] _originalMaterials;
@@ -38,7 +36,6 @@ namespace GuardWave
         private void Awake()
         {
             _camera = Camera.main;
-            CaptureInitialCameraYaw();
             _buildingCollider = GetComponent<Collider>();
             _renderers = GetComponentsInChildren<Renderer>(true);
             _originalMaterials = new Material[_renderers.Length][];
@@ -59,15 +56,12 @@ namespace GuardWave
         {
             if (_camera == null) _camera = Camera.main;
             if (_camera == null || _buildingCollider == null || _fadeShader == null) return;
-            if (!_hasInitialCameraYaw) CaptureInitialCameraYaw();
-
-            // Fog starts with a 45-degree world Y rotation. Measure the user's
-            // +/-5-degree scroll rotation from that initial pose, not world zero.
-            float yawDelta = Mathf.DeltaAngle(_initialCameraYaw,
-                _camera.transform.eulerAngles.y);
+            // Convert Unity's 0..360 world Euler Y into a signed world yaw.
+            // +5 degrees fades West; -5 degrees fades East.
+            float worldYaw = Mathf.DeltaAngle(0f, _camera.transform.eulerAngles.y);
             bool shouldFade = _towerSide == TowerSide.West
-                ? yawDelta >= _yawThresholdDegrees
-                : yawDelta <= -_yawThresholdDegrees;
+                ? worldYaw >= _yawThresholdDegrees
+                : worldYaw <= -_yawThresholdDegrees;
             if (!shouldFade)
             {
                 if (_usingFadeMaterials) RestoreOriginalMaterials();
@@ -78,13 +72,6 @@ namespace GuardWave
             _currentOpacity = _transparentOpacity;
             if (!_usingFadeMaterials) UseFadeMaterials();
             else if (opacityChanged) UpdateOpacity();
-        }
-
-        private void CaptureInitialCameraYaw()
-        {
-            if (_camera == null) return;
-            _initialCameraYaw = _camera.transform.eulerAngles.y;
-            _hasInitialCameraYaw = true;
         }
 
         private void OnDisable()
