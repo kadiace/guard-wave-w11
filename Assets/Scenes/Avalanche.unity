@@ -1446,7 +1446,6 @@ GameObject:
   - component: {fileID: 247100593}
   - component: {fileID: 247100592}
   - component: {fileID: 247100591}
-  - component: {fileID: 247100595}
   m_Layer: 0
   m_Name: Avalanche - stage context
   m_TagString: Untagged
@@ -1577,24 +1576,6 @@ Transform:
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!114 &247100595
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 247100590}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 2d457134ec0b9434ba3301bf14137229, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::Avalanche.AvalancheResponse
-  _walkSpeed: 1.25
-  _stopDepth: 0.18
-  _stopFastWaterDepth: 0.08
-  _stopWaterSpeed: 0.9
-  _drainRadius: 1.8
-  _drainCapacity: 1.15
 --- !u!1 &248225566
 GameObject:
   m_ObjectHideFlags: 0

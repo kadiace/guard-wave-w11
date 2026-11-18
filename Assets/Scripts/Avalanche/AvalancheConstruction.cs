@@ -223,7 +223,7 @@ namespace Avalanche
             Vector3 extents = new Vector3(Mathf.Abs((rotation * Vector3.right).x) * size.x + Mathf.Abs((rotation * Vector3.forward).x) * size.z, 0f,
                 Mathf.Abs((rotation * Vector3.right).z) * size.x + Mathf.Abs((rotation * Vector3.forward).z) * size.z) * 0.5f;
             if (Mathf.Abs(center.x) + extents.x > 17.8f || center.z - extents.z < 1f || center.z + extents.z > 53f || center.y > 5f)
-            { reason = "표시된 마을 안에 설치하세요. 상류 유입부와 배수구는 비워 둡니다."; return false; }
+            { reason = "표시된 마을 안에 설치하세요. 상류 유입부는 비워 둡니다."; return false; }
             foreach (var citizen in _stage.Citizens)
             {
                 Vector3 local = Quaternion.Inverse(rotation) * (citizen.transform.position - center);

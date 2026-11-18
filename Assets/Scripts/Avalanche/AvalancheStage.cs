@@ -10,7 +10,7 @@ namespace Avalanche
 
     /// <summary>Scene-owned citizen rescue rules and the two-peak flood, isolated from Flood and Fog.</summary>
     [DefaultExecutionOrder(-50)]
-    [RequireComponent(typeof(AvalancheConstruction), typeof(AvalancheHud), typeof(AvalancheResponse))]
+    [RequireComponent(typeof(AvalancheConstruction), typeof(AvalancheHud))]
     public sealed class AvalancheStage : MonoBehaviour
     {
         [Header("Scene references")]
@@ -74,7 +74,6 @@ namespace Avalanche
         public Material LineMaterial => _lineMaterial;
         public PhysicsMaterial Friction => _friction;
         public AvalancheConstruction Construction { get; private set; }
-        public AvalancheResponse Response { get; private set; }
         public AvalancheHud Hud { get; private set; }
         public AvalancheWater Water => _water;
         public AvalanchePhase Phase { get; private set; } = AvalanchePhase.Introduction;
@@ -111,12 +110,10 @@ namespace Avalanche
             _stageInfo = GuardWaveStageInfoFile.LoadForScene(gameObject.scene.name);
             _preparationClock = new StagePreparationClock(_stageInfo);
             Construction = GetComponent<AvalancheConstruction>();
-            Response = GetComponent<AvalancheResponse>();
             Hud = GetComponent<AvalancheHud>();
             _water = new AvalancheWater(_waterFlow);
             _waterSurface.sharedMesh = _water.Surface;
             Construction.Initialize(this);
-            Response.Initialize(this);
             Hud.Initialize(this);
             _viewCamera.GetComponent<StageCameraController>().InitializeOverview(Hud.BlocksPointer);
             _pauseMenu = Instantiate(Resources.Load<StagePauseMenu>("Prefabs/UIs/StagePauseMenu"), transform);
@@ -153,20 +150,18 @@ namespace Avalanche
             _attemptClock += dt;
             if (Phase == AvalanchePhase.Warning)
             {
-                Response.Walk(dt);
                 _warningClock += dt;
                 if (_warningClock >= _warningSeconds) Phase = AvalanchePhase.Flooding;
                 return;
             }
             FloodElapsed += dt;
             float inlet = InletDepth(FloodElapsed);
-            _water.Step(dt, inlet, Construction.Pieces, Response);
+            _water.Step(dt, inlet, Construction.Pieces);
             if (!_water.IsValid)
             {
                 End(AvalanchePhase.TechnicalError, "물 계산이 안정 범위를 벗어났습니다. 시민 실패로 처리하지 않습니다. 배치를 복원해 다시 시도하세요.");
                 return;
             }
-            Response.Walk(dt);
             if (FloodElapsed >= InflowEnd) Phase = AvalanchePhase.Assessing;
             _sampleClock += dt;
             if (_sampleClock >= _citizenSampleInterval - 0.0001f)
@@ -252,7 +247,6 @@ namespace Avalanche
         {
             Construction.ResetLayout(empty);
             _water.Reset();
-            Response.ResetResponse(empty);
             foreach (var citizen in _citizens) citizen.ResetState();
             _warningClock = _sampleClock = _stableClock = _attemptClock = FloodElapsed = 0f;
             _preparationClock.Reset();

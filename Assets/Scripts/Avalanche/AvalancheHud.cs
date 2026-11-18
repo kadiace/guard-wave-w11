@@ -107,7 +107,7 @@ namespace Avalanche
                     ? $"준비 {Mathf.CeilToInt(_stage.PreparationLeft)}초  ·  0초가 되면 홍수가 시작됩니다"
                     : "준비 중  ·  배치를 마치면 준비 완료를 누르세요",
                 AvalanchePhase.Warning => $"홍수 경보  ·  {Mathf.CeilToInt(_stage.WarningLeft)}초 후 유입",
-                AvalanchePhase.Flooding => $"홍수 진행  {_stage.FloodElapsed:0.0}초  ·  물길과 대피 상황 관찰",
+                AvalanchePhase.Flooding => $"홍수 진행  {_stage.FloodElapsed:0.0}초  ·  물길과 시민 상황 관찰",
                 AvalanchePhase.Assessing => "유입 종료  ·  하류 도달과 잔류 침수 관찰 중",
                 AvalanchePhase.Cleared => "시민 전원 보호 완료",
                 AvalanchePhase.TechnicalError => "계산 오류  ·  배치를 복원할 수 있습니다",
@@ -118,12 +118,11 @@ namespace Avalanche
             if (Button(new Rect(1410, 22, 164, 50), _stage.Paused ? "계속하기" : "일시정지", PAPER)) _stage.TogglePause();
         }
 
-        /// <summary>Displays citizen risk and tools for assigning the two village crews.</summary>
+        /// <summary>Displays each district's citizen risk and provides camera focus.</summary>
         private void DrawCitizens()
         {
-            var response = _stage.Response;
             Fill(new Rect(24, 116, 258, 539), INK);
-            Label(42, 128, 225, 42, "대피팀 1개 · 배수팀 1개", AQUA, 19);
+            Label(42, 128, 225, 42, "시민 위험 현황", AQUA, 19);
             for (int zone = 0; zone < 3; zone++)
             {
                 float y = 170 + zone * 151;
@@ -140,11 +139,6 @@ namespace Avalanche
                     Fill(new Rect(111, row + 9, 106 * citizen.Exposure / 100f, 8), color);
                     Label(223, row - 1, 44, 24, $"{citizen.Exposure:0}", color, 17);
                 }
-                Label(42, y + 84, 226, 24, response.Status(zone), response.GuideZone == zone || response.DrainZone == zone ? AQUA : MUTED, 15);
-                GUI.enabled = _stage.CanEdit;
-                if (Button(new Rect(40, y + 109, 110, 30), "대피 지정", response.GuideZone == zone ? AQUA : PAPER)) response.AssignGuide(zone);
-                if (Button(new Rect(155, y + 109, 111, 30), "배수 정비", response.DrainZone == zone ? AQUA : PAPER)) response.AssignDrain(zone);
-                GUI.enabled = !_stage.Paused;
             }
             if (Button(new Rect(40, 618, 226, 25), "전체 마을 보기 · Home", AQUA)) _stage.ViewCamera.GetComponent<StageCameraController>().Overview();
         }
@@ -154,7 +148,7 @@ namespace Avalanche
         {
             Fill(new Rect(1318, 116, 258, 325), INK);
             Label(1336, 132, 220, 30, "홍수 예보", AQUA, 21);
-            Label(1336, 176, 220, 48, "북쪽 유입 → 분기 수로\n남쪽 열린 배수구", PAPER, 18);
+            Label(1336, 176, 220, 48, "북쪽 유입 → 분기 수로\n남쪽 열린 하류", PAPER, 18);
             string[] rows =
             {
                 $"00–{_stage.FirstWaveEnd:00.##}초   첫 수위 상승",
@@ -224,13 +218,13 @@ namespace Avalanche
         /// <summary>Introduces all essential rules before starting any timer.</summary>
         private void DrawIntroduction()
         {
-            Modal("마을 홍수 대응", "대피할 길과 물이 빠질 길을 확보하세요.");
+            Modal("마을 홍수 대응", "구조물을 배치해 시민들을 지키세요.");
             string preparation = _stage.LimitPreparationTime
                 ? $"{_stage.PreparationSeconds:0.##}초 동안"
                 : "준비 단계에서";
             Label(470, 301, 660, 220,
-                $"시장 · 광장 · 정류장에 시민 두 명씩이 있습니다.\n\n{preparation} 대피팀과 배수팀을 각각 한 구역에 배치하세요. 대피팀은 경보가 울리면 시민을 높은 대피대로 안내합니다. 초록색 통로를 비워 두세요.\n\n물막이판으로 물을 우회시키고 모래주머니로 낮은 틈을 보강하세요. 파란 배수구 주변은 물이 들어갈 수 있게 비워 두세요.", PAPER, 21);
-            Label(470, 538, 660, 60, "접합 블록을 놓으면 닿는 자재가 자동으로 연결됩니다. 배치와 팀 지정은 경보 전에 끝내세요.", GOLD, 19);
+                $"시장 · 광장 · 정류장에 시민 두 명씩이 있습니다.\n\n{preparation} 물막이판으로 물을 우회시키고 모래주머니로 낮은 틈을 보강하세요. 시민 주변의 수심과 유속을 관찰해 모든 시민을 보호하세요.", PAPER, 21);
+            Label(470, 538, 660, 60, "접합 블록을 놓으면 닿는 자재가 자동으로 연결됩니다. 배치는 경보 전에 끝내세요.", GOLD, 19);
             if (Button(new Rect(470, 620, 660, 52), "마을 지키기 시작   ·   Enter", AQUA)) _stage.BeginPreparation();
         }
 
@@ -239,9 +233,8 @@ namespace Avalanche
         {
             Modal("시도 결과", _stage.Phase == AvalanchePhase.Cleared ? "여섯 시민을 지켰습니다." : _stage.Phase == AvalanchePhase.TechnicalError ? "다시 시도할 수 있습니다." : "물길을 다시 설계해 주세요.");
             Label(470, 304, 660, 160, _stage.ResultMessage, PAPER, 22);
-            var response = _stage.Response;
             var build = _stage.Construction;
-            Label(470, 483, 660, 58, $"대피대 도착 {response.ShelteredCount}명 · 하류로 배수한 물 {response.DrainedVolume:0.0}m³\n사용한 물막이판 {build.StartingPanels - build.Panels}개 · 모래주머니 {build.StartingSandbags - build.Sandbags}개 · 접합 블록 {build.StartingAdhesive - build.Adhesive}개", MUTED, 19);
+            Label(470, 483, 660, 58, $"사용한 물막이판 {build.StartingPanels - build.Panels}개 · 모래주머니 {build.StartingSandbags - build.Sandbags}개 · 접합 블록 {build.StartingAdhesive - build.Adhesive}개", MUTED, 19);
             if (Button(new Rect(470, 560, 660, 52), "홍수 전 배치로 복원 · 수정하기", AQUA)) _stage.Retry(false);
             if (Button(new Rect(470, 628, 318, 43), "빈 배치로 새로 시작", PAPER)) _stage.Retry(true);
             if (Button(new Rect(804, 628, 326, 43), "스테이지 선택으로", PAPER)) _stage.ReturnToMenu();
