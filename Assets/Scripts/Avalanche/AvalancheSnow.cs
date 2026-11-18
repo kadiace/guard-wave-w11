@@ -167,7 +167,9 @@ namespace Avalanche
             ActiveVolume = DepositedVolume = 0f;
             for (int i = 0; i < _moving.Length; i++)
             {
-                if (!float.IsFinite(_moving[i]) || !float.IsFinite(_velocity[i].x) || !float.IsFinite(_velocity[i].y) || _moving[i] < -EPSILON)
+                if (!float.IsFinite(_moving[i]) || !float.IsFinite(_settled[i]) ||
+                    !float.IsFinite(_velocity[i].x) || !float.IsFinite(_velocity[i].y) ||
+                    _moving[i] < -EPSILON || _settled[i] < -EPSILON)
                 { Fail("눈의 두께 또는 속도가 안정 범위를 벗어났습니다."); return; }
                 volume += (_moving[i] + _settled[i]) * DX * DX;
                 DepositedVolume += _settled[i] * DX * DX;
@@ -183,17 +185,24 @@ namespace Avalanche
         /// <summary>Projects changed colliders onto shared cell boundaries without replacing the snow bed.</summary>
         private void UpdateBarriers(IReadOnlyList<AvalanchePiece> pieces)
         {
-            bool changed = _poses.Count != pieces.Count;
+            int activeCount = 0;
+            bool changed = false;
             foreach (AvalanchePiece piece in pieces)
-                if (!_poses.TryGetValue(piece.Id, out Matrix4x4 pose) || pose != piece.transform.localToWorldMatrix) changed = true;
-            if (!changed) return;
+            {
+                if (!piece.gameObject.activeInHierarchy) continue;
+                activeCount++;
+                if (!_poses.TryGetValue(piece.Id, out Matrix4x4 pose) ||
+                    pose != piece.transform.localToWorldMatrix)
+                    changed = true;
+            }
+            if (!changed && _poses.Count == activeCount) return;
             _poses.Clear();
             Array.Fill(_barrierX, float.NegativeInfinity);
             Array.Fill(_barrierZ, float.NegativeInfinity);
             foreach (AvalanchePiece piece in pieces)
             {
+                if (!piece.gameObject.activeInHierarchy) continue;
                 _poses[piece.Id] = piece.transform.localToWorldMatrix;
-                if (!piece.gameObject.activeSelf) continue;
                 Bounds bounds = piece.Shape.bounds;
                 int x0 = Mathf.Clamp(Mathf.FloorToInt((bounds.min.x + 18f) / DX), 0, W - 1);
                 int x1 = Mathf.Clamp(Mathf.CeilToInt((bounds.max.x + 18f) / DX), 0, W);
