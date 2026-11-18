@@ -227,7 +227,11 @@ public sealed class OutGameStageSelect : MonoBehaviour, IBeginDragHandler, IDrag
     private IEnumerator RevealRecentAward()
     {
         int index = System.Array.IndexOf(Destinations, StageClearSession.RecentlyCleared);
-        if (index < 0) yield break;
+        if (index < 0)
+        {
+            StageClearSession.ConsumeRecentClear(StageClearSession.RecentlyCleared);
+            yield break;
+        }
 
         yield return new WaitForSecondsRealtime(0.35f);
         RectTransform badge = _awardRoots[index];

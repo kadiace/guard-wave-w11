@@ -23,7 +23,7 @@ public static class StageClearSession
     /// <summary>깃발을 지킨 스테이지를 클리어 처리하고 복귀 시 연출 대상을 기록한다.</summary>
     public static void MarkCleared(Scene scene)
     {
-        if (scene != Scene.Flood && scene != Scene.Fog && scene != Scene.Lava) return;
+        if (scene != Scene.Flood && scene != Scene.Fog && scene != Scene.Lava && scene != Scene.Avalanche) return;
         ClearedStages.Add(scene);
         _recentlyCleared = scene;
     }

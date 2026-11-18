@@ -1,10 +1,10 @@
-# Flood2 — 마을을 지키는 물길
+# Avalanche — 마을을 지키는 물길
 
 홍수 경보 전에 대피할 길과 물이 빠질 길을 확보해 시장·광장·정류장의 시민 여섯 명을 지킨다. 구역마다 지형과 유입 방향이 다르다. 보유한 두 팀을 어디에 보낼지 정하고, 다른 구역은 물막이판과 모래주머니로 보호한다. [초기 홍수 스테이지 기획](FloodStageDesign.md)
 
 ## 실제 대응과 게임에서의 선택
 
-| 실제 대응 | Flood2에서 하는 일과 관찰할 결과 |
+| 실제 대응 | Avalanche에서 하는 일과 관찰할 결과 |
 | --- | --- |
 | 홍수 전 대피 경로를 확인하고 높은 곳으로 이동 | 왼쪽 구역 목록에서 대피팀을 한 곳에 지정한다. 경보가 울리면 시민 두 명이 초록색 경로를 따라 대피대로 이동한다. 배치한 자재가 길을 막거나 이동 경로의 물이 깊고 빠르면 멈춘다. 남은 시민의 위험도는 그 자리의 수심과 유속으로 계속 계산한다. |
 | 유입이 예상되는 곳에 물막이판과 모래주머니 설치 | 물막이판으로 주 흐름을 돌리고 낮은 틈이나 물막이판 주변을 모래주머니로 보강한다. 낮은 모래주머니는 쉽게 뜨지 않지만 수위가 높으면 물이 넘어간다. 접합 블록을 물막이판 밑이나 자재 사이에 놓으면 닿는 자재를 고정한다. |
@@ -12,11 +12,11 @@
 
 대피 경로와 고지대 대피는 행정안전부의 홍수 행동요령을 참고했다. 물막이판, 모래주머니, 빗물받이 점검은 호우 행동요령에 근거했다. [국민안전24 홍수 행동요령](https://www.safekorea.go.kr/safekorea-kor/acts/nacts/action-guide.do?actsHeaderTitle=%ED%99%8D%EC%88%98&category=flood&menuSn=4) · [국민안전24 호우 행동요령](https://m.safekorea.go.kr/safekorea-kor/acts/nacts/action-guide.do?actsHeaderTitle=%ED%98%B8%EC%9A%B0&category=heavyRain&menuSn=4)
 
-저지에 물이 모이는 지점과 배출 위치를 함께 고려하는 발상은 영국 환경청 지침을 참고했다. Flood2는 이를 정해진 용량의 우수관으로 표현한다. 대피팀·배수팀 수, 이동 제한과 자재 치수는 이 스테이지의 밸런스 수치다. [Environment Agency 침수 저감과 배수 안내](https://www.gov.uk/guidance/adapting-your-home-or-business-to-the-risk-of-flooding)
+저지에 물이 모이는 지점과 배출 위치를 함께 고려하는 발상은 영국 환경청 지침을 참고했다. Avalanche는 이를 정해진 용량의 우수관으로 표현한다. 대피팀·배수팀 수, 이동 제한과 자재 치수는 이 스테이지의 밸런스 수치다. [Environment Agency 침수 저감과 배수 안내](https://www.gov.uk/guidance/adapting-your-home-or-business-to-the-risk-of-flooding)
 
 ## 플레이 흐름
 
-1. Unity에서 `Assets/Scenes/Flood2.unity`를 열고 Play를 누른다. **Tools > Guard Wave > Open Flood2 Prototype** 메뉴로도 씬을 열 수 있다.
+1. Unity에서 `Assets/Scenes/Avalanche.unity`를 열고 Play를 누른다. **Tools > Guard Wave > Open Avalanche Prototype** 메뉴로도 씬을 열 수 있다.
 2. 제한 시간 없이 시민 구역과 경로를 살펴보고 대응 계획을 세운다. `대피 지정`과 `배수 정비`는 각각 한 구역에 배정할 수 있다. 같은 구역의 버튼을 다시 누르면 해당 배정이 취소된다.
 3. 준비 완료 후 5초 경보가 울리면 편집과 팀 지정이 잠긴다. 대피팀은 이때부터 움직인다. 두 차례의 홍수가 진행되면 구역 목록에서 대피 정지 사유, 도착 인원, 배수 유량을 확인할 수 있다.
 4. 시민 한 명이라도 노출 위험도 100에 도달하면 실패한다. 유입 종료 25초 이후 전원이 5초 연속 안전하고 시민 주변 잔류수가 3초 연속 안정되면 성공한다. 결과 화면은 대피 도착 인원과 누적 배수량을 보여준다.
@@ -33,13 +33,13 @@
 
 ## 물리와 튜닝
 
-- `Flood2Response`는 세 구역의 대피로와 배수구를 맡는다. 대피 시민은 지면과 경사로를 따라 이동하며, 가까이 있는 자재의 콜라이더와 같은 물 격자를 확인한다. 대피대 위에서도 발밑 물 관측을 계속한다. 평상시 최고 이동 속도는 1.25m/s다.
-- `Flood2Water`는 0.6m 간격의 60×100 천수 격자로 흐름을 계산한다. 배수구 위의 자재를 확인하고, 반경 1.8m에서 배수구 턱 위에 있으며 차단된 구간 없이 구멍에 도달하는 물만 뺀다. 기본 최대 배수량은 초당 1.15m³다. 미세한 틈을 흐르는 물과 지하 배관의 압력은 생략한다.
-- `Flood2Construction`은 가볍고 높은 물막이판과 낮고 물보다 조밀한 모래주머니 두 종류를 제공한다. 기본 재고는 각각 24개와 18개다. 모래주머니 물리는 직육면체 콜라이더로 근사한다. HUD의 재고는 Inspector 값을 읽는다.
+- `AvalancheResponse`는 세 구역의 대피로와 배수구를 맡는다. 대피 시민은 지면과 경사로를 따라 이동하며, 가까이 있는 자재의 콜라이더와 같은 물 격자를 확인한다. 대피대 위에서도 발밑 물 관측을 계속한다. 평상시 최고 이동 속도는 1.25m/s다.
+- `AvalancheWater`는 0.6m 간격의 60×100 천수 격자로 흐름을 계산한다. 배수구 위의 자재를 확인하고, 반경 1.8m에서 배수구 턱 위에 있으며 차단된 구간 없이 구멍에 도달하는 물만 뺀다. 기본 최대 배수량은 초당 1.15m³다. 미세한 틈을 흐르는 물과 지하 배관의 압력은 생략한다.
+- `AvalancheConstruction`은 가볍고 높은 물막이판과 낮고 물보다 조밀한 모래주머니 두 종류를 제공한다. 기본 재고는 각각 24개와 18개다. 모래주머니 물리는 직육면체 콜라이더로 근사한다. HUD의 재고는 공통 스테이지 설정 값을 읽는다.
 - 접합 블록은 기본 30개다. 자재에 놓은 블록은 자재를 따라가며, 나중에 닿은 자재도 연결한다. 연결 강도는 생성 즉시 파손 하중 9,000N과 5,200N·m를 적용한다. 자재마다 직접 맺는 연결은 하나이며, 파손된 연결은 자동으로 되살아나지 않는다. 블록을 회수하면 그 블록이 만든 연결이 풀린다.
-- `Flood2 - stage context`에서 `Flood2Stage`의 관찰 시간과 유입 수심, `Flood2Construction`의 시작 재고·자재 치수·모래주머니 밀도, `Flood2Response`의 대피·배수 값을 조정할 수 있다. 준비 제한을 다시 사용하려면 `Flood2Stage > Limit Preparation Time`을 켜고 `Preparation Seconds`를 설정한다. 휠 감도는 카메라의 `Flood2 Camera > Camera Controls > Scroll Sensitivity`에 있다.
+- `Avalanche - stage context`에서 `AvalancheStage`의 관찰 시간과 유입 수심, `AvalancheConstruction`의 자재 치수·모래주머니 밀도, `AvalancheResponse`의 대피·배수 값을 조정할 수 있다. 준비 제한을 사용하려면 `Assets/Resources/Datas/StageInfo.json`의 Avalanche 항목에서 `limitPreparationTime`을 `true`로 바꾸고 `countdownSeconds`를 설정한다. 자재별 시작 재고도 같은 항목에서 설정한다. 휠 감도는 카메라의 `Avalanche Camera > Camera Controls > Scroll Sensitivity`에 있다.
 
-씬을 편집하는 동안 Inspector에서 각 컴포넌트의 설정을 조정할 수 있다. `Flood2Stage`는 파도별 수심과 지속 시간, 시민 위험 기준, 물의 유입·배수와 마찰을 제공한다. `Flood2Construction`에서는 배치 간격과 회전, 접합 블록 개수와 접촉 반경, 물체의 밀도·저항과 접합 강도를 조정한다. `Flood2Camera`에서는 전체 보기와 구역 확대, 카메라 조작 감도를 조정한다.
+씬을 편집하는 동안 Inspector에서 각 컴포넌트의 설정을 조정할 수 있다. `AvalancheStage`는 파도별 수심과 지속 시간, 시민 위험 기준, 물의 유입·배수와 마찰을 제공한다. `AvalancheConstruction`에서는 배치 간격과 회전, 접합 블록의 접촉 반경, 물체의 밀도·저항과 접합 강도를 조정한다. `AvalancheCamera`에서는 전체 보기와 구역 확대, 카메라 조작 감도를 조정한다.
 
 시도 제한은 준비 완료부터 계산한다. 홍수나 관찰 시간을 늘릴 때는 경고, 유입과 관찰을 모두 마칠 수 있도록 시도 제한도 확인한다. 화면의 홍수 예보와 재고 표시는 설정값을 따른다.
 

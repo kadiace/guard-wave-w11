@@ -2,12 +2,12 @@ using System;
 
 using UnityEngine;
 
-namespace Flood2
+namespace Avalanche
 {
-    public enum Flood2CitizenState { Safe, Warning, Critical, RescueRequired, Protected }
+    public enum AvalancheCitizenState { Safe, Warning, Critical, RescueRequired, Protected }
 
     /// <summary>Fixed citizen objective; danger is measured from occupied water, independently of rendering.</summary>
-    public sealed class Flood2Citizen : MonoBehaviour
+    public sealed class AvalancheCitizen : MonoBehaviour
     {
         [Header("Identity and appearance")]
         [SerializeField] private string _citizenId;
@@ -30,7 +30,7 @@ namespace Flood2
         public float SafeSeconds => _safeTime;
         public bool InDanger { get; private set; }
         public bool HasUnsettledWater { get; private set; }
-        public Flood2CitizenState State { get; private set; }
+        public AvalancheCitizenState State { get; private set; }
 
         [Serializable]
         internal sealed class RiskSettings
@@ -82,13 +82,13 @@ namespace Flood2
             Exposure = Depth = Speed = Coverage = MaxDepth = _dangerTime = _safeTime = _exposedSeconds = 0f;
             _previousPeakDepth = 0f;
             InDanger = HasUnsettledWater = false;
-            State = Flood2CitizenState.Safe;
+            State = AvalancheCitizenState.Safe;
         }
 
         /// <summary>Uses five water probes to update exposure and detect rising or fast water at the citizen.</summary>
-        internal void Observe(Flood2Water water, float dt, RiskSettings settings)
+        internal void Observe(AvalancheWater water, float dt, RiskSettings settings)
         {
-            if (State == Flood2CitizenState.RescueRequired || State == Flood2CitizenState.Protected) return;
+            if (State == AvalancheCitizenState.RescueRequired || State == AvalancheCitizenState.Protected) return;
             float depth = 0f;
             float speed = 0f;
             float peakDepth = 0f;
@@ -128,20 +128,20 @@ namespace Flood2
                 _safeTime += dt;
                 if (_safeTime > settings.RecoveryDelaySeconds) Exposure = Mathf.Max(0f, Exposure - settings.RecoveryPerSecond * dt);
             }
-            if (Exposure >= 100f) State = Flood2CitizenState.RescueRequired;
-            else if (Exposure >= 70f || wet > 0 && Depth >= settings.SevereDepth || State == Flood2CitizenState.Critical && Exposure >= 60f)
-                State = Flood2CitizenState.Critical;
-            else State = Exposure >= 30f || InDanger ? Flood2CitizenState.Warning : Flood2CitizenState.Safe;
+            if (Exposure >= 100f) State = AvalancheCitizenState.RescueRequired;
+            else if (Exposure >= 70f || wet > 0 && Depth >= settings.SevereDepth || State == AvalancheCitizenState.Critical && Exposure >= 60f)
+                State = AvalancheCitizenState.Critical;
+            else State = Exposure >= 30f || InDanger ? AvalancheCitizenState.Warning : AvalancheCitizenState.Safe;
         }
 
         /// <summary>Marks a citizen protected only after the stage's full flood completion rules pass.</summary>
-        public void Protect() => State = Flood2CitizenState.Protected;
+        public void Protect() => State = AvalancheCitizenState.Protected;
 
         private void Update()
         {
             _tint ??= new MaterialPropertyBlock();
-            Color color = State == Flood2CitizenState.Critical || State == Flood2CitizenState.RescueRequired ? new Color(1f, 0.24f, 0.22f)
-                : State == Flood2CitizenState.Warning ? new Color(1f, 0.73f, 0.23f) : new Color(0.2f, 0.85f, 0.7f);
+            Color color = State == AvalancheCitizenState.Critical || State == AvalancheCitizenState.RescueRequired ? new Color(1f, 0.24f, 0.22f)
+                : State == AvalancheCitizenState.Warning ? new Color(1f, 0.73f, 0.23f) : new Color(0.2f, 0.85f, 0.7f);
             _tint.SetColor("_BaseColor", color);
             _marker.SetPropertyBlock(_tint);
             float sway = InDanger ? 5f : 1.5f;

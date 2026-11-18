@@ -1,9 +1,9 @@
 using UnityEngine;
 
-namespace Flood2
+namespace Avalanche
 {
     /// <summary>Assigns the village crews and simulates travel along marked high-ground routes.</summary>
-    public sealed class Flood2Response : MonoBehaviour
+    public sealed class AvalancheResponse : MonoBehaviour
     {
         private const float WALKER_RADIUS = 0.28f;
         private static readonly Color ROUTE_OPEN = new Color(0.26f, 0.9f, 0.75f);
@@ -21,7 +21,7 @@ namespace Flood2
         [SerializeField, Range(0.3f, 4f)] private float _drainRadius = 1.8f;
         [SerializeField, Min(0f)] private float _drainCapacity = 1.15f;
         private readonly Zone[] _zones = new Zone[3];
-        private Flood2Stage _stage;
+        private AvalancheStage _stage;
         private MaterialPropertyBlock _tint;
         public int GuideZone { get; private set; } = -1;
         public int DrainZone { get; private set; } = -1;
@@ -46,7 +46,7 @@ namespace Flood2
         }
 
         /// <summary>Builds visible, non-solid markers for the three routes, landings and drain inlets.</summary>
-        internal void Initialize(Flood2Stage stage)
+        internal void Initialize(AvalancheStage stage)
         {
             _stage = stage;
             _tint = new MaterialPropertyBlock();
@@ -122,7 +122,7 @@ namespace Flood2
                 Vector3 lane = Vector3.Cross(Vector3.up, (zone.Landing - zone.Approach).normalized) * (i == 0 ? -0.37f : 0.37f);
                 Vector3 target = (leg == 0 ? zone.Approach : zone.Landing) + lane;
                 Vector3 next = Vector3.MoveTowards(walker.position, target, _walkSpeed * dt);
-                if (leg == 0) next.y = Flood2Terrain.Height(next.x, next.z) + 0.025f;
+                if (leg == 0) next.y = AvalancheTerrain.Height(next.x, next.z) + 0.025f;
                 if (Obstructed(next + Vector3.up * 0.36f, WALKER_RADIUS))
                 {
                     hold = "구조물이 길을 막음";
@@ -153,13 +153,13 @@ namespace Flood2
             string route = "현 위치 보호";
             if (index == GuideZone)
             {
-                if (_stage.Phase == Flood2Phase.Preparing) route = "대피 안내 지정";
+                if (_stage.Phase == AvalanchePhase.Preparing) route = "대피 안내 지정";
                 else if (ShelteredCount == 2) route = "대피 완료 2/2";
                 else if (RouteHoldReason.Length > 0) route = RouteHoldReason;
                 else route = $"대피 중 {ShelteredCount}/2";
             }
             if (index != DrainZone) return route;
-            if (_stage.Phase == Flood2Phase.Preparing || _stage.Phase == Flood2Phase.Warning) return route + " · 배수 준비";
+            if (_stage.Phase == AvalanchePhase.Preparing || _stage.Phase == AvalanchePhase.Warning) return route + " · 배수 준비";
             if (DrainCovered) return route + " · 배수구 막힘";
             return route + $" · {DrainRate:0.00}m³/s";
         }
@@ -222,7 +222,7 @@ namespace Flood2
         }
 
         /// <summary>Projects an XZ point onto the same terrain used by the water solver.</summary>
-        private static Vector3 OnGround(Vector2 point) => new Vector3(point.x, Flood2Terrain.Height(point.x, point.y), point.y);
+        private static Vector3 OnGround(Vector2 point) => new Vector3(point.x, AvalancheTerrain.Height(point.x, point.y), point.y);
 
         /// <summary>Creates an authored-looking marker without adding another obstacle to the simulation.</summary>
         private Renderer Marker(string label, Transform parent, Vector3 position, Vector3 size, Quaternion rotation)

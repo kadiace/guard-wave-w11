@@ -1,4 +1,4 @@
-Shader "Flood2/Flow surface"
+Shader "Avalanche/Flow surface"
 {
     SubShader
     {

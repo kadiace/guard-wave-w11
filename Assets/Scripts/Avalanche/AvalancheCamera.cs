@@ -2,11 +2,11 @@ using UnityEngine;
 
 using UnityEngine.InputSystem;
 
-namespace Flood2
+namespace Avalanche
 {
     /// <summary>Unscaled orthographic inspection camera with pan, orbit, zoom and citizen focus.</summary>
     [RequireComponent(typeof(Camera))]
-    public sealed class Flood2Camera : MonoBehaviour
+    public sealed class AvalancheCamera : MonoBehaviour
     {
         [Header("Overview pose")]
         [SerializeField] private Vector3 _focus = new Vector3(0f, 0f, 29f);
@@ -25,12 +25,12 @@ namespace Flood2
         private float _currentPitch;
         private float _currentZoom;
         private Camera _camera;
-        private Flood2Stage _stage;
+        private AvalancheStage _stage;
 
         private void Awake()
         {
             _camera = GetComponent<Camera>();
-            _stage = FindFirstObjectByType<Flood2Stage>();
+            _stage = FindFirstObjectByType<AvalancheStage>();
             Overview();
         }
 

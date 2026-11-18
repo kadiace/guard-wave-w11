@@ -2,13 +2,13 @@ using System;
 
 using UnityEngine;
 
-namespace Flood2
+namespace Avalanche
 {
-    public enum Flood2Material { Panel, Sandbag }
+    public enum AvalancheMaterial { Panel, Sandbag }
 
     /// <summary>One dynamic building material and its single outgoing adhesive joint.</summary>
     [RequireComponent(typeof(Rigidbody), typeof(BoxCollider))]
-    public sealed class Flood2Piece : MonoBehaviour
+    public sealed class AvalanchePiece : MonoBehaviour
     {
         private const float GRAVITY = 9.81f;
         private static readonly Color BOND_COLOR = new Color(0.95f, 0.8f, 0.32f);
@@ -17,11 +17,11 @@ namespace Flood2
         private BoxCollider _shape;
         private FixedJoint _joint;
         private LineRenderer _connection;
-        private Flood2Piece _connectedPiece;
+        private AvalanchePiece _connectedPiece;
         private Vector3 _anchor;
         private bool _wasConnected;
         public int Id { get; private set; }
-        public Flood2Material Kind { get; private set; }
+        public AvalancheMaterial Kind { get; private set; }
         public Rigidbody Body => _body;
         public BoxCollider Shape => _shape;
         public bool EverBonded { get; private set; }
@@ -56,7 +56,7 @@ namespace Flood2
         }
 
         /// <summary>Configures the material's real collider, mass, friction and connection indicator.</summary>
-        internal void Initialize(int id, Flood2Material kind, PhysicsMaterial friction, Material lineMaterial, PhysicsSettings settings)
+        internal void Initialize(int id, AvalancheMaterial kind, PhysicsMaterial friction, Material lineMaterial, PhysicsSettings settings)
         {
             _settings = settings;
             Id = id;
@@ -66,7 +66,7 @@ namespace Flood2
             _shape = GetComponent<BoxCollider>();
             _shape.sharedMaterial = friction;
             Vector3 size = transform.localScale;
-            _body.mass = size.x * size.y * size.z * settings.WaterDensity * (kind == Flood2Material.Panel ? settings.PanelRelativeDensity : settings.SandbagRelativeDensity);
+            _body.mass = size.x * size.y * size.z * settings.WaterDensity * (kind == AvalancheMaterial.Panel ? settings.PanelRelativeDensity : settings.SandbagRelativeDensity);
             _body.linearDamping = settings.LinearDamping;
             _body.angularDamping = settings.AngularDamping;
             _body.interpolation = RigidbodyInterpolation.Interpolate;
@@ -83,7 +83,7 @@ namespace Flood2
         }
 
         /// <summary>Creates one full-strength joint at the adhesive contact. Broken pieces cannot attach again.</summary>
-        public bool Bond(Flood2Piece target, Vector3 point, int adhesiveId)
+        public bool Bond(AvalanchePiece target, Vector3 point, int adhesiveId)
         {
             if (EverBonded || target == this) return false;
             EverBonded = true;
@@ -119,7 +119,7 @@ namespace Flood2
         }
 
         /// <summary>Breaks an incoming connection when its support is removed, retaining the used-bond history.</summary>
-        public void RemoveSupport(Flood2Piece support)
+        public void RemoveSupport(AvalanchePiece support)
         {
             if (_connectedPiece != support) return;
             DetachJoint();
@@ -142,7 +142,7 @@ namespace Flood2
         }
 
         /// <summary>Applies buoyancy, relative-flow drag and a pressure difference across each physical box face.</summary>
-        public void ApplyWater(Flood2Water water)
+        public void ApplyWater(AvalancheWater water)
         {
             if (!gameObject.activeSelf || _body.isKinematic) return;
             Vector3 size = transform.localScale;
@@ -158,7 +158,7 @@ namespace Flood2
                 normal.Normalize();
                 float extent = side < 2 ? size.x * 0.5f : size.z * 0.5f;
                 Vector3 probe = transform.position + normal * (extent + 0.65f);
-                probe.y = Mathf.Max(bounds.min.y, Flood2Terrain.Height(probe.x, probe.z)) + 0.09f;
+                probe.y = Mathf.Max(bounds.min.y, AvalancheTerrain.Height(probe.x, probe.z)) + 0.09f;
                 if (!water.Sample(probe, out float surface, out Vector2 flow) || surface <= bounds.min.y) continue;
                 wet++;
                 surfaceSum += surface;

@@ -3,6 +3,7 @@
     {
       "sceneName": "Flood",
       "disasterName": "홍수",
+      "limitPreparationTime": false,
       "countdownSeconds": 120,
       "palette": [
         {
@@ -26,6 +27,7 @@
     {
       "sceneName": "Fog",
       "disasterName": "독안개",
+      "limitPreparationTime": false,
       "countdownSeconds": 40,
       "palette": [
         {
@@ -39,8 +41,20 @@
       ]
     },
     {
+      "sceneName": "Avalanche",
+      "disasterName": "홍수",
+      "limitPreparationTime": false,
+      "countdownSeconds": 120,
+      "palette": [
+        { "materialId": "panel", "placementLimit": 24 },
+        { "materialId": "sandbag", "placementLimit": 18 },
+        { "materialId": "adhesive", "placementLimit": 30 }
+      ]
+    },
+    {
       "sceneName": "Lava",
       "disasterName": "용암",
+      "limitPreparationTime": false,
       "countdownSeconds": 120,
       "palette": [
         {

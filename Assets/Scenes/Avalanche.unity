@@ -1448,7 +1448,7 @@ GameObject:
   - component: {fileID: 247100591}
   - component: {fileID: 247100595}
   m_Layer: 0
-  m_Name: Flood2 - stage context
+  m_Name: Avalanche - stage context
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -1465,7 +1465,7 @@ MonoBehaviour:
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 5d69d0c389e224941bdcf8a3fe2cd199, type: 3}
   m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::Flood2.Flood2Stage
+  m_EditorClassIdentifier: Assembly-CSharp::Avalanche.AvalancheStage
   _viewCamera: {fileID: 1376346626}
   _ground: {fileID: 2104824088}
   _waterSurface: {fileID: 1432688418}
@@ -1482,8 +1482,6 @@ MonoBehaviour:
   _previewMaterial: {fileID: 2100000, guid: 3b077fe6bab0be04288c0ad8dcbb462a, type: 2}
   _lineMaterial: {fileID: 2100000, guid: 147c9c1847a854a48a809a15bd7148e1, type: 2}
   _friction: {fileID: 13400000, guid: 34ab0999e1f4c204b8e469aef57764f3, type: 2}
-  _limitPreparationTime: 0
-  _preparationSeconds: 120
   _warningSeconds: 5
   _tailObservationSeconds: 25
   _attemptLimitSeconds: 150
@@ -1536,7 +1534,7 @@ MonoBehaviour:
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: c3f3123a5d1204e4cbe47c750ada48b9, type: 3}
   m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::Flood2.Flood2Hud
+  m_EditorClassIdentifier: Assembly-CSharp::Avalanche.AvalancheHud
 --- !u!114 &247100593
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -1548,10 +1546,7 @@ MonoBehaviour:
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 111a6d3aee62a134f8a5980fd881f703, type: 3}
   m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::Flood2.Flood2Construction
-  _startingPanels: 24
-  _startingSandbags: 18
-  _startingAdhesive: 30
+  m_EditorClassIdentifier: Assembly-CSharp::Avalanche.AvalancheConstruction
   _panelSize: {x: 3.6, y: 1.2, z: 0.6}
   _sandbagSize: {x: 1.4, y: 0.55, z: 1.1}
   _placementGrid: 0.3
@@ -1593,7 +1588,7 @@ MonoBehaviour:
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 2d457134ec0b9434ba3301bf14137229, type: 3}
   m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::Flood2.Flood2Response
+  m_EditorClassIdentifier: Assembly-CSharp::Avalanche.AvalancheResponse
   _walkSpeed: 1.25
   _stopDepth: 0.18
   _stopFastWaterDepth: 0.08
@@ -1645,7 +1640,7 @@ MonoBehaviour:
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: c4f9f6c6e23c41b43be123f32f510078, type: 3}
   m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::Flood2.Flood2Citizen
+  m_EditorClassIdentifier: Assembly-CSharp::Avalanche.AvalancheCitizen
   _citizenId: B-2
   _zone: "B \xB7 \uAD11\uC7A5"
   _visual: {fileID: 320713601}
@@ -2903,7 +2898,7 @@ MonoBehaviour:
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: c4f9f6c6e23c41b43be123f32f510078, type: 3}
   m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::Flood2.Flood2Citizen
+  m_EditorClassIdentifier: Assembly-CSharp::Avalanche.AvalancheCitizen
   _citizenId: C-2
   _zone: "C \xB7 \uC815\uB958\uC7A5"
   _visual: {fileID: 1752797497}
@@ -3600,7 +3595,7 @@ MonoBehaviour:
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: c4f9f6c6e23c41b43be123f32f510078, type: 3}
   m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::Flood2.Flood2Citizen
+  m_EditorClassIdentifier: Assembly-CSharp::Avalanche.AvalancheCitizen
   _citizenId: B-1
   _zone: "B \xB7 \uAD11\uC7A5"
   _visual: {fileID: 1857636051}
@@ -8973,7 +8968,7 @@ GameObject:
   - component: {fileID: 1376346628}
   - component: {fileID: 1376346627}
   m_Layer: 0
-  m_Name: Flood2 overview camera
+  m_Name: Avalanche overview camera
   m_TagString: MainCamera
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -9041,7 +9036,7 @@ MonoBehaviour:
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 4ef2780fe8cc8934ebe36befbc78168e, type: 3}
   m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::Flood2.Flood2Camera
+  m_EditorClassIdentifier: Assembly-CSharp::Avalanche.AvalancheCamera
   _focus: {x: 0, y: 0, z: 29}
   _yaw: -12
   _pitch: 58
@@ -9510,7 +9505,7 @@ MonoBehaviour:
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: c4f9f6c6e23c41b43be123f32f510078, type: 3}
   m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::Flood2.Flood2Citizen
+  m_EditorClassIdentifier: Assembly-CSharp::Avalanche.AvalancheCitizen
   _citizenId: C-1
   _zone: "C \xB7 \uC815\uB958\uC7A5"
   _visual: {fileID: 218479701}
@@ -10280,7 +10275,7 @@ MonoBehaviour:
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: c4f9f6c6e23c41b43be123f32f510078, type: 3}
   m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::Flood2.Flood2Citizen
+  m_EditorClassIdentifier: Assembly-CSharp::Avalanche.AvalancheCitizen
   _citizenId: A-1
   _zone: "A \xB7 \uC2DC\uC7A5"
   _visual: {fileID: 1437699419}
@@ -12294,7 +12289,7 @@ MonoBehaviour:
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: c4f9f6c6e23c41b43be123f32f510078, type: 3}
   m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::Flood2.Flood2Citizen
+  m_EditorClassIdentifier: Assembly-CSharp::Avalanche.AvalancheCitizen
   _citizenId: A-2
   _zone: "A \xB7 \uC2DC\uC7A5"
   _visual: {fileID: 2036634311}
