@@ -1446,6 +1446,7 @@ GameObject:
   - component: {fileID: 247100593}
   - component: {fileID: 247100592}
   - component: {fileID: 247100591}
+  - component: {fileID: 247100595}
   m_Layer: 0
   m_Name: Flood2 - stage context
   m_TagString: Untagged
@@ -1481,6 +1482,7 @@ MonoBehaviour:
   _previewMaterial: {fileID: 2100000, guid: 3b077fe6bab0be04288c0ad8dcbb462a, type: 2}
   _lineMaterial: {fileID: 2100000, guid: 147c9c1847a854a48a809a15bd7148e1, type: 2}
   _friction: {fileID: 13400000, guid: 34ab0999e1f4c204b8e469aef57764f3, type: 2}
+  _limitPreparationTime: 0
   _preparationSeconds: 120
   _warningSeconds: 5
   _tailObservationSeconds: 25
@@ -1548,10 +1550,10 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::Flood2.Flood2Construction
   _startingPanels: 24
-  _startingStones: 18
+  _startingSandbags: 18
   _startingAdhesive: 30
   _panelSize: {x: 3.6, y: 1.2, z: 0.6}
-  _stoneSize: {x: 1.4, y: 0.9, z: 1.1}
+  _sandbagSize: {x: 1.4, y: 0.55, z: 1.1}
   _placementGrid: 0.3
   _rotationStep: 15
   _strokeStartCost: 0.5
@@ -1563,7 +1565,7 @@ MonoBehaviour:
   _piecePhysics:
     _waterDensity: 100
     _panelRelativeDensity: 0.6
-    _stoneRelativeDensity: 2.6
+    _sandbagRelativeDensity: 2
     _flowDrag: 0.45
     _linearDamping: 0.4
     _angularDamping: 1.5
@@ -1585,6 +1587,24 @@ Transform:
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &247100595
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 247100590}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 2d457134ec0b9434ba3301bf14137229, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::Flood2.Flood2Response
+  _walkSpeed: 1.25
+  _stopDepth: 0.18
+  _stopFastWaterDepth: 0.08
+  _stopWaterSpeed: 0.9
+  _drainRadius: 1.8
+  _drainCapacity: 1.15
 --- !u!1 &248225566
 GameObject:
   m_ObjectHideFlags: 0

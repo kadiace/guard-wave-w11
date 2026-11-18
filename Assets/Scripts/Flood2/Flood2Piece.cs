@@ -4,7 +4,7 @@ using UnityEngine;
 
 namespace Flood2
 {
-    public enum Flood2Material { Panel, Stone }
+    public enum Flood2Material { Panel, Sandbag }
 
     /// <summary>One dynamic building material and its single outgoing adhesive joint.</summary>
     [RequireComponent(typeof(Rigidbody), typeof(BoxCollider))]
@@ -37,7 +37,7 @@ namespace Flood2
             [Header("Mass and water forces")]
             [SerializeField, Min(0.01f)] private float _waterDensity = 100f;
             [SerializeField, Min(0.01f)] private float _panelRelativeDensity = 0.6f;
-            [SerializeField, Min(0.01f)] private float _stoneRelativeDensity = 2.6f;
+            [SerializeField, Min(1f)] private float _sandbagRelativeDensity = 2f;
             [SerializeField, Min(0f)] private float _flowDrag = 0.45f;
             [SerializeField, Min(0f)] private float _linearDamping = 0.4f;
             [SerializeField, Min(0f)] private float _angularDamping = 1.5f;
@@ -48,7 +48,7 @@ namespace Flood2
             [SerializeField, Min(1f)] private float _curedStrengthMultiplier = 2f;
             public float WaterDensity => _waterDensity;
             public float PanelRelativeDensity => _panelRelativeDensity;
-            public float StoneRelativeDensity => _stoneRelativeDensity;
+            public float SandbagRelativeDensity => _sandbagRelativeDensity;
             public float FlowDrag => _flowDrag;
             public float LinearDamping => _linearDamping;
             public float AngularDamping => _angularDamping;
@@ -68,7 +68,7 @@ namespace Flood2
             _shape = GetComponent<BoxCollider>();
             _shape.sharedMaterial = friction;
             Vector3 size = transform.localScale;
-            _body.mass = size.x * size.y * size.z * settings.WaterDensity * (kind == Flood2Material.Panel ? settings.PanelRelativeDensity : settings.StoneRelativeDensity);
+            _body.mass = size.x * size.y * size.z * settings.WaterDensity * (kind == Flood2Material.Panel ? settings.PanelRelativeDensity : settings.SandbagRelativeDensity);
             _body.linearDamping = settings.LinearDamping;
             _body.angularDamping = settings.AngularDamping;
             _body.interpolation = RigidbodyInterpolation.Interpolate;

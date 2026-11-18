@@ -8,7 +8,7 @@ namespace Flood2
 
     /// <summary>Scene-owned citizen rescue rules and the two-peak flood, isolated from Flood and Fog.</summary>
     [DefaultExecutionOrder(-50)]
-    [RequireComponent(typeof(Flood2Construction), typeof(Flood2Hud))]
+    [RequireComponent(typeof(Flood2Construction), typeof(Flood2Hud), typeof(Flood2Response))]
     public sealed class Flood2Stage : MonoBehaviour
     {
         [Header("Scene references")]
@@ -26,6 +26,7 @@ namespace Flood2
         [SerializeField] private PhysicsMaterial _friction;
 
         [Header("Attempt timing (seconds)")]
+        [SerializeField] private bool _limitPreparationTime = false;
         [SerializeField, Min(10f)] private float _preparationSeconds = 120f;
         [SerializeField, Min(1f)] private float _warningSeconds = 5f;
         [SerializeField, Min(20f)] private float _tailObservationSeconds = 25f;
@@ -65,17 +66,19 @@ namespace Flood2
         public Flood2Citizen[] Citizens => _citizens;
         public Font Font => _font;
         public Material PanelMaterial => _panelMaterial;
-        public Material StoneMaterial => _stoneMaterial;
+        public Material SandbagMaterial => _stoneMaterial;
         public Material PreviewMaterial => _previewMaterial;
         public Material LineMaterial => _lineMaterial;
         public PhysicsMaterial Friction => _friction;
         public Flood2Construction Construction { get; private set; }
+        public Flood2Response Response { get; private set; }
         public Flood2Hud Hud { get; private set; }
         public Flood2Water Water => _water;
         public Flood2Phase Phase { get; private set; } = Flood2Phase.Introduction;
         public bool Paused { get; private set; }
         public bool CanEdit => Phase == Flood2Phase.Preparing && !Paused;
         public float PreparationLeft { get; private set; }
+        internal bool LimitPreparationTime => _limitPreparationTime;
         internal float PreparationSeconds => _preparationSeconds;
         internal float FirstWaveEnd => _firstRiseSeconds + _firstPeakSeconds;
         internal float IntermissionEnd => FirstWaveEnd + _intermissionSeconds;
@@ -101,10 +104,12 @@ namespace Flood2
             Cursor.visible = true;
             Cursor.lockState = CursorLockMode.None;
             Construction = GetComponent<Flood2Construction>();
+            Response = GetComponent<Flood2Response>();
             Hud = GetComponent<Flood2Hud>();
             _water = new Flood2Water(_waterFlow);
             _waterSurface.sharedMesh = _water.Surface;
             Construction.Initialize(this);
+            Response.Initialize(this);
             Hud.Initialize(this);
             PreparationLeft = _preparationSeconds;
             foreach (var citizen in _citizens) citizen.ResetState();
@@ -129,25 +134,30 @@ namespace Flood2
             Construction.TickContacts(dt);
             if (Phase == Flood2Phase.Preparing)
             {
-                PreparationLeft = Mathf.Max(0f, PreparationLeft - dt);
-                if (PreparationLeft <= 0f) Ready();
+                if (_limitPreparationTime)
+                {
+                    PreparationLeft = Mathf.Max(0f, PreparationLeft - dt);
+                    if (PreparationLeft <= 0f) Ready();
+                }
                 return;
             }
             _attemptClock += dt;
             if (Phase == Flood2Phase.Warning)
             {
+                Response.Walk(dt);
                 _warningClock += dt;
                 if (_warningClock >= _warningSeconds) Phase = Flood2Phase.Flooding;
                 return;
             }
             FloodElapsed += dt;
             float inlet = InletDepth(FloodElapsed);
-            _water.Step(dt, inlet, Construction.Pieces);
+            _water.Step(dt, inlet, Construction.Pieces, Response);
             if (!_water.IsValid)
             {
                 End(Flood2Phase.TechnicalError, "물 계산이 안정 범위를 벗어났습니다. 시민 실패로 처리하지 않습니다. 배치를 복원해 다시 시도하세요.");
                 return;
             }
+            Response.Walk(dt);
             if (FloodElapsed >= InflowEnd) Phase = Flood2Phase.Assessing;
             _sampleClock += dt;
             if (_sampleClock >= _citizenSampleInterval - 0.0001f)
@@ -169,7 +179,7 @@ namespace Flood2
             if (Phase == Flood2Phase.Assessing && FloodElapsed >= InflowEnd + _tailObservationSeconds && _stableClock >= _settledWaterSeconds && allSafe)
             {
                 foreach (var citizen in _citizens) citizen.Protect();
-                End(Flood2Phase.Cleared, "두 차례의 홍수가 지나갔습니다.\n여섯 시민 모두 안전합니다. 여러분이 만든 물길이 마을을 지켰습니다.");
+                End(Flood2Phase.Cleared, "두 차례의 홍수가 지나갔으며 여섯 시민 모두 안전합니다.");
             }
             else if (_attemptClock >= _attemptLimitSeconds)
                 End(Flood2Phase.Failed, "시민 주변에 잔류 홍수 위험이 남아 있습니다.\n물길이 시민을 지나지 않도록 배치를 수정하세요.");
@@ -187,7 +197,7 @@ namespace Flood2
             return 0f;
         }
 
-        /// <summary>Closes the instructions and starts the finite construction period.</summary>
+        /// <summary>Closes the instructions and starts the construction period.</summary>
         public void BeginPreparation()
         {
             if (Phase != Flood2Phase.Introduction) return;
@@ -230,6 +240,7 @@ namespace Flood2
         {
             Construction.ResetLayout(empty);
             _water.Reset();
+            Response.ResetResponse(empty);
             foreach (var citizen in _citizens) citizen.ResetState();
             _warningClock = _sampleClock = _stableClock = _attemptClock = FloodElapsed = 0f;
             PreparationLeft = _preparationSeconds;
