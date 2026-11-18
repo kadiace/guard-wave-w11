@@ -85,7 +85,7 @@ namespace GuardWave
             if (_pointerBlocked == null) return;
             if (mouse != null && !_pointerBlocked(mouse.position.ReadValue()))
             {
-                float scroll = mouse.scroll.ReadValue().y;
+                float scroll = NormalizeScrollSteps(mouse.scroll.ReadValue().y);
                 if (!_commonBuildControls || !mouse.rightButton.isPressed)
                     _currentZoom = Mathf.Clamp(_currentZoom - scroll * _scrollSensitivity, _zoomRange.x, _zoomRange.y);
                 Vector2 delta = mouse.delta.ReadValue();
@@ -94,7 +94,7 @@ namespace GuardWave
                     if (_commonBuildControls)
                     {
                         _currentFocus -= Quaternion.Euler(0f, _currentYaw, 0f) * new Vector3(delta.x, 0f, delta.y) * (_currentZoom / 450f);
-                        if (Mathf.Abs(scroll) > 0.01f) { RotateByScroll(scroll, 15f); _currentYaw = transform.eulerAngles.y; }
+                        if (Mathf.Abs(scroll) > 0.01f) _currentYaw += scroll * 15f;
                     }
                     else
                     {
@@ -150,10 +150,16 @@ namespace GuardWave
         /// <summary>플랫폼별 휠 델타를 휠 칸으로 환산해 카메라를 회전한다.</summary>
         public void RotateByScroll(float scroll, float degreesPerStep)
         {
+            transform.Rotate(Vector3.up, NormalizeScrollSteps(scroll) * degreesPerStep, Space.World);
+        }
+
+        /// <summary>Converts platform-specific Windows wheel deltas into logical scroll steps.</summary>
+        private static float NormalizeScrollSteps(float scroll)
+        {
             if (InputSystem.settings.scrollDeltaBehavior == InputSettings.ScrollDeltaBehavior.KeepPlatformSpecificInputRange &&
                 (Application.platform == RuntimePlatform.WindowsEditor || Application.platform == RuntimePlatform.WindowsPlayer))
-                scroll /= WINDOWS_SCROLL_UNITS_PER_TICK;
-            transform.Rotate(Vector3.up, scroll * degreesPerStep, Space.World);
+                return scroll / WINDOWS_SCROLL_UNITS_PER_TICK;
+            return scroll;
         }
     }
 }

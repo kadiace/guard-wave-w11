@@ -76,7 +76,7 @@ namespace Avalanche
         public bool AllZonesOccupied { get { for (int i = 0; i < _citizenAreas.Length; i++) if (ZoneCount(i) == 0) return false; return true; } }
         public int ZoneTotal => _citizenAreas.Length;
         public int BondCount { get { int n = 0; foreach (var p in _pieces) if (p.IsBonded) n++; return n; } }
-        public string Hint { get; private set; } = "물막이판으로 흐름을 돌리고 모래주머니로 낮은 틈을 보강하세요.";
+        public string Hint { get; private set; } = "유도 방벽으로 눈사태를 돌리고 하중 받침으로 방어선을 보강하세요.";
         public bool HasCheckpoint => _checkpoint != null;
 
         private sealed class AdhesiveBlock
@@ -445,6 +445,12 @@ namespace Avalanche
             if (Adhesive <= 0)
             {
                 Hint = "접합 블록이 모두 사용되었습니다.";
+                return false;
+            }
+            // Connectors follow the same buildable map as panels and sandbags.
+            if (Mathf.Abs(point.x) > 17.4f || point.z < 1f || point.z >= 48f)
+            {
+                Hint = "접합 블록은 배치 허용 구역에만 설치할 수 있습니다.";
                 return false;
             }
 
