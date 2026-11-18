@@ -106,6 +106,7 @@ namespace GuardWave
             new List<MudContactCandidate>(MAX_MUD_CONTACTS);
         private readonly Dictionary<ulong, int> _mudContactPairs =
             new Dictionary<ulong, int>();
+        private int _nextMudContactEviction;
         private MudContactCandidate _hoveredMudContact;
         private bool _hasHoveredMudContact;
         private readonly struct MudContactCandidate
@@ -158,6 +159,7 @@ namespace GuardWave
         private GuardWaveFlipRenderer _flipRenderer;
         private GuardWaveFluidSettings _fluidSettings;
         private bool _isLavaStage;
+        private bool _isFogStage;
         private GuardWaveLavaAtmosphere _lavaAtmosphere;
         private float _lavaFlowSecondsRemaining;
         private readonly List<GuardWaveFlipFluid.LavaContactEvidence> _lavaContacts =
@@ -230,6 +232,7 @@ namespace GuardWave
         {
             _sceneContext = GetComponent<ForestSceneContext>();
             _isLavaStage = gameObject.scene.name == "Lava";
+            _isFogStage = GetComponent<FogSceneController>() != null;
             _catalog = new GuardWaveCatalog();
             _stageInfo = GuardWaveStageInfoFile.LoadForScene(gameObject.scene.name);
             _fluidSettings = _sceneFluidSettings != null
@@ -300,7 +303,7 @@ namespace GuardWave
 
         private void UpdateFloodDrowning()
         {
-            if (_isLavaStage || GetComponent<FogSceneController>() != null ||
+            if (_isLavaStage || _isFogStage ||
                 _awaitingStage || _finished || _flagBody == null ||
                 _defenseFlag == null || !_defenseFlag.activeInHierarchy)
                 return;
@@ -335,6 +338,7 @@ namespace GuardWave
             {
                 EndPlacementStroke();
                 EndMudDrying();
+                HideMudContactGuides();
                 return;
             }
 
@@ -635,9 +639,34 @@ namespace GuardWave
         /// the creek bed are candidates; neither overlap tests nor proximity
         /// alone can create a bond.
         /// </summary>
+        private static ulong MudContactKey(Collider a, Collider b)
+        {
+            if (a == null || b == null) return 0UL;
+            int first = a.GetInstanceID(), second = b.GetInstanceID();
+            return ((ulong)(uint)Mathf.Min(first, second) << 32) |
+                (uint)Mathf.Max(first, second);
+        }
+
+        private void PruneStaleMudContacts()
+        {
+            int count = _mudContacts.Count;
+            _mudContactPairs.Clear();
+            int kept = 0;
+            for (int i = 0; i < count; i++)
+            {
+                MudContactCandidate contact = _mudContacts[i];
+                if (!TryResolveMudContact(contact, out _, out _)) continue;
+                _mudContacts[kept] = contact;
+                _mudContactPairs[MudContactKey(contact.OwnCollider, contact.OtherCollider)] =
+                    kept++;
+            }
+            if (kept < count)
+                _mudContacts.RemoveRange(kept, count - kept);
+        }
+
         internal void ReportMudContact(GuardWavePiece source, Collision collision)
         {
-            if (_isLavaStage || GetComponent<FogSceneController>() != null ||
+            if (_isFogStage ||
                 _stageTransitioning || _resolving || _awaitingStage || _finished ||
                 !IsPlacedPiece(source) || collision == null ||
                 collision.contactCount == 0)
@@ -654,13 +683,27 @@ namespace GuardWave
                 (target == null || !IsPlacedPiece(target)))
                 return;
 
-            int a = own.GetInstanceID();
-            int b = other.GetInstanceID();
-            ulong key = ((ulong)(uint)Mathf.Min(a, b) << 32) |
-                (uint)Mathf.Max(a, b);
+            ulong key = MudContactKey(own, other);
             bool existing = _mudContactPairs.TryGetValue(key, out int index);
             if (!existing && _mudContacts.Count >= MAX_MUD_CONTACTS)
-                return;
+            {
+                // Invalid/stale contacts should never starve new candidates.
+                PruneStaleMudContacts();
+                existing = _mudContactPairs.TryGetValue(key, out index);
+                if (!existing && _mudContacts.Count >= MAX_MUD_CONTACTS)
+                {
+                    // Worst case: all contacts are still valid. Replace a
+                    // rotating old candidate rather than blocking new pairs.
+                    int slot = _nextMudContactEviction++ % MAX_MUD_CONTACTS;
+                    MudContactCandidate removed = _mudContacts[slot];
+                    _mudContactPairs.Remove(MudContactKey(
+                        removed.OwnCollider, removed.OtherCollider));
+                    _mudContacts[slot] = new MudContactCandidate(source,
+                        own, other, first.point, first.normal);
+                    _mudContactPairs.Add(key, slot);
+                    return;
+                }
+            }
 
             // Prefer a manifold point near the cursor when actively using mud.
             ContactPoint nearest = first;
@@ -790,9 +833,10 @@ namespace GuardWave
             int visible = 0;
             foreach (MudContactCandidate candidate in _mudContacts)
             {
-                if (!TryResolveMudContact(candidate, out _, out _)) continue;
                 Vector3 projected = _camera.WorldToScreenPoint(candidate.Point);
                 if (projected.z <= 0f) continue;
+                if (!TryResolveMudContact(candidate, out GuardWavePiece piece,
+                    out _)) continue;
                 float distance = ((Vector2)projected - screen).sqrMagnitude;
                 if (distance < nearest)
                 {
@@ -808,6 +852,7 @@ namespace GuardWave
                 GameObject guide = GetMudGuide(visible++);
                 Vector3 normal = candidate.Normal.sqrMagnitude < 0.001f
                     ? Vector3.up : candidate.Normal.normalized;
+                if (piece != candidate.Piece) normal = -normal;
                 guide.transform.SetPositionAndRotation(
                     candidate.Point + normal * 0.025f,
                     Quaternion.FromToRotation(Vector3.up, normal));
@@ -831,17 +876,18 @@ namespace GuardWave
             if (!TryResolveMudContact(candidate, out GuardWavePiece piece,
                 out Collider support)) return;
 
+            Vector3 bondNormal = candidate.Normal.sqrMagnitude < 0.001f
+                ? Vector3.up : candidate.Normal.normalized;
+            if (piece != candidate.Piece) bondNormal = -bondNormal;
             GameObject objectAtContact = new GameObject("Mud Contact Bond");
             objectAtContact.transform.SetPositionAndRotation(candidate.Point,
-                Quaternion.FromToRotation(Vector3.up,
-                    candidate.Normal.sqrMagnitude < 0.001f
-                        ? Vector3.up : candidate.Normal.normalized));
+                Quaternion.FromToRotation(Vector3.up, bondNormal));
             objectAtContact.transform.SetParent(support.transform, true);
             GuardWaveMudPatch patch =
                 objectAtContact.AddComponent<GuardWaveMudPatch>();
             patch.Initialize(this, support, support.attachedRigidbody,
                 mudBreakForce, mudBreakTorque);
-            if (!patch.ConnectContact(piece, candidate.Point, candidate.Normal))
+            if (!patch.ConnectContact(piece, candidate.Point, bondNormal))
             {
                 Destroy(objectAtContact);
                 return;
@@ -849,7 +895,9 @@ namespace GuardWave
             _mudPatches.Add(patch);
             SaveEditState(false);
             HideMudContactGuides();
-            _status = "진흙으로 접촉 지점을 연결했습니다. 드라이기로 접착력을 강화할 수 있습니다.";
+            _status = _isLavaStage
+                ? "진흙으로 접촉 지점을 연결했습니다."
+                : "진흙으로 접촉 지점을 연결했습니다. 드라이기로 접착력을 강화할 수 있습니다.";
         }
 
         private void EndMudPainting()
@@ -1292,8 +1340,7 @@ namespace GuardWave
             && !_finished && !_rulesOpen && _defenseFlag != null
             && _defenseFlag.activeInHierarchy;
         public bool IsLavaStage => _isLavaStage;
-        public bool IsFloodDrowning => !_isLavaStage &&
-            GetComponent<FogSceneController>() == null &&
+        public bool IsFloodDrowning => !_isLavaStage && !_isFogStage &&
             (_flagFloodImmersed ||
              (_awaitingStage && _floodDrowningSeconds >= floodDrowningDurationSeconds));
         public float FloodDrowningSeconds => _floodDrowningSeconds;
@@ -1518,6 +1565,7 @@ namespace GuardWave
             ResetFloodDrowning();
             _mudContacts.Clear();
             _mudContactPairs.Clear();
+            _nextMudContactEviction = 0;
             SetOutlineTargets(null);
             if (_stageFloodRoutine != null)
             {
@@ -2439,8 +2487,8 @@ namespace GuardWave
             if (snapshot == null) return;
             _pendingOutflowRemovals.Clear();
             _queuedOutflowRemovals.Clear();
-            _mudContacts.Clear();
-            _mudContactPairs.Clear();
+            // Preserve cached manifold points through Undo. The current poses
+            // are checked before showing each candidate, including sleeping bodies.
             ResetFloodDrowning();
             SetOutlineTargets(null);
             HideDropPreview();

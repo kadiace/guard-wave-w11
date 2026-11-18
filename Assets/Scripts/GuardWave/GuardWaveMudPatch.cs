@@ -505,7 +505,7 @@ namespace GuardWave
         {
             _lastContactCheck.Clear();
             foreach (Collider trigger in _adhesionTriggers)
-                if (trigger != null) trigger.enabled = !_isDry;
+                if (trigger != null) trigger.enabled = false;
         }
 
         private IEnumerator AnimateDryMaterial()
@@ -751,71 +751,8 @@ namespace GuardWave
         /// <summary>Searches an eligible contact once per physics tick, including contact with the creek bed.</summary>
         private void TryBond(Collider other)
         {
-            // Contact bonding is now a deliberate palette click. Existing authored
-            // joints remain restorable, but triggers never make new bonds.
-            return;
-        }
-
-        private void LegacyTryBond(Collider other)
-        {
-            if (_game == null || _isDry || other == null || other.isTrigger ||
-                other == _surfaceCollider) return;
-            if (_lastContactCheck.TryGetValue(other, out float checkedAt) &&
-                checkedAt == Time.fixedTime) return;
-            _lastContactCheck[other] = Time.fixedTime;
-            if (!TryResolveBondTarget(other, out GuardWavePiece piece,
-                    out Rigidbody connectedBody)) return;
-            bool possibleCreek = other == _game.CreekBedCollider &&
-                _surfaceBody != null;
-            // The creek AABB spans the entire channel. For this rare case,
-            // test the short patch directly instead of hashing thousands of
-            // empty world cells every physics step.
-            if (possibleCreek)
-            {
-                for (int i = 0; i < _points.Count; i++)
-                    if (TryCreateBondAt(other, piece, connectedBody,
-                        transform.TransformPoint(_points[i]),
-                        transform.TransformDirection(_normals[i]).normalized)) return;
-                return;
-            }
-
-            // The sample hash keeps each contact test proportional to nearby
-            // brush points rather than the full stroke length.
-            Bounds bounds = other.bounds;
-            Vector3 pad = Vector3.one * (BrushRadius + MaxBondNormalGap);
-            Vector3 low = bounds.min - pad;
-            Vector3 high = bounds.max + pad;
-            Vector3 min = new Vector3(float.PositiveInfinity, 0f, float.PositiveInfinity);
-            Vector3 max = new Vector3(float.NegativeInfinity, 0f, float.NegativeInfinity);
-            for (int corner = 0; corner < 8; corner++)
-            {
-                Vector3 vertex = new Vector3(
-                    (corner & 1) == 0 ? low.x : high.x,
-                    (corner & 2) == 0 ? low.y : high.y,
-                    (corner & 4) == 0 ? low.z : high.z);
-                Vector3 local = transform.InverseTransformPoint(vertex);
-                min.x = Mathf.Min(min.x, local.x);
-                min.z = Mathf.Min(min.z, local.z);
-                max.x = Mathf.Max(max.x, local.x);
-                max.z = Mathf.Max(max.z, local.z);
-            }
-
-            int x0 = Mathf.FloorToInt(min.x / SampleCellSize);
-            int x1 = Mathf.FloorToInt(max.x / SampleCellSize);
-            int z0 = Mathf.FloorToInt(min.z / SampleCellSize);
-            int z1 = Mathf.FloorToInt(max.z / SampleCellSize);
-            for (int x = x0; x <= x1; x++)
-            for (int z = z0; z <= z1; z++)
-            {
-                if (!_sampleGrid.TryGetValue(new Vector2Int(x, z),
-                    out List<int> indices)) continue;
-                foreach (int index in indices)
-                {
-                    Vector3 point = transform.TransformPoint(_points[index]);
-                    Vector3 normal = transform.TransformDirection(_normals[index]).normalized;
-                    if (TryCreateBondAt(other, piece, connectedBody, point, normal)) return;
-                }
-            }
+            // Click-to-bond is the only way to create a new mud connection.
+            // Keep callbacks harmless for old authored trigger components.
         }
 
         private void CreateBond(GuardWavePiece piece, Vector3 anchor,
