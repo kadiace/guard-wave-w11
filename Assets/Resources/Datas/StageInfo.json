@@ -40,19 +40,19 @@
       "countdownSeconds": 120,
       "palette": [
         {
+          "materialId": "wood_house",
+          "placementLimit": 10
+        },
+        {
+          "materialId": "stone_house",
+          "placementLimit": 10
+        },
+        {
+          "materialId": "wood_plank",
+          "placementLimit": 30
+        },
+        {
           "materialId": "mud",
-          "placementLimit": -1
-        },
-        {
-          "materialId": "log",
-          "placementLimit": 100
-        },
-        {
-          "materialId": "forest_pebble",
-          "placementLimit": 100
-        },
-        {
-          "materialId": "hair_dryer",
           "placementLimit": -1
         }
       ]

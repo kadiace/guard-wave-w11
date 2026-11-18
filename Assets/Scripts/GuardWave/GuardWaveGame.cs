@@ -1123,9 +1123,9 @@ namespace GuardWave
         }
 
         /// <summary>
-        /// Count only currently placed player-created objects, never authored
-        /// Forest logs. Destroy, manual removal and snapshot restoration update
-        /// _pieces, so Undo and retries automatically restore the correct quota.
+        /// Count active runtime pieces normally, and authored Lava structures
+        /// against the same inventory. Manual removal and Undo update the count;
+        /// existing Flood and Fog inventory behavior remains unchanged.
         /// </summary>
         public int GetRemainingPlacements(string materialId)
         {
@@ -1134,8 +1134,13 @@ namespace GuardWave
             int used = 0;
             foreach (GuardWavePiece piece in _pieces)
                 if (piece != null && _runtimePieces.Contains(piece) &&
-                    piece.MaterialId == materialId)
+                    piece.MaterialId == materialId && _pieceSet.Contains(piece))
                     used++;
+            if (_isLavaStage)
+                foreach (GuardWavePiece piece in _scenePieces)
+                    if (piece != null && piece.MaterialId == materialId &&
+                        _pieceSet.Contains(piece) && piece.gameObject.activeInHierarchy)
+                        used++;
             return Mathf.Max(0, limit - used);
         }
 
