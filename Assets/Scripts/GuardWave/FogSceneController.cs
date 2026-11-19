@@ -14,6 +14,8 @@ namespace GuardWave
     [RequireComponent(typeof(GuardWaveGame))]
     public sealed class FogSceneController : MonoBehaviour
     {
+        private const int AcceleratedSimulationSpeed = 2;
+
         [Header("Scene-authored volume mesh (no runtime creation)")]
         [SerializeField] private MeshRenderer _fogVolumeRenderer;
 
@@ -85,6 +87,8 @@ namespace GuardWave
         public float MaximumSimulationDurationSeconds => MaximumSimulationSeconds;
         public float RemainingSimulationSeconds =>
             Mathf.Max(0f, MaximumSimulationSeconds - _simulationElapsedSeconds);
+        public float RemainingScheduledWavePlaybackSeconds =>
+            GetPlaybackSecondsUntil(_scheduledSimulationEnd);
         public bool IsComing => _running;
         public float FlagExposureSeconds => _exposureSeconds;
         public float FlagExposureLimitSeconds => _failureExposureSeconds;
@@ -101,6 +105,21 @@ namespace GuardWave
         public bool CanReady => !_running && _game != null && _game.CanReady;
         public string StatusMessage => !string.IsNullOrEmpty(_status)
             ? _status : _game != null ? _game.StatusMessage : "";
+
+        /// <summary>Converts a simulation deadline into remaining gameplay seconds using the configured playback speed.</summary>
+        private float GetPlaybackSecondsUntil(float simulationDeadline)
+        {
+            float elapsed = Mathf.Clamp(_simulationElapsedSeconds, 0f, MaximumSimulationSeconds);
+            float deadline = Mathf.Clamp(simulationDeadline, 0f, MaximumSimulationSeconds);
+            float acceleratedStart = Mathf.Clamp(
+                _doubleSpeedAfterSeconds, 0f, MaximumSimulationSeconds);
+            float normalSpeedRemaining = Mathf.Max(
+                0f, Mathf.Min(deadline, acceleratedStart) - elapsed);
+            float acceleratedSpeedRemaining = Mathf.Max(
+                0f, deadline - Mathf.Max(elapsed, acceleratedStart)) /
+                AcceleratedSimulationSpeed;
+            return normalSpeedRemaining + acceleratedSpeedRemaining;
+        }
 
         private void Awake()
         {
@@ -219,7 +238,8 @@ namespace GuardWave
                     failed = true; // Keep the plume moving behind the failure popup.
                 float dt = Time.fixedDeltaTime; // Exposure and HUD use unaccelerated game seconds.
                 realElapsed += dt;
-                int nextSpeed = elapsed >= _doubleSpeedAfterSeconds ? 2 : 1;
+                int nextSpeed = elapsed >= _doubleSpeedAfterSeconds
+                    ? AcceleratedSimulationSpeed : 1;
                 if (nextSpeed != _simulationSpeed)
                 {
                     _simulationSpeed = nextSpeed;
@@ -348,7 +368,7 @@ namespace GuardWave
             _game.SetRulesOpen(false);
             if (!failed && !_game.AwaitingFailure)
             {
-                _game.CompleteStage();
+                _game.CompleteStageRound();
                 _status = _game.IsFinished
                     ? "안개가 지나갔습니다. 깃발을 지켜냈습니다."
                     : _game.StatusMessage;

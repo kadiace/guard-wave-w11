@@ -68,6 +68,7 @@ namespace Avalanche
         private GuardWaveStageInfo _stageInfo;
         private StagePreparationClock _preparationClock;
         private StagePauseMenu _pauseMenu;
+        private int _currentRoundIndex;
         public Camera ViewCamera => _viewCamera;
         public MeshCollider Ground => _ground;
         public IReadOnlyList<AvalancheCitizen> Citizens => _citizens;
@@ -81,6 +82,8 @@ namespace Avalanche
         public AvalancheHud Hud { get; private set; }
         public AvalancheSnow Snow => _snow;
         public AvalanchePhase Phase { get; private set; } = AvalanchePhase.Introduction;
+        public int CurrentRoundIndex => _currentRoundIndex;
+        public int RoundCount => _stageInfo.RoundCount;
         public bool Paused { get; private set; }
         public bool CanEdit => Phase == AvalanchePhase.Preparing && !Paused && !Hud.RulesOpen;
         public bool HasProtectedCitizens => _citizens.Length > 0;
@@ -121,7 +124,7 @@ namespace Avalanche
             Cursor.visible = true;
             Cursor.lockState = CursorLockMode.None;
             _stageInfo = GuardWaveStageInfoFile.LoadForScene(gameObject.scene.name);
-            _preparationClock = new StagePreparationClock(_stageInfo);
+            _preparationClock = new StagePreparationClock(_stageInfo.GetRound(0));
             AvalancheTerrain.Configure(_terrainSettings);
             _terrainMesh = AvalancheTerrain.CreateMesh();
             _ground.sharedMesh = _terrainMesh;
@@ -312,9 +315,28 @@ namespace Avalanche
                 Debug.Log($"[Avalanche] {phase} t={Elapsed:F2}s injected={_snow.InjectedVolume:F3}m3 outflow={_snow.OutflowVolume:F3}m3 active={_snow.ActiveVolume:F3}m3 deposited={_snow.DepositedVolume:F3}m3 error={_snow.VolumeError:F6}m3 pieces={Construction.Pieces.Count} bonds={Construction.BondCount}", this);
                 if (phase == AvalanchePhase.Failed || phase == AvalanchePhase.TechnicalError) LogTerminalDiagnostics();
             }
-            if (phase == AvalanchePhase.Cleared) StageClearSession.MarkCleared(Scene.Avalanche);
             Time.timeScale = 0f;
             _avalancheAudio.Stop();
+            if (phase == AvalanchePhase.Cleared && _currentRoundIndex + 1 < _stageInfo.RoundCount)
+            {
+                _currentRoundIndex++;
+                _snow.Reset();
+                ResetCitizens();
+                _firstReleased = false;
+                _secondReleased = false;
+                _warningClock = 0f;
+                _sampleClock = 0f;
+                _stableClock = 0f;
+                _settlementGraceClock = 0f;
+                _settlementGraceActive = false;
+                _preparationClock.Reset(_stageInfo.GetRound(_currentRoundIndex));
+                ResultMessage = $"{_currentRoundIndex}차 눈사태가 지나갔습니다. 다음 배치를 준비하세요.";
+                Phase = AvalanchePhase.Preparing;
+                Time.timeScale = 1f;
+                return;
+            }
+
+            if (phase == AvalanchePhase.Cleared) StageClearSession.MarkCleared(Scene.Avalanche);
         }
 
         /// <summary>Logs the last success-gate state and each citizen's risk counters for terminal diagnosis.</summary>
@@ -338,7 +360,8 @@ namespace Avalanche
             _firstReleased = _secondReleased = false;
             _warningClock = _sampleClock = _stableClock = _settlementGraceClock = Elapsed = 0f;
             _settlementGraceActive = false;
-            _preparationClock.Reset();
+            _currentRoundIndex = 0;
+            _preparationClock.Reset(_stageInfo.GetRound(_currentRoundIndex));
             ResultMessage = "";
             Attempt++;
             Paused = false;

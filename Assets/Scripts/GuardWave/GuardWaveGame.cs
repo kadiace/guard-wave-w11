@@ -211,6 +211,7 @@ namespace GuardWave
         }
 
         private int _stage;
+        private int _currentRoundIndex;
         private float _objectYaw;
         private bool _rulesOpen;
         private bool _paletteOpen = true;
@@ -1414,6 +1415,8 @@ namespace GuardWave
         public string StatusMessage => _status;
         public int PieceCount => _pieces.Count;
         public GuardWaveStageInfo StageInfo => _stageInfo;
+        public int CurrentRoundIndex => _currentRoundIndex;
+        public int RoundCount => _stageInfo.RoundCount;
 
         /// <summary>True for mandatory palette entries defined by the stage JSON.</summary>
         public bool IsTargetMaterial(string materialId)
@@ -1696,7 +1699,7 @@ namespace GuardWave
             DealOffers();
             if (ambientFlowPreview) BeginAmbientCreekFlow();
             _status = GetComponent<FogSceneController>() != null
-                ? "건물을 배치하면 +Z 방향 실외기 바람으로 안개를 밀어냅니다. 준비 완료를 누르세요."
+                ? "선풍기를 배치하면 뒤쪽에서 앞쪽으로 바람을 보내 안개를 밀어냅니다. 준비 완료를 누르세요."
                 : _isLavaStage
                     ? "용암에 닿은 기물은 불타다가 파괴됩니다. 깃발을 지키세요."
                     : "진흙을 선택하고 두 물체의 노란 접촉 가이드를 클릭해 연결하세요. 우클릭: 선택 해제";
@@ -2095,7 +2098,7 @@ namespace GuardWave
             _stageTransitioning = false;
             _resolving = false;
             _stageFloodRoutine = null;
-            CompleteStage();
+            CompleteStageRound();
         }
 
         /// <summary>
@@ -2258,7 +2261,7 @@ namespace GuardWave
             _stageTransitioning = false;
             _resolving = false;
             _stageFloodRoutine = null;
-            CompleteStage();
+            CompleteStageRound();
         }
 
         /// <summary>
@@ -2344,7 +2347,35 @@ namespace GuardWave
             _stageTransitioning = false;
             _stageFloodRoutine = null;
             _resolving = false;
-            CompleteStage();
+            CompleteStageRound();
+        }
+
+        /// <summary>Completes one disaster round and prepares the next configured round, or clears the stage.</summary>
+        public void CompleteStageRound()
+        {
+            if (_finished || _awaitingStage) return;
+            if (_defenseFlag == null || !_defenseFlag.activeInHierarchy ||
+                (!_isLavaStage && _defenseFlag.transform.position.z <= DestructionBoundaryZ))
+            {
+                DestroyDefenseFlag();
+                return;
+            }
+
+            if (_currentRoundIndex + 1 >= _stageInfo.RoundCount)
+            {
+                CompleteStage();
+                return;
+            }
+
+            int completedRound = _currentRoundIndex + 1;
+            _currentRoundIndex++;
+            _stageTransitioning = false;
+            _waveHasStarted = false;
+            _ambientFlowRunning = false;
+            _resolving = false;
+            _stageFloodRoutine = null;
+            _lavaFlowSecondsRemaining = 0f;
+            _status = $"{_stageInfo.disasterName} {completedRound}차가 끝났습니다. 다음 배치를 준비하세요.";
         }
 
         /// <summary>재해 종료 시 방어 깃발의 생존 여부를 판정하고 이번 실행의 클리어를 기록한다.</summary>
@@ -2876,6 +2907,7 @@ namespace GuardWave
                     _editHistory.Count - checkpointIndex - 1);
             RestoreEditState(_waveSnapshot);
             CommitWaveSnapshot();
+            _currentRoundIndex = 0;
             _awaitingStage = false;
             _stageTransitioning = false;
             _waveHasStarted = false;

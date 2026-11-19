@@ -36,9 +36,15 @@ namespace Avalanche
         public string Result => _stage.ResultMessage;
         public string ResultTitle => _stage.Phase == AvalanchePhase.TechnicalError ? "계산 중단 · 배치 복원 가능" : "방어 실패";
         public string DisasterLabel => _stage.SettlementGraceActive ? $"안정 확인 유예  {_stage.SettlementGraceLeft:0.0}초"
-            : _stage.Phase == AvalanchePhase.Preparing ? "배치 완료 후 준비 완료를 눌러 주세요."
-            : _stage.Phase == AvalanchePhase.Warning ? $"눈사태 경보  {_stage.WarningLeft:0.0}초"
-            : $"눈사태  {_stage.Elapsed:0.0}초";
+            : _stage.Phase == AvalanchePhase.Preparing ? _stage.RoundCount > 1
+                ? $"{_stage.CurrentRoundIndex + 1}차 눈사태 준비 · 배치 완료를 눌러 주세요."
+                : "배치 완료 후 준비 완료를 눌러 주세요."
+            : _stage.Phase == AvalanchePhase.Warning ? _stage.RoundCount > 1
+                ? $"{_stage.CurrentRoundIndex + 1}차 눈사태 경보  {_stage.WarningLeft:0.0}초"
+                : $"눈사태 경보  {_stage.WarningLeft:0.0}초"
+            : _stage.RoundCount > 1
+                ? $"{_stage.CurrentRoundIndex + 1}차 눈사태  {_stage.Elapsed:0.0}초"
+                : $"눈사태  {_stage.Elapsed:0.0}초";
         public string Rules => $"마을에 미리 배치된 시민 {_stage.Citizens.Count}명을 두 차례의 눈사태에서 모두 지키세요.\n"
             + "시민은 옮기거나 회수할 수 없습니다. 주변에 방어 구조물을 설치하세요.\n"
             + "유도 방벽과 하중 받침을 놓고, 접합 블록으로 닿는 자재를 연결하세요.\n"

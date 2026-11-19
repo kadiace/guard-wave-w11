@@ -23,8 +23,16 @@
     {
       "sceneName": "Fog",
       "disasterName": "독안개",
-      "limitPreparationTime": false,
-      "countdownSeconds": 40,
+      "rounds": [
+        {
+          "limitPreparationTime": true,
+          "countdownSeconds": 40
+        },
+        {
+          "limitPreparationTime": true,
+          "countdownSeconds": 40
+        }
+      ],
       "palette": [
         {
           "materialId": "building",
