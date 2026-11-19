@@ -8,6 +8,35 @@ using UnityEngine.UI;
 
 namespace GuardWave
 {
+    /// <summary>Connects scene-owned rules to the shared stage UI without depending on a particular disaster solver.</summary>
+    public interface IStageHudContext
+    {
+        GuardWaveStageInfo StageInfo { get; }
+        GuardWaveMaterial[] Offers { get; }
+        int SelectedIndex { get; }
+        bool CanEdit { get; }
+        bool CanReady { get; }
+        bool Failed { get; }
+        bool Finished { get; }
+        string Status { get; }
+        string Result { get; }
+        string ResultTitle { get; }
+        string Rules { get; }
+        string DisasterLabel { get; }
+        /// <summary>Returns the live inventory for a palette entry.</summary>
+        int Remaining(string id);
+        /// <summary>Selects one palette item.</summary>
+        void Select(int index);
+        /// <summary>Commits construction and begins the disaster warning.</summary>
+        void Ready();
+        /// <summary>Restores construction after a failed attempt.</summary>
+        void Retry();
+        /// <summary>Returns to stage selection.</summary>
+        void ReturnToMenu();
+        /// <summary>Pauses scene interaction while the rule modal is visible.</summary>
+        void SetRulesOpen(bool open);
+    }
+
     /// <summary>원본 2D GuardWave UI 프리팹을 3D 물리 게임의 상태와 연결한다.</summary>
     public sealed class GuardWaveHud : MonoBehaviour
     {
@@ -20,6 +49,8 @@ namespace GuardWave
         private readonly Dictionary<string, Sprite> _generatedIcons = new Dictionary<string, Sprite>();
 
         private GuardWaveGame _game;
+        private IStageHudContext _context;
+        private Text _contextDisaster;
         private FogSceneController _fogMode;
         private GuardWaveStageTimer _stageTimer;
         private GameObject _fogExposurePanel;
@@ -184,10 +215,124 @@ Ctrl+Z: 최근 기물 배치, 깃발 배치 또는 수동 제거 되돌리기
 
         private void Update()
         {
+            if (_context != null) { RefreshContext(); return; }
             if (_game == null) return;
             AnimateCandidatePanel();
             Refresh();
         }
+
+        /// <summary>Binds scene-provided cards and actions to the same prefab used by the other stages.</summary>
+        public void Initialize(IStageHudContext context)
+        {
+            _context = context;
+            _detail = FindText("PlacementDetailPanel/DetailText");
+            _stagePopup = transform.Find("StageResultPopup").gameObject;
+            _stageTitle = FindText("StageResultPopup/Heading/TitleText");
+            _stageBody = FindText("StageResultPopup/Contents/BodyText");
+            _completePopup = transform.Find("RunCompletePopup").gameObject;
+            _completeTitle = FindText("RunCompletePopup/Heading/TitleText");
+            _completeBody = FindText("RunCompletePopup/Contents/BodyText");
+            _rulesPopup = transform.Find("RulesPopup").gameObject;
+            _rulesBody = FindText("RulesPopup/Contents/BodyText");
+            _tooltip = transform.Find("CandidateMaterialTooltip").gameObject;
+            _tooltipText = FindText("CandidateMaterialTooltip/CandidateMaterialTooltipText");
+            _tooltip.SetActive(false);
+            RectTransform tooltipRect = (RectTransform)_tooltip.transform;
+            tooltipRect.anchorMin = tooltipRect.anchorMax = tooltipRect.pivot = new Vector2(0f, 1f);
+            _tooltipText.horizontalOverflow = HorizontalWrapMode.Wrap;
+            _tooltipText.verticalOverflow = VerticalWrapMode.Truncate;
+            _tooltipText.resizeTextForBestFit = true;
+            _tooltipText.resizeTextMinSize = 12;
+            _tooltipText.resizeTextMaxSize = 19;
+            transform.Find("ActiveEffectsPanel").gameObject.SetActive(false);
+            transform.Find("FogExposurePanel").gameObject.SetActive(false);
+            Transform disaster = transform.Find("DisasterCountdown");
+            disaster.GetComponent<GuardWaveStageTimer>().enabled = false;
+            _contextDisaster = disaster.GetComponentInChildren<Text>();
+            _contextDisaster.resizeTextForBestFit = true;
+            _contextDisaster.resizeTextMinSize = 12;
+            _contextDisaster.resizeTextMaxSize = 24;
+            foreach (Text label in disaster.GetComponentsInChildren<Text>()) if (label != _contextDisaster) label.gameObject.SetActive(false);
+            Transform candidates = transform.Find("CandidateSelectionRow/CandidateRow");
+            for (int i = 0; i < _cards.Length; i++)
+            {
+                int index = i;
+                Transform card = i < candidates.childCount ? candidates.GetChild(i) : Instantiate(candidates.GetChild(0), candidates);
+                card.gameObject.SetActive(i < context.Offers.Length);
+                _cards[i] = card.GetComponent<Button>();
+                _names[i] = card.Find("MaterialName").GetComponent<Text>();
+                _remainingLabels[i] = CreateRemainingLabel(card, _names[i].font);
+                _remainingLabels[i].gameObject.SetActive(i < context.Offers.Length);
+                _silhouettes[i] = card.Find("Silhouette").GetComponent<Image>();
+                _backgrounds[i] = card.GetComponent<Image>();
+                _cards[i].onClick.RemoveAllListeners();
+                _cards[i].onClick.AddListener(() => context.Select(index));
+                if (i >= context.Offers.Length) continue;
+                _names[i].text = context.Offers[i].name;
+                _silhouettes[i].sprite = Icon(context.Offers[i]);
+                _silhouettes[i].preserveAspect = true;
+                _silhouettes[i].color = Color.white;
+                GuardWaveCandidateHover hover = card.GetComponent<GuardWaveCandidateHover>();
+                if (hover == null) hover = card.gameObject.AddComponent<GuardWaveCandidateHover>();
+                hover.Initialize(this, i);
+            }
+            _readyButton = transform.Find("CandidateSelectionRow/CandidateActions/ReadyButton").GetComponent<Button>();
+            _readyLabel = _readyButton.GetComponentInChildren<Text>();
+            _readyButton.onClick.AddListener(() => context.Ready());
+            transform.Find("CandidateSelectionRow/CandidateActions/RulesButton").GetComponent<Button>().onClick.AddListener(() => SetContextRules(true));
+            transform.Find("RulesPopup/CloseButton").GetComponent<Button>().onClick.AddListener(() => SetContextRules(false));
+            _stagePopup.transform.Find("CloseButton").GetComponent<Button>().onClick.AddListener(() => context.Retry());
+            Text retryLabel = _stagePopup.transform.Find("CloseButton").GetComponentInChildren<Text>();
+            retryLabel.text = "배치 복원 · 다시 시도";
+            retryLabel.resizeTextForBestFit = true;
+            retryLabel.resizeTextMinSize = 12;
+            retryLabel.resizeTextMaxSize = 24;
+            _completePopup.transform.Find("CloseButton").GetComponent<Button>().onClick.AddListener(() => context.ReturnToMenu());
+            _completePopup.transform.Find("CloseButton").GetComponentInChildren<Text>().text = "돌아가기";
+            _rulesBody.text = context.Rules;
+            _rulesBody.resizeTextForBestFit = true;
+            _rulesBody.resizeTextMinSize = 14;
+            _rulesBody.resizeTextMaxSize = 24;
+            _completeTitle.text = "스테이지 클리어";
+            _stagePopup.SetActive(false); _completePopup.SetActive(false); _rulesPopup.SetActive(false);
+            RefreshContext();
+        }
+
+        /// <summary>Refreshes shared inventory, selection, readiness and result views from scene-owned state.</summary>
+        private void RefreshContext()
+        {
+            _detail.text = _context.Status;
+            _contextDisaster.text = _context.DisasterLabel;
+            _readyButton.interactable = _context.CanReady;
+            _readyLabel.text = _context.CanReady ? "준비 완료" : _context.CanEdit ? "목표물 배치 필요" : "진행 중";
+            for (int i = 0; i < _context.Offers.Length; i++)
+            {
+                string id = _context.Offers[i].id;
+                int remaining = _context.Remaining(id);
+                bool target = _context.StageInfo.IsTargetMaterial(id);
+                _remainingLabels[i].text = remaining + "/" + _context.StageInfo.GetPlacementLimit(id);
+                _names[i].color = target ? new Color(1f, 0.88f, 0.58f) : Color.white;
+                _cards[i].interactable = _context.CanEdit && remaining > 0;
+                _backgrounds[i].color = target ? new Color(0.54f, 0.35f, 0.14f)
+                    : _context.SelectedIndex == i ? new Color(0.29f, 0.46f, 0.57f) : new Color(0.2f, 0.3f, 0.37f);
+            }
+            _stagePopup.SetActive(_context.Failed);
+            _completePopup.SetActive(_context.Finished);
+            if (!_context.CanEdit) _tooltip.SetActive(false);
+            _stageTitle.text = _context.ResultTitle;
+            _stageBody.text = _context.Result;
+            _completeBody.text = _context.Result;
+        }
+
+        /// <summary>Controls the shared rules modal and lets the scene pause its own simulation.</summary>
+        private void SetContextRules(bool open)
+        {
+            _rulesPopup.SetActive(open);
+            _context.SetRulesOpen(open);
+        }
+
+        /// <summary>Opens the shared rule modal for a scene-backed HUD context.</summary>
+        public void OpenSceneRules() => SetContextRules(true);
 
         /// <summary>후보가 닫혀 있거나 파도 진행 중에는 선택 패널을 아래로 숨긴다.</summary>
         private void AnimateCandidatePanel()
@@ -428,6 +573,10 @@ Ctrl+Z: 최근 기물 배치, 깃발 배치 또는 수동 제거 되돌리기
             texture.wrapMode = TextureWrapMode.Clamp;
             Material material = Resources.Load<Material>("Materials/" + info.id + "_Base");
             Color color = info.id == "mud" ? new Color(0.42f, 0.28f, 0.16f, 1f)
+                : info.id == "citizen" ? new Color(1f, 0.8f, 0.38f)
+                : info.id == "panel" ? new Color(0.8f, 0.57f, 0.29f)
+                : info.id == "sandbag" ? new Color(0.68f, 0.61f, 0.40f)
+                : info.id == "adhesive" ? new Color(0.98f, 0.72f, 0.22f)
                 : info.id == "default_flag" ? new Color(0.99f, 0.76f, 0.29f, 1f)
                 : material == null ? Color.gray : material.color;
             Color shadow = new Color(color.r * 0.53f, color.g * 0.53f, color.b * 0.53f, 1f);
@@ -438,7 +587,10 @@ Ctrl+Z: 최근 기물 배치, 깃발 배치 또는 수동 제거 되돌리기
                 {
                     float u = (x - 15.5f) / 14f;
                     float v = (y - 15.5f) / 14f;
-                    bool filled = shape == 9
+                    bool filled = shape == 10
+                        ? (u * u + (v - 0.52f) * (v - 0.52f) < 0.08f || Mathf.Abs(u) < 0.26f && v < 0.25f && v > -0.30f || Mathf.Abs(Mathf.Abs(u) - 0.17f) < 0.10f && v < -0.25f && v > -0.85f)
+                        : shape == 11 ? u * u + v * v < 0.55f
+                        : shape == 9
                         ? ((Mathf.Abs(u + 0.48f) < 0.12f && v > -0.85f && v < 0.85f) ||
                            (u > -0.4f && u < 0.72f && v > 0.08f && v < 0.7f))
                         : shape == 8
@@ -469,6 +621,9 @@ Ctrl+Z: 최근 기물 배치, 깃발 배치 또는 수동 제거 되돌리기
         {
             if (id == "mud") return 7;
             if (id == "default_flag") return 9;
+            if (id == "citizen") return 10;
+            if (id == "adhesive") return 11;
+            if (id == "sandbag") return 1;
             if (id == "tire" || id == "life_ring") return 2;
             if (id == "sunflower" || id == "living_tree" || id == "growing_vine") return 3;
             if (id == "branch" || id == "leafy_branch" || id == "vine") return 0;
@@ -494,6 +649,7 @@ Ctrl+Z: 최근 기물 배치, 깃발 배치 또는 수동 제거 되돌리기
         /// <summary>원본 규칙 팝업을 닫는다.</summary>
         public void HideRules()
         {
+            if (_context != null) { SetContextRules(false); return; }
             if (!_rulesPopup.activeSelf) return;
             _rulesPopup.SetActive(false);
             _hoveredPiece = null;
@@ -506,6 +662,14 @@ Ctrl+Z: 최근 기물 배치, 깃발 배치 또는 수동 제거 되돌리기
         /// <summary>원본의 후보 자재 설명 형식을 사용해 커서 옆 툴팁을 표시한다.</summary>
         public void ShowTooltip(int index, Vector2 screen)
         {
+            if (_context != null)
+            {
+                if (!_context.CanEdit || index < 0 || index >= _context.Offers.Length) return;
+                GuardWaveMaterial offer = _context.Offers[index];
+                _hoveredCard = index;
+                ShowDescription(offer.name + "\n\n" + string.Join("\n", offer.abilities ?? Array.Empty<string>()), screen);
+                return;
+            }
             if (!_game.CanShowItemInfo) return;
             GuardWaveMaterial material = _game.CurrentOffers[index];
             if (material == null) return;

@@ -34,6 +34,7 @@ namespace GuardWave
         private float _currentZoom;
         private Camera _camera;
         private Func<Vector2, bool> _pointerBlocked;
+        private bool _commonBuildControls;
 
         private void Awake()
         {
@@ -41,10 +42,11 @@ namespace GuardWave
         }
 
         /// <summary>전체 보기 조작을 활성화하고 UI의 포인터 차단 함수를 연결한다.</summary>
-        public void InitializeOverview(Func<Vector2, bool> pointerBlocked)
+        public void InitializeOverview(Func<Vector2, bool> pointerBlocked, bool commonBuildControls = false)
         {
             _camera = GetComponent<Camera>();
             _pointerBlocked = pointerBlocked;
+            _commonBuildControls = commonBuildControls;
             enabled = true;
             Overview();
         }
@@ -83,12 +85,22 @@ namespace GuardWave
             if (_pointerBlocked == null) return;
             if (mouse != null && !_pointerBlocked(mouse.position.ReadValue()))
             {
-                _currentZoom = Mathf.Clamp(_currentZoom - mouse.scroll.ReadValue().y * _scrollSensitivity, _zoomRange.x, _zoomRange.y);
+                float scroll = NormalizeScrollSteps(mouse.scroll.ReadValue().y);
+                if (!_commonBuildControls || !mouse.rightButton.isPressed)
+                    _currentZoom = Mathf.Clamp(_currentZoom - scroll * _scrollSensitivity, _zoomRange.x, _zoomRange.y);
                 Vector2 delta = mouse.delta.ReadValue();
                 if (mouse.rightButton.isPressed)
                 {
-                    _currentYaw += delta.x * _orbitYawSensitivity;
-                    _currentPitch = Mathf.Clamp(_currentPitch - delta.y * _orbitPitchSensitivity, _pitchRange.x, _pitchRange.y);
+                    if (_commonBuildControls)
+                    {
+                        _currentFocus -= Quaternion.Euler(0f, _currentYaw, 0f) * new Vector3(delta.x, 0f, delta.y) * (_currentZoom / 450f);
+                        if (Mathf.Abs(scroll) > 0.01f) _currentYaw += scroll * 15f;
+                    }
+                    else
+                    {
+                        _currentYaw += delta.x * _orbitYawSensitivity;
+                        _currentPitch = Mathf.Clamp(_currentPitch - delta.y * _orbitPitchSensitivity, _pitchRange.x, _pitchRange.y);
+                    }
                 }
                 if (mouse.middleButton.isPressed)
                     _currentFocus -= Quaternion.Euler(0f, _currentYaw, 0f) * new Vector3(delta.x, 0f, delta.y) * (_currentZoom / 450f);
@@ -138,10 +150,16 @@ namespace GuardWave
         /// <summary>플랫폼별 휠 델타를 휠 칸으로 환산해 카메라를 회전한다.</summary>
         public void RotateByScroll(float scroll, float degreesPerStep)
         {
+            transform.Rotate(Vector3.up, NormalizeScrollSteps(scroll) * degreesPerStep, Space.World);
+        }
+
+        /// <summary>Converts Windows platform wheel units to logical ticks for overview controls.</summary>
+        private static float NormalizeScrollSteps(float scroll)
+        {
             if (InputSystem.settings.scrollDeltaBehavior == InputSettings.ScrollDeltaBehavior.KeepPlatformSpecificInputRange &&
                 (Application.platform == RuntimePlatform.WindowsEditor || Application.platform == RuntimePlatform.WindowsPlayer))
-                scroll /= WINDOWS_SCROLL_UNITS_PER_TICK;
-            transform.Rotate(Vector3.up, scroll * degreesPerStep, Space.World);
+                return scroll / WINDOWS_SCROLL_UNITS_PER_TICK;
+            return scroll;
         }
     }
 }

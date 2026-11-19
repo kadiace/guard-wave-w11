@@ -70,7 +70,7 @@ namespace Avalanche.Editor
             var water = new GameObject("Water - live depth and flow");
             MeshFilter waterFilter = water.AddComponent<MeshFilter>();
             water.AddComponent<MeshRenderer>().sharedMaterial = waterMaterial;
-            var previewWater = new AvalancheWater();
+            var previewWater = new AvalancheSnow(new AvalancheSnow.Settings());
             Mesh quietMesh = UnityEngine.Object.Instantiate(previewWater.Surface);
             quietMesh.name = "Avalanche quiet water preview";
             AssetDatabase.CreateAsset(quietMesh, ASSET_ROOT + "/QuietWater.asset");
@@ -118,12 +118,136 @@ namespace Avalanche.Editor
             var stage = new GameObject("Avalanche - stage context").AddComponent<AvalancheStage>();
             stage.Configure(camera, collider, waterFilter,
                 AssetDatabase.LoadAssetAtPath<Font>("Assets/TextMesh Pro/Resources/Fonts & Materials/NotoSansKR.ttf"), panel, stone, preview, line, friction);
+            AuthorCitizens(stage);
             EditorSceneManager.SaveScene(scene, SCENE_PATH);
             var scenes = new List<EditorBuildSettingsScene>(EditorBuildSettings.scenes);
             if (!scenes.Exists(s => s.path == SCENE_PATH)) scenes.Add(new EditorBuildSettingsScene(SCENE_PATH, true));
             EditorBuildSettings.scenes = scenes.ToArray();
             AssetDatabase.SaveAssets();
             Selection.activeObject = stage.gameObject;
+        }
+
+        /// <summary>Updates the existing scene to the authored snow terrain and winter presentation while preserving its scene identity.</summary>
+        [MenuItem("Tools/Guard Wave/Rebuild Avalanche Snow Stage")]
+        public static void RebuildSnowStage()
+        {
+            if (EditorApplication.isPlaying) return;
+            var current = UnityEngine.SceneManagement.SceneManager.GetActiveScene();
+            if (current.name != "Avalanche" && current.isDirty) { Debug.LogWarning("Save the open scene before rebuilding Avalanche."); return; }
+            var scene = current.name == "Avalanche" ? current : EditorSceneManager.OpenScene(SCENE_PATH);
+            AvalancheStage stage = UnityEngine.Object.FindFirstObjectByType<AvalancheStage>();
+            AvalancheTerrain.Configure(stage.TerrainSettings);
+            Mesh terrain = AvalancheTerrain.CreateMesh();
+            Mesh savedTerrain = AssetDatabase.LoadAssetAtPath<Mesh>(ASSET_ROOT + "/Terrain.asset");
+            EditorUtility.CopySerialized(terrain, savedTerrain);
+            UnityEngine.Object.DestroyImmediate(terrain);
+            MeshCollider ground = stage.Ground;
+            ground.sharedMesh = savedTerrain;
+            ground.GetComponent<MeshFilter>().sharedMesh = savedTerrain;
+            ground.name = "Snow mountain - shared height field";
+            foreach (MeshFilter filter in UnityEngine.Object.FindObjectsByType<MeshFilter>(FindObjectsSortMode.None))
+            {
+                if (!filter.name.StartsWith("Water -")) continue;
+                filter.name = "Snow - moving and deposited layers";
+                var snow = new AvalancheSnow(new AvalancheSnow.Settings());
+                Mesh saved = AssetDatabase.LoadAssetAtPath<Mesh>(ASSET_ROOT + "/QuietWater.asset");
+                EditorUtility.CopySerialized(snow.Surface, saved);
+                filter.sharedMesh = saved;
+                UnityEngine.Object.DestroyImmediate(snow.Surface);
+            }
+            Transform oldDecor = GameObject.Find("Village scenery - outside simulation banks")?.transform;
+            if (oldDecor != null) UnityEngine.Object.DestroyImmediate(oldDecor.gameObject);
+            Transform existing = GameObject.Find("Winter village scenery")?.transform;
+            if (existing != null) UnityEngine.Object.DestroyImmediate(existing.gameObject);
+            Transform decor = new GameObject("Winter village scenery").transform;
+            Material wood = AssetDatabase.LoadAssetAtPath<Material>(ASSET_ROOT + "/Panel.mat");
+            Material plaster = AssetDatabase.LoadAssetAtPath<Material>(ASSET_ROOT + "/Plaster.mat");
+            Material dark = AssetDatabase.LoadAssetAtPath<Material>(ASSET_ROOT + "/Structure.mat");
+            Material green = AssetDatabase.LoadAssetAtPath<Material>(ASSET_ROOT + "/Foliage.mat");
+            Material roof = AssetDatabase.LoadAssetAtPath<Material>(ASSET_ROOT + "/Teal.mat");
+            for (int side = -1; side <= 1; side += 2)
+            {
+                for (int i = 0; i < 7; i++)
+                {
+                    Vector3 p = new Vector3(side * 20f, 0f, 7f + i * 7f);
+                    p.y = AvalancheTerrain.Height(p.x, p.z);
+                    Tree(p, green, wood, decor);
+                }
+            }
+            House(new Vector3(-7.5f, AvalancheTerrain.Height(-7.5f, 17f), 17f), plaster, roof, dark, decor);
+            House(new Vector3(7.5f, AvalancheTerrain.Height(7.5f, 18f), 18f), plaster, roof, dark, decor);
+            Box("Village bench", new Vector3(0f, AvalancheTerrain.Height(0f, 11f) + 0.45f, 11f), new Vector3(2.3f, 0.2f, 0.6f), wood, decor);
+            AuthorCitizens(stage);
+            Camera.main.backgroundColor = new Color(0.57f, 0.66f, 0.76f);
+            RenderSettings.ambientLight = new Color(0.72f, 0.79f, 0.88f);
+            EditorUtility.SetDirty(savedTerrain);
+            EditorSceneManager.MarkSceneDirty(scene);
+            EditorSceneManager.SaveScene(scene, SCENE_PATH);
+            AssetDatabase.SaveAssets();
+            Debug.Log("[Avalanche] Snow stage scene rebuilt.");
+        }
+
+        /// <summary>Authors and registers the scene's protected citizens without rebuilding terrain or decoration.</summary>
+        [MenuItem("Tools/Guard Wave/Set Up Avalanche Citizens")]
+        public static void SetUpCitizens()
+        {
+            if (EditorApplication.isPlaying) return;
+            OpenOrCreate();
+            if (UnityEngine.SceneManagement.SceneManager.GetActiveScene().name != "Avalanche") return;
+            AvalancheStage stage = UnityEngine.Object.FindFirstObjectByType<AvalancheStage>();
+            AvalancheTerrain.Configure(stage.TerrainSettings);
+            AuthorCitizens(stage);
+            EditorUtility.SetDirty(stage);
+            EditorSceneManager.MarkSceneDirty(stage.gameObject.scene);
+            EditorSceneManager.SaveScene(stage.gameObject.scene, SCENE_PATH);
+            Selection.activeObject = stage.gameObject;
+        }
+
+        /// <summary>Preserves existing authored citizens, or creates the six starting objectives in the village.</summary>
+        private static void AuthorCitizens(AvalancheStage stage)
+        {
+            AvalancheCitizen[] citizens = UnityEngine.Object.FindObjectsByType<AvalancheCitizen>(FindObjectsInactive.Include, FindObjectsSortMode.None);
+            if (citizens.Length > 0)
+            {
+                Array.Sort(citizens, (a, b) => a.ObjectiveId.CompareTo(b.ObjectiveId));
+                stage.ConfigureCitizens(citizens);
+                return;
+            }
+            Transform group = new GameObject("Protected citizens").transform;
+            Vector2[] positions = { new Vector2(-4f, 14f), new Vector2(-4f, 18f), new Vector2(0f, 14f),
+                new Vector2(0f, 18f), new Vector2(4f, 14f), new Vector2(4f, 18f) };
+            string[] zones = { "산장", "광장", "정류장" };
+            Material skin = AssetDatabase.LoadAssetAtPath<Material>(ASSET_ROOT + "/Plaster.mat");
+            Material boots = AssetDatabase.LoadAssetAtPath<Material>(ASSET_ROOT + "/Structure.mat");
+            citizens = new AvalancheCitizen[positions.Length];
+            for (int i = 0; i < positions.Length; i++)
+            {
+                Transform root = new GameObject($"Citizen {i + 1:00} - {zones[i / 2]}").transform;
+                root.SetParent(group, false);
+                root.position = new Vector3(positions[i].x, AvalancheTerrain.Height(positions[i].x, positions[i].y) + 0.035f, positions[i].y);
+                Transform visual = new GameObject("Visual").transform;
+                visual.SetParent(root, false);
+                CitizenVisual("Coat", PrimitiveType.Capsule, visual, Vector3.up * 0.85f, new Vector3(0.55f, 0.5f, 0.42f), stage.PanelMaterial);
+                CitizenVisual("Head", PrimitiveType.Sphere, visual, Vector3.up * 1.48f, Vector3.one * 0.36f, skin);
+                for (int side = -1; side <= 1; side += 2)
+                {
+                    CitizenVisual("Boot", PrimitiveType.Cube, visual, new Vector3(side * 0.15f, 0.2f, 0f), new Vector3(0.18f, 0.4f, 0.25f), boots);
+                    CitizenVisual("Arm", PrimitiveType.Capsule, visual, new Vector3(side * 0.34f, 0.9f, 0f), new Vector3(0.15f, 0.27f, 0.15f), stage.PanelMaterial);
+                }
+                Renderer marker = CitizenVisual("Status beacon", PrimitiveType.Sphere, root, Vector3.up * 2.05f, Vector3.one * 0.23f, stage.LineMaterial).GetComponent<Renderer>();
+                citizens[i] = root.gameObject.AddComponent<AvalancheCitizen>();
+                citizens[i].Configure(i, zones[i / 2], visual, marker);
+            }
+            stage.ConfigureCitizens(citizens);
+        }
+
+        /// <summary>Authors a citizen's visual part without a collider or placement-ray participation.</summary>
+        private static GameObject CitizenVisual(string name, PrimitiveType type, Transform parent, Vector3 position, Vector3 scale, Material material)
+        {
+            GameObject part = Primitive(name, type, Vector3.zero, scale, material, parent);
+            part.layer = 2;
+            part.transform.localPosition = position;
+            return part;
         }
 
         /// <summary>Creates a dedicated material asset with a URP shader and no external dependencies.</summary>

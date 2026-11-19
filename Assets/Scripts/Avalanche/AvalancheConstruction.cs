@@ -8,7 +8,7 @@ using GuardWave;
 
 namespace Avalanche
 {
-    public enum AvalancheTool { Panel, Sandbag, Adhesive, Remove, Citizen }
+    public enum AvalancheTool { None = -1, Panel, Sandbag, Adhesive }
 
     /// <summary>Manages placement, contact adhesion and editable-layout snapshots.</summary>
     public sealed class AvalancheConstruction : MonoBehaviour
@@ -21,6 +21,10 @@ namespace Avalanche
         [SerializeField] private Vector3 _sandbagSize = new Vector3(1.4f, 0.55f, 1.1f);
         [SerializeField, Min(0.01f)] private float _placementGrid = 0.3f;
         [SerializeField, Range(1f, 180f)] private float _rotationStep = 15f;
+        [SerializeField, Min(0.01f)] private float _continuousPlacementSeconds = 0.1f;
+
+        [Header("Citizen protection")]
+        [SerializeField, Min(0f)] private float _citizenClearance = 0.6f;
 
         [Header("Adhesive blocks")]
         [SerializeField, Min(0.01f)] private float _adhesiveRadius = 0.48f;
@@ -32,7 +36,6 @@ namespace Avalanche
         private MaterialPropertyBlock _adhesiveTint;
         private readonly List<AvalanchePiece> _pieces = new List<AvalanchePiece>();
         private readonly List<AdhesiveBlock> _adhesives = new List<AdhesiveBlock>();
-        private readonly List<AvalancheCitizen> _citizens = new List<AvalancheCitizen>();
         private readonly StageEditHistory<Snapshot> _undo = new StageEditHistory<Snapshot>();
         private readonly Collider[] _overlaps = new Collider[64];
         private Collider[] _contacts = new Collider[64];
@@ -40,31 +43,30 @@ namespace Avalanche
         private int _startingPanels;
         private int _startingSandbags;
         private int _startingAdhesive;
-        private int _startingCitizens;
         private GameObject _preview;
         private Renderer _previewRenderer;
         private MaterialPropertyBlock _previewTint;
         private Snapshot _checkpoint;
         private int _nextId;
         private int _nextAdhesiveId;
-        private int _nextCitizenId;
         private float _yaw;
         private float _contactClock;
         private Vector3 _candidate;
         private bool _candidateValid;
+        private bool _rightGesture;
+        private bool _rightMoved;
+        private Vector2 _rightOrigin;
+        private float _lastPlaced;
         public IReadOnlyList<AvalanchePiece> Pieces => _pieces;
-        public IReadOnlyList<AvalancheCitizen> Citizens => _citizens;
-        public AvalancheTool Tool { get; private set; }
+        public AvalancheTool Tool { get; private set; } = AvalancheTool.None;
         public int Panels { get; private set; }
         public int Sandbags { get; private set; }
         public int Adhesive { get; private set; }
         public int StartingPanels => _startingPanels;
         public int StartingSandbags => _startingSandbags;
         public int StartingAdhesive => _startingAdhesive;
-        public int StartingCitizens => _startingCitizens;
-        public int RemainingCitizens => Mathf.Max(0, _startingCitizens - _citizens.Count);
         public int BondCount { get { int n = 0; foreach (var p in _pieces) if (p.IsBonded) n++; return n; } }
-        public string Hint { get; private set; } = "물막이판으로 흐름을 돌리고 모래주머니로 낮은 틈을 보강하세요.";
+        public string Hint { get; private set; } = "유도 방벽으로 눈사태를 돌리고 하중 받침으로 방어선을 보강하세요.";
         public bool HasCheckpoint => _checkpoint != null;
 
         private sealed class AdhesiveBlock
@@ -104,19 +106,11 @@ namespace Avalanche
         {
             public List<PieceState> Pieces { get; set; } = new List<PieceState>();
             public List<AdhesiveState> Adhesives { get; set; } = new List<AdhesiveState>();
-            public List<CitizenState> Citizens { get; set; } = new List<CitizenState>();
             public int Panels { get; set; }
             public int Sandbags { get; set; }
             public int Adhesive { get; set; }
             public int NextId { get; set; }
             public int NextAdhesiveId { get; set; }
-            public int NextCitizenId { get; set; }
-        }
-
-        private sealed class CitizenState
-        {
-            public int Id { get; set; }
-            public Vector3 Position { get; set; }
         }
 
         /// <summary>Creates the non-colliding placement preview and initializes the stage-specific tools.</summary>
@@ -126,9 +120,6 @@ namespace Avalanche
             _startingPanels = GetStartingInventory(stage.StageInfo, "panel");
             _startingSandbags = GetStartingInventory(stage.StageInfo, "sandbag");
             _startingAdhesive = GetStartingInventory(stage.StageInfo, "adhesive");
-            _startingCitizens = GetStartingInventory(stage.StageInfo, "citizen");
-            if (!stage.StageInfo.IsTargetMaterial("citizen"))
-                throw new System.InvalidOperationException("Avalanche citizens must be configured as a target.");
             Panels = _startingPanels;
             Sandbags = _startingSandbags;
             Adhesive = _startingAdhesive;
@@ -154,11 +145,22 @@ namespace Avalanche
             throw new System.InvalidOperationException("Missing finite Avalanche inventory: " + materialId);
         }
 
-        /// <summary>공통 목표 판정에 필요한 항목별 남은 배치 수를 반환한다.</summary>
+        /// <summary>Returns the remaining stock for a shared construction card.</summary>
         public int GetRemainingPlacements(string materialId)
         {
-            if (materialId == "citizen") return RemainingCitizens;
-            throw new System.InvalidOperationException("Unsupported Avalanche target: " + materialId);
+            if (materialId == "panel") return Panels;
+            if (materialId == "sandbag") return Sandbags;
+            if (materialId == "adhesive") return Adhesive;
+            throw new System.InvalidOperationException("Unsupported Avalanche material: " + materialId);
+        }
+
+        /// <summary>Clears the active palette selection and hides the placement projection.</summary>
+        public bool CancelSelection()
+        {
+            if (Tool == AvalancheTool.None) return false;
+            Tool = AvalancheTool.None;
+            _preview.SetActive(false);
+            return true;
         }
 
         /// <summary>Returns the world dimensions of a catalog item.</summary>
@@ -170,8 +172,6 @@ namespace Avalanche
         {
             Tool = tool;
             Hint = tool == AvalancheTool.Adhesive ? "지면이나 자재를 클릭해 접합 블록을 설치하세요. 닿는 자재를 바로 고정합니다."
-                : tool == AvalancheTool.Remove ? "자재, 접합 블록이나 시민을 클릭하여 회수합니다."
-                : tool == AvalancheTool.Citizen ? "지면을 클릭하여 보호할 시민을 배치하세요."
                 : "클릭: 설치  /  Q·E: 회전  /  Shift: 정밀 배치";
         }
 
@@ -190,36 +190,32 @@ namespace Avalanche
                 if (keyboard.digit1Key.wasPressedThisFrame) SelectTool(AvalancheTool.Panel);
                 if (keyboard.digit2Key.wasPressedThisFrame) SelectTool(AvalancheTool.Sandbag);
                 if (keyboard.digit3Key.wasPressedThisFrame) SelectTool(AvalancheTool.Adhesive);
-                if (keyboard.digit4Key.wasPressedThisFrame) SelectTool(AvalancheTool.Remove);
-                if (keyboard.digit5Key.wasPressedThisFrame) SelectTool(AvalancheTool.Citizen);
                 if (keyboard.qKey.wasPressedThisFrame) _yaw -= _rotationStep;
                 if (keyboard.eKey.wasPressedThisFrame) _yaw += _rotationStep;
                 if (keyboard.zKey.wasPressedThisFrame && keyboard.ctrlKey.isPressed) Undo();
             }
-            if (_stage.Hud.BlocksPointer(mouse.position.ReadValue())) { _preview.SetActive(false); return; }
+            if (mouse.rightButton.wasPressedThisFrame)
+            {
+                _rightGesture = !_stage.Hud.BlocksPointer(mouse.position.ReadValue());
+                _rightMoved = false;
+                _rightOrigin = mouse.position.ReadValue();
+            }
+            if (_rightGesture && ((mouse.position.ReadValue() - _rightOrigin).sqrMagnitude > 36f || Mathf.Abs(mouse.scroll.ReadValue().y) > 0.01f)) _rightMoved = true;
+            if (_stage.Hud.BlocksPointer(mouse.position.ReadValue())) { _preview.SetActive(false); if (mouse.rightButton.wasReleasedThisFrame) _rightGesture = false; return; }
             Ray ray = _stage.ViewCamera.ScreenPointToRay(mouse.position.ReadValue());
             bool hasHit = Physics.Raycast(ray, out RaycastHit hit, 300f, ~4, QueryTriggerInteraction.Ignore);
-            if (Tool == AvalancheTool.Remove)
+            if (mouse.rightButton.wasReleasedThisFrame)
             {
-                _preview.SetActive(false);
-                if (mouse.leftButton.wasPressedThisFrame) RemoveAt(ray, hasHit, hit);
+                if (_rightGesture && !_rightMoved)
+                {
+                    if (!CancelSelection()) RemoveAt(ray, hasHit, hit);
+                }
+                _rightGesture = false;
                 return;
             }
+            if (mouse.rightButton.isPressed || Tool == AvalancheTool.None) { _preview.SetActive(false); return; }
             if (!hasHit) { _preview.SetActive(false); return; }
-            if (Tool == AvalancheTool.Citizen)
-            {
-                _candidate = hit.point + Vector3.up * 0.035f;
-                _candidateValid = hit.collider == _stage.Ground && CanPlaceCitizen(_candidate);
-                Hint = _candidateValid ? "클릭: 보호할 시민 배치" : RemainingCitizens == 0
-                    ? "시민을 모두 배치했습니다."
-                    : "빈 지면에 시민을 배치하세요. 시민 간 공간도 확보해야 합니다.";
-                StagePlacement.ShowPreview(_preview, _candidate + Vector3.up * 0.9f, Quaternion.identity);
-                _preview.transform.localScale = new Vector3(0.7f, 1.8f, 0.7f);
-                _previewTint.SetColor("_BaseColor", _candidateValid ? new Color(0.2f, 0.95f, 0.7f, 0.45f) : new Color(1f, 0.25f, 0.2f, 0.45f));
-                _previewRenderer.SetPropertyBlock(_previewTint);
-                if (_candidateValid && mouse.leftButton.wasPressedThisFrame) PlaceCitizen(_candidate);
-            }
-            else if (Tool == AvalancheTool.Panel || Tool == AvalancheTool.Sandbag)
+            if (Tool == AvalancheTool.Panel || Tool == AvalancheTool.Sandbag)
             {
                 AvalancheMaterial kind = Tool == AvalancheTool.Panel ? AvalancheMaterial.Panel : AvalancheMaterial.Sandbag;
                 Vector3 size = Size(kind);
@@ -244,40 +240,13 @@ namespace Avalanche
                 _preview.transform.localScale = size;
                 _previewTint.SetColor("_BaseColor", _candidateValid ? new Color(0.2f, 0.95f, 0.7f, 0.45f) : new Color(1f, 0.25f, 0.2f, 0.45f));
                 _previewRenderer.SetPropertyBlock(_previewTint);
-                if (mouse.leftButton.wasPressedThisFrame) TryPlace(kind, _candidate, _yaw);
+                if (mouse.leftButton.isPressed && Time.unscaledTime - _lastPlaced >= _continuousPlacementSeconds && TryPlace(kind, _candidate, _yaw)) _lastPlaced = Time.unscaledTime;
             }
             else
             {
                 _preview.SetActive(false);
                 if (mouse.leftButton.wasPressedThisFrame) TryPlaceAdhesive(hit.collider, hit.point);
             }
-        }
-
-        /// <summary>시민의 재고, 지면 경계 및 다른 배치물과의 간격을 확인한다.</summary>
-        private bool CanPlaceCitizen(Vector3 position)
-        {
-            if (RemainingCitizens <= 0 || Mathf.Abs(position.x) > 17.2f || position.z < 1f || position.z > 53f)
-                return false;
-            foreach (AvalancheCitizen citizen in _citizens)
-            {
-                Vector3 offset = citizen.transform.position - position;
-                if (new Vector2(offset.x, offset.z).sqrMagnitude < 1.44f) return false;
-            }
-            Vector3 center = position + Vector3.up * 0.9f;
-            return Physics.OverlapBoxNonAlloc(center, new Vector3(0.325f, 0.875f, 0.325f), _overlaps, Quaternion.identity, ~4, QueryTriggerInteraction.Ignore) == 0;
-        }
-
-        /// <summary>시민을 배치하고 되돌리기 기록에 이전 배치를 저장한다.</summary>
-        private void PlaceCitizen(Vector3 position)
-        {
-            _undo.Add(Capture());
-            SpawnCitizen(_nextCitizenId++, position);
-        }
-
-        /// <summary>시민 목표를 생성해 현재 배치 목록에 추가한다.</summary>
-        private void SpawnCitizen(int id, Vector3 position)
-        {
-            _citizens.Add(AvalancheCitizen.Create(id, position, transform, _stage.PanelMaterial, _stage.SandbagMaterial, _stage.LineMaterial));
         }
 
         /// <summary>Checks inventory, map limits, citizen clearance and actual collider penetration.</summary>
@@ -288,12 +257,12 @@ namespace Avalanche
             Vector3 size = Size(kind);
             Vector3 extents = new Vector3(Mathf.Abs((rotation * Vector3.right).x) * size.x + Mathf.Abs((rotation * Vector3.forward).x) * size.z, 0f,
                 Mathf.Abs((rotation * Vector3.right).z) * size.x + Mathf.Abs((rotation * Vector3.forward).z) * size.z) * 0.5f;
-            if (Mathf.Abs(center.x) + extents.x > 17.8f || center.z - extents.z < 1f || center.z + extents.z > 53f || center.y > 5f)
+            if (Mathf.Abs(center.x) + extents.x > 17.4f || center.z - extents.z < 1f || center.z + extents.z >= 48f)
             { reason = "표시된 마을 안에 설치하세요. 상류 유입부는 비워 둡니다."; return false; }
             foreach (var citizen in _stage.Citizens)
             {
                 Vector3 local = Quaternion.Inverse(rotation) * (citizen.transform.position - center);
-                if (Mathf.Abs(local.x) < size.x * 0.5f + 0.6f && Mathf.Abs(local.z) < size.z * 0.5f + 0.6f && center.y - size.y / 2f < citizen.transform.position.y + 1.8f)
+                if (Mathf.Abs(local.x) < size.x * 0.5f + _citizenClearance && Mathf.Abs(local.z) < size.z * 0.5f + _citizenClearance && center.y - size.y / 2f < citizen.transform.position.y + 1.8f)
                 { reason = "시민의 대기 공간을 비워 주세요."; return false; }
             }
             int count = Physics.OverlapBoxNonAlloc(center, size * 0.5f - Vector3.one * 0.025f, _overlaps, rotation, ~4, QueryTriggerInteraction.Ignore);
@@ -361,6 +330,12 @@ namespace Avalanche
             if (Adhesive <= 0)
             {
                 Hint = "접합 블록이 모두 사용되었습니다.";
+                return false;
+            }
+
+            if (Mathf.Abs(point.x) > 17.4f || point.z < 1f || point.z >= 48f)
+            {
+                Hint = "접합 블록은 배치 허용 구역에만 설치할 수 있습니다.";
                 return false;
             }
 
@@ -470,29 +445,7 @@ namespace Avalanche
                 distance = front;
             }
 
-            AvalancheCitizen nearestCitizen = null;
-            foreach (AvalancheCitizen citizen in _citizens)
-            {
-                Vector3 offset = citizen.transform.position + Vector3.up * 0.9f - ray.origin;
-                float projection = Vector3.Dot(offset, ray.direction);
-                float discriminant = 0.65f * 0.65f - (offset.sqrMagnitude - projection * projection);
-                if (projection < 0f || discriminant < 0f) continue;
-                float front = Mathf.Max(0f, projection - Mathf.Sqrt(discriminant));
-                if (front >= distance) continue;
-                nearestCitizen = citizen;
-                nearest = null;
-                distance = front;
-            }
-
-            if (nearestCitizen != null)
-            {
-                _undo.Add(Capture());
-                _citizens.Remove(nearestCitizen);
-                nearestCitizen.gameObject.SetActive(false);
-                Destroy(nearestCitizen.gameObject);
-                Hint = "시민을 회수했습니다. 다시 배치해 주세요.";
-            }
-            else if (nearest != null)
+            if (nearest != null)
             {
                 _undo.Add(Capture());
                 RemoveAdhesive(nearest);
@@ -528,15 +481,13 @@ namespace Avalanche
         /// <summary>Captures physical poses, joint topology, placed connectors and stock.</summary>
         private Snapshot Capture()
         {
-            var snapshot = new Snapshot { Panels = Panels, Sandbags = Sandbags, Adhesive = Adhesive, NextId = _nextId, NextAdhesiveId = _nextAdhesiveId, NextCitizenId = _nextCitizenId };
+            var snapshot = new Snapshot { Panels = Panels, Sandbags = Sandbags, Adhesive = Adhesive, NextId = _nextId, NextAdhesiveId = _nextAdhesiveId };
             foreach (var piece in _pieces)
                 snapshot.Pieces.Add(new PieceState { Id = piece.Id, Kind = piece.Kind, Position = piece.transform.position, Rotation = piece.transform.rotation,
                     Velocity = piece.Body.linearVelocity, Angular = piece.Body.angularVelocity, Bonded = piece.IsBonded, EverBonded = piece.EverBonded,
                     Active = piece.gameObject.activeSelf, Connected = piece.ConnectedId, AdhesiveId = piece.AdhesiveId, Anchor = piece.WorldAnchor });
             foreach (var block in _adhesives)
                 snapshot.Adhesives.Add(new AdhesiveState { Id = block.Id, Owner = block.Owner != null ? block.Owner.Id : -1, Point = block.Point });
-            foreach (AvalancheCitizen citizen in _citizens)
-                snapshot.Citizens.Add(new CitizenState { Id = citizen.PlacementId, Position = citizen.transform.position });
             return snapshot;
         }
 
@@ -549,13 +500,9 @@ namespace Avalanche
                 Destroy(block.Visual);
             }
             foreach (var piece in _pieces) { piece.gameObject.SetActive(false); Destroy(piece.gameObject); }
-            foreach (AvalancheCitizen citizen in _citizens) { citizen.gameObject.SetActive(false); Destroy(citizen.gameObject); }
             _adhesives.Clear(); _pieces.Clear();
-            _citizens.Clear();
             Panels = snapshot.Panels; Sandbags = snapshot.Sandbags; Adhesive = snapshot.Adhesive;
             _nextId = snapshot.NextId; _nextAdhesiveId = snapshot.NextAdhesiveId;
-            _nextCitizenId = snapshot.NextCitizenId;
-            foreach (CitizenState citizen in snapshot.Citizens) SpawnCitizen(citizen.Id, citizen.Position);
             _contactClock = 0f;
             foreach (var state in snapshot.Pieces)
             {
@@ -585,7 +532,7 @@ namespace Avalanche
         /// <summary>Saves the finalized pre-warning construction checkpoint.</summary>
         public void SaveCheckpoint() => _checkpoint = Capture();
 
-        /// <summary>Restores the last flood layout, or an empty new layout when requested.</summary>
+        /// <summary>Restores construction or empties player-built objects, leaving scene-authored citizens intact.</summary>
         public void ResetLayout(bool empty)
         {
             if (empty || _checkpoint == null)
