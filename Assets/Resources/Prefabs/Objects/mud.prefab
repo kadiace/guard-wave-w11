@@ -45,7 +45,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 6e8246e2a24d4ebcb096170dc645aa3f, type: 3}
   m_Name:
   m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWaveMudJointSettings
-  breakForce: 300
+  breakForce: 60
   breakTorque: Infinity
   enablePreprocessing: 1
   massScale: 1
