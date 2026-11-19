@@ -134,6 +134,7 @@ namespace GuardWave
         private IStageHudContext _context;
         private bool _wasContextPreparing;
         private bool _wasContextDisasterStarted;
+        private int _shownFloodCrestPhase;
         private FogSceneController _fogMode;
         private Text _disasterName;
         private Text _countdown;
@@ -216,6 +217,24 @@ namespace GuardWave
             // After a successful disaster pass, the next preparation gets a full timer.
             if (_disasterStarted)
             {
+                if (_game.IsFloodStage)
+                {
+                    int phase = _game.FloodCrestPhase;
+                    if (phase != _shownFloodCrestPhase)
+                    {
+                        if (_shownFloodCrestPhase > 0)
+                            StartPulse(PulseKind.Impact);
+                        _shownFloodCrestPhase = phase;
+                        // Do not compare a fresh 30s countdown with the old
+                        // 00:00 of the preceding crest.
+                        _displayedHundredths = -1;
+                    }
+                    _disasterName.text = _game.FloodCrestCountdownLabel;
+                    _remainingSeconds = _game.FloodCrestSecondsRemaining;
+                    RefreshCountdown();
+                    AnimateCountdown();
+                    return;
+                }
                 if (_game.IsLavaStage)
                 {
                     _remainingSeconds = _game.LavaFlowSecondsRemaining;
@@ -293,6 +312,19 @@ namespace GuardWave
             if (!_initialized || _disasterStarted || !CanReady) return;
             if (_fogMode == null)
             {
+                if (_game.IsFloodStage)
+                {
+                    _game.Ready();
+                    if (!_game.WaveHasStarted) return;
+                    _disasterStarted = true;
+                    _shownFloodCrestPhase = _game.FloodCrestPhase;
+                    _disasterName.text = _game.FloodCrestCountdownLabel;
+                    _remainingSeconds = _game.FloodCrestSecondsRemaining;
+                    _displayedHundredths = -1;
+                    _countdown.gameObject.SetActive(true);
+                    RefreshCountdown();
+                    return;
+                }
                 _remainingSeconds = 0f;
                 if (!_preparationClock.Enabled) _displayedHundredths = -1;
                 RefreshCountdown();
@@ -353,6 +385,7 @@ namespace GuardWave
                 _disasterName.text = _preparationDisasterName;
             _displayedHundredths = -1;
             _disasterStarted = false;
+            _shownFloodCrestPhase = 0;
             _pulseKind = PulseKind.None;
             _pulseElapsed = 0f;
             if (!_preparationClock.Enabled)

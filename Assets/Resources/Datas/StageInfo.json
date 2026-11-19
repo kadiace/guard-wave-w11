@@ -8,7 +8,7 @@
       "palette": [
         {
           "materialId": "log",
-          "placementLimit": 30
+          "placementLimit": 100
         }
       ]
     },

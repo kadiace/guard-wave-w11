@@ -15,6 +15,9 @@ namespace GuardWave
         // Flow begins at Ready; the crest arrives five physics seconds later.
         private const float CREEK_PREWAVE_SECONDS = 5f;
         private const float SECOND_CREST_DELAY_SECONDS = 3f;
+        // Flood has its own warning windows; other scenes retain legacy timing.
+        private const float FLOOD_FIRST_CREST_DELAY_SECONDS = 10f;
+        private const float FLOOD_SECOND_CREST_DELAY_SECONDS = 30f;
         private const float FLAG_SURVIVAL_CHECK_SECONDS = 5f;
         private const int MAX_MUD_CONTACTS = 512;
         private const int MAX_VISIBLE_MUD_GUIDES = 48;
@@ -221,6 +224,10 @@ namespace GuardWave
         private bool _paletteOpen = true;
         private bool _stageTransitioning;
         private bool _waveHasStarted;
+        // 0: inactive, 1: first incoming, 2: first active / second incoming,
+        // 3: second active. Updated on fixed physics ticks with the GPU crests.
+        private int _floodCrestPhase;
+        private float _floodCrestSecondsRemaining;
         private bool _ambientFlowRunning;
         private bool _resolving;
         private bool _awaitingStage;
@@ -382,11 +389,13 @@ namespace GuardWave
                 _fluid?.PrewarmOneKernel();
             _flipRenderer.Render(_fluid);
             UpdateCameraInput();
-            if (!_stageTransitioning && !_awaitingStage && !_finished)
+            if ((!_stageTransitioning || CanEditDuringFlood) &&
+                !_awaitingStage && !_finished)
                 UpdateHoveredPiece();
             else
                 SetOutlineTargets(null);
-            if (_resolving || _awaitingStage || _finished || _rulesOpen)
+            if ((_resolving && !CanEditDuringFlood) ||
+                _awaitingStage || _finished || _rulesOpen)
             {
                 EndPlacementStroke();
                 HideDropPreview();
@@ -590,8 +599,7 @@ namespace GuardWave
             {
                 yield return new WaitForFixedUpdate();
                 if (epoch != _placementStrokeEpoch || piece == null ||
-                    !IsPlacedPiece(piece) || _awaitingStage || _finished ||
-                    _stageTransitioning || _waveHasStarted)
+                    !IsPlacedPiece(piece) || _awaitingStage || _finished)
                     yield break;
                 elapsed += Time.fixedDeltaTime;
 
@@ -731,7 +739,8 @@ namespace GuardWave
         /// <summary>Esc 또는 우클릭으로 현재 기물 선택을 해제한다.</summary>
         private void OpenCandidatePalette()
         {
-            if (_resolving || _awaitingStage || _finished || _rulesOpen) return;
+            if ((_resolving && !CanEditDuringFlood) ||
+                _awaitingStage || _finished || _rulesOpen) return;
             _paletteOpen = true;
             EndPlacementStroke();
             EndMudPainting();
@@ -1543,6 +1552,15 @@ namespace GuardWave
         public float RotationSpeed { get; set; } = 90f;
         public float CameraYawPerScrollStep { get; set; } = 5f;
         public bool IsPaletteHidden => false;
+        private bool CanEditDuringFlood => _isFloodStage && _waveHasStarted &&
+            !_awaitingStage && !_finished && !_rulesOpen;
+        public bool IsFloodStage => _isFloodStage;
+        public int FloodCrestPhase => _floodCrestPhase;
+        public float FloodCrestSecondsRemaining => _floodCrestSecondsRemaining;
+        public string FloodCrestCountdownLabel => _floodCrestPhase == 1
+            ? "1차 파도 오기까지"
+            : _floodCrestPhase == 2
+                ? "2차 파도 오기까지" : "2차 파도 진행 중";
         public bool CanReady => (!ambientFlowPreview ||
             (_fluid != null && _fluid.IsShaderPrewarmed)) &&
             _placementStroke == null &&
@@ -1557,10 +1575,10 @@ namespace GuardWave
         public float FloodDrowningLimitSeconds => floodDrowningDurationSeconds;
         public float LavaFlowSecondsRemaining => _lavaFlowSecondsRemaining;
         public bool WaveHasStarted => _waveHasStarted;
-        public bool CanSelect => !_resolving && !_awaitingStage && !_finished && !_rulesOpen
-            && _paletteOpen && !_stageTransitioning;
-        public bool CanShowItemInfo => !_awaitingStage && !_finished && !_rulesOpen
-            && !_stageTransitioning;
+        public bool CanSelect => !_awaitingStage && !_finished && !_rulesOpen &&
+            _paletteOpen && ((!_resolving && !_stageTransitioning) || CanEditDuringFlood);
+        public bool CanShowItemInfo => !_awaitingStage && !_finished && !_rulesOpen &&
+            (!_stageTransitioning || CanEditDuringFlood);
         public event Action<GuardWaveChange> ChangeCommitted;
 
         /// <summary>게임 규칙이 확정한 변화를 위치와 원인을 보존한 채 표시 시스템에 전달한다.</summary>
@@ -1789,6 +1807,8 @@ namespace GuardWave
             _queuedOutflowRemovals.Clear();
             _stageTransitioning = false;
             _waveHasStarted = false;
+            _floodCrestPhase = 0;
+            _floodCrestSecondsRemaining = 0f;
             _ambientFlowRunning = false;
             _lavaFlowSecondsRemaining = 0f;
             _lavaContacts.Clear();
@@ -2131,10 +2151,19 @@ namespace GuardWave
 
             _pendingDrops--;
             RefreshLatestEditState(placementState);
-            if (_pendingDrops == 0 && !_stageTransitioning && !_awaitingStage)
-                _status = _isLavaStage
-                    ? "배치 완료. 준비 완료를 누르면 용암이 흐릅니다."
-                    : "배치 완료. 준비완료를 누르면 파도가 시작됩니다.";
+            if (_pendingDrops == 0 && !_awaitingStage)
+            {
+                if (CanEditDuringFlood)
+                    _status = _floodCrestPhase == 1
+                        ? "배치 완료. 1차 파도에 대비하세요."
+                        : _floodCrestPhase == 2
+                            ? "배치 완료. 2차 파도에 대비하세요."
+                            : "배치 완료. 비버 집을 지키세요.";
+                else if (!_stageTransitioning)
+                    _status = _isLavaStage
+                        ? "배치 완료. 준비 완료를 누르면 용암이 흐릅니다."
+                        : "배치 완료. 준비완료를 누르면 파도가 시작됩니다.";
+            }
         }
 
         /// <summary>
@@ -2236,6 +2265,11 @@ namespace GuardWave
             _waveHasStarted = true;
             _stageTransitioning = true;
             _resolving = true;
+            if (_isFloodStage && ambientFlowPreview)
+            {
+                _floodCrestPhase = 1;
+                _floodCrestSecondsRemaining = FLOOD_FIRST_CREST_DELAY_SECONDS;
+            }
             if (_isLavaStage)
             {
                 _ambientFlowRunning = true;
@@ -2246,7 +2280,9 @@ namespace GuardWave
             if (ambientFlowPreview)
             {
                 _ambientFlowRunning = true;
-                _status = "물살이 시작되었습니다. 5초 뒤 파도가 옵니다.";
+                _status = _isFloodStage
+                    ? "물살이 시작되었습니다. 10초 후 1차 파도가 옵니다."
+                    : "물살이 시작되었습니다. 5초 뒤 파도가 옵니다.";
                 _stageFloodRoutine = StartCoroutine(ResolveAmbientWave());
                 return;
             }
@@ -2364,8 +2400,10 @@ namespace GuardWave
         /// </summary>
         private IEnumerator ResolveAmbientWave()
         {
+            float firstDelay = _isFloodStage
+                ? FLOOD_FIRST_CREST_DELAY_SECONDS : CREEK_PREWAVE_SECONDS;
             float warmupElapsed = 0f;
-            while (warmupElapsed < CREEK_PREWAVE_SECONDS)
+            while (warmupElapsed < firstDelay)
             {
                 yield return new WaitForFixedUpdate();
                 if (_awaitingStage)
@@ -2373,12 +2411,16 @@ namespace GuardWave
                     _stageFloodRoutine = null;
                     yield break;
                 }
-                warmupElapsed += Time.fixedDeltaTime;
+                warmupElapsed = Mathf.Min(firstDelay,
+                    warmupElapsed + Time.fixedDeltaTime);
+                if (_isFloodStage)
+                    _floodCrestSecondsRemaining = Mathf.Max(0f,
+                        firstDelay - warmupElapsed);
             }
 
             try
             {
-                // The current has already run for five seconds on the same
+                // The current has already run for the warning window on the same
                 // FLIP simulation: do not construct a second liquid volume.
                 _fluid.EmitSingleCrest();
             }
@@ -2395,9 +2437,18 @@ namespace GuardWave
                 yield break;
             }
 
-            _status = "1차 파도가 이동 중입니다. 3초 후 2차 파도가 발생합니다.";
+            float secondDelay = _isFloodStage
+                ? FLOOD_SECOND_CREST_DELAY_SECONDS : SECOND_CREST_DELAY_SECONDS;
+            if (_isFloodStage)
+            {
+                _floodCrestPhase = 2;
+                _floodCrestSecondsRemaining = secondDelay;
+            }
+            _status = _isFloodStage
+                ? "1차 파도 진행 중. 30초 뒤 2차 파도가 옵니다. 통나무를 계속 배치할 수 있습니다."
+                : "1차 파도가 이동 중입니다. 3초 후 2차 파도가 발생합니다.";
             float secondCrestElapsed = 0f;
-            while (secondCrestElapsed < SECOND_CREST_DELAY_SECONDS)
+            while (secondCrestElapsed < secondDelay)
             {
                 yield return new WaitForFixedUpdate();
                 if (_awaitingStage)
@@ -2405,7 +2456,11 @@ namespace GuardWave
                     _stageFloodRoutine = null;
                     yield break;
                 }
-                secondCrestElapsed += Time.fixedDeltaTime;
+                secondCrestElapsed = Mathf.Min(secondDelay,
+                    secondCrestElapsed + Time.fixedDeltaTime);
+                if (_isFloodStage)
+                    _floodCrestSecondsRemaining = Mathf.Max(0f,
+                        secondDelay - secondCrestElapsed);
             }
 
             try
@@ -2426,7 +2481,14 @@ namespace GuardWave
                 yield break;
             }
 
-            _status = "2차 파도가 이동 중입니다. 깃발을 지키세요.";
+            if (_isFloodStage)
+            {
+                _floodCrestPhase = 3;
+                _floodCrestSecondsRemaining = 0f;
+            }
+            _status = _isFloodStage
+                ? "2차 파도가 진행 중입니다. 통나무를 배치해 비버 집을 지키세요."
+                : "2차 파도가 이동 중입니다. 깃발을 지키세요.";
             // Wait for the SECOND crest's transit before the final survival check.
             float travel = (_placementBounds.size.z + _fluidSettings.WaveCrestLength) /
                 Mathf.Max(0.1f, _fluidSettings.WaveCrestSpeed);
@@ -2851,7 +2913,8 @@ namespace GuardWave
         /// <summary>마지막 낙하가 안정화되면 다른 입력을 덮지 않고 위치를 갱신한다.</summary>
         private void RefreshLatestEditState(WaveSnapshot original)
         {
-            if (_stageTransitioning || _awaitingStage || _editHistory.Count == 0 ||
+            if ((_stageTransitioning && !CanEditDuringFlood) ||
+                _awaitingStage || _editHistory.Count == 0 ||
                 !ReferenceEquals(_editHistory[_editHistory.Count - 1], original))
                 return;
             _editHistory[_editHistory.Count - 1] = CaptureWaveSnapshot();
@@ -3096,6 +3159,8 @@ namespace GuardWave
             _awaitingStage = false;
             _stageTransitioning = false;
             _waveHasStarted = false;
+            _floodCrestPhase = 0;
+            _floodCrestSecondsRemaining = 0f;
             _resolving = false;
             if (ambientFlowPreview)
                 BeginAmbientCreekFlow();
