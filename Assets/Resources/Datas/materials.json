@@ -73,6 +73,16 @@
       ]
     },
     {
+      "id": "citizen",
+      "name": "시민",
+      "category": "목표",
+      "startOnly": true,
+      "spawnOnly": false,
+      "abilities": [
+        "눈사태 스테이지의 고정 보호 대상입니다. 모든 시민이 눈사태로부터 살아남아야 합니다."
+      ]
+    },
+    {
       "id": "mud",
       "name": "진흙",
       "category": "도구",

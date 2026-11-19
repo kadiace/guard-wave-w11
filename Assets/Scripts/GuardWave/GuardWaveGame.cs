@@ -338,7 +338,7 @@ namespace GuardWave
             {
                 DestroyDefenseFlag();
                 if (_awaitingStage)
-                    _status = "비버 둥지가 5초간 침수되어 무너졌습니다. 확인을 누르면 배치를 복원합니다.";
+                    _status = $"{TargetName}이 5초간 침수되어 무너졌습니다. 확인을 누르면 배치를 복원합니다.";
             }
         }
 
@@ -1567,6 +1567,8 @@ namespace GuardWave
             !_stageTransitioning && !_resolving && !_awaitingStage
             && !_finished && !_rulesOpen && _defenseFlag != null
             && _defenseFlag.activeInHierarchy;
+        /// <summary>Display name of this stage's protected objective from materials.json.</summary>
+        public string TargetName => _stageInfo.TargetName;
         public bool IsLavaStage => _isLavaStage;
         public bool IsFloodDrowning => _isFloodStage &&
             (_flagFloodImmersed ||
@@ -1889,8 +1891,8 @@ namespace GuardWave
             _status = GetComponent<FogSceneController>() != null
                 ? "건물을 배치하면 +Z 방향 실외기 바람으로 안개를 밀어냅니다. 준비 완료를 누르세요."
                 : _isLavaStage
-                    ? "용암에 닿은 기물은 불타다가 파괴됩니다. 깃발을 지키세요."
-                    : "통나무를 배치하면 바닥과 가까운 옆면에 자동으로 접착됩니다. 비버 집을 홍수로부터 지키세요. 우클릭: 선택 해제";
+                    ? $"용암에 닿은 기물은 불타다가 파괴됩니다. {TargetName}을 지키세요."
+                    : $"통나무를 배치하면 바닥과 가까운 옆면에 자동으로 접착됩니다. {TargetName}을 홍수로부터 지키세요. 우클릭: 선택 해제";
             // Initial state enables Ctrl+Z to undo the very first placement.
             SaveEditState(false);
         }
@@ -2158,7 +2160,7 @@ namespace GuardWave
                         ? "배치 완료. 1차 파도에 대비하세요."
                         : _floodCrestPhase == 2
                             ? "배치 완료. 2차 파도에 대비하세요."
-                            : "배치 완료. 비버 집을 지키세요.";
+                            : $"배치 완료. {TargetName}을 지키세요.";
                 else if (!_stageTransitioning)
                     _status = _isLavaStage
                         ? "배치 완료. 준비 완료를 누르면 용암이 흐릅니다."
@@ -2287,7 +2289,7 @@ namespace GuardWave
                 return;
             }
 
-            _status = "홍수 발생: 기물과 깃발을 지키세요.";
+            _status = $"홍수 발생: 기물과 {TargetName}을 지키세요.";
             _stageFloodRoutine = StartCoroutine(ResolveStageFlood());
         }
 
@@ -2487,8 +2489,8 @@ namespace GuardWave
                 _floodCrestSecondsRemaining = 0f;
             }
             _status = _isFloodStage
-                ? "2차 파도가 진행 중입니다. 통나무를 배치해 비버 집을 지키세요."
-                : "2차 파도가 이동 중입니다. 깃발을 지키세요.";
+                ? $"2차 파도가 진행 중입니다. 통나무를 배치해 {TargetName}을 지키세요."
+                : $"2차 파도가 이동 중입니다. {TargetName}을 지키세요.";
             // Wait for the SECOND crest's transit before the final survival check.
             float travel = (_placementBounds.size.z + _fluidSettings.WaveCrestLength) /
                 Mathf.Max(0.1f, _fluidSettings.WaveCrestSpeed);
@@ -2506,7 +2508,7 @@ namespace GuardWave
 
             // Preserve the creek's FLIP steps and Rigidbody forces throughout
             // this five-second survival window; movement never resets the clock.
-            _status = "파도가 지나갔습니다. 5초 후 깃발 생존 여부를 판정합니다.";
+            _status = $"파도가 지나갔습니다. 5초 후 {TargetName} 생존 여부를 판정합니다.";
             float checkElapsed = 0f;
             while (checkElapsed < FLAG_SURVIVAL_CHECK_SECONDS)
             {
@@ -2637,7 +2639,7 @@ namespace GuardWave
             _resolving = false;
             _finished = true;
             _lavaFlowSecondsRemaining = 0f;
-            _status = "재해가 지나갔습니다. 깃발을 지켜냈습니다.";
+            _status = $"재해가 지나갔습니다. {TargetName}을 지켜냈습니다.";
             StageClearSession.MarkCleared(Managers.Scene.CurrentScene);
         }
 
@@ -2663,8 +2665,8 @@ namespace GuardWave
             DestroyDefenseFlag();
             if (_awaitingStage)
                 _status = _waveSnapshot == null
-                    ? "깃발이 독안개에 5초 이상 노출되었습니다. 확인을 누르면 다시 시작합니다."
-                    : "깃발이 독안개에 5초 이상 노출되었습니다. 확인을 누르면 배치를 복원합니다.";
+                    ? $"{TargetName}이 독안개에 5초 이상 노출되었습니다. 확인을 누르면 다시 시작합니다."
+                    : $"{TargetName}이 독안개에 5초 이상 노출되었습니다. 확인을 누르면 배치를 복원합니다.";
         }
 
         /// <summary>깃발이 파괴되면 팝업을 열되 기물의 속도와 Rigidbody 물리는 유지한다.</summary>
@@ -2691,13 +2693,13 @@ namespace GuardWave
             _finished = false;
             _status = _isFloodStage
                 ? (_waveSnapshot == null
-                    ? "비버 둥지가 파괴되었습니다. 확인을 누르면 씬을 다시 시작합니다."
-                    : "비버 둥지가 파괴되었습니다. 확인을 누르면 마지막 배치 상태로 돌아갑니다.")
+                    ? $"{TargetName}이 파괴되었습니다. 확인을 누르면 씬을 다시 시작합니다."
+                    : $"{TargetName}이 파괴되었습니다. 확인을 누르면 마지막 배치 상태로 돌아갑니다.")
                 : _isLavaStage
-                    ? "깃발이 용암에 닿아 파괴되었습니다. 확인을 누르면 씬이 재시작됩니다."
+                    ? $"{TargetName}이 용암에 닿아 파괴되었습니다. 확인을 누르면 씬이 재시작됩니다."
                     : _waveSnapshot == null
-                        ? "깃발이 파괴되었습니다. 확인을 누르면 씬을 다시 시작합니다."
-                        : "깃발이 파괴되었습니다. 확인을 누르면 마지막 배치 상태로 돌아갑니다.";
+                        ? $"{TargetName}이 파괴되었습니다. 확인을 누르면 씬을 다시 시작합니다."
+                        : $"{TargetName}이 파괴되었습니다. 확인을 누르면 마지막 배치 상태로 돌아갑니다.";
             if (_isLavaStage)
             {
                 _defenseFlag.SetActive(false);

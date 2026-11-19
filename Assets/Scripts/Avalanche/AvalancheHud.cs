@@ -47,19 +47,19 @@ namespace Avalanche
         public bool Finished => _stage.Phase == AvalanchePhase.Cleared;
         public bool RulesOpen { get; private set; }
         public string Status => _stage.Phase == AvalanchePhase.Preparing
-            ? "배치를 마치면 준비 완료를 눌러 주세요. 마을에 있는 시민들을 지켜 주세요.\n" + _stage.Construction.Hint
-            : _stage.Phase == AvalanchePhase.Warning ? "눈사태 경보 · 편집이 잠겼습니다." : "두 차례의 눈사태와 시민의 충돌·매몰 위험을 관찰하세요.";
+            ? $"배치를 마치면 준비 완료를 눌러 주세요. 마을에 있는 {_stage.TargetName}들을 지켜 주세요.\n" + _stage.Construction.Hint
+            : _stage.Phase == AvalanchePhase.Warning ? "눈사태 경보 · 편집이 잠겼습니다." : $"두 차례의 눈사태와 {_stage.TargetName}의 충돌·매몰 위험을 관찰하세요.";
         public string Result => _stage.ResultMessage;
         public string ResultTitle => _stage.Phase == AvalanchePhase.TechnicalError ? "계산 중단 · 배치 복원 가능" : "방어 실패";
-        public string Rules => $"마을에 미리 배치된 시민 {_stage.Citizens.Count}명을 두 차례의 눈사태에서 모두 지키세요.\n"
-            + "시민은 옮기거나 회수할 수 없습니다. 주변에 방어 구조물을 설치하세요.\n"
+        public string Rules => $"마을에 미리 배치된 {_stage.TargetName} {_stage.Citizens.Count}명을 두 차례의 눈사태에서 모두 지키세요.\n"
+            + $"{_stage.TargetName}은 옮기거나 회수할 수 없습니다. 주변에 방어 구조물을 설치하세요.\n"
             + "유도 방벽과 하중 받침을 놓고, 접합 블록으로 닿는 자재를 연결하세요.\n"
             + "첫 눈은 경보 직후, 두 번째 눈은 12초에 내려옵니다. 첫 눈이 쌓인 지형은 유지됩니다.\n"
-            + "두 눈이 내린 뒤 시민 모두가 안전하고 빠른 눈 흐름이 잦아든 상태를 3초 유지하면 성공합니다. 62초에 안정 확인 중이면 최대 3초 더 관찰합니다.\n"
+            + $"두 눈이 내린 뒤 {_stage.TargetName} 모두가 안전하고 빠른 눈 흐름이 잦아든 상태를 3초 유지하면 성공합니다. 62초에 안정 확인 중이면 최대 3초 더 관찰합니다.\n"
             + "충돌 노출 1.5초 누적 또는 매몰 2초 연속이면 실패합니다.\n\n"
             + "왼쪽 클릭: 배치 / 자재는 드래그로 연속 배치\nQ/E: 회전 / Ctrl+Z: 되돌리기\n"
             + "우클릭: 선택 취소·회수 / 우클릭 드래그: 카메라 이동\n휠: 확대 / 우클릭 중 휠: 카메라 회전\n"
-            + "시민 이름 클릭: 해당 시민 보기 / Home: 전체 보기\nEsc: 선택 취소 후 일시정지";
+            + $"{_stage.TargetName} 이름 클릭: 해당 {_stage.TargetName} 보기 / Home: 전체 보기\nEsc: 선택 취소 후 일시정지";
 
         /// <summary>Uses the shared stage prefab and creates a small scene-specific citizen panel.</summary>
         public void Initialize(AvalancheStage stage)
@@ -73,7 +73,7 @@ namespace Avalanche
             panel.anchoredPosition = new Vector2(18f, -110f);
             panel.sizeDelta = new Vector2(280f, 90f + stage.Citizens.Count * 56f);
             panel.GetComponent<Image>().color = new Color(0.10f, 0.16f, 0.21f, 0.94f);
-            _areas = Label(panel, new Vector2(12f, -12f), new Vector2(256f, 70f), "보호 대상 시민");
+            _areas = Label(panel, new Vector2(12f, -12f), new Vector2(256f, 70f), $"보호 대상 {_stage.TargetName}");
             for (int i = 0; i < stage.Citizens.Count; i++)
             {
                 int row = i;
@@ -99,7 +99,7 @@ namespace Avalanche
         private void Update()
         {
             if (_stage == null) return;
-            _areas.text = $"보호 대상 시민 {_stage.Citizens.Count}명\n시민 이름을 누르면 자세히 봅니다.";
+            _areas.text = $"보호 대상 {_stage.TargetName} {_stage.Citizens.Count}명\n{_stage.TargetName} 이름을 누르면 자세히 봅니다.";
             for (int i = 0; i < _citizenLabels.Count; i++)
             {
                 AvalancheCitizen citizen = _stage.Citizens[i];

@@ -263,7 +263,7 @@ namespace Avalanche
             {
                 Vector3 local = Quaternion.Inverse(rotation) * (citizen.transform.position - center);
                 if (Mathf.Abs(local.x) < size.x * 0.5f + _citizenClearance && Mathf.Abs(local.z) < size.z * 0.5f + _citizenClearance && center.y - size.y / 2f < citizen.transform.position.y + 1.8f)
-                { reason = "시민의 대기 공간을 비워 주세요."; return false; }
+                { reason = $"{_stage.TargetName}의 대기 공간을 비워 주세요."; return false; }
             }
             int count = Physics.OverlapBoxNonAlloc(center, size * 0.5f - Vector3.one * 0.025f, _overlaps, rotation, ~4, QueryTriggerInteraction.Ignore);
             if (count > 0) { reason = "자재나 지형과 겹칩니다. 위 또는 옆으로 옮겨 주세요."; return false; }

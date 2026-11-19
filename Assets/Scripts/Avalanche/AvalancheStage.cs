@@ -88,6 +88,7 @@ namespace Avalanche
         public float PreparationLeft => _preparationClock.Remaining;
         internal bool LimitPreparationTime => _preparationClock.Enabled;
         internal GuardWaveStageInfo StageInfo => _stageInfo;
+        public string TargetName => _stageInfo.TargetName;
         public float Elapsed { get; private set; }
         public float DisasterSecondsRemaining => Mathf.Max(0f, _disasterLimitSeconds - Elapsed);
         public float SecondReleaseSeconds => _secondReleaseSeconds;
@@ -123,6 +124,8 @@ namespace Avalanche
             Cursor.lockState = CursorLockMode.None;
             _stageInfo = GuardWaveStageInfoFile.LoadForScene(gameObject.scene.name);
             _preparationClock = new StagePreparationClock(_stageInfo);
+            foreach (AvalancheCitizen citizen in _citizens)
+                if (citizen != null) citizen.SetTargetName(TargetName);
             AvalancheTerrain.Configure(_terrainSettings);
             _terrainMesh = AvalancheTerrain.CreateMesh();
             _ground.sharedMesh = _terrainMesh;
@@ -205,7 +208,7 @@ namespace Avalanche
             if (_stableClock + 0.0001f >= _safeObservationSeconds && IsSettlementCandidate())
             {
                 foreach (AvalancheCitizen citizen in Citizens) citizen.Protect();
-                End(AvalanchePhase.Cleared, $"두 차례의 눈사태에서 시민 {Citizens.Count}명을 지켰습니다.");
+                End(AvalanchePhase.Cleared, $"두 차례의 눈사태에서 {TargetName} {Citizens.Count}명을 지켰습니다.");
             }
             else if (Elapsed >= _disasterLimitSeconds)
             {
@@ -213,7 +216,7 @@ namespace Avalanche
                 {
                     if (!IsSettlementCandidate())
                     {
-                        End(AvalanchePhase.Failed, "관찰 시간이 끝났습니다.\n시민 주변의 위험이나 움직이는 눈이 남아 있습니다.");
+                        End(AvalanchePhase.Failed, $"관찰 시간이 끝났습니다.\n{TargetName} 주변의 위험이나 움직이는 눈이 남아 있습니다.");
                         return;
                     }
                     _settlementGraceActive = true;
@@ -221,7 +224,7 @@ namespace Avalanche
                 }
                 _settlementGraceClock += dt;
                 if (_settlementGraceClock + 0.0001f >= _safeObservationSeconds)
-                    End(AvalanchePhase.Failed, "안정 확인 유예 시간이 끝났습니다.\n시민이 안전한 상태를 충분히 유지하지 못했습니다.");
+                    End(AvalanchePhase.Failed, $"안정 확인 유예 시간이 끝났습니다.\n{TargetName}이 안전한 상태를 충분히 유지하지 못했습니다.");
             }
         }
 

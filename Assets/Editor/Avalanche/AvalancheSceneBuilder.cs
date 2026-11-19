@@ -223,10 +223,11 @@ namespace Avalanche.Editor
             string[] zones = { "산장", "광장", "정류장" };
             Material skin = AssetDatabase.LoadAssetAtPath<Material>(ASSET_ROOT + "/Plaster.mat");
             Material boots = AssetDatabase.LoadAssetAtPath<Material>(ASSET_ROOT + "/Structure.mat");
+            string targetName = GuardWaveStageInfoFile.LoadForScene("Avalanche").TargetName;
             citizens = new AvalancheCitizen[positions.Length];
             for (int i = 0; i < positions.Length; i++)
             {
-                Transform root = new GameObject($"Citizen {i + 1:00} - {zones[i / 2]}").transform;
+                Transform root = new GameObject($"{targetName} {i + 1:00} - {zones[i / 2]}").transform;
                 root.SetParent(group, false);
                 root.position = new Vector3(positions[i].x, AvalancheTerrain.Height(positions[i].x, positions[i].y) + 0.035f, positions[i].y);
                 Transform visual = new GameObject("Visual").transform;
@@ -240,7 +241,7 @@ namespace Avalanche.Editor
                 }
                 Renderer marker = CitizenVisual("Status beacon", PrimitiveType.Sphere, root, Vector3.up * 2.05f, Vector3.one * 0.23f, stage.LineMaterial).GetComponent<Renderer>();
                 citizens[i] = root.gameObject.AddComponent<AvalancheCitizen>();
-                citizens[i].Configure(i, zones[i / 2], visual, marker);
+                citizens[i].Configure(i, zones[i / 2], visual, marker, targetName);
             }
             stage.ConfigureCitizens(citizens);
         }

@@ -156,7 +156,7 @@ namespace GuardWave
             _requestedProbeSimulationElapsed = 0f;
             if (_flagProbes == null)
             {
-                _status = "Defense Flag의 FogFlagDensityProbes 구성을 찾을 수 없습니다.";
+                _status = $"{_game.TargetName}의 FogFlagDensityProbes 구성을 찾을 수 없습니다.";
                 Debug.LogError(_status);
                 _running = false;
                 _game.SetRulesOpen(false);
@@ -350,7 +350,7 @@ namespace GuardWave
             {
                 _game.CompleteStage();
                 _status = _game.IsFinished
-                    ? "안개가 지나갔습니다. 깃발을 지켜냈습니다."
+                    ? $"안개가 지나갔습니다. {_game.TargetName}을 지켜냈습니다."
                     : _game.StatusMessage;
                 if (_game.IsFinished)
                     yield return ContinueFogAfterSuccess(ground);
@@ -358,7 +358,7 @@ namespace GuardWave
             else
             {
                 _status = exposureFailure
-                    ? "깃발이 독안개에 5초 이상 노출되었습니다. 확인을 누르면 배치 상태로 돌아갑니다."
+                    ? $"{_game.TargetName}이 독안개에 5초 이상 노출되었습니다. 확인을 누르면 배치 상태로 돌아갑니다."
                     : "방어에 실패했습니다. 배치 상태를 복원하고 다시 시도하세요.";
             }
             DisposeFog();

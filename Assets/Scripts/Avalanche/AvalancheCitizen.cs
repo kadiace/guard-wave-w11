@@ -32,14 +32,20 @@ namespace Avalanche
         public string FailureReason { get; private set; }
 
         /// <summary>Assigns the authored identity and visual references without creating a runtime placement.</summary>
-        public void Configure(int id, string zone, Transform visual, Renderer marker)
+        public void Configure(int id, string zone, Transform visual, Renderer marker, string targetName)
         {
             _objectiveId = id;
-            _citizenId = $"시민 {id + 1:00}";
+            SetTargetName(targetName);
             _zone = zone;
             _visual = visual;
             _marker = marker;
             ResetState();
+        }
+
+        /// <summary>Use the StageInfo target material's catalog name, preserving the unique number.</summary>
+        public void SetTargetName(string targetName)
+        {
+            _citizenId = $"{targetName} {_objectiveId + 1:00}";
         }
 
         /// <summary>Resets both independent danger histories for an edited or restored attempt.</summary>

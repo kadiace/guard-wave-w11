@@ -10,7 +10,8 @@
           "materialId": "log",
           "placementLimit": 100
         }
-      ]
+      ],
+      "targetMaterialId": "beaver_house"
     },
     {
       "sceneName": "Fog",
@@ -26,7 +27,8 @@
           "materialId": "fog_barrier",
           "placementLimit": 2
         }
-      ]
+      ],
+      "targetMaterialId": "default_flag"
     },
     {
       "sceneName": "Avalanche",
@@ -49,7 +51,8 @@
           "placementLimit": 18,
           "target": false
         }
-      ]
+      ],
+      "targetMaterialId": "citizen"
     },
     {
       "sceneName": "Lava",
@@ -69,7 +72,8 @@
           "materialId": "wood_plank",
           "placementLimit": 30
         }
-      ]
+      ],
+      "targetMaterialId": "default_flag"
     }
   ]
 }

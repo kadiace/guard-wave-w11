@@ -22,7 +22,11 @@ namespace GuardWave
         public string disasterName;
         public bool limitPreparationTime;
         public int countdownSeconds;
+        // The protected objective is not a palette entry. Its displayed name
+        // comes from the material catalog, not hard-coded scene UI text.
+        public string targetMaterialId;
         public GuardWavePaletteEntry[] palette;
+        public string TargetName { get; private set; }
 
         /// <summary>자재의 배치 제한을 조회하고 항목이 없으면 무제한을 반환한다.</summary>
         public int GetPlacementLimit(string materialId)
@@ -94,6 +98,15 @@ namespace GuardWave
                 stage.countdownSeconds <= 0 || stage.palette == null ||
                 stage.palette.Length == 0 || stage.palette.Length > 4)
                 throw new InvalidOperationException("Invalid stage settings: " + sceneName);
+
+            if (string.IsNullOrWhiteSpace(stage.targetMaterialId))
+                throw new InvalidOperationException(
+                    "Missing targetMaterialId in StageInfo.json: " + sceneName);
+            GuardWaveMaterial targetMaterial = new GuardWaveCatalog().Get(stage.targetMaterialId);
+            if (targetMaterial == null)
+                throw new InvalidOperationException(
+                    "Unknown targetMaterialId in StageInfo.json: " + stage.targetMaterialId);
+            stage.TargetName = targetMaterial.name;
 
             for (int i = 0; i < stage.palette.Length; i++)
             {
