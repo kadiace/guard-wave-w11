@@ -35,13 +35,15 @@ namespace Avalanche
             : _stage.Phase == AvalanchePhase.Warning ? "눈사태 경보 · 편집이 잠겼습니다." : "두 차례의 눈사태와 시민의 충돌·매몰 위험을 관찰하세요.";
         public string Result => _stage.ResultMessage;
         public string ResultTitle => _stage.Phase == AvalanchePhase.TechnicalError ? "계산 중단 · 배치 복원 가능" : "방어 실패";
-        public string DisasterLabel => _stage.Phase == AvalanchePhase.Preparing ? "배치 완료 후 준비 완료를 눌러 주세요."
+        public string DisasterLabel => _stage.SettlementGraceActive ? $"안정 확인 유예  {_stage.SettlementGraceLeft:0.0}초"
+            : _stage.Phase == AvalanchePhase.Preparing ? "배치 완료 후 준비 완료를 눌러 주세요."
             : _stage.Phase == AvalanchePhase.Warning ? $"눈사태 경보  {_stage.WarningLeft:0.0}초"
             : $"눈사태  {_stage.Elapsed:0.0}초";
         public string Rules => $"마을에 미리 배치된 시민 {_stage.Citizens.Count}명을 두 차례의 눈사태에서 모두 지키세요.\n"
             + "시민은 옮기거나 회수할 수 없습니다. 주변에 방어 구조물을 설치하세요.\n"
             + "유도 방벽과 하중 받침을 놓고, 접합 블록으로 닿는 자재를 연결하세요.\n"
             + "첫 눈은 경보 직후, 두 번째 눈은 12초에 내려옵니다. 첫 눈이 쌓인 지형은 유지됩니다.\n"
+            + "두 눈이 내린 뒤 시민 모두가 안전하고 빠른 눈 흐름이 잦아든 상태를 3초 유지하면 성공합니다. 60초에 안정 확인 중이면 최대 3초 더 관찰합니다.\n"
             + "충돌 노출 1.5초 누적 또는 매몰 2초 연속이면 실패합니다.\n\n"
             + "왼쪽 클릭: 배치 / 자재는 드래그로 연속 배치\nQ/E: 회전 / Ctrl+Z: 되돌리기\n"
             + "우클릭: 선택 취소·회수 / 우클릭 드래그: 카메라 이동\n휠: 확대 / 우클릭 중 휠: 카메라 회전\n"

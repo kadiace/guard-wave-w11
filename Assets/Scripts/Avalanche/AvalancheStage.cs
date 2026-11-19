@@ -33,6 +33,7 @@ namespace Avalanche
         [SerializeField, Min(1f)] private float _secondReleaseSeconds = 12f;
         [SerializeField, Min(1f)] private float _observationStartSeconds = 20f;
         [SerializeField, Min(1f)] private float _disasterLimitSeconds = 60f;
+        [Tooltip("연속 안전 관찰 시간이며, 제한시간 종료 시 안정 확인 유예의 최대 시간으로도 사용합니다.")]
         [SerializeField, Min(0.1f)] private float _safeObservationSeconds = 3f;
         [Header("Snow releases")]
         [SerializeField] private Vector2 _firstSource = new Vector2(-2f, 52f);
@@ -57,9 +58,11 @@ namespace Avalanche
         private float _warningClock;
         private float _sampleClock;
         private float _stableClock;
+        private float _settlementGraceClock;
         private float _previousTimeScale;
         private bool _firstReleased;
         private bool _secondReleased;
+        private bool _settlementGraceActive;
         private AudioSource _avalancheAudio;
         private AudioClip _rumble;
         private GuardWaveStageInfo _stageInfo;
@@ -88,6 +91,8 @@ namespace Avalanche
         public float Elapsed { get; private set; }
         public float SecondReleaseSeconds => _secondReleaseSeconds;
         public float WarningLeft => Mathf.Max(0f, _warningSeconds - _warningClock);
+        public bool SettlementGraceActive => _settlementGraceActive && !IsFinished();
+        public float SettlementGraceLeft => Mathf.Max(0f, _safeObservationSeconds - _settlementGraceClock);
         public string ResultMessage { get; private set; } = "";
         public int Attempt { get; private set; } = 1;
 
@@ -173,11 +178,9 @@ namespace Avalanche
             if (_sampleClock + 0.0001f >= _citizenSampleInterval)
             {
                 AvalancheCitizen failed = null;
-                bool allSafe = true;
                 foreach (AvalancheCitizen citizen in Citizens)
                 {
                     citizen.Observe(_snow, _sampleClock, _citizenRisk);
-                    allSafe &= citizen.IsSafe;
                     if (citizen.State == AvalancheCitizenState.RescueRequired && (failed == null || citizen.ObjectiveId < failed.ObjectiveId)) failed = citizen;
                 }
                 if (failed != null)
@@ -185,19 +188,42 @@ namespace Avalanche
                     End(AvalanchePhase.Failed, $"{failed.CitizenId} · {failed.FailureReason}\n{Elapsed:0.0}초 / 적설 {failed.Depth:0.00}m / 속도 {failed.Speed:0.0}m/s\n충돌 {failed.ImpactSeconds:0.0}초 · 매몰 {failed.BurialSeconds:0.0}초");
                     return;
                 }
-                bool settled = _secondReleased && Elapsed >= Mathf.Max(_observationStartSeconds, _secondReleaseSeconds)
-                    && _snow.ActiveVolume < (_firstVolume + _secondVolume) * _activeVolumeFraction && allSafe;
+                bool settled = IsSettlementCandidate();
                 _stableClock = settled ? _stableClock + _sampleClock : 0f;
                 _sampleClock = 0f;
             }
             if (Elapsed >= _observationStartSeconds) Phase = AvalanchePhase.Assessing;
-            if (_stableClock + 0.0001f >= _safeObservationSeconds)
+            if (_stableClock + 0.0001f >= _safeObservationSeconds && IsSettlementCandidate())
             {
                 foreach (AvalancheCitizen citizen in Citizens) citizen.Protect();
                 End(AvalanchePhase.Cleared, $"두 차례의 눈사태에서 시민 {Citizens.Count}명을 지켰습니다.");
             }
             else if (Elapsed >= _disasterLimitSeconds)
-                End(AvalanchePhase.Failed, "관찰 시간이 끝났습니다.\n시민 주변의 위험이나 움직이는 눈이 남아 있습니다.");
+            {
+                if (!_settlementGraceActive)
+                {
+                    if (!IsSettlementCandidate())
+                    {
+                        End(AvalanchePhase.Failed, "관찰 시간이 끝났습니다.\n시민 주변의 위험이나 움직이는 눈이 남아 있습니다.");
+                        return;
+                    }
+                    _settlementGraceActive = true;
+                    _settlementGraceClock = 0f;
+                }
+                _settlementGraceClock += dt;
+                if (_settlementGraceClock + 0.0001f >= _safeObservationSeconds)
+                    End(AvalanchePhase.Failed, "안정 확인 유예 시간이 끝났습니다.\n시민이 안전한 상태를 충분히 유지하지 못했습니다.");
+            }
+        }
+
+        /// <summary>Checks the shared prerequisites for a continuous safe-observation interval.</summary>
+        private bool IsSettlementCandidate()
+        {
+            if (!_secondReleased || Elapsed < Mathf.Max(_observationStartSeconds, _secondReleaseSeconds) ||
+                _snow.ActiveVolume >= (_firstVolume + _secondVolume) * _activeVolumeFraction) return false;
+            foreach (AvalancheCitizen citizen in Citizens)
+                if (!citizen.IsSafe) return false;
+            return true;
         }
 
         /// <summary>Starts unrestricted preparation after closing the stage introduction.</summary>
@@ -289,7 +315,7 @@ namespace Avalanche
             bool allSafe = true;
             foreach (AvalancheCitizen citizen in Citizens) allSafe &= citizen.IsSafe;
             float activeLimit = (_firstVolume + _secondVolume) * _activeVolumeFraction;
-            Debug.Log($"[Avalanche] CompletionGate elapsed={Elapsed:F2}s secondReleased={_secondReleased} active={_snow.ActiveVolume:F3}/{activeLimit:F3}m3 allSafe={allSafe} stable={_stableClock:F2}/{_safeObservationSeconds:F2}s sampleClock={_sampleClock:F2}s", this);
+            Debug.Log($"[Avalanche] CompletionGate elapsed={Elapsed:F2}s secondReleased={_secondReleased} active={_snow.ActiveVolume:F3}/{activeLimit:F3}m3 allSafe={allSafe} stable={_stableClock:F2}/{_safeObservationSeconds:F2}s grace={_settlementGraceActive}:{_settlementGraceClock:F2}/{_safeObservationSeconds:F2}s sampleClock={_sampleClock:F2}s", this);
             foreach (AvalancheCitizen citizen in Citizens)
                 Debug.Log($"[Avalanche] Citizen {citizen.CitizenId} state={citizen.State} safe={citizen.IsSafe} danger={citizen.InDanger} exposure={citizen.Exposure:F1}% depth={citizen.Depth:F3}m maxDepth={citizen.MaxDepth:F3}m speed={citizen.Speed:F2}m/s impact={citizen.ImpactSeconds:F2}s burial={citizen.BurialSeconds:F2}s", citizen);
         }
@@ -302,7 +328,8 @@ namespace Avalanche
             _snow.Reset();
             _avalancheAudio.Stop();
             _firstReleased = _secondReleased = false;
-            _warningClock = _sampleClock = _stableClock = Elapsed = 0f;
+            _warningClock = _sampleClock = _stableClock = _settlementGraceClock = Elapsed = 0f;
+            _settlementGraceActive = false;
             _preparationClock.Reset();
             ResultMessage = "";
             Attempt++;
