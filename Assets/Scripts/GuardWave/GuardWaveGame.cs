@@ -18,6 +18,7 @@ namespace GuardWave
         // Flood has its own warning windows; other scenes retain legacy timing.
         private const float FLOOD_FIRST_CREST_DELAY_SECONDS = 10f;
         private const float FLOOD_SECOND_CREST_DELAY_SECONDS = 30f;
+        private const float FLOOD_SUPPLY_WINDOW_SECONDS = 5f;
         private const float FLAG_SURVIVAL_CHECK_SECONDS = 5f;
         private const int MAX_MUD_CONTACTS = 512;
         private const int MAX_VISIBLE_MUD_GUIDES = 48;
@@ -228,6 +229,7 @@ namespace GuardWave
         // 3: second active. Updated on fixed physics ticks with the GPU crests.
         private int _floodCrestPhase;
         private float _floodCrestSecondsRemaining;
+        private float _floodSupplySecondsSinceReady;
         private bool _ambientFlowRunning;
         private bool _resolving;
         private bool _awaitingStage;
@@ -319,7 +321,24 @@ namespace GuardWave
             _fluid.ApplyPendingImpulses();
             UpdateFloodDrowning();
             if (ambientFlowPreview && _ambientFlowRunning)
-                _fluid.Step(Time.fixedDeltaTime, 0f);
+            {
+                // Advance the existing water even outside supply windows. Only
+                // upstream particle refilling is restricted in the Flood scene.
+                if (_isFloodStage)
+                    _floodSupplySecondsSinceReady += Time.fixedDeltaTime;
+                bool allowAmbientRefill = !_isFloodStage ||
+                    IsWithinFloodSupplyWindow(_floodSupplySecondsSinceReady,
+                        FLOOD_FIRST_CREST_DELAY_SECONDS) ||
+                    IsWithinFloodSupplyWindow(_floodSupplySecondsSinceReady,
+                        FLOOD_FIRST_CREST_DELAY_SECONDS + FLOOD_SECOND_CREST_DELAY_SECONDS);
+                _fluid.Step(Time.fixedDeltaTime, 0f, allowAmbientRefill);
+            }
+        }
+
+        private static bool IsWithinFloodSupplyWindow(float elapsed, float crestTime)
+        {
+            return elapsed >= crestTime - FLOOD_SUPPLY_WINDOW_SECONDS &&
+                elapsed <= crestTime + FLOOD_SUPPLY_WINDOW_SECONDS;
         }
 
         private void UpdateFloodDrowning()
@@ -1811,6 +1830,7 @@ namespace GuardWave
             _waveHasStarted = false;
             _floodCrestPhase = 0;
             _floodCrestSecondsRemaining = 0f;
+            _floodSupplySecondsSinceReady = 0f;
             _ambientFlowRunning = false;
             _lavaFlowSecondsRemaining = 0f;
             _lavaContacts.Clear();
@@ -2264,6 +2284,7 @@ namespace GuardWave
             // Preserve the latest user edit as the failure checkpoint.
             _waveSnapshot = _editHistory.Count > 0
                 ? _editHistory[_editHistory.Count - 1] : null;
+            _floodSupplySecondsSinceReady = 0f;
             _waveHasStarted = true;
             _stageTransitioning = true;
             _resolving = true;
@@ -3163,6 +3184,7 @@ namespace GuardWave
             _waveHasStarted = false;
             _floodCrestPhase = 0;
             _floodCrestSecondsRemaining = 0f;
+            _floodSupplySecondsSinceReady = 0f;
             _resolving = false;
             if (ambientFlowPreview)
                 BeginAmbientCreekFlow();
