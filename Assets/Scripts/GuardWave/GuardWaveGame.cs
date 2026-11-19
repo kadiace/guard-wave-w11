@@ -48,6 +48,11 @@ namespace GuardWave
         [Header("Ambient creek and one-shot wave (Ready button)")]
         [SerializeField] private bool ambientFlowPreview = true;
 
+        [Header("Flood water supply around each crest")]
+        [Tooltip("Seconds BEFORE and AFTER each Flood crest when the upstream inlet supplies water. " +
+            "Water already in the channel keeps moving while supply is off.")]
+        [SerializeField, Range(0.5f, 10f)] private float floodWaterSupplyWindowSeconds = 5f;
+
         [Header("Flood stage transition")]
         [SerializeField, Min(0.1f)] private float floodFillDuration = 1.2f;
         [SerializeField, Min(0.1f)] private float floodTravelDuration = 2.25f;
@@ -228,6 +233,10 @@ namespace GuardWave
         // 3: second active. Updated on fixed physics ticks with the GPU crests.
         private int _floodCrestPhase;
         private float _floodCrestSecondsRemaining;
+        // Time since Ready, advanced on the SAME fixed ticks as the FLIP solver.
+        // Crest arrivals are at t=10s and t=40s in Flood.
+        private float _floodWaveElapsedSeconds;
+        private bool _floodWaterSupplyWasActive;
         private bool _ambientFlowRunning;
         private bool _resolving;
         private bool _awaitingStage;
@@ -319,7 +328,25 @@ namespace GuardWave
             _fluid.ApplyPendingImpulses();
             UpdateFloodDrowning();
             if (ambientFlowPreview && _ambientFlowRunning)
-                _fluid.Step(Time.fixedDeltaTime, 0f);
+            {
+                bool supplyWater = true;
+                if (_isFloodStage)
+                {
+                    // Stop only NEW inlet supply and inlet forcing. Existing water
+                    // still moves, falls off the cliff and interacts with objects.
+                    _floodWaveElapsedSeconds += Time.fixedDeltaTime;
+                    supplyWater = IsFloodWaterSupplyWindow();
+                    if (supplyWater != _floodWaterSupplyWasActive)
+                    {
+                        _floodWaterSupplyWasActive = supplyWater;
+                        if (_floodCrestPhase == 2 && !_awaitingStage && !_finished)
+                            _status = supplyWater
+                                ? "2차 파도가 곧 옵니다. 보수를 마무리하세요!"
+                                : "물 공급이 멈췄습니다. 2차 파도 전에 통나무로 둑을 보수하세요!";
+                    }
+                }
+                _fluid.Step(Time.fixedDeltaTime, 0f, supplyWater);
+            }
         }
 
         private void UpdateFloodDrowning()
@@ -1555,12 +1582,26 @@ namespace GuardWave
         private bool CanEditDuringFlood => _isFloodStage && _waveHasStarted &&
             !_awaitingStage && !_finished && !_rulesOpen;
         public bool IsFloodStage => _isFloodStage;
+        public float FloodWaterSupplyWindowSeconds =>
+            Mathf.Clamp(floodWaterSupplyWindowSeconds, 0.5f, 10f);
+
+        private bool IsFloodWaterSupplyWindow()
+        {
+            float beforeAndAfter = FloodWaterSupplyWindowSeconds;
+            float firstCrest = FLOOD_FIRST_CREST_DELAY_SECONDS;
+            float secondCrest = firstCrest + FLOOD_SECOND_CREST_DELAY_SECONDS;
+            return Mathf.Abs(_floodWaveElapsedSeconds - firstCrest) <= beforeAndAfter ||
+                Mathf.Abs(_floodWaveElapsedSeconds - secondCrest) <= beforeAndAfter;
+        }
+
         public int FloodCrestPhase => _floodCrestPhase;
         public float FloodCrestSecondsRemaining => _floodCrestSecondsRemaining;
         public string FloodCrestCountdownLabel => _floodCrestPhase == 1
             ? "1차 파도 오기까지"
             : _floodCrestPhase == 2
-                ? "2차 파도 오기까지" : "2차 파도 진행 중";
+                ? (IsFloodWaterSupplyWindow()
+                    ? "2차 파도 오기까지" : "보수 시간 · 2차 파도까지")
+                : "2차 파도 진행 중";
         public bool CanReady => (!ambientFlowPreview ||
             (_fluid != null && _fluid.IsShaderPrewarmed)) &&
             _placementStroke == null &&
@@ -1811,6 +1852,8 @@ namespace GuardWave
             _waveHasStarted = false;
             _floodCrestPhase = 0;
             _floodCrestSecondsRemaining = 0f;
+            _floodWaveElapsedSeconds = 0f;
+            _floodWaterSupplyWasActive = false;
             _ambientFlowRunning = false;
             _lavaFlowSecondsRemaining = 0f;
             _lavaContacts.Clear();
@@ -2265,6 +2308,8 @@ namespace GuardWave
             _waveSnapshot = _editHistory.Count > 0
                 ? _editHistory[_editHistory.Count - 1] : null;
             _waveHasStarted = true;
+            _floodWaveElapsedSeconds = 0f;
+            _floodWaterSupplyWasActive = false;
             _stageTransitioning = true;
             _resolving = true;
             if (_isFloodStage && ambientFlowPreview)
@@ -2283,7 +2328,7 @@ namespace GuardWave
             {
                 _ambientFlowRunning = true;
                 _status = _isFloodStage
-                    ? "물살이 시작되었습니다. 10초 후 1차 파도가 옵니다."
+                    ? "10초 후 1차 파도가 옵니다. 파도 전후에만 물이 공급됩니다."
                     : "물살이 시작되었습니다. 5초 뒤 파도가 옵니다.";
                 _stageFloodRoutine = StartCoroutine(ResolveAmbientWave());
                 return;
@@ -2422,8 +2467,8 @@ namespace GuardWave
 
             try
             {
-                // The current has already run for the warning window on the same
-                // FLIP simulation: do not construct a second liquid volume.
+                // The same FLIP simulation has filled its upstream inlet during
+                // the pre-crest supply window: do not construct a second liquid volume.
                 _fluid.EmitSingleCrest();
             }
             catch (Exception error)

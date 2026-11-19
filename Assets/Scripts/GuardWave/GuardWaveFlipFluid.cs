@@ -798,8 +798,12 @@ namespace GuardWave
             _compute.SetInt("_BodyCount", _bodies.Count);
         }
 
-        /// <summary>Advances a full Unity physics tick using CFL-limited GPU substeps, with one combined Rigidbody impulse readback.</summary>
-        public void Step(float dt, float inletFraction)
+        /// <summary>
+        /// Advances a full Unity physics tick. Disabling ambient supply stops the
+        /// upstream refill and velocity driver, NOT existing particle simulation.
+        /// Other stages retain continuous supply by default.
+        /// </summary>
+        public void Step(float dt, float inletFraction, bool ambientSupplyEnabled = true)
         {
             if (_disposed) return;
             _elapsed += dt;
@@ -825,7 +829,8 @@ namespace GuardWave
                 Dispatch(_clearKernel, Mathf.Max(_gridCount, _bodies.Count * 2));
                 Dispatch(_clearWaterColumnsKernel, _grid.x * _grid.z);
                 Dispatch(_classifyKernel, _gridCount);
-                if (_ambientFlow) Dispatch(_driveInletKernel, _particleCount);
+                if (_ambientFlow && ambientSupplyEnabled)
+                    Dispatch(_driveInletKernel, _particleCount);
 
                 _spawnClock += fluidDt;
                 if (!_ambientFlow && inletFraction > 0.05f &&
@@ -873,7 +878,7 @@ namespace GuardWave
                 Dispatch(_smoothWaterColumnsKernel, _grid.x * _grid.z);
                 if (_bodies.Count > 0)
                     Dispatch(_buoyancyBodyKernel, _settings.MaxColliders);
-                if (_ambientFlow)
+                if (_ambientFlow && ambientSupplyEnabled)
                 {
                     // Fill the initial deficit and replace later losses using one
                     // upstream supply budget. Keep the original steady-state
