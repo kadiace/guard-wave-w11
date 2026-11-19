@@ -11,7 +11,6 @@ namespace GuardWave
         // -1 is unlimited. Zero or greater is the maximum number of active
         // player-placed objects of this material.
         public int placementLimit;
-        public bool target;
     }
 
     [Serializable]
@@ -41,18 +40,14 @@ namespace GuardWave
                 : Array.Find(file.stages, entry => entry != null && entry.sceneName == sceneName);
             if (stage == null || string.IsNullOrWhiteSpace(stage.disasterName) ||
                 stage.countdownSeconds <= 0 || stage.palette == null ||
-                stage.palette.Length == 0 || stage.palette.Length > 5)
+                stage.palette.Length == 0 || stage.palette.Length > 4)
                 throw new InvalidOperationException("Invalid stage settings: " + sceneName);
 
             for (int i = 0; i < stage.palette.Length; i++)
             {
                 GuardWavePaletteEntry entry = stage.palette[i];
                 if (entry == null || string.IsNullOrWhiteSpace(entry.materialId) ||
-                    entry.placementLimit < -1 ||
-                    (entry.target && (entry.placementLimit <= 0 ||
-                        i != stage.palette.Length - 1)) ||
-                    (entry.materialId == "default_flag" && (!entry.target ||
-                        entry.placementLimit != 1)))
+                    entry.placementLimit < -1)
                     throw new InvalidOperationException(
                         "Invalid palette item in StageInfo.json: " + sceneName);
                 for (int j = 0; j < i; j++)

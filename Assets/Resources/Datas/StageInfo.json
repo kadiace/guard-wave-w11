@@ -8,23 +8,15 @@
       "palette": [
         {
           "materialId": "mud",
-          "placementLimit": 30,
-          "target": false
+          "placementLimit": 30
         },
         {
           "materialId": "log",
-          "placementLimit": 30,
-          "target": false
+          "placementLimit": 30
         },
         {
           "materialId": "forest_pebble",
-          "placementLimit": 5,
-          "target": false
-        },
-        {
-          "materialId": "default_flag",
-          "placementLimit": 1,
-          "target": true
+          "placementLimit": 5
         }
       ]
     },
@@ -36,18 +28,11 @@
       "palette": [
         {
           "materialId": "building",
-          "placementLimit": 1,
-          "target": false
+          "placementLimit": 1
         },
         {
           "materialId": "fog_barrier",
-          "placementLimit": 2,
-          "target": false
-        },
-        {
-          "materialId": "default_flag",
-          "placementLimit": 1,
-          "target": true
+          "placementLimit": 2
         }
       ]
     },
@@ -59,23 +44,15 @@
       "palette": [
         {
           "materialId": "panel",
-          "placementLimit": 24,
-          "target": false
+          "placementLimit": 24
         },
         {
           "materialId": "sandbag",
-          "placementLimit": 18,
-          "target": false
+          "placementLimit": 18
         },
         {
           "materialId": "adhesive",
-          "placementLimit": 30,
-          "target": false
-        },
-        {
-          "materialId": "default_flag",
-          "placementLimit": 1,
-          "target": true
+          "placementLimit": 30
         }
       ]
     },
@@ -87,23 +64,15 @@
       "palette": [
         {
           "materialId": "wood_house",
-          "placementLimit": 10,
-          "target": false
+          "placementLimit": 10
         },
         {
           "materialId": "stone_house",
-          "placementLimit": 10,
-          "target": false
+          "placementLimit": 10
         },
         {
           "materialId": "wood_plank",
-          "placementLimit": 30,
-          "target": false
-        },
-        {
-          "materialId": "default_flag",
-          "placementLimit": 1,
-          "target": true
+          "placementLimit": 30
         }
       ]
     }
