@@ -1139,8 +1139,10 @@ MonoBehaviour:
     _depositHalfLife: 1
     _pressureCoefficient: 0.4
     _maximumLoad: 12000
-    _cfl: 0.4
-    _maxSubsteps: 32
+    _simulationInterval: 0.05
+    _flowResponse: 3
+    _maximumCellTransferFraction: 0.45
+    _maximumFlowSpeed: 14
     _meshInterval: 0.05
   _logAttemptSummary: 1
 --- !u!114 &247100592

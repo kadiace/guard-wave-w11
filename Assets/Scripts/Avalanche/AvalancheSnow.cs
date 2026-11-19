@@ -26,7 +26,8 @@ namespace Avalanche
         private readonly Vector2[] _velocity = new Vector2[W * L];
         private readonly float[] _outgoing = new float[W * L];
         private readonly float[] _change = new float[W * L];
-        private readonly Vector2[] _momentumChange = new Vector2[W * L];
+        private readonly Vector2[] _flowVelocitySum = new Vector2[W * L];
+        private readonly float[] _flowWeight = new float[W * L];
         private readonly float[] _fluxX = new float[(W + 1) * L];
         private readonly float[] _fluxZ = new float[W * (L + 1)];
         private readonly float[] _barrierX = new float[(W + 1) * L];
@@ -38,6 +39,7 @@ namespace Avalanche
         private readonly List<AvalanchePiece> _activePieces = new List<AvalanchePiece>();
         private readonly Settings _settings;
         private readonly Mesh _mesh;
+        private float _simulationClock;
         private float _renderClock;
         public Mesh Surface => _mesh;
         public bool IsValid { get; private set; } = true;
@@ -61,8 +63,14 @@ namespace Avalanche
             [SerializeField, Min(0f)] private float _pressureCoefficient = 0.4f;
             [SerializeField, Min(0f)] private float _maximumLoad = 12000f;
             [Header("Solver")]
-            [SerializeField, Range(0.05f, 0.45f)] private float _cfl = 0.4f;
-            [SerializeField, Min(1)] private int _maxSubsteps = 32;
+            [Tooltip("눈 격자 계산 간격입니다. 간격이 길수록 CPU 사용량은 줄지만 흐름 반응이 늦어집니다.")]
+            [SerializeField, Range(0.02f, 0.1f)] private float _simulationInterval = 0.05f;
+            [Tooltip("셀 사이 표면 높이 차이에 반응하는 눈 이동량입니다.")]
+            [SerializeField, Min(0.1f)] private float _flowResponse = 3f;
+            [Tooltip("한 번의 격자 계산에서 셀의 이동층이 내보낼 수 있는 최대 비율입니다.")]
+            [SerializeField, Range(0.05f, 0.75f)] private float _maximumCellTransferFraction = 0.45f;
+            [Tooltip("시민 위험 및 구조물 하중 계산에 사용하는 최대 눈 흐름 속도입니다.")]
+            [SerializeField, Min(1f)] private float _maximumFlowSpeed = 14f;
             [SerializeField, Min(0.01f)] private float _meshInterval = 0.05f;
             public float Density => _density;
             public float MovingFriction => _movingFriction;
@@ -72,8 +80,10 @@ namespace Avalanche
             public float DepositHalfLife => _depositHalfLife;
             public float PressureCoefficient => _pressureCoefficient;
             public float MaximumLoad => _maximumLoad;
-            public float Cfl => _cfl;
-            public int MaxSubsteps => _maxSubsteps;
+            public float SimulationInterval => _simulationInterval;
+            public float FlowResponse => _flowResponse;
+            public float MaximumCellTransferFraction => _maximumCellTransferFraction;
+            public float MaximumFlowSpeed => _maximumFlowSpeed;
             public float MeshInterval => _meshInterval;
         }
 
@@ -123,6 +133,8 @@ namespace Avalanche
             _poses.Clear();
             Array.Fill(_barrierX, float.NegativeInfinity);
             Array.Fill(_barrierZ, float.NegativeInfinity);
+            _simulationClock = 0f;
+            _renderClock = 0f;
             InjectedVolume = OutflowVolume = ActiveVolume = DepositedVolume = VolumeError = 0f;
             IsValid = true;
             Error = "";
@@ -163,45 +175,38 @@ namespace Avalanche
             return Mathf.Max(0f, 1f - x * x - z * z);
         }
 
-        /// <summary>Advances adaptive conservative substeps, validates volume and applies snow loads to physical pieces.</summary>
+        /// <summary>Advances one bounded grid-flow tick when due, validates snow volume and applies loads to pieces.</summary>
         public void Step(float dt, float totalVolume, IReadOnlyList<AvalanchePiece> pieces)
         {
             if (!IsValid) return;
-            UpdateBarriers(pieces);
-            RedistributeDisplacedSnow();
-            float remaining = dt;
-            int steps = 0;
-            while (remaining > EPSILON)
+            _simulationClock += dt;
+            if (_simulationClock + EPSILON >= _settings.SimulationInterval)
             {
-                float speed = 0.1f;
+                _simulationClock -= _settings.SimulationInterval;
+                UpdateBarriers(pieces);
+                RedistributeDisplacedSnow();
+                Advance(_settings.SimulationInterval);
+                double volume = OutflowVolume;
+                ActiveVolume = DepositedVolume = 0f;
                 for (int i = 0; i < _moving.Length; i++)
-                    speed = Mathf.Max(speed, _velocity[i].magnitude + Mathf.Sqrt(G * _moving[i]));
-                float step = Mathf.Min(remaining, _settings.Cfl * DX / speed);
-                if (++steps > _settings.MaxSubsteps) { Fail("눈 계산의 시간 분할 상한을 초과했습니다."); return; }
-                Advance(step);
-                remaining -= step;
+                {
+                    if (!float.IsFinite(_moving[i]) || !float.IsFinite(_settled[i]) ||
+                        !float.IsFinite(_pendingMoving[i]) || !float.IsFinite(_pendingSettled[i]) ||
+                        !float.IsFinite(_velocity[i].x) || !float.IsFinite(_velocity[i].y) ||
+                        _moving[i] < -EPSILON || _settled[i] < -EPSILON)
+                    { Fail("눈의 두께 또는 속도가 안정 범위를 벗어났습니다."); return; }
+                    volume += (_moving[i] + _settled[i] + _pendingMoving[i] + _pendingSettled[i]) * DX * DX;
+                    DepositedVolume += (_settled[i] + _pendingSettled[i]) * DX * DX;
+                    ActiveVolume += _pendingMoving[i] * DX * DX;
+                    if (_velocity[i].magnitude >= _settings.SettleSpeed) ActiveVolume += _moving[i] * DX * DX;
+                }
+                VolumeError = Mathf.Abs((float)volume - InjectedVolume);
+                if (VolumeError > totalVolume * 0.01f) { Fail("눈 부피 보존 오차가 방출량의 1%를 넘었습니다."); return; }
             }
-            double volume = OutflowVolume;
-            ActiveVolume = DepositedVolume = 0f;
-            for (int i = 0; i < _moving.Length; i++)
-            {
-                if (!float.IsFinite(_moving[i]) || !float.IsFinite(_settled[i]) ||
-                    !float.IsFinite(_pendingMoving[i]) || !float.IsFinite(_pendingSettled[i]) ||
-                    !float.IsFinite(_velocity[i].x) || !float.IsFinite(_velocity[i].y) ||
-                    _moving[i] < -EPSILON || _settled[i] < -EPSILON)
-                { Fail("눈의 두께 또는 속도가 안정 범위를 벗어났습니다."); return; }
-                volume += (_moving[i] + _settled[i] + _pendingMoving[i] + _pendingSettled[i]) * DX * DX;
-                DepositedVolume += (_settled[i] + _pendingSettled[i]) * DX * DX;
-                ActiveVolume += _pendingMoving[i] * DX * DX;
-                if (_velocity[i].magnitude >= _settings.SettleSpeed) ActiveVolume += _moving[i] * DX * DX;
-            }
-            VolumeError = Mathf.Abs((float)volume - InjectedVolume);
-            if (VolumeError > totalVolume * 0.01f) { Fail("눈 부피 보존 오차가 방출량의 1%를 넘었습니다."); return; }
             foreach (AvalanchePiece piece in pieces) piece.ApplySnow(this, _settings);
             _renderClock += dt;
-            if (_renderClock >= _settings.MeshInterval) { _renderClock = 0f; RefreshMesh(); }
+            if (_renderClock >= _settings.MeshInterval) { _renderClock %= _settings.MeshInterval; RefreshMesh(); }
         }
-
         /// <summary>Projects changed colliders onto cell faces and supported columns, preserving displaced snow separately.</summary>
         private void UpdateBarriers(IReadOnlyList<AvalanchePiece> pieces)
         {
@@ -333,71 +338,73 @@ namespace Avalanche
             if (intersects) height = Mathf.Max(height, bounds.max.y);
         }
 
-        /// <summary>Updates cell velocities, transports donor volume and momentum and deposits slow snow.</summary>
+        /// <summary>Routes bounded snow transfers across lower neighbouring surfaces and deposits settled snow.</summary>
         private void Advance(float dt)
         {
             Array.Clear(_outgoing, 0, _outgoing.Length);
             Array.Clear(_change, 0, _change.Length);
-            Array.Clear(_momentumChange, 0, _momentumChange.Length);
-            for (int z = 0; z < L; z++)
-            for (int x = 0; x < W; x++)
+            Array.Clear(_flowVelocitySum, 0, _flowVelocitySum.Length);
+            Array.Clear(_flowWeight, 0, _flowWeight.Length);
+            for (int i = 0; i < _moving.Length; i++)
             {
-                int i = z * W + x;
-                if (_moving[i] <= EPSILON) { _velocity[i] = Vector2.zero; continue; }
-                float surface = Bed(x, z) + _moving[i];
-                float left = x > 0 ? Bed(x - 1, z) + _moving[i - 1] : surface;
-                float right = x + 1 < W ? Bed(x + 1, z) + _moving[i + 1] : surface;
-                float down = z > 0 ? Bed(x, z - 1) + _moving[i - W] : surface;
-                float up = z + 1 < L ? Bed(x, z + 1) + _moving[i + W] : surface;
-                Vector2 slope = new Vector2(right - left, up - down) / (2f * DX);
-                Vector2 velocity = _velocity[i] - G * slope * dt;
-                float deceleration = _settings.MovingFriction * G * dt;
-                _velocity[i] = velocity.normalized * Mathf.Max(0f, velocity.magnitude - deceleration);
+                float speed = _velocity[i].magnitude;
+                float remainingSpeed = Mathf.Max(0f, speed - _settings.MovingFriction * G * dt);
+                _velocity[i] = speed > EPSILON ? _velocity[i] * (remainingSpeed / speed) : Vector2.zero;
             }
             for (int z = 0; z < L; z++)
             for (int x = 1; x < W; x++)
             {
                 int a = z * W + x - 1, b = a + 1, f = z * (W + 1) + x;
-                _fluxX[f] = Flux(a, b, Bed(x - 1, z), Bed(x, z), _barrierX[f], true) * dt / DX;
+                _fluxX[f] = FlowRequest(a, b, Bed(x - 1, z), Bed(x, z), _barrierX[f], dt, true);
                 RegisterOutgoing(a, b, _fluxX[f]);
             }
             for (int z = 1; z < L; z++)
             for (int x = 0; x < W; x++)
             {
                 int a = (z - 1) * W + x, b = a + W, f = z * W + x;
-                _fluxZ[f] = Flux(a, b, Bed(x, z - 1), Bed(x, z), _barrierZ[f], false) * dt / DX;
+                _fluxZ[f] = FlowRequest(a, b, Bed(x, z - 1), Bed(x, z), _barrierZ[f], dt, false);
                 RegisterOutgoing(a, b, _fluxZ[f]);
             }
             for (int x = 0; x < W; x++)
             {
-                _fluxZ[x] = Mathf.Max(0f, -_velocity[x].y) * _moving[x] * dt / DX;
+                float bed = Bed(x, 0);
+                float outsideBed = AvalancheTerrain.Height(Center(x, 0).x, -DX);
+                float edgeDepth = Mathf.Max(0f, bed + _moving[x] - Mathf.Max(bed, outsideBed));
+                _fluxZ[x] = edgeDepth * _settings.FlowResponse * dt;
                 _outgoing[x] += _fluxZ[x];
             }
             for (int z = 0; z < L; z++)
             for (int x = 1; x < W; x++)
             {
-                int a = z * W + x - 1;
-                Transfer(a, a + 1, _fluxX[z * (W + 1) + x]);
+                int a = z * W + x - 1, f = z * (W + 1) + x;
+                Transfer(a, a + 1, _fluxX[f], Bed(x - 1, z), Bed(x, z), _barrierX[f], true);
             }
             for (int z = 1; z < L; z++)
             for (int x = 0; x < W; x++)
             {
-                int a = (z - 1) * W + x;
-                Transfer(a, a + W, _fluxZ[z * W + x]);
+                int a = (z - 1) * W + x, f = z * W + x;
+                Transfer(a, a + W, _fluxZ[f], Bed(x, z - 1), Bed(x, z), _barrierZ[f], false);
             }
             for (int x = 0; x < W; x++)
             {
-                float amount = _fluxZ[x] * Mathf.Min(1f, _moving[x] / Mathf.Max(EPSILON, _outgoing[x]));
+                float amount = _fluxZ[x] * TransferScale(x);
                 _change[x] -= amount;
-                _momentumChange[x] -= _velocity[x] * amount;
+                float speed = Mathf.Min(_settings.MaximumFlowSpeed, Mathf.Sqrt(2f * G * Mathf.Max(0f, _moving[x])));
+                _flowVelocitySum[x] += Vector2.down * speed * amount;
+                _flowWeight[x] += amount;
                 OutflowVolume += amount * DX * DX;
             }
-            for (int z = 0; z < L; z++)
-            for (int x = 0; x < W; x++)
+            for (int i = 0; i < _moving.Length; i++)
             {
-                int i = z * W + x;
                 float depth = Mathf.Max(0f, _moving[i] + _change[i]);
-                _velocity[i] = depth > EPSILON ? (_velocity[i] * _moving[i] + _momentumChange[i]) / depth : Vector2.zero;
+                if (_flowWeight[i] > EPSILON)
+                {
+                    Vector2 flowVelocity = _flowVelocitySum[i] / _flowWeight[i];
+                    float blend = Mathf.Clamp01(_flowWeight[i] / Mathf.Max(EPSILON, depth));
+                    _velocity[i] = Vector2.Lerp(_velocity[i], flowVelocity, blend);
+                }
+                if (depth <= EPSILON) _velocity[i] = Vector2.zero;
+                _velocity[i] = Vector2.ClampMagnitude(_velocity[i], _settings.MaximumFlowSpeed);
                 _moving[i] = depth;
                 bool resting = _velocity[i].magnitude < _settings.SettleSpeed && _slope[i] <= _settings.RestingFriction;
                 _depositClock[i] = resting ? _depositClock[i] + dt : 0f;
@@ -408,16 +415,16 @@ namespace Avalanche
             }
         }
 
-        /// <summary>Computes a hydrostatically reconstructed face flux, allowing overflow above a collider.</summary>
-        private float Flux(int a, int b, float bedA, float bedB, float barrier, bool xAxis)
+        /// <summary>Combines exposed snow height difference and residual cell drift into a bounded face transfer request.</summary>
+        private float FlowRequest(int a, int b, float bedA, float bedB, float barrier, float dt, bool xAxis)
         {
             float crest = Mathf.Max(bedA, Mathf.Max(bedB, barrier));
             float hA = Mathf.Max(0f, bedA + _moving[a] - crest);
             float hB = Mathf.Max(0f, bedB + _moving[b] - crest);
-            float uA = xAxis ? _velocity[a].x : _velocity[a].y;
-            float uB = xAxis ? _velocity[b].x : _velocity[b].y;
-            float c = Mathf.Max(Mathf.Abs(uA), Mathf.Abs(uB));
-            return 0.5f * (hA * uA + hB * uB - c * (hB - hA));
+            float velocityA = xAxis ? _velocity[a].x : _velocity[a].y;
+            float velocityB = xAxis ? _velocity[b].x : _velocity[b].y;
+            float drift = 0.5f * (velocityA + velocityB) * Mathf.Min(hA, hB) * dt / DX;
+            return (hA - hB) * _settings.FlowResponse * dt + drift;
         }
 
         /// <summary>Accumulates requested donor outflow before limiting it to available cell volume.</summary>
@@ -427,14 +434,34 @@ namespace Avalanche
             else _outgoing[b] -= amount;
         }
 
-        /// <summary>Moves the same donor volume and momentum into an adjacent cell without losing mass.</summary>
-        private void Transfer(int a, int b, float signedAmount)
+        /// <summary>Moves a capped amount of snow across a grid face and records its gameplay flow direction.</summary>
+        private void Transfer(int a, int b, float signedAmount, float bedA, float bedB, float barrier, bool xAxis)
         {
+            if (Mathf.Abs(signedAmount) <= EPSILON) return;
             int donor = signedAmount >= 0f ? a : b;
-            float amount = signedAmount * Mathf.Min(1f, _moving[donor] / Mathf.Max(EPSILON, _outgoing[donor]));
-            _change[a] -= amount; _change[b] += amount;
-            Vector2 momentum = _velocity[donor] * amount;
-            _momentumChange[a] -= momentum; _momentumChange[b] += momentum;
+            float amount = signedAmount * TransferScale(donor);
+            float crest = Mathf.Max(bedA, Mathf.Max(bedB, barrier));
+            float hA = Mathf.Max(0f, bedA + _moving[a] - crest);
+            float hB = Mathf.Max(0f, bedB + _moving[b] - crest);
+            float velocityA = xAxis ? _velocity[a].x : _velocity[a].y;
+            float velocityB = xAxis ? _velocity[b].x : _velocity[b].y;
+            float speed = Mathf.Min(_settings.MaximumFlowSpeed,
+                Mathf.Max(Mathf.Sqrt(2f * G * Mathf.Abs(hA - hB)), Mathf.Abs(0.5f * (velocityA + velocityB))));
+            Vector2 direction = xAxis ? Vector2.right : Vector2.up;
+            Vector2 flowVelocity = direction * Mathf.Sign(signedAmount) * speed;
+            float flowWeight = Mathf.Abs(amount);
+            _change[a] -= amount;
+            _change[b] += amount;
+            _flowVelocitySum[a] += flowVelocity * flowWeight;
+            _flowVelocitySum[b] += flowVelocity * flowWeight;
+            _flowWeight[a] += flowWeight;
+            _flowWeight[b] += flowWeight;
+        }
+
+        /// <summary>Limits each donor to a fixed fraction of its moving snow for one solver tick.</summary>
+        private float TransferScale(int donor)
+        {
+            return Mathf.Min(1f, _moving[donor] * _settings.MaximumCellTransferFraction / Mathf.Max(EPSILON, _outgoing[donor]));
         }
 
         /// <summary>Samples moving thickness, speed and deposited thickness at a world position.</summary>
