@@ -32,7 +32,7 @@ namespace Avalanche
         [SerializeField, Min(0f)] private float _warningSeconds = 5f;
         [SerializeField, Min(1f)] private float _secondReleaseSeconds = 12f;
         [SerializeField, Min(1f)] private float _observationStartSeconds = 20f;
-        [SerializeField, Min(1f)] private float _disasterLimitSeconds = 60f;
+        [SerializeField, Min(1f)] private float _disasterLimitSeconds = 62f;
         [Tooltip("연속 안전 관찰 시간이며, 제한시간 종료 시 안정 확인 유예의 최대 시간으로도 사용합니다.")]
         [SerializeField, Min(0.1f)] private float _safeObservationSeconds = 3f;
         [Header("Snow releases")]
@@ -89,6 +89,7 @@ namespace Avalanche
         internal bool LimitPreparationTime => _preparationClock.Enabled;
         internal GuardWaveStageInfo StageInfo => _stageInfo;
         public float Elapsed { get; private set; }
+        public float DisasterSecondsRemaining => Mathf.Max(0f, _disasterLimitSeconds - Elapsed);
         public float SecondReleaseSeconds => _secondReleaseSeconds;
         public float WarningLeft => Mathf.Max(0f, _warningSeconds - _warningClock);
         public bool SettlementGraceActive => _settlementGraceActive && !IsFinished();

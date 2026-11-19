@@ -15,6 +15,11 @@ namespace GuardWave
         GuardWaveMaterial[] Offers { get; }
         int SelectedIndex { get; }
         bool CanEdit { get; }
+        bool IsPreparing { get; }
+        float PreparationSecondsRemaining { get; }
+        bool DisasterStarted { get; }
+        string DisasterCountdownLabel { get; }
+        float DisasterCountdownSecondsRemaining { get; }
         bool CanReady { get; }
         bool Failed { get; }
         bool Finished { get; }
@@ -22,7 +27,6 @@ namespace GuardWave
         string Result { get; }
         string ResultTitle { get; }
         string Rules { get; }
-        string DisasterLabel { get; }
         /// <summary>Returns the live inventory for a palette entry.</summary>
         int Remaining(string id);
         /// <summary>Selects one palette item.</summary>
@@ -50,7 +54,6 @@ namespace GuardWave
 
         private GuardWaveGame _game;
         private IStageHudContext _context;
-        private Text _contextDisaster;
         private FogSceneController _fogMode;
         private GuardWaveStageTimer _stageTimer;
         private GameObject _fogExposurePanel;
@@ -246,12 +249,8 @@ Ctrl+Z: 최근 기물 배치, 진흙 접촉 연결 또는 수동 제거 되돌�
             transform.Find("ActiveEffectsPanel").gameObject.SetActive(false);
             transform.Find("FogExposurePanel").gameObject.SetActive(false);
             Transform disaster = transform.Find("DisasterCountdown");
-            disaster.GetComponent<GuardWaveStageTimer>().enabled = false;
-            _contextDisaster = disaster.GetComponentInChildren<Text>();
-            _contextDisaster.resizeTextForBestFit = true;
-            _contextDisaster.resizeTextMinSize = 12;
-            _contextDisaster.resizeTextMaxSize = 24;
-            foreach (Text label in disaster.GetComponentsInChildren<Text>()) if (label != _contextDisaster) label.gameObject.SetActive(false);
+            _stageTimer = disaster.GetComponent<GuardWaveStageTimer>();
+            _stageTimer.Initialize(context);
             Transform candidates = transform.Find("CandidateSelectionRow/CandidateRow");
             for (int i = 0; i < _cards.Length; i++)
             {
@@ -301,7 +300,6 @@ Ctrl+Z: 최근 기물 배치, 진흙 접촉 연결 또는 수동 제거 되돌�
         private void RefreshContext()
         {
             _detail.text = _context.Status;
-            _contextDisaster.text = _context.DisasterLabel;
             _readyButton.interactable = _context.CanReady;
             _readyLabel.text = _context.CanReady ? "준비 완료" : _context.CanEdit ? "목표물 배치 필요" : "진행 중";
             for (int i = 0; i < _context.Offers.Length; i++)
