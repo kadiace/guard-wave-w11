@@ -28,6 +28,17 @@ namespace GuardWave
         public GuardWavePaletteEntry[] palette;
         public string TargetName { get; internal set; }
 
+        /// <summary>
+        /// Result popup headings are derived from StageInfo.targetMaterialId
+        /// through materials.json, so replacing a target updates result UI too.
+        /// </summary>
+        public string SuccessTitle => TargetName + " 방어 성공";
+        public string FailureTitle => TargetName + " 방어 실패";
+
+        /// <summary>Generic success text shared by the normal game stages.</summary>
+        public string SuccessMessage => "재해가 지나갔습니다.\n" +
+            TargetName + "을 지켜냈습니다!";
+
         /// <summary>자재의 배치 제한을 조회하고 항목이 없으면 무제한을 반환한다.</summary>
         public int GetPlacementLimit(string materialId)
         {

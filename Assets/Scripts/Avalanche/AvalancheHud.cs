@@ -50,7 +50,9 @@ namespace Avalanche
             ? $"배치를 마치면 준비 완료를 눌러 주세요. 마을에 있는 {_stage.TargetName}들을 지켜 주세요.\n" + _stage.Construction.Hint
             : _stage.Phase == AvalanchePhase.Warning ? "눈사태 경보 · 편집이 잠겼습니다." : $"두 차례의 눈사태와 {_stage.TargetName}의 충돌·매몰 위험을 관찰하세요.";
         public string Result => _stage.ResultMessage;
-        public string ResultTitle => _stage.Phase == AvalanchePhase.TechnicalError ? "계산 중단 · 배치 복원 가능" : "방어 실패";
+        public string ResultTitle => _stage.Phase == AvalanchePhase.TechnicalError
+            ? "계산 중단 · 배치 복원 가능"
+            : _stage.StageInfo.FailureTitle;
         public string Rules => $"마을에 미리 배치된 {_stage.TargetName} {_stage.Citizens.Count}명을 두 차례의 눈사태에서 모두 지키세요.\n"
             + $"{_stage.TargetName}은 옮기거나 회수할 수 없습니다. 주변에 방어 구조물을 설치하세요.\n"
             + "유도 방벽과 하중 받침을 놓고, 접합 블록으로 닿는 자재를 연결하세요.\n"

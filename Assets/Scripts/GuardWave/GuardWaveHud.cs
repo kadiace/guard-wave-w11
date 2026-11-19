@@ -163,7 +163,7 @@ namespace GuardWave
             Button confirmButton = transform.Find("StageResultPopup/CloseButton").GetComponent<Button>();
             confirmButton.onClick.AddListener(_game.ConfirmFailure);
             confirmButton.GetComponentInChildren<Text>().text = "확인";
-            _completeTitle.text = "스테이지 클리어";
+            _completeTitle.text = _game.StageInfo.SuccessTitle;
             Button returnButton = transform.Find("RunCompletePopup/CloseButton").GetComponent<Button>();
             returnButton.onClick.AddListener(ReturnToStageSelection);
             returnButton.GetComponentInChildren<Text>().text = "돌아가기";
@@ -291,7 +291,7 @@ Ctrl+Z: 준비 단계의 최근 배치 되돌리기
             _rulesBody.resizeTextForBestFit = true;
             _rulesBody.resizeTextMinSize = 14;
             _rulesBody.resizeTextMaxSize = 24;
-            _completeTitle.text = "스테이지 클리어";
+            _completeTitle.text = context.StageInfo.SuccessTitle;
             _stagePopup.SetActive(false); _completePopup.SetActive(false); _rulesPopup.SetActive(false);
             RefreshContext();
         }
@@ -501,12 +501,11 @@ Ctrl+Z: 준비 단계의 최근 배치 되돌리기
             _completePopup.SetActive(_game.IsFinished);
             if (_game.AwaitingFailure)
             {
-                _stageTitle.text = "방어 실패";
+                _stageTitle.text = _game.StageInfo.FailureTitle;
                 _stageBody.text = _game.StatusMessage ?? "";
             }
             if (_game.IsFinished)
-                _completeBody.text = "재해가 지나갔습니다.\n"
-                    + $"{_game.TargetName}을 지켜냈습니다!\n\n"
+                _completeBody.text = _game.StageInfo.SuccessMessage + "\n\n"
                     + "돌아가기를 누르면 스테이지 선택 화면으로 이동합니다.";
         }
 
