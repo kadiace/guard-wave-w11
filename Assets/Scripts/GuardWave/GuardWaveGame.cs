@@ -57,6 +57,8 @@ namespace GuardWave
         private readonly List<GuardWavePiece> _pieces = new List<GuardWavePiece>();
         // Keep removed/undone runtime objects alive so older checkpoints can restore them.
         private readonly HashSet<GuardWavePiece> _runtimePieces = new HashSet<GuardWavePiece>();
+        // The Flood initial wall uses normal runtime log prefabs, not scene-authored joints.
+        private GameObject _runtimeInitialWall;
         private readonly Queue<GuardWavePiece> _pendingOutflowRemovals =
             new Queue<GuardWavePiece>();
         private readonly HashSet<GuardWavePiece> _queuedOutflowRemovals =
@@ -270,7 +272,10 @@ namespace GuardWave
                 if (patch != null) patch.CaptureBonds(_initialMudBondStates);
             // ResetGame captured the first history entry before adoption.
             _editHistory.Clear();
-            SaveEditState(false);
+            WaveSnapshot initialCheckpoint = SaveEditState(false);
+            if (_isFloodStage)
+                StartCoroutine(RefreshFloodInitialWallCheckpoint(initialCheckpoint,
+                    _placementStrokeEpoch));
             _initialized = true;
         }
 
@@ -1812,8 +1817,14 @@ namespace GuardWave
             foreach (GuardWavePiece piece in _runtimePieces)
             {
                 if (piece == null) continue;
+                if (_isFloodStage) piece.gameObject.SetActive(false);
                 SafeDestroySelectedObject(piece.gameObject);
                 Destroy(piece.gameObject);
+            }
+            if (_runtimeInitialWall != null)
+            {
+                Destroy(_runtimeInitialWall);
+                _runtimeInitialWall = null;
             }
             _runtimePieces.Clear();
             _pieces.Clear();
@@ -1841,6 +1852,7 @@ namespace GuardWave
             _dropMouseReleased = true;
             HideDropPreview();
             _objectYaw = 0f;
+            if (_isFloodStage) CreateRuntimeFloodInitialWall();
             _rulesOpen = false;
             _resolving = false;
             _awaitingStage = false;
@@ -1958,6 +1970,44 @@ namespace GuardWave
                 GuardWavePiece piece = state.Body.GetComponent<GuardWavePiece>();
                 if (piece != null) _pieceSet.Add(piece);
             }
+        }
+
+        /// <summary>
+        /// Recreate the original Flood V wall by normally spawning 13 logs.
+        /// They have the same Rigidbody, buoyancy and auto-glue behavior
+        /// as a log the player places, with no pre-authored FixedJoints.
+        /// World positions match the former Initial Wall hierarchy exactly.
+        /// </summary>
+        private void CreateRuntimeFloodInitialWall()
+        {
+            GuardWaveMaterial log = _catalog.Get("log");
+            if (log == null)
+                throw new InvalidOperationException("Flood Initial Wall requires log material");
+
+            _runtimeInitialWall = new GameObject("Initial Wall (Runtime)");
+            // Original parent (0,-5,6), child Y=-0.8, X=-1.8..1.8
+            // in 0.3m steps, local Z=-abs(X), all at zero rotation.
+            for (int i = -6; i <= 6; i++)
+            {
+                float x = i * 0.3f;
+                Vector3 worldPosition = new Vector3(x, -5.8f, 6f - Mathf.Abs(x));
+                GuardWavePiece piece = Spawn(log, worldPosition);
+                piece.name = "Log (" + (i + 7) + ")";
+                piece.transform.SetParent(_runtimeInitialWall.transform, true);
+            }
+            StagePlacement.SyncPhysics();
+        }
+
+        /// <summary>
+        /// Like a player's placement, refresh the starting Undo checkpoint after
+        /// the normal automatic glue search finishes. Do not overwrite edits.
+        /// </summary>
+        private IEnumerator RefreshFloodInitialWallCheckpoint(
+            WaveSnapshot checkpoint, int epoch)
+        {
+            yield return new WaitForSeconds(FLOOD_AUTO_GLUE_SECONDS + 0.2f);
+            if (epoch == _placementStrokeEpoch)
+                RefreshLatestEditState(checkpoint);
         }
 
         /// <summary>Read-only entry point for scene-attached buoyancy diagnostics.</summary>
