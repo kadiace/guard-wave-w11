@@ -799,7 +799,7 @@ namespace GuardWave
         }
 
         /// <summary>Advances a full Unity physics tick using CFL-limited GPU substeps, with one combined Rigidbody impulse readback.</summary>
-        public void Step(float dt, float inletFraction)
+        public void Step(float dt, float inletFraction, bool allowAmbientRefill = true)
         {
             if (_disposed) return;
             _elapsed += dt;
@@ -873,7 +873,7 @@ namespace GuardWave
                 Dispatch(_smoothWaterColumnsKernel, _grid.x * _grid.z);
                 if (_bodies.Count > 0)
                     Dispatch(_buoyancyBodyKernel, _settings.MaxColliders);
-                if (_ambientFlow)
+                if (_ambientFlow && allowAmbientRefill)
                 {
                     // Fill the initial deficit and replace later losses using one
                     // upstream supply budget. Keep the original steady-state
