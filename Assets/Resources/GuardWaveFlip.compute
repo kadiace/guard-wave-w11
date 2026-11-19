@@ -64,6 +64,8 @@ float _CellSize;
 float _LiquidParticleVolume; // physical volume represented by one active FLIP particle
 float _Dt;
 float _Gravity;
+float _DownstreamDriftAcceleration;
+float _DownstreamDriftMaxSpeed;
 float _FlipFraction;
 float _ParticleMass;
 float _HydroDensity;
@@ -555,6 +557,17 @@ void GridToParticle(uint id : SV_DispatchThreadID)
         p.affineZ = float4((c2 - pic * offsetMoment.z)*scale,p.affineZ.w);
     }
     else p.velocity.y -= _Gravity * _Dt;
+    // Flood-only weak -Z current: residual water drifts without an upstream push.
+    // Accelerate only parcels slower than the gentle target speed. Do not slow
+    // genuine waves, override collider reactions, or change the waterfall flight.
+    if (_AmbientEnabled != 0 && _DownstreamDriftAcceleration > 0.0 &&
+        _DownstreamDriftMaxSpeed > 0.0 &&
+        p.position.z >= _ExitZ + 2.0 * _CellSize &&
+        p.velocity.z > -_DownstreamDriftMaxSpeed)
+    {
+        p.velocity.z = max(p.velocity.z - _DownstreamDriftAcceleration * _Dt,
+            -_DownstreamDriftMaxSpeed);
+    }
     if (nearOutlet && p.affineZ.w > 0.0)
     {
         p.velocity.z = -p.affineZ.w;

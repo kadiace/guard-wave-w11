@@ -212,7 +212,8 @@ namespace GuardWave
         /// <summary>Builds a bounded GPU fluid domain centered at x=0 and a 24m wide river.</summary>
         public GuardWaveFlipFluid(float startZ, float endZ, float groundY,
             float waterfallEndY, float waveHeight, float travelDuration, IList<GuardWavePiece> pieces,
-            Rigidbody flagBody, GuardWaveFluidSettings settings, bool ambientFlow = false)
+            Rigidbody flagBody, GuardWaveFluidSettings settings, bool ambientFlow = false,
+            float downstreamDriftAcceleration = 0f, float downstreamDriftMaxSpeed = 0f)
         {
             _settings = settings ?? throw new ArgumentNullException(nameof(settings));
             _ambientFlow = ambientFlow;
@@ -342,6 +343,15 @@ namespace GuardWave
             _compute.SetFloat("_WaveHeight", _waveHeight);
             _compute.SetFloat("_InletVelocity", InletSpeed);
             _compute.SetInt("_AmbientEnabled", ambientFlow ? 1 : 0);
+            // Only the water shader declares Flood drift; Lava has its own kernel.
+            // No new particles are created, and all non-Flood callers pass zero.
+            if (shaderName == "GuardWaveFlip")
+            {
+                _compute.SetFloat("_DownstreamDriftAcceleration",
+                    ambientFlow ? Mathf.Max(0f, downstreamDriftAcceleration) : 0f);
+                _compute.SetFloat("_DownstreamDriftMaxSpeed",
+                    ambientFlow ? Mathf.Max(0f, downstreamDriftMaxSpeed) : 0f);
+            }
             _compute.SetFloat("_AmbientDepth", _settings.AmbientWaterDepth);
             _compute.SetFloat("_Gravity", Mathf.Abs(Physics.gravity.y) * _settings.GravityMultiplier);
             _compute.SetFloat("_FlipFraction", _settings.FlipFraction);

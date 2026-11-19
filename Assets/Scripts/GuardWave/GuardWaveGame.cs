@@ -49,6 +49,12 @@ namespace GuardWave
         [Header("Ambient creek and one-shot wave (Ready button)")]
         [SerializeField] private bool ambientFlowPreview = true;
 
+        [Header("Flood downstream drift (existing water only)")]
+        [Tooltip("Extra acceleration toward the -Z cliff, in m/s². Does not spawn water.")]
+        [SerializeField, Min(0f)] private float floodDownstreamAcceleration = 1.5f;
+        [Tooltip("Maximum -Z speed contributed by the drift; faster waves keep their existing speed.")]
+        [SerializeField, Min(0f)] private float floodDownstreamMaxSpeed = 1.2f;
+
         [Header("Flood stage transition")]
         [SerializeField, Min(0.1f)] private float floodFillDuration = 1.2f;
         [SerializeField, Min(0.1f)] private float floodTravelDuration = 2.25f;
@@ -2069,7 +2075,9 @@ namespace GuardWave
                 _fluid = new GuardWaveFlipFluid(_placementBounds.max.z,
                     _placementBounds.min.z, _placementBounds.max.y,
                     _lowerCreekBounds.max.y, _fluidSettings.AmbientWaterDepth,
-                    floodTravelDuration, _pieces, _flagBody, _fluidSettings, ambientFlow: true);
+                    floodTravelDuration, _pieces, _flagBody, _fluidSettings, ambientFlow: true,
+                    downstreamDriftAcceleration: _isFloodStage ? floodDownstreamAcceleration : 0f,
+                    downstreamDriftMaxSpeed: _isFloodStage ? floodDownstreamMaxSpeed : 0f);
                 if (_isLavaStage) _lavaAtmosphere?.BindFluid(_fluid);
                 // The authored surface is still visible in the editor; disable
                 // its renderer only in Play Mode to expose the real FLIP water.
