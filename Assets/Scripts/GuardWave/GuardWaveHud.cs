@@ -17,6 +17,9 @@ namespace GuardWave
         bool CanEdit { get; }
         bool IsPreparing { get; }
         float PreparationSecondsRemaining { get; }
+        bool DisasterStarted { get; }
+        string DisasterCountdownLabel { get; }
+        float DisasterCountdownSecondsRemaining { get; }
         bool CanReady { get; }
         bool Failed { get; }
         bool Finished { get; }
@@ -24,7 +27,6 @@ namespace GuardWave
         string Result { get; }
         string ResultTitle { get; }
         string Rules { get; }
-        string DisasterLabel { get; }
         /// <summary>Returns the live inventory for a palette entry.</summary>
         int Remaining(string id);
         /// <summary>Selects one palette item.</summary>
@@ -52,7 +54,6 @@ namespace GuardWave
 
         private GuardWaveGame _game;
         private IStageHudContext _context;
-        private Text _contextDisaster;
         private FogSceneController _fogMode;
         private GuardWaveStageTimer _stageTimer;
         private GameObject _fogExposurePanel;
@@ -250,10 +251,6 @@ Ctrl+Z: 최근 기물 배치, 진흙 접촉 연결 또는 수동 제거 되돌�
             Transform disaster = transform.Find("DisasterCountdown");
             _stageTimer = disaster.GetComponent<GuardWaveStageTimer>();
             _stageTimer.Initialize(context);
-            _contextDisaster = disaster.Find("DisasterName").GetComponent<Text>();
-            _contextDisaster.resizeTextForBestFit = true;
-            _contextDisaster.resizeTextMinSize = 12;
-            _contextDisaster.resizeTextMaxSize = 24;
             Transform candidates = transform.Find("CandidateSelectionRow/CandidateRow");
             for (int i = 0; i < _cards.Length; i++)
             {

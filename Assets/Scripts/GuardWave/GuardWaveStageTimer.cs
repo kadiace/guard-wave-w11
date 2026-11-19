@@ -133,6 +133,7 @@ namespace GuardWave
         private GuardWaveGame _game;
         private IStageHudContext _context;
         private bool _wasContextPreparing;
+        private bool _wasContextDisasterStarted;
         private FogSceneController _fogMode;
         private Text _disasterName;
         private Text _countdown;
@@ -248,10 +249,14 @@ namespace GuardWave
             AnimateCountdown();
         }
 
-        /// <summary>Avalanche owns its fixed-step clock; this component only reflects it in the shared HUD.</summary>
+        /// <summary>
+        /// Scene-owned preparation, warning, active disaster and grace intervals
+        /// are displayed through the same shared Countdown text and animations.
+        /// </summary>
         private void RefreshContextCountdown()
         {
             bool preparing = _context.IsPreparing;
+            bool disasterStarted = _context.DisasterStarted;
             if (preparing && !_wasContextPreparing)
                 ResetCountdown();
 
@@ -263,17 +268,19 @@ namespace GuardWave
             }
             else
             {
-                if (_wasContextPreparing)
-                {
-                    _remainingSeconds = 0f;
-                    RefreshCountdown();
-                    if (_pulseKind != PulseKind.Impact)
-                        StartPulse(PulseKind.Impact);
-                }
-                _disasterName.text = _context.DisasterLabel;
-            }
-            _wasContextPreparing = preparing;
+                _disasterName.text = _context.DisasterCountdownLabel;
+                _remainingSeconds = Mathf.Max(0f, _context.DisasterCountdownSecondsRemaining);
+                RefreshCountdown();
 
+                // Start the same arrival pulse when the actual snow release
+                // begins, rather than when Ready starts the five-second warning.
+                if (disasterStarted && !_wasContextDisasterStarted &&
+                    _pulseKind != PulseKind.Impact)
+                    StartPulse(PulseKind.Impact);
+            }
+
+            _wasContextPreparing = preparing;
+            _wasContextDisasterStarted = disasterStarted;
             if (Time.timeScale > 0f && !_context.Failed && !_context.Finished)
                 AnimateCountdown();
         }

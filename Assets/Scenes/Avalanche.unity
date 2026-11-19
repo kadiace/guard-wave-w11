@@ -1099,7 +1099,7 @@ MonoBehaviour:
   _warningSeconds: 5
   _secondReleaseSeconds: 12
   _observationStartSeconds: 20
-  _disasterLimitSeconds: 60
+  _disasterLimitSeconds: 62
   _safeObservationSeconds: 3
   _firstSource: {x: -2, y: 52}
   _secondSource: {x: 2, y: 52}
