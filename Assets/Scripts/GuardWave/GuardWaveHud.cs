@@ -423,7 +423,8 @@ Ctrl+Z: 최근 기물 배치, 진흙 접촉 연결 또는 수동 제거 되돌�
             if (_readyLabel.text != readyText)
                 _readyLabel.text = readyText;
             _detail.text = (_fogMode == null ? _game.StatusMessage : _fogMode.StatusMessage) ?? "";
-            if (_hoveredPiece != null && !_game.IsPlacedPiece(_hoveredPiece))
+            if (_hoveredPiece != null && !_game.IsPlacedPiece(_hoveredPiece) &&
+                _hoveredPiece.gameObject != _game.DefenseFlag)
             {
                 _hoveredPiece = null;
                 if (_hoveredCard < 0) _tooltip.SetActive(false);
@@ -676,7 +677,8 @@ Ctrl+Z: 최근 기물 배치, 진흙 접촉 연결 또는 수동 제거 되돌�
         /// <summary>기물에 물리 레이캐스트가 적중하면 접촉 정보를 표시한다.</summary>
         public void SetHoveredPiece(GuardWavePiece piece, Vector2 screen)
         {
-            string description = piece != null && _game.IsPlacedPiece(piece)
+            string description = piece != null && (_game.IsPlacedPiece(piece) ||
+                piece.gameObject == _game.DefenseFlag)
                 ? PieceDescription(piece) : null;
             if (!_game.CanShowItemInfo || description == null)
                 piece = null;
@@ -708,6 +710,7 @@ Ctrl+Z: 최근 기물 배치, 진흙 접촉 연결 또는 수동 제거 되돌�
                 case "log":
                 case "forest_pebble":
                 case "default_flag":
+                case "beaver_house":
                 case "building":
                     return BuildCandidateDetails(material);
                 default:

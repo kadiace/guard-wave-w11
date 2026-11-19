@@ -1276,7 +1276,8 @@ namespace GuardWave
             if (!TryRaycastIgnoringBackgroundTowers(ray, out RaycastHit hit))
                 return null;
             GuardWavePiece piece = hit.collider.GetComponentInParent<GuardWavePiece>();
-            return piece != null && _pieceSet.Contains(piece) ? piece : null;
+            return piece != null && (_pieceSet.Contains(piece) ||
+                (_isFloodStage && piece.gameObject == _defenseFlag)) ? piece : null;
         }
 
         /// <summary>
@@ -1322,7 +1323,8 @@ namespace GuardWave
         {
             if (_outlinedPiece == hovered) return;
             if (_outlinedPiece != null) _outlinedPiece.SetOutlineLayer(0);
-            _outlinedPiece = hovered != null && _pieceSet.Contains(hovered) ? hovered : null;
+            _outlinedPiece = hovered != null && (_pieceSet.Contains(hovered) ||
+                (_isFloodStage && hovered.gameObject == _defenseFlag)) ? hovered : null;
             if (_outlinedPiece != null) _outlinedPiece.SetOutlineLayer(2u);
         }
 
@@ -1952,7 +1954,7 @@ namespace GuardWave
             float destructionDelay = 0f, bool destroyImmediately = false)
         {
             // Never remove the defense flag through the ordinary piece pipeline.
-            if (piece == null || piece.MaterialId == "default_flag" ||
+            if (piece == null || (piece.MaterialId == "default_flag" || piece.MaterialId == "beaver_house") ||
                 piece.gameObject == _defenseFlag || !_pieceSet.Remove(piece)) return 0;
             if (piece == _outlinedPiece) SetOutlineTargets(null);
             _pieces.Remove(piece);
