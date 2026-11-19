@@ -1089,7 +1089,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::Avalanche.AvalancheStage
   _viewCamera: {fileID: 1376346626}
   _ground: {fileID: 2104824088}
-  _waterSurface: {fileID: 1432688418}
+  _snowSurface: {fileID: 1432688418}
   _font: {fileID: 12800000, guid: 5eaeaa2446c508b4d9376530f1203148, type: 3}
   _panelMaterial: {fileID: 2100000, guid: 44327bf0239e6dc4e940ce4c821aa194, type: 2}
   _stoneMaterial: {fileID: 2100000, guid: 14b6883eb636db34cbe3e0b0984bb8e3, type: 2}

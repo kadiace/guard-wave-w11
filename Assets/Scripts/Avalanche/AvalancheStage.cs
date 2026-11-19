@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using UnityEngine;
 
 using UnityEngine.InputSystem;
+using UnityEngine.Serialization;
 
 using GuardWave;
 
@@ -18,7 +19,8 @@ namespace Avalanche
         [Header("Scene references")]
         [SerializeField] private Camera _viewCamera;
         [SerializeField] private MeshCollider _ground;
-        [SerializeField] private MeshFilter _waterSurface;
+        [FormerlySerializedAs("_waterSurface")]
+        [SerializeField] private MeshFilter _snowSurface;
         [SerializeField] private Font _font;
         [Header("Construction catalog")]
         [SerializeField] private Material _panelMaterial;
@@ -93,7 +95,7 @@ namespace Avalanche
         public void Configure(Camera view, MeshCollider ground, MeshFilter surface, Font font,
             Material panel, Material stone, Material preview, Material line, PhysicsMaterial friction)
         {
-            _viewCamera = view; _ground = ground; _waterSurface = surface; _font = font;
+            _viewCamera = view; _ground = ground; _snowSurface = surface; _font = font;
             _panelMaterial = panel; _stoneMaterial = stone; _previewMaterial = preview; _lineMaterial = line; _friction = friction;
         }
 
@@ -120,9 +122,9 @@ namespace Avalanche
             _ground.sharedMesh = _terrainMesh;
             _ground.GetComponent<MeshFilter>().sharedMesh = _terrainMesh;
             _snow = new AvalancheSnow(_snowSettings);
-            _waterSurface.sharedMesh = _snow.Surface;
-            _snowMaterial = new Material(Shader.Find("Avalanche/Flow surface"));
-            _waterSurface.GetComponent<Renderer>().sharedMaterial = _snowMaterial;
+            _snowSurface.sharedMesh = _snow.Surface;
+            _snowMaterial = new Material(Shader.Find("Avalanche/Snow surface"));
+            _snowSurface.GetComponent<Renderer>().sharedMaterial = _snowMaterial;
             Construction = GetComponent<AvalancheConstruction>();
             Hud = GetComponent<AvalancheHud>();
             ResetCitizens();

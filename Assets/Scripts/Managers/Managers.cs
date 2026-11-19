@@ -35,6 +35,18 @@ public class Managers : MonoBehaviour
         Init();
     }
 
+    private void OnEnable()
+    {
+        if (_instance == this)
+            _inputManager.Init();
+    }
+
+    private void OnDisable()
+    {
+        if (_instance == this)
+            _inputManager.Shutdown();
+    }
+
     private void OnDestroy()
     {
         if (_instance != this)
@@ -44,7 +56,7 @@ public class Managers : MonoBehaviour
         _instance = null;
     }
 
-    /// <summary>영속 매니저를 한 번 생성하고 각 시스템을 초기화한다.</summary>
+    /// <summary>영속 매니저를 찾거나 생성하고 각 시스템을 한 번 초기화한다.</summary>
     public static void Init()
     {
         if (_instance != null)
