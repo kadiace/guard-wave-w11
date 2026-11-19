@@ -16,13 +16,6 @@ namespace GuardWave
         private const float CREEK_PREWAVE_SECONDS = 5f;
         private const float SECOND_CREST_DELAY_SECONDS = 3f;
         private const float FLAG_SURVIVAL_CHECK_SECONDS = 5f;
-        private const int MAX_MUD_CONTACTS = 512;
-        private const int MAX_VISIBLE_MUD_GUIDES = 48;
-        private const float MUD_CONTACT_GUIDE_RADIUS_PIXELS = 65f;
-        // Only horizontal surface separation gets the extra tolerance.
-        // Vertical adjacency is not widened; touching Y contacts still use collisions.
-        private const float MUD_XZ_PROXIMITY_METERS = 0.35f;
-        private const float MUD_XZ_MAX_HEIGHT_OFFSET = 0.16f;
         private const float LAVA_FLOW_DURATION_SECONDS = 60f;
         private const float FLOOD_DURATION_INCREASE_PER_STAGE = 0.2f;
         private const float FLOOD_DEPTH_INCREASE_PER_STAGE = 0.5f;
@@ -31,12 +24,6 @@ namespace GuardWave
         private const float CAMERA_MAX_TARGET_Z = 15f;
         private const float WINDOWS_SCROLL_UNITS_PER_TICK = 120f;
         private const float BOUNDARY_DESTRUCTION_DELAY = 1f;
-        private const int MAX_DRAG_PLACEMENTS_PER_FRAME = 12;
-
-        [Header("3D drop")]
-        [SerializeField, Min(2f)] private float dropHeight = 7f;
-        [SerializeField, Range(0.05f, 0.5f)] private float dropClickCooldown = 0.1f;
-
         [Header("Scene-specific fluid settings (optional)")]
         [SerializeField] private GuardWaveFluidSettings _sceneFluidSettings;
 
@@ -59,8 +46,6 @@ namespace GuardWave
             new Queue<GuardWavePiece>();
         private readonly HashSet<GuardWavePiece> _queuedOutflowRemovals =
             new HashSet<GuardWavePiece>();
-        private readonly List<WaveSnapshot> _editHistory = new List<WaveSnapshot>();
-        private int _playerPlacementCount;
         private readonly List<GuardWaveMudPatch> _mudPatches = new List<GuardWaveMudPatch>();
         // Reverse index includes both a piece's own painted surface and bonds to it.
         // Removing a piece only visits patches that can actually reference it.
@@ -99,45 +84,6 @@ namespace GuardWave
             public int Iterations;
             public int VelocityIterations;
         }
-        private GameObject _mudPreview;
-        private Material _mudPreviewMaterial;
-        private readonly List<GameObject> _mudGuidePool = new List<GameObject>();
-        // Cache collision manifolds even when the mud palette is not selected.
-        // Sleeping Rigidbodies stop sending OnCollisionStay, but their last
-        // contacts remain valid until the pieces visibly separate.
-        private readonly List<MudContactCandidate> _mudContacts =
-            new List<MudContactCandidate>(MAX_MUD_CONTACTS);
-        private readonly Dictionary<ulong, int> _mudContactPairs =
-            new Dictionary<ulong, int>();
-        // Short-lived side-contact candidates are evaluated only when mud is selected.
-        private readonly List<MudContactCandidate> _mudXZContacts =
-            new List<MudContactCandidate>(MAX_MUD_CONTACTS);
-        private readonly HashSet<ulong> _mudXZPairs = new HashSet<ulong>();
-        private readonly Collider[] _mudNearbyColliders = new Collider[128];
-        private int _nextMudContactEviction;
-        private MudContactCandidate _hoveredMudContact;
-        private bool _hasHoveredMudContact;
-        private readonly struct MudContactCandidate
-        {
-            public readonly GuardWavePiece Piece;
-            public readonly Collider OwnCollider;
-            public readonly Collider OtherCollider;
-            public readonly Vector3 Point;
-            public readonly Vector3 Normal;
-            public readonly bool XZProximity;
-
-            public MudContactCandidate(GuardWavePiece piece, Collider ownCollider,
-                Collider otherCollider, Vector3 point, Vector3 normal,
-                bool xzProximity = false)
-            {
-                Piece = piece;
-                OwnCollider = ownCollider;
-                OtherCollider = otherCollider;
-                Point = point;
-                Normal = normal;
-                XZProximity = xzProximity;
-            }
-        }
         private float _floodDrowningSeconds;
         private bool _flagFloodImmersed;
         private Collider _creekBedCollider;
@@ -154,12 +100,10 @@ namespace GuardWave
         private readonly List<FixedJointState> _initialSceneJointStates = new List<FixedJointState>();
         private readonly List<SceneParentActiveState> _initialSceneParentStates =
             new List<SceneParentActiveState>();
-        private readonly GuardWaveMaterial[] _offers = new GuardWaveMaterial[5];
         private ForestSceneContext _sceneContext;
         private GuardWaveCatalog _catalog;
         private GuardWaveStageInfo _stageInfo;
         private GuardWaveHud _hud;
-        private GuardWaveDropPreview _dropPreview;
         private GuardWaveFlipRenderer _flipRenderer;
         private GuardWaveFluidSettings _fluidSettings;
         private bool _isLavaStage;
@@ -177,44 +121,14 @@ namespace GuardWave
         private GuardWaveFloatingText _floatingText;
         private GameObject _defenseFlag;
         private Rigidbody _flagBody;
-        private BoxCollider _flagCollider;
         private RigidbodyState _initialFlagState;
-        private bool _flagPlaced;
         private Coroutine _stageFloodRoutine;
         private WaveSnapshot _waveSnapshot;
         private Camera _camera;
         private GuardWavePiece _outlinedPiece;
         private Vector3 _cameraTarget;
-        private int _selected = -1;
-        private int _pendingDrops;
-        private float _lastDropTime = float.NegativeInfinity;
-        private bool _dropMouseReleased = true;
-        private GuardWavePlacementFootprint _placementStroke;
-        private readonly List<GuardWavePiece> _placementStrokePieces =
-            new List<GuardWavePiece>();
-        private readonly Queue<PlacementPathPoint> _placementStrokePath =
-            new Queue<PlacementPathPoint>();
-        private Vector2 _placementStrokeProcessedXZ;
-        private bool _placementStrokeCursorValid;
-        private bool _placementStrokeReleased;
-        private int _placementStrokeEpoch;
-
-        private readonly struct PlacementPathPoint
-        {
-            public readonly Vector2 XZ;
-            public readonly bool BreakPath;
-
-            public PlacementPathPoint(Vector2 xz, bool breakPath)
-            {
-                XZ = xz;
-                BreakPath = breakPath;
-            }
-        }
-
         private int _stage;
-        private float _objectYaw;
         private bool _rulesOpen;
-        private bool _paletteOpen = true;
         private bool _stageTransitioning;
         private bool _waveHasStarted;
         private bool _ambientFlowRunning;
@@ -228,8 +142,6 @@ namespace GuardWave
         private Vector2 _rightDragDisplacement;
         private bool _rightGestureActive;
         private bool _rightGestureMoved;
-        private bool _rightGestureStartedWithOffer;
-        private GuardWavePiece _rightPressedPiece;
 
         internal float DestructionBoundaryZ => _sceneContext.DestructionBoundaryZ;
         internal Collider CreekBedCollider => _creekBedCollider;
@@ -256,7 +168,6 @@ namespace GuardWave
             RegisterScenePieces();
             RegisterSceneMudPatches();
             CreateHud();
-            _dropPreview = new GuardWaveDropPreview();
             _flipRenderer = new GuardWaveFlipRenderer(_fluidSettings);
             ResetGame();
             RegisterExistingMudBonds();
@@ -266,9 +177,8 @@ namespace GuardWave
             CaptureNonMudFixedJoints(_initialSceneJointStates);
             foreach (GuardWaveMudPatch patch in _mudPatches)
                 if (patch != null) patch.CaptureBonds(_initialMudBondStates);
-            // ResetGame captured the first history entry before adoption.
-            _editHistory.Clear();
-            SaveEditState(false);
+            // Adopt authored mud bonds before capturing the original scene.
+            _waveSnapshot = CaptureWaveSnapshot();
             _initialized = true;
         }
 
@@ -324,7 +234,7 @@ namespace GuardWave
             {
                 DestroyDefenseFlag();
                 if (_awaitingStage)
-                    _status = "깃발이 5초간 물에 잠겨 익사했습니다. 확인을 누르면 배치를 복원합니다.";
+                    _status = "깃발이 5초간 물에 잠겨 익사했습니다. 확인을 누르면 초기 상태로 복원합니다.";
             }
         }
 
@@ -337,17 +247,8 @@ namespace GuardWave
         private void Update()
         {
             if (!_initialized) return;
-            Mouse mouse = Mouse.current;
-            // Keep the click gate in sync even if the release happens in pause UI.
-            if (mouse != null && mouse.leftButton.wasReleasedThisFrame)
-                _dropMouseReleased = true;
             if (_sceneContext.PauseMenu != null && _sceneContext.PauseMenu.IsOpen)
-            {
-                EndPlacementStroke();
-                HideMudContactGuides();
                 return;
-            }
-
             Keyboard keyboard = Keyboard.current;
             if (keyboard?.rKey.wasPressedThisFrame == true)
             {
@@ -355,22 +256,10 @@ namespace GuardWave
                 Managers.Scene.ReloadCurrentScene();
                 return;
             }
-
-            if (keyboard != null && keyboard.zKey.wasPressedThisFrame &&
-                (keyboard.leftCtrlKey.isPressed || keyboard.rightCtrlKey.isPressed))
-            {
-                UndoLastEdit();
-                return;
-            }
-
-            // Ambient flow can destroy the flag before the first Ready click.
             if (!_awaitingStage && !_finished &&
                 _defenseFlag != null && _defenseFlag.activeSelf &&
-                !_isLavaStage &&
-                _defenseFlag.transform.position.z <= DestructionBoundaryZ)
+                !_isLavaStage && _defenseFlag.transform.position.z <= DestructionBoundaryZ)
                 DestroyDefenseFlag();
-            // Shader variants are compiled in small, mutation-free batches
-            // during preparation, not all at the 00:00 trigger.
             if (ambientFlowPreview && !_ambientFlowRunning)
                 _fluid?.PrewarmOneKernel();
             _flipRenderer.Render(_fluid);
@@ -379,29 +268,6 @@ namespace GuardWave
                 UpdateHoveredPiece();
             else
                 SetOutlineTargets(null);
-            if (_resolving || _awaitingStage || _finished || _rulesOpen)
-            {
-                EndPlacementStroke();
-                HideDropPreview();
-                return;
-            }
-
-            if (keyboard != null)
-            {
-                if (keyboard.qKey.isPressed) _objectYaw -= RotationSpeed * Time.deltaTime;
-                if (keyboard.eKey.isPressed) _objectYaw += RotationSpeed * Time.deltaTime;
-            }
-
-            UpdateDropPreview();
-
-            // Mud offers real contacts plus XZ-only nearby surface candidates.
-            // Both are revalidated at click time before a bond is created.
-            if (_selected >= 0 && _offers[_selected]?.id == "mud")
-            {
-                UpdateMudContactClick(mouse);
-                return;
-            }
-            UpdateObjectPlacement(mouse);
         }
 
         /// <summary>
@@ -409,248 +275,33 @@ namespace GuardWave
         /// its projected XZ footprint first clears all earlier drops in the stroke.
         /// Mouse motion is queued so quick drags do not skip their intermediate path.
         /// </summary>
-        private void UpdateObjectPlacement(Mouse mouse)
-        {
-            if (_placementStroke != null)
-            {
-                if (mouse == null || mouse.rightButton.isPressed)
-                {
-                    EndPlacementStroke();
-                    return;
-                }
 
-                // Include the release frame's final cursor coordinate as well.
-                if ((mouse.leftButton.isPressed || mouse.leftButton.wasReleasedThisFrame) &&
-                    !_placementStrokeReleased)
-                {
-                    if (TryGetPlacementXZ(mouse.position.ReadValue(), out Vector3 world))
-                    {
-                        Vector2 cursor = new Vector2(world.x, world.z);
-                        _placementStrokePath.Enqueue(new PlacementPathPoint(cursor,
-                            !_placementStrokeCursorValid));
-                        _placementStrokeCursorValid = true;
-                    }
-                    else
-                    {
-                        // Do not emit pieces across UI or outside the placement area.
-                        _placementStrokeCursorValid = false;
-                    }
-                }
-                if (!mouse.leftButton.isPressed)
-                    _placementStrokeReleased = true;
-
-                DrainPlacementStroke();
-                if (_placementStrokeReleased && _placementStrokePath.Count == 0)
-                    EndPlacementStroke();
-                return;
-            }
-
-            if (mouse == null || !mouse.leftButton.wasPressedThisFrame ||
-                mouse.rightButton.isPressed || mouse.rightButton.wasReleasedThisFrame ||
-                !_dropMouseReleased || _selected < 0 ||
-                Time.unscaledTime - _lastDropTime < dropClickCooldown ||
-                !TryGetPlacementXZ(mouse.position.ReadValue(), out Vector3 placement))
-                return;
-
-            GuardWaveMaterial material = _offers[_selected];
-            if (material == null) return;
-            if (GetRemainingPlacements(material.id) <= 0)
-            {
-                _status = material.name + " 배치 수량을 모두 사용했습니다.";
-                return;
-            }
-            if (material.id == "default_flag" && IsTargetMaterial(material.id))
-            {
-                PlaceDefenseFlag(placement);
-                return;
-            }
-            GameObject prefab = Resources.Load<GameObject>("Prefabs/Objects/" + material.id);
-            if (prefab == null) return;
-
-            _placementStroke = GuardWavePlacementFootprint.FromPrefab(prefab);
-            _placementStrokePieces.Clear();
-            _placementStrokePath.Clear();
-            _placementStrokeProcessedXZ = new Vector2(placement.x, placement.z);
-            _placementStrokeCursorValid = true;
-            _placementStrokeReleased = false;
-            _dropMouseReleased = false;
-            _lastDropTime = Time.unscaledTime;
-            HideDropPreview();
-            if (!PlaceStrokePiece(material, _placementStrokeProcessedXZ))
-            {
-                EndPlacementStroke();
-                return;
-            }
-            if (GetRemainingPlacements(material.id) == 0)
-            {
-                EndPlacementStroke();
-                _status = material.name + " 배치 수량을 모두 사용했습니다.";
-            }
-        }
 
         /// <summary>Move the scene flag: keep existing Rigidbody, meshes and FogFlagDensityProbes.</summary>
-        private void PlaceDefenseFlag(Vector3 placement)
-        {
-            Quaternion rotation = Quaternion.Euler(0f, _objectYaw, 0f);
-            _dropPreview.Show(_offers[_selected], placement, rotation,
-                _placementBounds.max.y + dropHeight, true, _placementBounds.max.y, _defenseFlag);
-            if (!_dropPreview.IsVisible)
-            {
-                _status = "깃발을 배치할 표면을 찾을 수 없습니다.";
-                return;
-            }
-            Vector3 position = _dropPreview.LandingPosition;
-            _dropMouseReleased = false;
-            _lastDropTime = Time.unscaledTime;
-            HideDropPreview();
-            _defenseFlag.SetActive(true);
-            _flagBody.isKinematic = true;
-            _flagBody.useGravity = false;
-            _flagBody.transform.SetPositionAndRotation(position, rotation);
-            _flagBody.position = position;
-            _flagBody.rotation = rotation;
-            Physics.SyncTransforms();
-            _flagBody.isKinematic = false;
-            _flagBody.useGravity = true;
-            _flagBody.linearVelocity = Vector3.zero;
-            _flagBody.angularVelocity = Vector3.zero;
-            _flagBody.WakeUp();
-            _flagPlaced = true;
-            _playerPlacementCount++;
-            WaveSnapshot placedFlagState = SaveEditState(false);
-            GuardWavePiece flagPiece = _defenseFlag.GetComponent<GuardWavePiece>();
-            if (flagPiece != null)
-                StartCoroutine(ResolvePlacementStroke(placedFlagState,
-                    new List<GuardWavePiece> { flagPiece }, _placementStrokeEpoch));
-            _status = "깃발을 배치했습니다. 모든 목표물이 배치되면 준비 완료할 수 있습니다.";
-        }
 
-        private void DrainPlacementStroke()
-        {
-            int remaining = MAX_DRAG_PLACEMENTS_PER_FRAME;
-            while (remaining > 0 && _placementStrokePath.Count > 0)
-            {
-                GuardWaveMaterial material = _offers[_selected];
-                if (material == null || GetRemainingPlacements(material.id) == 0)
-                {
-                    EndPlacementStroke();
-                    return;
-                }
-                PlacementPathPoint next = _placementStrokePath.Peek();
-                if (next.BreakPath)
-                {
-                    _placementStrokeProcessedXZ = next.XZ;
-                    _placementStrokePath.Dequeue();
-                    continue;
-                }
 
-                if (!_placementStroke.TryFindFirstFree(_placementStrokeProcessedXZ,
-                    next.XZ, _objectYaw, out Vector2 placement))
-                {
-                    _placementStrokeProcessedXZ = next.XZ;
-                    _placementStrokePath.Dequeue();
-                    continue;
-                }
 
-                if (!PlaceStrokePiece(material, placement))
-                {
-                    EndPlacementStroke();
-                    return;
-                }
-                _placementStrokeProcessedXZ = placement;
-                remaining--;
-                if (GetRemainingPlacements(material.id) == 0)
-                {
-                    EndPlacementStroke();
-                    _status = material.name + " 배치 수량을 모두 사용했습니다.";
-                    return;
-                }
-
-                // Resume at this position on the next iteration/frame; the newly
-                // recorded footprint prevents duplicate drops at the same XZ.
-                if ((next.XZ - placement).sqrMagnitude < 1e-8f)
-                    _placementStrokePath.Dequeue();
-            }
-        }
 
         /// <summary>미리보기와 같은 위치에 기물을 생성하고 연속 배치 영역을 기록한다.</summary>
-        private bool PlaceStrokePiece(GuardWaveMaterial material, Vector2 xz)
-        {
-            Vector3 placement = new Vector3(xz.x, _placementBounds.max.y, xz.y);
-            _dropPreview.Show(material, placement, Quaternion.Euler(0f, _objectYaw, 0f),
-                _placementBounds.max.y + dropHeight, true, _placementBounds.max.y);
-            if (!_dropPreview.IsVisible) return false;
-            GuardWavePiece piece = Spawn(material, _dropPreview.LandingPosition);
-            Physics.SyncTransforms();
-            _placementStrokePieces.Add(piece);
-            _placementStroke.Record(xz, _objectYaw);
-            _status = material.name + " 연속 배치 중. 마우스를 놓으면 배치가 완료됩니다.";
-            return true;
-        }
+
 
         /// <summary>
         /// A full gesture is one Undo checkpoint, not one snapshot per Rigidbody.
         /// The existing settlement refresh still updates its final pose later.
         /// </summary>
-        private void EndPlacementStroke()
-        {
-            if (_placementStroke == null) return;
-            _placementStroke = null;
-            _placementStrokePath.Clear();
-            _placementStrokeCursorValid = false;
-            _placementStrokeReleased = false;
-            if (_placementStrokePieces.Count == 0) return;
 
-            List<GuardWavePiece> placed = new List<GuardWavePiece>(_placementStrokePieces);
-            _placementStrokePieces.Clear();
-            _playerPlacementCount += placed.Count;
-            WaveSnapshot snapshot = SaveEditState(false);
-            StartCoroutine(ResolvePlacementStroke(snapshot, placed, _placementStrokeEpoch));
-            _status = placed.Count + "개 배치 완료. 같은 기물을 계속 배치할 수 있습니다.";
-        }
 
         /// <summary>Esc 또는 우클릭으로 현재 기물 선택을 해제한다.</summary>
-        private void OpenCandidatePalette()
-        {
-            if (_resolving || _awaitingStage || _finished || _rulesOpen) return;
-            _paletteOpen = true;
-            EndPlacementStroke();
-            EndMudPainting();
-            _selected = -1;
-            HideDropPreview();
-            _status = "후보를 다시 선택하세요.";
-        }
+
 
         /// <summary>화면 커서가 배치 가능한 월드 XZ에 있으면 그 위치를 반환한다.</summary>
-        private bool TryGetPlacementXZ(Vector2 screen, out Vector3 position)
-        {
-            if (!TryGetCursorXZ(screen, out position)) return false;
-            return CanPlaceAt(position);
-        }
+
 
         /// <summary>화면 안이고 UI 밖인 커서를 기준 평면 위 월드 XZ 위치로 변환한다.</summary>
-        private bool TryGetCursorXZ(Vector2 screen, out Vector3 position)
-        {
-            position = default;
-            if (screen.x < 0f || screen.y < 0f ||
-                screen.x >= Screen.width || screen.y >= Screen.height ||
-                (EventSystem.current != null && EventSystem.current.IsPointerOverGameObject()))
-                return false;
 
-            Ray viewRay = _camera.ScreenPointToRay(screen);
-            Plane referencePlane = new Plane(Vector3.up,
-                new Vector3(0f, _placementBounds.max.y, 0f));
-            if (!referencePlane.Raycast(viewRay, out float distance)) return false;
-            position = viewRay.GetPoint(distance);
-            return true;
-        }
 
         /// <summary>월드 XZ가 강바닥 안이고 Z가 15 미만이면 배치를 허용한다.</summary>
-        private bool CanPlaceAt(Vector3 position)
-        {
-            return position.z < 15f && _placementBounds.Contains(
-                new Vector3(position.x, _placementBounds.center.y, position.z));
-        }
+
 
         /// <summary>
         /// Pick the first real collider along the camera's mouse ray, rather
@@ -658,438 +309,46 @@ namespace GuardWave
         /// in front of the riverbed must receive the paint, not the riverbed.
         /// Painted patches are triggers and are ignored by the raycast.
         /// </summary>
-        private bool TryGetMudSurface(Vector2 screen, out RaycastHit surface)
-        {
-            surface = default;
-            if (_camera == null ||
-                screen.x < 0f || screen.y < 0f ||
-                screen.x >= Screen.width || screen.y >= Screen.height ||
-                (EventSystem.current != null &&
-                 EventSystem.current.IsPointerOverGameObject()))
-                return false;
 
-            Ray ray = _camera.ScreenPointToRay(screen);
-            return TryRaycastIgnoringBackgroundTowers(ray, out surface) &&
-                   CanPlaceAt(surface.point);
-        }
 
         /// <summary>
         /// Called by physics pieces only. Contacts with other placed pieces or
         /// the creek bed are candidates; neither overlap tests nor proximity
         /// alone can create a bond.
         /// </summary>
-        private static ulong MudContactKey(Collider a, Collider b)
-        {
-            if (a == null || b == null) return 0UL;
-            int first = a.GetInstanceID(), second = b.GetInstanceID();
-            return ((ulong)(uint)Mathf.Min(first, second) << 32) |
-                (uint)Mathf.Max(first, second);
-        }
 
-        private void PruneStaleMudContacts()
-        {
-            int count = _mudContacts.Count;
-            _mudContactPairs.Clear();
-            int kept = 0;
-            for (int i = 0; i < count; i++)
-            {
-                MudContactCandidate contact = _mudContacts[i];
-                if (!TryResolveMudContact(contact, out _, out _)) continue;
-                _mudContacts[kept] = contact;
-                _mudContactPairs[MudContactKey(contact.OwnCollider, contact.OtherCollider)] =
-                    kept++;
-            }
-            if (kept < count)
-                _mudContacts.RemoveRange(kept, count - kept);
-        }
 
-        internal void ReportMudContact(GuardWavePiece source, Collision collision)
-        {
-            if (_isFogStage ||
-                _stageTransitioning || _resolving || _awaitingStage || _finished ||
-                !IsPlacedPiece(source) || collision == null ||
-                collision.contactCount == 0)
-                return;
 
-            ContactPoint first = collision.GetContact(0);
-            Collider own = first.thisCollider;
-            Collider other = first.otherCollider;
-            if (own == null || other == null || other.isTrigger ||
-                other.attachedRigidbody == source.Body)
-                return;
-            GuardWavePiece target = other.GetComponentInParent<GuardWavePiece>();
-            if (other != _creekBedCollider &&
-                (target == null || !IsPlacedPiece(target)))
-                return;
 
-            ulong key = MudContactKey(own, other);
-            bool existing = _mudContactPairs.TryGetValue(key, out int index);
-            if (!existing && _mudContacts.Count >= MAX_MUD_CONTACTS)
-            {
-                // Invalid/stale contacts should never starve new candidates.
-                PruneStaleMudContacts();
-                existing = _mudContactPairs.TryGetValue(key, out index);
-                if (!existing && _mudContacts.Count >= MAX_MUD_CONTACTS)
-                {
-                    // Worst case: all contacts are still valid. Replace a
-                    // rotating old candidate rather than blocking new pairs.
-                    int slot = _nextMudContactEviction++ % MAX_MUD_CONTACTS;
-                    MudContactCandidate removed = _mudContacts[slot];
-                    _mudContactPairs.Remove(MudContactKey(
-                        removed.OwnCollider, removed.OtherCollider));
-                    _mudContacts[slot] = new MudContactCandidate(source,
-                        own, other, first.point, first.normal);
-                    _mudContactPairs.Add(key, slot);
-                    return;
-                }
-            }
 
-            // Prefer a manifold point near the cursor when actively using mud.
-            ContactPoint nearest = first;
-            if (_selected >= 0 && _offers[_selected]?.id == "mud" &&
-                Mouse.current != null)
-            {
-                Vector2 cursor = Mouse.current.position.ReadValue();
-                float nearestDistance = float.PositiveInfinity;
-                for (int i = 0; i < Mathf.Min(collision.contactCount, 8); i++)
-                {
-                    ContactPoint contact = collision.GetContact(i);
-                    Vector3 projected = _camera.WorldToScreenPoint(contact.point);
-                    if (projected.z <= 0f) continue;
-                    float distance = ((Vector2)projected - cursor).sqrMagnitude;
-                    if (distance >= nearestDistance) continue;
-                    nearestDistance = distance;
-                    nearest = contact;
-                }
-            }
-            MudContactCandidate candidate = new MudContactCandidate(source,
-                own, other, nearest.point, nearest.normal);
-            if (existing)
-                _mudContacts[index] = candidate;
-            else
-            {
-                _mudContactPairs.Add(key, _mudContacts.Count);
-                _mudContacts.Add(candidate);
-            }
-        }
 
         /// <summary>
         /// Horizontal-only grace distance for connecting side-by-side objects.
         /// Both colliders must overlap in height; stacked objects still need
         /// ordinary physics contact rather than an artificial vertical gap.
         /// </summary>
-        private static bool TryGetMudXZProximity(Collider a, Collider b,
-            out Vector3 point, out Vector3 normal)
-        {
-            point = default;
-            normal = Vector3.up;
-            if (a == null || b == null || !a.enabled || !b.enabled ||
-                !a.gameObject.activeInHierarchy || !b.gameObject.activeInHierarchy ||
-                a.isTrigger || b.isTrigger) return false;
 
-            Bounds aa = a.bounds, bb = b.bounds;
-            float bottom = Mathf.Max(aa.min.y, bb.min.y);
-            float top = Mathf.Min(aa.max.y, bb.max.y);
-            if (top <= bottom) return false;
-
-            // Repeated ClosestPoint projections handle cylinders and rotated
-            // meshes more faithfully than measuring their AABB-to-AABB gap.
-            float y = (bottom + top) * 0.5f;
-            Vector3 onA = a.ClosestPoint(new Vector3(bb.center.x, y, bb.center.z));
-            Vector3 onB = b.ClosestPoint(onA);
-            for (int i = 0; i < 3; i++)
-            {
-                onA = a.ClosestPoint(onB);
-                onB = b.ClosestPoint(onA);
-            }
-            Vector3 gap = onB - onA;
-            Vector2 horizontal = new Vector2(gap.x, gap.z);
-            if (horizontal.sqrMagnitude >
-                    MUD_XZ_PROXIMITY_METERS * MUD_XZ_PROXIMITY_METERS ||
-                Mathf.Abs(gap.y) > MUD_XZ_MAX_HEIGHT_OFFSET)
-                return false;
-
-            Vector3 direction = new Vector3(gap.x, 0f, gap.z);
-            if (direction.sqrMagnitude < 0.0001f)
-                direction = new Vector3(bb.center.x - aa.center.x,
-                    0f, bb.center.z - aa.center.z);
-            if (direction.sqrMagnitude < 0.0001f) return false;
-
-            point = (onA + onB) * 0.5f;
-            normal = direction.normalized;
-            return true;
-        }
 
         /// <summary>
         /// Physics contact callbacks miss horizontal gaps entirely. Find nearby
         /// bodies with a non-allocating broad phase and confirm their collider
         /// surface distances before offering an XZ-only mud guide.
         /// </summary>
-        private void CollectMudXZContacts()
-        {
-            _mudXZContacts.Clear();
-            _mudXZPairs.Clear();
-            foreach (GuardWavePiece piece in _pieceSet)
-            {
-                if (piece == null || piece.Body == null ||
-                    !IsPlacedPiece(piece) || !piece.gameObject.activeInHierarchy)
-                    continue;
-                foreach (Collider own in piece.GetComponentsInChildren<Collider>())
-                {
-                    if (own == null || !own.enabled || own.isTrigger) continue;
-                    Bounds bounds = own.bounds;
-                    int count = Physics.OverlapBoxNonAlloc(bounds.center,
-                        bounds.extents + new Vector3(
-                            MUD_XZ_PROXIMITY_METERS, 0.01f,
-                            MUD_XZ_PROXIMITY_METERS),
-                        _mudNearbyColliders, Quaternion.identity,
-                        Physics.DefaultRaycastLayers, QueryTriggerInteraction.Ignore);
-                    for (int i = 0; i < count; i++)
-                    {
-                        Collider other = _mudNearbyColliders[i];
-                        if (other == null || other == own ||
-                            other.attachedRigidbody == piece.Body ||
-                            other == _creekBedCollider) continue;
-                        GuardWavePiece neighbor =
-                            other.GetComponentInParent<GuardWavePiece>();
-                        if (neighbor == null || !IsPlacedPiece(neighbor) ||
-                            !neighbor.gameObject.activeInHierarchy ||
-                            HasMudBondBetween(piece.Body, neighbor.Body))
-                            continue;
-                        ulong pair = MudContactKey(own, other);
-                        if (!_mudXZPairs.Add(pair)) continue;
-                        if (_mudContactPairs.TryGetValue(pair, out int contactIndex) &&
-                            contactIndex >= 0 && contactIndex < _mudContacts.Count &&
-                            TryResolveMudContact(_mudContacts[contactIndex], out _, out _))
-                            continue;
-                        if (!TryGetMudXZProximity(own, other,
-                            out Vector3 point, out Vector3 normal))
-                            continue;
-                        _mudXZContacts.Add(new MudContactCandidate(piece, own,
-                            other, point, normal, xzProximity: true));
-                        if (_mudXZContacts.Count >= MAX_MUD_CONTACTS) return;
-                    }
-                }
-            }
-        }
 
-        private bool CanCreateMudBond(GuardWavePiece piece) =>
-            piece != null && IsPlacedPiece(piece) && piece.Body != null;
 
-        private bool TryResolveMudContact(MudContactCandidate candidate,
-            out GuardWavePiece piece, out Collider support)
-        {
-            piece = null;
-            support = null;
-            if (candidate.OtherCollider == null || candidate.OwnCollider == null ||
-                !candidate.OtherCollider.enabled || !candidate.OwnCollider.enabled ||
-                !candidate.OtherCollider.gameObject.activeInHierarchy ||
-                !candidate.OwnCollider.gameObject.activeInHierarchy)
-                return false;
 
-            if (candidate.XZProximity)
-            {
-                // Revalidate side-gap tolerance at click time as well.
-                if (!TryGetMudXZProximity(candidate.OwnCollider,
-                    candidate.OtherCollider, out _, out _))
-                    return false;
-            }
-            else
-            {
-                // Cached real contacts are usable only while physically near.
-                Vector3 onOwn = candidate.OwnCollider.ClosestPoint(candidate.Point);
-                Vector3 onOther = candidate.OtherCollider.ClosestPoint(candidate.Point);
-                if ((onOwn - onOther).sqrMagnitude > 0.18f * 0.18f ||
-                    (onOwn - candidate.Point).sqrMagnitude > 0.28f * 0.28f ||
-                    (onOther - candidate.Point).sqrMagnitude > 0.28f * 0.28f)
-                    return false;
-            }
 
-            GuardWavePiece other =
-                candidate.OtherCollider.GetComponentInParent<GuardWavePiece>();
-            if (HasMudBondBetween(candidate.OwnCollider.attachedRigidbody,
-                candidate.OtherCollider.attachedRigidbody))
-                return false;
-            if (CanCreateMudBond(candidate.Piece))
-            {
-                piece = candidate.Piece;
-                support = candidate.OtherCollider;
-            }
-            else if (CanCreateMudBond(other))
-            {
-                piece = other;
-                support = candidate.OwnCollider;
-            }
-            return piece != null && support != null &&
-                support.attachedRigidbody != piece.Body;
-        }
 
-        private GameObject GetMudGuide(int index)
-        {
-            if (_mudPreview == null)
-            {
-                _mudPreview = GuardWaveMudPatch.CreatePreview();
-                Shader shader = Shader.Find("Sprites/Default");
-                if (shader == null) shader = Shader.Find("Unlit/Transparent");
-                if (shader == null) shader = Shader.Find("Standard");
-                _mudPreviewMaterial = new Material(shader)
-                {
-                    name = "Mud Contact Candidate (Transparent Yellow)",
-                    color = new Color(1f, 0.86f, 0.1f, 0.48f),
-                    renderQueue = 3000
-                };
-                _mudPreview.GetComponent<MeshRenderer>().sharedMaterial =
-                    _mudPreviewMaterial;
-                _mudPreview.name = "Mud Contact Guide";
-                _mudGuidePool.Add(_mudPreview);
-            }
-            while (_mudGuidePool.Count <= index)
-            {
-                GameObject clone = Instantiate(_mudPreview);
-                clone.name = "Mud Contact Guide";
-                clone.hideFlags = HideFlags.HideInHierarchy;
-                _mudGuidePool.Add(clone);
-            }
-            return _mudGuidePool[index];
-        }
 
-        private void HideMudContactGuides()
-        {
-            _hasHoveredMudContact = false;
-            foreach (GameObject guide in _mudGuidePool)
-                if (guide != null) guide.SetActive(false);
-        }
 
-        private void UpdateMudContactPreview(Vector2 screen)
-        {
-            _hasHoveredMudContact = false;
-            if (GetRemainingPlacements("mud") <= 0)
-            {
-                HideMudContactGuides();
-                return;
-            }
-            if (_camera == null || screen.x < 0f || screen.y < 0f ||
-                screen.x >= Screen.width || screen.y >= Screen.height ||
-                (EventSystem.current != null &&
-                 EventSystem.current.IsPointerOverGameObject()))
-            {
-                HideMudContactGuides();
-                return;
-            }
 
-            CollectMudXZContacts();
-            float nearest = MUD_CONTACT_GUIDE_RADIUS_PIXELS *
-                MUD_CONTACT_GUIDE_RADIUS_PIXELS;
-            int visible = 0;
-            for (int kind = 0; kind < 2; kind++)
-            foreach (MudContactCandidate candidate in
-                kind == 0 ? _mudContacts : _mudXZContacts)
-            {
-                Vector3 projected = _camera.WorldToScreenPoint(candidate.Point);
-                if (projected.z <= 0f) continue;
-                if (!TryResolveMudContact(candidate, out GuardWavePiece piece,
-                    out _)) continue;
-                float distance = ((Vector2)projected - screen).sqrMagnitude;
-                if (distance < nearest)
-                {
-                    nearest = distance;
-                    _hoveredMudContact = candidate;
-                    _hasHoveredMudContact = true;
-                }
 
-                if (visible >= MAX_VISIBLE_MUD_GUIDES - 1 ||
-                    projected.x < 0f || projected.y < 0f ||
-                    projected.x >= Screen.width || projected.y >= Screen.height)
-                    continue;
-                GameObject guide = GetMudGuide(visible++);
-                Vector3 normal = candidate.Normal.sqrMagnitude < 0.001f
-                    ? Vector3.up : candidate.Normal.normalized;
-                if (piece != candidate.Piece) normal = -normal;
-                guide.transform.SetPositionAndRotation(
-                    candidate.Point + normal * 0.025f,
-                    Quaternion.FromToRotation(Vector3.up, normal));
-                guide.transform.localScale = Vector3.one * 0.8f;
-                guide.SetActive(true);
-            }
-            // Always display the candidate nearest the cursor, even if the
-            // first 47 cached contacts belong to distant objects.
-            if (_hasHoveredMudContact)
-            {
-                MudContactCandidate hovered = _hoveredMudContact;
-                if (TryResolveMudContact(hovered, out GuardWavePiece selected, out _))
-                {
-                    GameObject guide = GetMudGuide(visible++);
-                    Vector3 normal = hovered.Normal.sqrMagnitude < 0.001f
-                        ? Vector3.up : hovered.Normal.normalized;
-                    if (selected != hovered.Piece) normal = -normal;
-                    guide.transform.SetPositionAndRotation(
-                        hovered.Point + normal * 0.03f,
-                        Quaternion.FromToRotation(Vector3.up, normal));
-                    guide.transform.localScale = Vector3.one * 1.1f;
-                    guide.SetActive(true);
-                }
-            }
-            for (int i = visible; i < _mudGuidePool.Count; i++)
-                if (_mudGuidePool[i] != null) _mudGuidePool[i].SetActive(false);
-        }
 
-        private void UpdateMudContactClick(Mouse mouse)
-        {
-            if (mouse == null || !mouse.leftButton.wasPressedThisFrame ||
-                mouse.rightButton.isPressed || !_dropMouseReleased ||
-                !_hasHoveredMudContact ||
-                Time.unscaledTime - _lastDropTime < dropClickCooldown)
-                return;
-            if (GetRemainingPlacements("mud") <= 0)
-            {
-                HideMudContactGuides();
-                _status = "진흙을 모두 사용했습니다.";
-                return;
-            }
-            _dropMouseReleased = false;
-            _lastDropTime = Time.unscaledTime;
-            MudContactCandidate candidate = _hoveredMudContact;
-            if (!TryResolveMudContact(candidate, out GuardWavePiece piece,
-                out Collider support)) return;
 
-            Vector3 bondNormal = candidate.Normal.sqrMagnitude < 0.001f
-                ? Vector3.up : candidate.Normal.normalized;
-            if (piece != candidate.Piece) bondNormal = -bondNormal;
-            GameObject mudPrefab = Resources.Load<GameObject>("Prefabs/Objects/mud");
-            if (mudPrefab == null)
-            {
-                Debug.LogError("Missing Resources/Prefabs/Objects/mud.prefab");
-                return;
-            }
-            // Instantiate at world scale before parenting: support objects such
-            // as logs have non-unit scales and must not deform the mud oval.
-            GameObject objectAtContact = Instantiate(mudPrefab);
-            objectAtContact.transform.SetPositionAndRotation(candidate.Point,
-                Quaternion.FromToRotation(Vector3.up, bondNormal));
-            objectAtContact.transform.SetParent(support.transform, true);
-            objectAtContact.name = "Mud Contact Bond";
-            GuardWaveMudPatch patch =
-                objectAtContact.AddComponent<GuardWaveMudPatch>();
-            patch.Initialize(this, support, support.attachedRigidbody);
-            if (!patch.ConnectContact(piece, candidate.Point, bondNormal))
-            {
-                Destroy(objectAtContact);
-                return;
-            }
-            _mudPatches.Add(patch);
-            SaveEditState(false);
-            HideMudContactGuides();
-            _status = GetPlacementLimit("mud") < 0
-                ? "진흙으로 접촉 지점을 연결했습니다."
-                : $"진흙 접착 완료. 남은 수량: {GetRemainingPlacements("mud")}개";
-        }
 
-        private void EndMudPainting()
-        {
-            // Legacy brush entry points still call this during selection reset.
-            // No gesture or extra undo step exists in click-to-bond mode.
-            HideMudContactGuides();
-        }
+
+
+
 
         // Tracks a patch when a piece is its painted surface or a bonded target.
         // A patch can be indexed under several pieces and a piece under several patches.
@@ -1206,48 +465,10 @@ namespace GuardWave
         internal bool IsScenePiece(GuardWavePiece piece) => _scenePieces.Contains(piece);
 
         /// <summary>커서 위치의 배치 가능 여부에 따라 실제 자재의 낙하 미리보기 색을 바꾼다.</summary>
-        private void UpdateDropPreview()
-        {
-            Mouse mouse = Mouse.current;
-            if (mouse != null && _selected >= 0 && _offers[_selected]?.id == "mud")
-            {
-                _dropPreview.Hide();
-                _hud.HideDropGuide();
-                if (!mouse.rightButton.isPressed)
-                    UpdateMudContactPreview(mouse.position.ReadValue());
-                else
-                    HideMudContactGuides();
-                return;
-            }
-            HideMudContactGuides();
-            if (mouse == null || _selected < 0 || mouse.rightButton.isPressed ||
-                _offers[_selected] == null ||
-                !TryGetCursorXZ(mouse.position.ReadValue(), out Vector3 placement))
-            {
-                HideDropPreview();
-                return;
-            }
 
-            bool canPlace = CanPlaceAt(placement) &&
-                GetRemainingPlacements(_offers[_selected].id) > 0 &&
-                (_placementStroke == null ||
-                 !_placementStroke.Overlaps(new Vector2(placement.x, placement.z), _objectYaw));
-            _dropPreview.Show(_offers[_selected], placement,
-                Quaternion.Euler(0f, _objectYaw, 0f),
-                _placementBounds.max.y + dropHeight, canPlace,
-                _placementBounds.max.y, _offers[_selected].id == "default_flag"
-                    ? _defenseFlag : null);
-
-            _hud.HideDropGuide();
-        }
 
         /// <summary>배치 중단·UI 가림·라운드 종료 시 고스트와 화면 점선을 함께 숨긴다.</summary>
-        private void HideDropPreview()
-        {
-            _dropPreview?.Hide();
-            _hud?.HideDropGuide();
-            HideMudContactGuides();
-        }
+
 
         /// <summary>
         /// Unity Editor creates Rigidbody/Transform/GameObject inspectors from
@@ -1296,24 +517,8 @@ namespace GuardWave
         private void OnDestroy()
         {
             SetOutlineTargets(null);
-            _dropPreview?.Dispose();
-            EndMudPainting();
-            if (_mudPreviewMaterial != null) Destroy(_mudPreviewMaterial);
-            if (_mudPreview != null)
-            {
-                MeshFilter filter = _mudPreview.GetComponent<MeshFilter>();
-                if (filter != null) Destroy(filter.sharedMesh);
-                foreach (GameObject guide in _mudGuidePool)
-                {
-                    if (guide == null) continue;
-                    SafeDestroySelectedObject(guide);
-                    Destroy(guide);
-                }
-                _mudGuidePool.Clear();
-            }
             DisposeFluid();
             _flipRenderer?.Dispose();
-            // The flag is owned by the Forest scene.
         }
 
         /// <summary>3D 물리 충돌체를 마우스 레이로 탐색해 원본 자재 상세 UI에 전달한다.</summary>
@@ -1324,11 +529,7 @@ namespace GuardWave
             Vector2 position = mouse == null ? Vector2.zero : mouse.position.ReadValue();
             GuardWavePiece piece = mouse != null && CanShowItemInfo &&
                 !mouse.rightButton.isPressed ? FindPointedPiece(position) : null;
-            // While a Forest palette tool is selected, hovered physics
-            // objects must not compete with the placement / paint preview.
-            // Keep Fog's hover behavior unchanged.
-            bool paintingOrPlacing = _selected >= 0 && _offers[_selected]?.id == "mud";
-            SetOutlineTargets(paintingOrPlacing ? null : piece);
+            SetOutlineTargets(piece);
             _hud.SetHoveredPiece(piece, position);
         }
 
@@ -1405,7 +606,6 @@ namespace GuardWave
                 throw new InvalidOperationException(
                     "Forest scene is missing the serialized Defense Flag reference.");
             _flagBody = _defenseFlag.GetComponent<Rigidbody>();
-            _flagCollider = _defenseFlag.GetComponent<BoxCollider>();
             _initialFlagState = new RigidbodyState(_flagBody);
             // Fog is an independent urban stage, not a resized Forest creek.
             bool urbanFog = GetComponent<FogSceneController>() != null;
@@ -1444,12 +644,10 @@ namespace GuardWave
         public int StageCount => STAGE_COUNT;
         public float RotationSpeed { get; set; } = 90f;
         public float CameraYawPerScrollStep { get; set; } = 5f;
-        public bool IsPaletteHidden => false;
         public bool CanReady => (!ambientFlowPreview ||
             (_fluid != null && _fluid.IsShaderPrewarmed)) &&
-            _placementStroke == null && AllTargetsPlaced &&
-            !_stageTransitioning && !_resolving && !_awaitingStage
-            && !_finished && !_rulesOpen && _flagPlaced &&
+            !_stageTransitioning && !_resolving && !_awaitingStage &&
+            !_finished && !_rulesOpen &&
             _defenseFlag != null && _defenseFlag.activeInHierarchy;
         public bool IsLavaStage => _isLavaStage;
         public bool IsFloodDrowning => _isFloodStage &&
@@ -1459,8 +657,6 @@ namespace GuardWave
         public float FloodDrowningLimitSeconds => floodDrowningDurationSeconds;
         public float LavaFlowSecondsRemaining => _lavaFlowSecondsRemaining;
         public bool WaveHasStarted => _waveHasStarted;
-        public bool CanSelect => !_resolving && !_awaitingStage && !_finished && !_rulesOpen
-            && _paletteOpen && !_stageTransitioning;
         public bool CanShowItemInfo => !_awaitingStage && !_finished && !_rulesOpen
             && !_stageTransitioning;
         public event Action<GuardWaveChange> ChangeCommitted;
@@ -1482,100 +678,25 @@ namespace GuardWave
         public GuardWaveStageInfo StageInfo => _stageInfo;
 
         /// <summary>True for mandatory palette entries defined by the stage JSON.</summary>
-        public bool IsTargetMaterial(string materialId)
-        {
-            if (_stageInfo?.palette == null) return false;
-            foreach (GuardWavePaletteEntry entry in _stageInfo.palette)
-                if (entry.target && entry.materialId == materialId) return true;
-            return false;
-        }
 
-        public bool AllTargetsPlaced
-        {
-            get
-            {
-                if (_stageInfo?.palette == null) return false;
-                foreach (GuardWavePaletteEntry entry in _stageInfo.palette)
-                    if (entry.target && GetRemainingPlacements(entry.materialId) > 0)
-                        return false;
-                return true;
-            }
-        }
+
+
 
         /// <summary>Each stage controls its own palette quotas through StageInfo.json.</summary>
-        public int GetPlacementLimit(string materialId)
-        {
-            if (_stageInfo?.palette == null) return -1;
-            foreach (GuardWavePaletteEntry entry in _stageInfo.palette)
-                if (entry.materialId == materialId)
-                    return entry.placementLimit;
-            return -1;
-        }
+
 
         /// <summary>
         /// Count active runtime pieces and authored inventory objects against the
         /// same quota. Removed scene pieces return a slot; Undo and restart restore it.
         /// </summary>
-        public int GetRemainingPlacements(string materialId)
-        {
-            int limit = GetPlacementLimit(materialId);
-            if (limit < 0) return int.MaxValue;
-            // The authored flag is activated instead of spawning a duplicate.
-            if (materialId == "default_flag")
-                return Mathf.Max(0, limit - (_flagPlaced ? 1 : 0));
-            if (materialId == "mud")
-            {
-                int usedMud = 0;
-                if (_isFloodStage)
-                    foreach (GuardWavePiece initial in _scenePieces)
-                        if (initial != null &&
-                            initial.GetComponent<GuardWaveInitialLogJoint>() != null)
-                            usedMud++;
-                foreach (GuardWaveMudPatch patch in _mudPatches)
-                    if (patch != null && patch.gameObject.activeInHierarchy &&
-                        !_sceneMudPatches.Contains(patch))
-                        usedMud++;
-                return Mathf.Max(0, limit - usedMud);
-            }
-            int used = 0;
-            foreach (GuardWavePiece piece in _pieces)
-                if (piece != null && _runtimePieces.Contains(piece) &&
-                    piece.MaterialId == materialId && _pieceSet.Contains(piece))
-                    used++;
-            if (_isLavaStage || (_isFloodStage && materialId == "log") ||
-                (_isFogStage && materialId == "fog_barrier"))
-                foreach (GuardWavePiece piece in _scenePieces)
-                    if (piece != null && piece.MaterialId == materialId &&
-                        _pieceSet.Contains(piece) && piece.gameObject.activeInHierarchy)
-                        used++;
-            return Mathf.Max(0, limit - used);
-        }
 
-        public int SelectedOffer => _selected;
-        public GuardWaveMaterial[] CurrentOffers => _offers;
+
 
         /// <summary>화면 카드가 지정한 후보를 다음 낙하 재료로 선택한다.</summary>
-        public void SelectOffer(int index)
-        {
-            if (!CanSelect || index < 0 || index >= _offers.Length) return;
-            if (_offers[index] == null) return;
-            EndPlacementStroke();
-            EndMudPainting();
-            SetOutlineTargets(null);
-            _selected = index;
-            _status = _offers[index].name + " 선택";
-        }
+
 
         /// <summary>규칙 창이 열려 있는 동안 게임의 배치 입력을 잠근다.</summary>
-        public void SetRulesOpen(bool isOpen)
-        {
-            if (isOpen)
-            {
-                EndPlacementStroke();
-                EndMudPainting();
-            }
-            _rulesOpen = isOpen;
-        }
+        public void SetRulesOpen(bool isOpen) => _rulesOpen = isOpen;
 
         /// <summary>전체 게임 종료 팝업에서 처음부터 다시 시작한다.</summary>
         public void Restart()
@@ -1590,32 +711,16 @@ namespace GuardWave
         private void UpdateCameraInput()
         {
             Mouse mouse = Mouse.current;
-            if (mouse == null)
-            {
-                _rightGestureActive = false;
-                _rightGestureStartedWithOffer = false;
-                _rightPressedPiece = null;
-                return;
-            }
-
+            if (mouse == null) { _rightGestureActive = false; return; }
             var rightButton = mouse.rightButton;
             bool pointerOverUi = EventSystem.current != null &&
                 EventSystem.current.IsPointerOverGameObject();
             if (rightButton.wasPressedThisFrame)
             {
                 _rightGestureActive = !pointerOverUi;
-                // A right-click gesture begun while holding any palette item
-                // cancels placement first, even over an existing piece. Capture
-                // this at mouse-down so it cannot also remove on mouse-up.
-                _rightGestureStartedWithOffer = _rightGestureActive && _selected >= 0;
-                _rightPressedPiece = _rightGestureActive && !_rightGestureStartedWithOffer &&
-                    !_stageTransitioning && !_resolving && !_awaitingStage &&
-                    !_finished && !_rulesOpen
-                    ? FindPointedPiece(mouse.position.ReadValue()) : null;
                 _rightGestureMoved = false;
                 _rightDragDisplacement = Vector2.zero;
             }
-
             bool gestureInProgress = _rightGestureActive &&
                 (rightButton.isPressed || rightButton.wasReleasedThisFrame);
             if (gestureInProgress)
@@ -1631,10 +736,8 @@ namespace GuardWave
                         _rightGestureMoved = true;
                         delta = _rightDragDisplacement;
                     }
-                    else
-                        delta = Vector2.zero;
+                    else delta = Vector2.zero;
                 }
-
                 if (_rightGestureMoved && delta.sqrMagnitude > 0f)
                 {
                     float unit = 2f * _camera.orthographicSize / Mathf.Max(Screen.height, 1);
@@ -1645,7 +748,6 @@ namespace GuardWave
                         CAMERA_MIN_TARGET_Z, CAMERA_MAX_TARGET_Z);
                 }
             }
-
             float scroll = mouse.scroll.ReadValue().y;
             if (Mathf.Abs(scroll) > 0.01f)
             {
@@ -1656,29 +758,11 @@ namespace GuardWave
                             NormalizeScrollSteps(scroll) * CameraYawPerScrollStep, Space.World);
                 }
                 else if (!rightButton.isPressed && !rightButton.wasReleasedThisFrame && !pointerOverUi)
-                {
                     _camera.orthographicSize = Mathf.Clamp(_camera.orthographicSize *
                         Mathf.Exp(-scroll * 0.03f), 6f,
                         GetComponent<FogSceneController>() != null ? 32f : 12.5f);
-                }
             }
-
-            if (rightButton.wasReleasedThisFrame)
-            {
-                if (_rightGestureActive && !_rightGestureMoved && !pointerOverUi)
-                {
-                    if (_rightGestureStartedWithOffer)
-                        OpenCandidatePalette();
-                    else if (_rightPressedPiece != null)
-                        _rightPressedPiece.RemoveByRightClick();
-                    else
-                        OpenCandidatePalette();
-                }
-                _rightPressedPiece = null;
-                _rightGestureActive = false;
-                _rightGestureStartedWithOffer = false;
-            }
-
+            if (rightButton.wasReleasedThisFrame) _rightGestureActive = false;
             UpdateCameraPosition();
         }
 
@@ -1706,15 +790,7 @@ namespace GuardWave
         /// <summary>모든 배치와 소모품 상태를 초기화하고 기본 발판을 배치한다.</summary>
         private void ResetGame()
         {
-            EndMudPainting();
-            _editHistory.Clear();
-            _playerPlacementCount = 0;
             ResetFloodDrowning();
-            _mudContacts.Clear();
-            _mudContactPairs.Clear();
-            _mudXZContacts.Clear();
-            _mudXZPairs.Clear();
-            _nextMudContactEviction = 0;
             SetOutlineTargets(null);
             if (_stageFloodRoutine != null)
             {
@@ -1770,19 +846,6 @@ namespace GuardWave
                     if (state.Patch != null) state.Patch.RestoreBond(state);
             }
             _stage = 0;
-            _selected = -1;
-            _paletteOpen = true;
-            _placementStroke = null;
-            _placementStrokePieces.Clear();
-            _placementStrokePath.Clear();
-            _placementStrokeCursorValid = false;
-            _placementStrokeReleased = false;
-            _placementStrokeEpoch++;
-            _pendingDrops = 0;
-            _lastDropTime = float.NegativeInfinity;
-            _dropMouseReleased = true;
-            HideDropPreview();
-            _objectYaw = 0f;
             _rulesOpen = false;
             _resolving = false;
             _awaitingStage = false;
@@ -1790,19 +853,15 @@ namespace GuardWave
             _cameraTarget = new Vector3(0f, _placementBounds.max.y +
                 (GetComponent<FogSceneController>() != null ? 7f : 2f), 0f);
             _rightGestureActive = false;
-            _rightGestureStartedWithOffer = false;
-            _rightPressedPiece = null;
             UpdateCameraPosition();
             ResetDefenseFlag();
-            DealOffers();
             if (ambientFlowPreview) BeginAmbientCreekFlow();
-            _status = GetComponent<FogSceneController>() != null
-                ? "건물을 배치하면 +Z 방향 실외기 바람으로 안개를 밀어냅니다. 준비 완료를 누르세요."
+            _status = _isFogStage
+                ? "사전 배치된 건물이 독안개에 영향을 줍니다. 준비 완료를 누르세요."
                 : _isLavaStage
                     ? "용암에 닿은 기물은 불타다가 파괴됩니다. 깃발을 지키세요."
-                    : "진흙을 선택하고 두 물체의 노란 접촉 가이드를 클릭해 연결하세요. 우클릭: 선택 해제";
-            // Initial state enables Ctrl+Z to undo the very first placement.
-            SaveEditState(false);
+                    : "사전 배치된 기물과 깃발을 지키세요. 준비 완료를 누르면 재해가 시작됩니다.";
+            if (_initialized) _waveSnapshot = CaptureWaveSnapshot();
         }
 
         /// <summary>Registers authored Forest objects as selectable without creating runtime scene objects.</summary>
@@ -1943,89 +1002,16 @@ namespace GuardWave
             _initialFlagState.RestorePose(_flagBody);
             Physics.SyncTransforms();
             _initialFlagState.RestoreMotion(_flagBody);
-            _flagPlaced = false;
-            _defenseFlag.SetActive(false);
         }
 
         /// <summary>Resources/Prefabs에서 3D 기물을 지정한 위치에 생성하고 물리 시스템에 등록한다.</summary>
-        private GuardWavePiece Spawn(GuardWaveMaterial material, Vector3 position, bool anchored = false)
-        {
-            GameObject prefab = Resources.Load<GameObject>("Prefabs/Objects/" + material.id);
-            if (prefab == null) throw new InvalidOperationException("Missing 3D prefab: " + material.id);
-            GameObject instance = Instantiate(prefab, position, Quaternion.Euler(0f, _objectYaw, 0f));
-            instance.name = material.name;
-            // Imported OBJ Mesh local IDs may be remapped by Unity 6. Ensure
-            // a Forest pebble is not an invisible Rigidbody with a null Mesh.
-            if (material.id == "forest_pebble")
-                GuardWaveForestPebbleMesh.EnsureMesh(instance);
-            GuardWavePiece piece = instance.GetComponent<GuardWavePiece>();
-            piece.Initialize(this);
-            piece.Body.isKinematic = anchored;
-            piece.Body.useGravity = !anchored;
-            _pieces.Add(piece);
-            _runtimePieces.Add(piece);
-            _pieceSet.Add(piece);
-            // Newly placed bodies must join the live ambient FLIP solver:
-            // this registers their Rigidbody and non-trigger colliders so
-            // log (0.6) and Forest pebble (2.6) receive density-based forces.
-            _fluid?.RegisterPiece(piece);
-            if (material.id == "vine")
-                PublishChange(new GuardWaveChange(piece, null, GuardWaveChangeKind.Created, 0,
-                    position, "덩쿨 생성!"));
-            return piece;
-        }
+
 
         /// <summary>Palette order, material choices and quotas all come from StageInfo.json.</summary>
-        private void DealOffers()
-        {
-            Array.Clear(_offers, 0, _offers.Length);
-            for (int i = 0; i < _stageInfo.palette.Length; i++)
-            {
-                string materialId = _stageInfo.palette[i].materialId;
-                GuardWaveMaterial material = _catalog.Get(materialId);
-                if (material == null || material.startOnly)
-                    throw new InvalidOperationException(
-                        "StageInfo palette references a missing or start-only material: " + materialId);
-                _offers[i] = material;
-            }
-            _selected = -1;
-            _paletteOpen = true;
-            HideDropPreview();
-        }
+
 
         /// <summary>드래그로 생성한 모든 물체가 안정화된 뒤 한 번만 체크포인트를 갱신한다.</summary>
-        private IEnumerator ResolvePlacementStroke(WaveSnapshot placementState,
-            List<GuardWavePiece> placed, int epoch)
-        {
-            _pendingDrops++;
-            float elapsed = 0f;
-            while (elapsed < 7f)
-            {
-                yield return new WaitForFixedUpdate();
-                if (epoch != _placementStrokeEpoch) yield break;
-                elapsed += Time.fixedDeltaTime;
-                if (elapsed < 1.2f) continue;
 
-                bool settled = true;
-                foreach (GuardWavePiece piece in placed)
-                {
-                    if (piece != null && piece.gameObject.activeInHierarchy &&
-                        !piece.Body.IsSleeping())
-                    {
-                        settled = false;
-                        break;
-                    }
-                }
-                if (settled) break;
-            }
-
-            _pendingDrops--;
-            RefreshLatestEditState(placementState);
-            if (_pendingDrops == 0 && !_stageTransitioning && !_awaitingStage)
-                _status = _isLavaStage
-                    ? "배치 완료. 준비 완료를 누르면 용암이 흐릅니다."
-                    : "배치 완료. 준비완료를 누르면 파도가 시작됩니다.";
-        }
 
         /// <summary>
         /// Z 경계를 넘은 기물만 제거한다.
@@ -2039,25 +1025,7 @@ namespace GuardWave
         }
 
         /// <summary>A completed right-click removes the selected object only, never its neighbors.</summary>
-        internal void RemovePieceByRightClick(GuardWavePiece piece)
-        {
-            if (_stageTransitioning || _resolving || _awaitingStage || _finished ||
-                _rulesOpen || _selected >= 0 || piece == null ||
-                piece.MaterialId == "foundation") return;
-            if (piece.gameObject == _defenseFlag)
-            {
-                if (!_flagPlaced || !IsTargetMaterial("default_flag")) return;
-                SetOutlineTargets(null);
-                _flagPlaced = false;
-                _defenseFlag.SetActive(false);
-                SaveEditState(false);
-                _status = "깃발을 회수했습니다. 다시 배치해야 준비 완료할 수 있습니다.";
-                return;
-            }
-            // Manual removal is an edit too, so Ctrl+Z restores the removed piece.
-            if (RemovePiece(piece, GuardWaveChangeKind.Removed) > 0)
-                SaveEditState(false);
-        }
+
 
         /// <summary>Removes one object while retaining scene-authored sticks for reload or rollback.</summary>
         private int RemovePiece(GuardWavePiece piece, GuardWaveChangeKind reason = GuardWaveChangeKind.Destroyed,
@@ -2125,13 +1093,8 @@ namespace GuardWave
         public void Ready()
         {
             if (!CanReady) return;
-            EndPlacementStroke();
-            EndMudPainting();
             SetOutlineTargets(null);
-            HideDropPreview();
-            // Preserve the latest user edit as the failure checkpoint.
-            _waveSnapshot = _editHistory.Count > 0
-                ? _editHistory[_editHistory.Count - 1] : null;
+            _waveSnapshot = CaptureWaveSnapshot();
             _waveHasStarted = true;
             _stageTransitioning = true;
             _resolving = true;
@@ -2149,7 +1112,6 @@ namespace GuardWave
                 _stageFloodRoutine = StartCoroutine(ResolveAmbientWave());
                 return;
             }
-
             _status = "홍수 발생: 기물과 깃발을 지키세요.";
             _stageFloodRoutine = StartCoroutine(ResolveStageFlood());
         }
@@ -2501,7 +1463,7 @@ namespace GuardWave
             if (_awaitingStage)
                 _status = _waveSnapshot == null
                     ? "깃발이 독안개에 5초 이상 노출되었습니다. 확인을 누르면 다시 시작합니다."
-                    : "깃발이 독안개에 5초 이상 노출되었습니다. 확인을 누르면 배치를 복원합니다.";
+                    : "깃발이 독안개에 5초 이상 노출되었습니다. 확인을 누르면 초기 상태로 복원합니다.";
         }
 
         /// <summary>깃발이 파괴되면 팝업을 열되 기물의 속도와 Rigidbody 물리는 유지한다.</summary>
@@ -2509,17 +1471,7 @@ namespace GuardWave
         {
             if (_awaitingStage || _finished)
                 return;
-            // Without Ready, pick a checkpoint whose flag is still in bounds.
-            // Never save the flag's already-destroyed position as the reset state.
-            if (_waveSnapshot == null)
-                for (int i = _editHistory.Count - 1; i >= 0; i--)
-                    if (_editHistory[i].Flag.PositionZ > DestructionBoundaryZ)
-                    {
-                        _waveSnapshot = _editHistory[i];
-                        break;
-                    }
-            EndPlacementStroke();
-            EndMudPainting();
+            // Restore the pre-disaster authored-object checkpoint.
             // Keep the flood coroutine and GPU particle buffers alive so
             // the wave continues flowing behind the failure popup.
             _stageTransitioning = false;
@@ -2530,7 +1482,7 @@ namespace GuardWave
                 ? "깃발이 용암에 닿아 파괴되었습니다. 확인을 누르면 씬이 재시작됩니다."
                 : _waveSnapshot == null
                     ? "깃발이 파괴되었습니다. 확인을 누르면 씬을 다시 시작합니다."
-                    : "깃발이 파괴되었습니다. 확인을 누르면 마지막 배치 상태로 돌아갑니다.";
+                    : "깃발이 파괴되었습니다. 확인을 누르면 사전 배치 상태로 복원합니다.";
             if (_isLavaStage)
             {
                 _defenseFlag.SetActive(false);
@@ -2556,13 +1508,10 @@ namespace GuardWave
             WaveSnapshot snapshot = new WaveSnapshot
             {
                 Flag = new RigidbodyState(_flagBody),
-                FlagPlaced = _flagPlaced,
-                SelectedOffer = _selected,
-                ObjectYaw = _objectYaw,
+                FlagActive = _defenseFlag.activeSelf,
                 CameraTarget = _cameraTarget,
                 CameraRotation = _camera.transform.rotation,
-                CameraZoom = _camera.orthographicSize,
-                PlayerPlacementCount = _playerPlacementCount
+                CameraZoom = _camera.orthographicSize
             };
             foreach (GuardWavePiece piece in _pieces)
                 if (piece != null) snapshot.Pieces.Add(new PieceState(piece));
@@ -2657,7 +1606,6 @@ namespace GuardWave
             // are checked before showing each candidate, including sleeping bodies.
             ResetFloodDrowning();
             SetOutlineTargets(null);
-            HideDropPreview();
 
             // Clear live joints before changing active bodies/patches.
             foreach (GuardWaveMudPatch patch in _mudPatches)
@@ -2702,8 +1650,7 @@ namespace GuardWave
             foreach (PieceState state in snapshot.Pieces)
                 if (state.Piece != null) state.Body.RestoreMotion(state.Piece.Body);
             snapshot.Flag.RestoreMotion(_flagBody);
-            _flagPlaced = snapshot.FlagPlaced;
-            _defenseFlag.SetActive(_flagPlaced);
+            _defenseFlag.SetActive(snapshot.FlagActive);
             foreach (SceneBodyState state in snapshot.SceneBodies)
                 if (state.Body != null) state.State.RestoreMotion(state.Body);
             // Broken/moved joints are not restored by Rigidbody poses alone.
@@ -2722,12 +1669,9 @@ namespace GuardWave
                 bond.Patch.RestoreBond(bond, fromInitialDefinition: true);
             }
 
-            _selected = snapshot.SelectedOffer;
-            _objectYaw = snapshot.ObjectYaw;
             _cameraTarget = snapshot.CameraTarget;
             _camera.transform.rotation = snapshot.CameraRotation;
             _camera.orthographicSize = snapshot.CameraZoom;
-            _playerPlacementCount = snapshot.PlayerPlacementCount;
             UpdateCameraPosition();
         }
 
@@ -2738,42 +1682,13 @@ namespace GuardWave
         }
 
         /// <summary>한 번의 배치, 붓질 또는 수동 제거 결과를 저장한다.</summary>
-        private WaveSnapshot SaveEditState(bool placed)
-        {
-            if (placed) _playerPlacementCount++;
-            WaveSnapshot state = CaptureWaveSnapshot();
-            _editHistory.Add(state);
-            return state;
-        }
+
 
         /// <summary>마지막 낙하가 안정화되면 다른 입력을 덮지 않고 위치를 갱신한다.</summary>
-        private void RefreshLatestEditState(WaveSnapshot original)
-        {
-            if (_stageTransitioning || _awaitingStage || _editHistory.Count == 0 ||
-                !ReferenceEquals(_editHistory[_editHistory.Count - 1], original))
-                return;
-            _editHistory[_editHistory.Count - 1] = CaptureWaveSnapshot();
-        }
+
 
         /// <summary>Ctrl+Z로 가장 최근 사용자 편집 한 단계만 되돌린다.</summary>
-        private void UndoLastEdit()
-        {
-            if (_stageTransitioning || _awaitingStage || _finished || _rulesOpen ||
-                _resolving) return;
-            EndPlacementStroke();
-            // Ending a brush gesture commits it first, so Ctrl+Z removes that stroke.
-            EndMudPainting();
-            if (_editHistory.Count <= 1) return;
-            _editHistory.RemoveAt(_editHistory.Count - 1);
-            _placementStrokeEpoch++;
-            _pendingDrops = 0;
-            // A fresh upstream inflow is part of an initial-impact retry:
-            // no old GPU particles may immediately hit the restored 80 N joint.
-            DisposeFluid();
-            RestoreEditState(_editHistory[_editHistory.Count - 1]);
-            if (ambientFlowPreview) BeginAmbientCreekFlow();
-            _status = "이전 배치 상태로 되돌렸습니다.";
-        }
+
 
         private sealed class WaveSnapshot
         {
@@ -2789,13 +1704,10 @@ namespace GuardWave
             public readonly List<SceneParentActiveState> SceneParents = new List<SceneParentActiveState>();
             public readonly HashSet<GuardWavePiece> SelectableScenePieces = new HashSet<GuardWavePiece>();
             public RigidbodyState Flag;
-            public bool FlagPlaced;
-            public int SelectedOffer;
-            public float ObjectYaw;
+            public bool FlagActive;
             public Vector3 CameraTarget;
             public Quaternion CameraRotation;
             public float CameraZoom;
-            public int PlayerPlacementCount;
         }
 
         /// <summary>Rebuilds preauthored or other non-mud fixed joints after they break.</summary>
@@ -2985,12 +1897,6 @@ namespace GuardWave
             }
             DisposeFluid();
             _ambientFlowRunning = false;
-            // Drop unsafe later edits if the pre-Ready failure selected an
-            // earlier valid checkpoint.
-            int checkpointIndex = _editHistory.IndexOf(_waveSnapshot);
-            if (checkpointIndex >= 0 && checkpointIndex < _editHistory.Count - 1)
-                _editHistory.RemoveRange(checkpointIndex + 1,
-                    _editHistory.Count - checkpointIndex - 1);
             RestoreEditState(_waveSnapshot);
             CommitWaveSnapshot();
             _awaitingStage = false;
@@ -2999,7 +1905,7 @@ namespace GuardWave
             _resolving = false;
             if (ambientFlowPreview)
                 BeginAmbientCreekFlow();
-            _status = "마지막 배치 상태로 복원했습니다. 배치를 바꾸고 다시 시도하세요.";
+            _status = "사전 배치 상태를 복원했습니다. 다시 준비 완료할 수 있습니다.";
         }
 
     }
