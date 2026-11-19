@@ -639,6 +639,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   _fogVolumeRenderer: {fileID: 4700000004}
+  _barrierRootScale: {x: 1, y: 1, z: 1}
   _cellSize: 0.75
   _pressureIterations: 24
   _windSpeed: 5.5

@@ -20,6 +20,8 @@ namespace GuardWave
         private string _materialId;
         private float _colliderBottomY;
         private bool _canPlace = true;
+        private bool _hasScaleOverride;
+        private Vector3 _rootScaleOverride;
 
         /// <summary>활성 고스트의 실제 표시 중심 위치. 화면 점선의 도착점으로 사용한다.</summary>
         public bool IsVisible => _instance != null && _instance.activeSelf;
@@ -27,11 +29,15 @@ namespace GuardWave
 
         /// <summary>배치 가능 여부에 맞춰 색을 바꾸고 예상 접촉면 위에 자재 미리보기를 표시한다.</summary>
         public void Show(GuardWaveMaterial info, Vector3 placement, Quaternion rotation,
-            float dropHeight, bool canPlace, float fallbackSurfaceY)
+            float dropHeight, bool canPlace, float fallbackSurfaceY,
+            Vector3? rootScaleOverride = null)
         {
             if (info == null) { Hide(); return; }
-            if (_instance == null || _materialId != info.id)
-                Rebuild(info);
+            bool hasScaleOverride = rootScaleOverride.HasValue;
+            bool scaleChanged = hasScaleOverride != _hasScaleOverride ||
+                (hasScaleOverride && rootScaleOverride.Value != _rootScaleOverride);
+            if (_instance == null || _materialId != info.id || scaleChanged)
+                Rebuild(info, rootScaleOverride);
             if (_instance == null) return;
             SetPlacementValidity(canPlace);
 
@@ -65,6 +71,8 @@ namespace GuardWave
             }
             _instance = null;
             _materialId = null;
+            _hasScaleOverride = false;
+            _rootScaleOverride = Vector3.zero;
             foreach (Material material in _previewMaterials)
                 if (material != null) Object.Destroy(material);
             _previewMaterials.Clear();
@@ -122,7 +130,7 @@ namespace GuardWave
         }
 
         /// <summary>그리기용 프리팹만 복제하고 물리·게임 로직은 비활성화한다.</summary>
-        private void Rebuild(GuardWaveMaterial info)
+        private void Rebuild(GuardWaveMaterial info, Vector3? rootScaleOverride)
         {
             Dispose();
             GameObject prefab = Resources.Load<GameObject>("Prefabs/Objects/" + info.PrefabResourceId);
@@ -136,7 +144,9 @@ namespace GuardWave
             // GuardWavePiece/Collider just to destroy or disable it. This also
             // avoids transient Rigidbody inspector targets in the Editor.
             _instance = new GameObject("Drop Preview - " + info.name);
-            _instance.transform.localScale = prefab.transform.localScale;
+            _instance.transform.localScale = rootScaleOverride ?? prefab.transform.localScale;
+            _hasScaleOverride = rootScaleOverride.HasValue;
+            _rootScaleOverride = rootScaleOverride.GetValueOrDefault();
             Mesh fallbackMesh = info.id == "forest_pebble"
                 ? GuardWaveForestPebbleMesh.LoadImportedMesh()
                 : null;

@@ -19,6 +19,10 @@ namespace GuardWave
         [Header("Scene-authored volume mesh (no runtime creation)")]
         [SerializeField] private MeshRenderer _fogVolumeRenderer;
 
+        [Header("Player-placed fog barrier")]
+        [Tooltip("Root scale applied to fog barriers and their placement previews.")]
+        [SerializeField] private Vector3 _barrierRootScale = Vector3.one;
+
         [Header("Three-dimensional gas simulation")]
         [SerializeField, Range(0.45f, 1.5f)] private float _cellSize = 0.75f;
         [SerializeField, Range(8, 64)] private int _pressureIterations = 24;
@@ -84,6 +88,7 @@ namespace GuardWave
         private float _simulationElapsedSeconds;
 
         public int SimulationSpeed => _simulationSpeed;
+        public Vector3 BarrierRootScale => _barrierRootScale;
         public float MaximumSimulationDurationSeconds => MaximumSimulationSeconds;
         public float RemainingSimulationSeconds =>
             Mathf.Max(0f, MaximumSimulationSeconds - _simulationElapsedSeconds);

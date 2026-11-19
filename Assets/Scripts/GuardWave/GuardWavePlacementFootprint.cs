@@ -119,7 +119,8 @@ namespace GuardWave
             _localHull = localHull;
         }
 
-        public static GuardWavePlacementFootprint FromPrefab(GameObject prefab)
+        /// <summary>Builds the projected placement hull using the root scale that will be spawned.</summary>
+        public static GuardWavePlacementFootprint FromPrefab(GameObject prefab, Vector3 rootScale)
         {
             List<Vector2> points = new List<Vector2>();
             Transform root = prefab.transform;
@@ -128,22 +129,22 @@ namespace GuardWave
                 if (!collider.enabled || collider.isTrigger) continue;
                 if (collider is MeshCollider meshCollider && meshCollider.sharedMesh != null)
                 {
-                    AddMesh(meshCollider.sharedMesh, collider.transform, root, points);
+                    AddMesh(meshCollider.sharedMesh, collider.transform, root, rootScale, points);
                 }
                 else if (collider is BoxCollider box)
                 {
-                    AddBounds(new Bounds(box.center, box.size), box.transform, root, points);
+                    AddBounds(new Bounds(box.center, box.size), box.transform, root, rootScale, points);
                 }
                 else if (collider is SphereCollider sphere)
                 {
                     AddBounds(new Bounds(sphere.center,
-                        Vector3.one * (sphere.radius * 2f)), sphere.transform, root, points);
+                        Vector3.one * (sphere.radius * 2f)), sphere.transform, root, rootScale, points);
                 }
                 else if (collider is CapsuleCollider capsule)
                 {
                     Vector3 size = Vector3.one * (capsule.radius * 2f);
                     size[capsule.direction] = Mathf.Max(capsule.height, capsule.radius * 2f);
-                    AddBounds(new Bounds(capsule.center, size), capsule.transform, root, points);
+                    AddBounds(new Bounds(capsule.center, size), capsule.transform, root, rootScale, points);
                 }
             }
 
@@ -151,7 +152,7 @@ namespace GuardWave
             if (points.Count == 0)
                 foreach (MeshFilter filter in prefab.GetComponentsInChildren<MeshFilter>(true))
                     if (filter.sharedMesh != null)
-                        AddMesh(filter.sharedMesh, filter.transform, root, points);
+                        AddMesh(filter.sharedMesh, filter.transform, root, rootScale, points);
 
             if (points.Count == 0)
             {
@@ -194,38 +195,41 @@ namespace GuardWave
             return new GuardWavePlacementFootprint(hull);
         }
 
+        /// <summary>Adds a mesh's projected vertices or conservative bounds to the placement hull.</summary>
         private static void AddMesh(Mesh mesh, Transform transform, Transform root,
-            List<Vector2> points)
+            Vector3 rootScale, List<Vector2> points)
         {
             if (mesh.isReadable)
             {
                 foreach (Vector3 vertex in mesh.vertices)
-                    AddPoint(vertex, transform, root, points);
+                    AddPoint(vertex, transform, root, rootScale, points);
             }
             else
             {
                 // Imported Unity meshes may have Read/Write disabled.
                 // Their oriented local bounds conservatively avoid visual overlaps.
-                AddBounds(mesh.bounds, transform, root, points);
+                AddBounds(mesh.bounds, transform, root, rootScale, points);
             }
         }
 
+        /// <summary>Adds the eight projected corners of a local collider or mesh bound.</summary>
         private static void AddBounds(Bounds bounds, Transform transform, Transform root,
-            List<Vector2> points)
+            Vector3 rootScale, List<Vector2> points)
         {
             for (int x = -1; x <= 1; x += 2)
                 for (int y = -1; y <= 1; y += 2)
                     for (int z = -1; z <= 1; z += 2)
                         AddPoint(bounds.center + Vector3.Scale(bounds.extents,
-                            new Vector3(x, y, z)), transform, root, points);
+                            new Vector3(x, y, z)), transform, root, rootScale, points);
         }
 
+        /// <summary>Projects one source point into root-local placement space with the requested root scale.</summary>
         private static void AddPoint(Vector3 point, Transform source, Transform root,
-            List<Vector2> points)
+            Vector3 rootScale, List<Vector2> points)
         {
             // Instantiation overrides the root position/yaw but keeps its scale.
             Vector3 local = root.InverseTransformPoint(source.TransformPoint(point));
-            local = Vector3.Scale(local, root.localScale);
+            local = Vector3.Scale(local, rootScale);
             points.Add(new Vector2(local.x, local.z));
         }
 

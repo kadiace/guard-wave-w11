@@ -165,6 +165,7 @@ namespace GuardWave
         private ForestSceneContext _sceneContext;
         private GuardWaveCatalog _catalog;
         private GuardWaveStageInfo _stageInfo;
+        private FogSceneController _fogSceneController;
         private GuardWaveHud _hud;
         private GuardWaveDropPreview _dropPreview;
         private GuardWaveFlipRenderer _flipRenderer;
@@ -250,7 +251,8 @@ namespace GuardWave
         {
             _sceneContext = GetComponent<ForestSceneContext>();
             _isLavaStage = gameObject.scene.name == "Lava";
-            _isFogStage = GetComponent<FogSceneController>() != null;
+            _fogSceneController = GetComponent<FogSceneController>();
+            _isFogStage = _fogSceneController != null;
             _isFloodStage = gameObject.scene.name == "Flood";
             _catalog = new GuardWaveCatalog();
             _stageInfo = GuardWaveStageInfoFile.LoadForScene(gameObject.scene.name);
@@ -479,7 +481,8 @@ namespace GuardWave
             GameObject prefab = Resources.Load<GameObject>("Prefabs/Objects/" + material.PrefabResourceId);
             if (prefab == null) return;
 
-            _placementStroke = GuardWavePlacementFootprint.FromPrefab(prefab);
+            Vector3 rootScale = GetRootScaleOverride(material) ?? prefab.transform.localScale;
+            _placementStroke = GuardWavePlacementFootprint.FromPrefab(prefab, rootScale);
             _placementStrokePieces.Clear();
             _placementStrokePath.Clear();
             _placementStrokeProcessedXZ = new Vector2(placement.x, placement.z);
@@ -553,7 +556,8 @@ namespace GuardWave
         {
             Vector3 placement = new Vector3(xz.x, _placementBounds.max.y, xz.y);
             _dropPreview.Show(material, placement, Quaternion.Euler(0f, _objectYaw, 0f),
-                _placementBounds.max.y + dropHeight, true, _placementBounds.max.y);
+                _placementBounds.max.y + dropHeight, true, _placementBounds.max.y,
+                GetRootScaleOverride(material));
             if (!_dropPreview.IsVisible) return false;
             GuardWavePiece piece = Spawn(material, _dropPreview.LandingPosition);
             StagePlacement.SyncPhysics();
@@ -1342,7 +1346,7 @@ namespace GuardWave
             _dropPreview.Show(_offers[_selected], placement,
                 Quaternion.Euler(0f, _objectYaw, 0f),
                 _placementBounds.max.y + dropHeight, canPlace,
-                _placementBounds.max.y);
+                _placementBounds.max.y, GetRootScaleOverride(_offers[_selected]));
 
         }
 
@@ -2084,6 +2088,9 @@ namespace GuardWave
             GameObject prefab = Resources.Load<GameObject>("Prefabs/Objects/" + material.PrefabResourceId);
             if (prefab == null) throw new InvalidOperationException("Missing 3D prefab: " + material.id);
             GameObject instance = StagePlacement.CreatePrefab(prefab, position, Quaternion.Euler(0f, _objectYaw, 0f));
+            Vector3? rootScaleOverride = GetRootScaleOverride(material);
+            if (rootScaleOverride.HasValue)
+                instance.transform.localScale = rootScaleOverride.Value;
             instance.name = material.name;
             // Imported OBJ Mesh local IDs may be remapped by Unity 6. Ensure
             // a Forest pebble is not an invisible Rigidbody with a null Mesh.
@@ -2108,6 +2115,13 @@ namespace GuardWave
                 PublishChange(new GuardWaveChange(piece, null, GuardWaveChangeKind.Created, 0,
                     position, "덩쿨 생성!"));
             return piece;
+        }
+
+        /// <summary>Returns a scene-authored root scale override for materials that need one.</summary>
+        private Vector3? GetRootScaleOverride(GuardWaveMaterial material)
+        {
+            if (!_isFogStage || material.id != "fog_barrier") return null;
+            return _fogSceneController.BarrierRootScale;
         }
 
         /// <summary>Palette order, material choices and quotas all come from StageInfo.json.</summary>
