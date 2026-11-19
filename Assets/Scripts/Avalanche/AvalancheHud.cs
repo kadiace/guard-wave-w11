@@ -20,14 +20,7 @@ namespace Avalanche
         public void Initialize(AvalancheStage stage) => _stage = stage;
 
         /// <summary>Matches visible HUD panels so clicks cannot place materials through menus.</summary>
-        public bool BlocksPointer(Vector2 screen)
-        {
-            if (_stage == null) return true;
-            if (_stage.Phase == AvalanchePhase.Introduction || _stage.IsFinished() || _stage.Paused) return true;
-            float x = screen.x * 1600f / Screen.width;
-            float y = (Screen.height - screen.y) * 900f / Screen.height;
-            return y < 104f || y > 752f || x < 294f && y < 665f || x > 1306f && y < 452f;
-        }
+
 
         /// <summary>Initializes GUI styles once with the project's Korean font.</summary>
         private void EnsureStyles()
@@ -98,16 +91,16 @@ namespace Avalanche
             Label(550, 20, 470, 30, "목표  ·  시민 6명 모두 보호", PAPER, 23);
             string phase = _stage.Phase switch
             {
-                AvalanchePhase.Introduction => "배치를 설계하고 두 차례 홍수에 대비하세요",
+                AvalanchePhase.Introduction => "두 차례 홍수에 대비하여 시민을 보호하세요",
                 AvalanchePhase.Preparing => _stage.LimitPreparationTime
                     ? $"준비 {Mathf.CeilToInt(_stage.PreparationLeft)}초  ·  0초가 되면 홍수가 시작됩니다"
-                    : "준비 중  ·  배치를 마치면 준비 완료를 누르세요",
+                    : "준비 중  ·  팀 지정을 마치면 준비 완료를 누르세요",
                 AvalanchePhase.Warning => $"홍수 경보  ·  {Mathf.CeilToInt(_stage.WarningLeft)}초 후 유입",
                 AvalanchePhase.Flooding => $"홍수 진행  {_stage.FloodElapsed:0.0}초  ·  물길과 대피 상황 관찰",
                 AvalanchePhase.Assessing => "유입 종료  ·  하류 도달과 잔류 침수 관찰 중",
                 AvalanchePhase.Cleared => "시민 전원 보호 완료",
-                AvalanchePhase.TechnicalError => "계산 오류  ·  배치를 복원할 수 있습니다",
-                _ => "보호 실패  ·  배치를 수정하고 재도전하세요"
+                AvalanchePhase.TechnicalError => "계산 오류  ·  다시 시도할 수 있습니다",
+                _ => "보호 실패  ·  팀 지정을 변경하고 재도전하세요"
             };
             Label(550, 54, 680, 28, phase, GOLD, 18);
             Label(1220, 29, 170, 32, $"시도 {_stage.Attempt:00}", MUTED, 19);
@@ -159,29 +152,21 @@ namespace Avalanche
                 $"{_stage.SecondWaveEnd:00.##}–{_stage.InflowEnd:00.##}초   유입 감소·종료"
             };
             for (int i = 0; i < rows.Length; i++) Label(1336, 240 + i * 31, 232, 26, rows[i], i == 2 ? GOLD : MUTED, 17);
-            Label(1336, 373, 225, 56, "시민에게 도착하는 시각은\n물길과 방벽 배치에 따라 달라집니다.", MUTED, 15);
+            Label(1336, 373, 225, 56, "시민에게 도착하는 시각은\n물길의 흐름에 따라 달라집니다.", MUTED, 15);
         }
 
         /// <summary>Draws stock, tool selection, undo and the shared Ready action.</summary>
         private void DrawTools()
         {
             Fill(new Rect(0, 764, 1600, 136), INK);
-            var build = _stage.Construction;
-            Label(24, 772, 1290, 28, build.Hint, GOLD, 18);
-            string[] names =
-            {
-                $"1  물막이판\n{build.Panels} / {build.StartingPanels}개",
-                $"2  모래주머니\n{build.Sandbags} / {build.StartingSandbags}개",
-                $"3  접합 블록\n{build.Adhesive} / {build.StartingAdhesive}개",
-                "4  회수\n자재 또는 접합 블록 클릭"
-            };
+            Label(24, 780, 1100, 50, "대피팀과 배수팀을 배정한 뒤 재해를 시작하세요.", GOLD, 22);
             GUI.enabled = _stage.CanEdit;
-            for (int i = 0; i < names.Length; i++)
-                if (Button(new Rect(24 + i * 262, 809, 248, 66), names[i], (int)build.Tool == i ? AQUA : PAPER)) build.SelectTool((AvalancheTool)i);
-            if (Button(new Rect(1083, 809, 174, 66), "되돌리기\nCtrl + Z", PAPER)) build.Undo();
-            if (Button(new Rect(1270, 809, 306, 66), "준비 완료  →  홍수 시작", GOLD)) _stage.Ready();
+            if (Button(new Rect(1160, 793, 410, 72), "준비 완료  →  홍수 시작", GOLD))
+                _stage.Ready();
             GUI.enabled = true;
-            Label(306, 720, 990, 27, "WASD 이동  ·  휠 확대  ·  우클릭 드래그 회전  ·  중클릭 드래그 이동  ·  Esc 일시정지", INK, 16);
+            Label(306, 720, 990, 27,
+                "WASD 이동  ·  휠 확대  ·  우클릭 드래그 회전  ·  중클릭 드래그 이동  ·  Esc 일시정지",
+                INK, 16);
         }
 
         /// <summary>Returns a legible citizen status tint.</summary>
@@ -225,32 +210,40 @@ namespace Avalanche
                 ? $"{_stage.PreparationSeconds:0.##}초 동안"
                 : "준비 단계에서";
             Label(470, 301, 660, 220,
-                $"시장 · 광장 · 정류장에 시민 두 명씩이 있습니다.\n\n{preparation} 대피팀과 배수팀을 각각 한 구역에 배치하세요. 대피팀은 경보가 울리면 시민을 높은 대피대로 안내합니다. 초록색 통로를 비워 두세요.\n\n물막이판으로 물을 우회시키고 모래주머니로 낮은 틈을 보강하세요. 파란 배수구 주변은 물이 들어갈 수 있게 비워 두세요.", PAPER, 21);
-            Label(470, 538, 660, 60, "접합 블록을 놓으면 닿는 자재가 자동으로 연결됩니다. 배치와 팀 지정은 경보 전에 끝내세요.", GOLD, 19);
+                $"시장 · 광장 · 정류장에 시민 두 명씩이 있습니다.\n\n{preparation} 대피팀과 배수팀을 각각 한 구역에 지정하세요. 대피팀은 경보가 울리면 시민을 높은 대피대로 안내합니다.\n\n배수팀은 선택한 배수구를 정비합니다. 초록색 대피 통로와 파란색 배수구를 관찰하세요.", PAPER, 21);
+            Label(470, 538, 660, 60, "팀 지정은 홍수 경보가 시작되기 전에 끝내세요.", GOLD, 19);
             if (Button(new Rect(470, 620, 660, 52), "마을 지키기 시작   ·   Enter", AQUA)) _stage.BeginPreparation();
         }
 
         /// <summary>Shows the observed result and restoration or empty-layout choices.</summary>
         private void DrawResult()
         {
-            Modal("시도 결과", _stage.Phase == AvalanchePhase.Cleared ? "여섯 시민을 지켰습니다." : _stage.Phase == AvalanchePhase.TechnicalError ? "다시 시도할 수 있습니다." : "물길을 다시 설계해 주세요.");
+            Modal("시도 결과", _stage.Phase == AvalanchePhase.Cleared
+                ? "여섯 시민을 지켰습니다." : _stage.Phase == AvalanchePhase.TechnicalError
+                    ? "다시 시도할 수 있습니다." : "시민을 보호하지 못했습니다.");
             Label(470, 304, 660, 160, _stage.ResultMessage, PAPER, 22);
             var response = _stage.Response;
-            var build = _stage.Construction;
-            Label(470, 483, 660, 58, $"대피대 도착 {response.ShelteredCount}명 · 하류로 배수한 물 {response.DrainedVolume:0.0}m³\n사용한 물막이판 {build.StartingPanels - build.Panels}개 · 모래주머니 {build.StartingSandbags - build.Sandbags}개 · 접합 블록 {build.StartingAdhesive - build.Adhesive}개", MUTED, 19);
-            if (Button(new Rect(470, 560, 660, 52), "홍수 전 배치로 복원 · 수정하기", AQUA)) _stage.Retry(false);
-            if (Button(new Rect(470, 628, 318, 43), "빈 배치로 새로 시작", PAPER)) _stage.Retry(true);
-            if (Button(new Rect(804, 628, 326, 43), "스테이지 선택으로", PAPER)) _stage.ReturnToMenu();
+            Label(470, 483, 660, 58,
+                $"대피대 도착 {response.ShelteredCount}명 · 하류로 배수한 물 {response.DrainedVolume:0.0}m³",
+                MUTED, 19);
+            if (Button(new Rect(470, 560, 660, 52), "처음부터 다시 시도", AQUA))
+                _stage.Retry(false);
+            if (Button(new Rect(470, 628, 660, 43), "스테이지 선택으로", PAPER))
+                _stage.ReturnToMenu();
         }
 
         /// <summary>Pauses all simulation and provides a safe return path.</summary>
         private void DrawPause()
         {
             Modal("일시정지", "마을과 시간을 잠시 멈췄습니다.");
-            Label(470, 309, 660, 90, "물의 이동, 시민 위험도와 자재의 움직임이 함께 정지합니다.", PAPER, 23);
-            if (Button(new Rect(470, 442, 660, 56), "계속하기 · Esc", AQUA)) _stage.TogglePause();
-            if (Button(new Rect(470, 522, 660, 56), "빈 배치로 새로 시작", PAPER)) _stage.Retry(true);
-            if (Button(new Rect(470, 602, 660, 56), "스테이지 선택으로", PAPER)) _stage.ReturnToMenu();
+            Label(470, 309, 660, 90,
+                "물의 이동과 시민 위험도, 기물의 움직임이 함께 정지합니다.", PAPER, 23);
+            if (Button(new Rect(470, 442, 660, 56), "계속하기 · Esc", AQUA))
+                _stage.TogglePause();
+            if (Button(new Rect(470, 522, 660, 56), "처음부터 다시 시도", PAPER))
+                _stage.Retry(false);
+            if (Button(new Rect(470, 602, 660, 56), "스테이지 선택으로", PAPER))
+                _stage.ReturnToMenu();
         }
     }
 }

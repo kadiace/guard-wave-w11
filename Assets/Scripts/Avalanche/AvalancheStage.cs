@@ -157,7 +157,7 @@ namespace Avalanche
             _water.Step(dt, inlet, Construction.Pieces, Response);
             if (!_water.IsValid)
             {
-                End(AvalanchePhase.TechnicalError, "물 계산이 안정 범위를 벗어났습니다. 시민 실패로 처리하지 않습니다. 배치를 복원해 다시 시도하세요.");
+                End(AvalanchePhase.TechnicalError, "물 계산이 안정 범위를 벗어났습니다. 다시 시도하세요.");
                 return;
             }
             Response.Walk(dt);
@@ -185,7 +185,7 @@ namespace Avalanche
                 End(AvalanchePhase.Cleared, "두 차례의 홍수가 지나갔으며 여섯 시민 모두 안전합니다.");
             }
             else if (_attemptClock >= _attemptLimitSeconds)
-                End(AvalanchePhase.Failed, "시민 주변에 잔류 홍수 위험이 남아 있습니다.\n물길이 시민을 지나지 않도록 배치를 수정하세요.");
+                End(AvalanchePhase.Failed, "시민 주변에 잔류 홍수 위험이 남아 있습니다.\n팀 배정을 변경해 다시 시도하세요.");
         }
 
         /// <summary>Returns the deterministic upstream input, measured from the end of the warning.</summary>
@@ -208,7 +208,7 @@ namespace Avalanche
             Time.timeScale = 1f;
         }
 
-        /// <summary>Finalizes edits and saves the layout before locking tools for the warning.</summary>
+        /// <summary>Records the authored obstacles before the warning begins.</summary>
         public void Ready()
         {
             if (!CanEdit) return;
@@ -239,7 +239,7 @@ namespace Avalanche
             Time.timeScale = 0f;
         }
 
-        /// <summary>Restores the pre-flood layout or clears it, with fresh water, citizen state and timers.</summary>
+        /// <summary>Restores the authored obstacles, water, citizen state and timers.</summary>
         public void Retry(bool empty)
         {
             Construction.ResetLayout(empty);
