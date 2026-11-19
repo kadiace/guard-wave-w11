@@ -458,7 +458,7 @@ namespace GuardWave
                 _status = material.name + " 배치 수량을 모두 사용했습니다.";
                 return;
             }
-            GameObject prefab = Resources.Load<GameObject>("Prefabs/Objects/" + material.id);
+            GameObject prefab = Resources.Load<GameObject>("Prefabs/Objects/" + material.PrefabResourceId);
             if (prefab == null) return;
 
             _placementStroke = GuardWavePlacementFootprint.FromPrefab(prefab);
@@ -1847,7 +1847,7 @@ namespace GuardWave
         /// <summary>Resources/Prefabs에서 3D 기물을 지정한 위치에 생성하고 물리 시스템에 등록한다.</summary>
         private GuardWavePiece Spawn(GuardWaveMaterial material, Vector3 position, bool anchored = false)
         {
-            GameObject prefab = Resources.Load<GameObject>("Prefabs/Objects/" + material.id);
+            GameObject prefab = Resources.Load<GameObject>("Prefabs/Objects/" + material.PrefabResourceId);
             if (prefab == null) throw new InvalidOperationException("Missing 3D prefab: " + material.id);
             GameObject instance = StagePlacement.CreatePrefab(prefab, position, Quaternion.Euler(0f, _objectYaw, 0f));
             instance.name = material.name;

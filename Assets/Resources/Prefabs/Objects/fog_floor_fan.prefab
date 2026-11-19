@@ -15,6 +15,7 @@ GameObject:
   - component: {fileID: 100005}
   - component: {fileID: 100006}
   - component: {fileID: 100007}
+  - component: {fileID: 100008}
   m_Layer: 0
   m_Name: fog_floor_fan
   m_TagString: Untagged
@@ -212,12 +213,12 @@ MonoBehaviour:
   m_Name:
   m_EditorClassIdentifier: Assembly-CSharp::GuardWave.FogBuildingWind
   materialId: building
-  outletLocalPosition: {x: 0, y: 2.05, z: 0.48}
+  outletLocalPosition: {x: 0, y: 2.05, z: -0.7}
   outletLocalDirection: {x: 0, y: 0, z: 1}
   additionalOutletHeights: []
   windAcceleration: 14
-  reach: 14
-  outletRadius: 8
+  reach: 4
+  outletRadius: 0.72
   particleLifetime: 1.15
   particlesPerSecond: 32
   particleTint: {r: 0.77, g: 0.92, b: 1, a: 0.85}
@@ -236,6 +237,25 @@ MonoBehaviour:
   materialId: building
   removeOutsideBoundary: 1
   relativeFluidDensity: 2.8
+--- !u!114 &100008
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 100000}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d940fc416f784f7cb241d8b0e158fa92, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.FogFanBladeRotation
+  _blades:
+  - {fileID: 200131}
+  - {fileID: 200141}
+  - {fileID: 200151}
+  _localHubPosition: {x: 0, y: 2.05, z: 0.205}
+  _localRotationAxis: {x: 0, y: 0, z: 1}
+  _rotationSpeedDegreesPerSecond: 900
 --- !u!1 &200000
 GameObject:
   m_ObjectHideFlags: 0

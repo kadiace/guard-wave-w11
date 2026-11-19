@@ -125,7 +125,7 @@ namespace GuardWave
         private void Rebuild(GuardWaveMaterial info)
         {
             Dispose();
-            GameObject prefab = Resources.Load<GameObject>("Prefabs/Objects/" + info.id);
+            GameObject prefab = Resources.Load<GameObject>("Prefabs/Objects/" + info.PrefabResourceId);
             if (prefab == null)
             {
                 Debug.LogWarning("[GuardWaveDropPreview] Missing prefab: " + info.id);

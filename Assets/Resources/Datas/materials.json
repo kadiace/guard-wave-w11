@@ -33,13 +33,14 @@
     },
     {
       "id": "building",
-      "name": "실외기 건물",
+      "prefabResourceId": "fog_floor_fan",
+      "name": "선풍기",
       "category": "환경",
       "startOnly": false,
       "spawnOnly": false,
       "baseReinforcement": 0,
       "abilities": [
-        "건물 +Z 벽에 달린 실외기가 안개를 지속적으로 밀어낸다."
+        "선풍기 뒤쪽에서 앞쪽으로 바람을 내보내 안개를 밀어낸다."
       ],
       "abilityAlternatives": []
     },

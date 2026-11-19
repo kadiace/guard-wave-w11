@@ -4,9 +4,8 @@ using UnityEngine.Rendering;
 namespace GuardWave
 {
     /// <summary>
-    /// Four independent +Z wall air-conditioners. Their world-space vents are
-    /// consumed by the GPU gas solver; small Shuriken particles only visualize
-    /// the real wind, without applying a second physical force.
+    /// A directed fan outlet affects the GPU gas solver; Shuriken particles
+    /// visualize the airflow without applying a second physical force.
     /// </summary>
     [DisallowMultipleComponent]
     public sealed class FogBuildingWind : MonoBehaviour
@@ -14,15 +13,15 @@ namespace GuardWave
         [Header("Material catalog")]
         [SerializeField] private string materialId = "building";
 
-        [Header("Outdoor air conditioners: local +Z")]
-        [SerializeField] private Vector3 outletLocalPosition = new Vector3(0f, 2.05f, 3.49f);
+        [Header("Fan outlet")]
+        [SerializeField] private Vector3 outletLocalPosition = new Vector3(0f, 2.05f, -0.7f);
         [SerializeField] private Vector3 outletLocalDirection = Vector3.forward;
-        [SerializeField] private float[] additionalOutletHeights = { 7.05f, 12.05f, 17.05f };
+        [SerializeField] private float[] additionalOutletHeights = { };
         [SerializeField, Min(0f)]
-        [Tooltip("Strength of each AC vent on the GPU fog simulation. Original: 28. Default reduced to 5.6 (20%).")]
-        private float windAcceleration = 5.6f;
-        [SerializeField, Min(0.1f)] private float reach = 14f;
-        [SerializeField, Min(0.1f)] private float outletRadius = 16f;
+        [Tooltip("Strength of the fan outlet on the GPU fog simulation.")]
+        private float windAcceleration = 14f;
+        [SerializeField, Min(0.1f)] private float reach = 4f;
+        [SerializeField, Min(0.1f)] private float outletRadius = 0.72f;
 
         [Header("Visible airflow (cosmetic only)")]
         [Tooltip("Seconds each particle lives. Particle speed is computed as GPU wind reach / lifetime.")]
@@ -74,7 +73,7 @@ namespace GuardWave
             // Soft radial alpha, so the air forms moving wisps rather than solid squares.
             const int size = 32;
             _particleTexture = new Texture2D(size, size, TextureFormat.RGBA32, false);
-            _particleTexture.name = "AC Wind Soft Particle";
+            _particleTexture.name = "Fan Wind Soft Particle";
             _particleTexture.filterMode = FilterMode.Bilinear;
             _particleTexture.wrapMode = TextureWrapMode.Clamp;
             for (int y = 0; y < size; y++)
@@ -89,7 +88,7 @@ namespace GuardWave
             }
             _particleTexture.Apply(false, true);
 
-            _particleMaterial = new Material(shader) { name = "AC Wind Particle (Runtime)" };
+            _particleMaterial = new Material(shader) { name = "Fan Wind Particle (Runtime)" };
             if (_particleMaterial.HasProperty("_BaseMap"))
                 _particleMaterial.SetTexture("_BaseMap", _particleTexture);
             if (_particleMaterial.HasProperty("_MainTex"))
@@ -112,11 +111,11 @@ namespace GuardWave
             _particleMaterial.SetOverrideTag("RenderType", "Transparent");
             _particleMaterial.renderQueue = (int)RenderQueue.Transparent;
 
-            _particleRoot = new GameObject("Air Conditioner Wind Particles");
+            _particleRoot = new GameObject("Fan Wind Particles");
             _particleRoot.transform.SetParent(transform, false);
             for (int i = 0; i < OutletCount; i++)
             {
-                GameObject go = new GameObject("Vent " + (i + 1) + " Airflow");
+                GameObject go = new GameObject("Fan Outlet " + (i + 1) + " Airflow");
                 go.transform.SetParent(_particleRoot.transform, false);
                 go.transform.localPosition = GetLocalOutletPosition(i);
                 go.transform.localRotation =
@@ -149,7 +148,7 @@ namespace GuardWave
                 shape.enabled = true;
                 shape.shapeType = ParticleSystemShapeType.Cone;
                 shape.angle = 13f;
-                shape.radius = 0.27f;
+                shape.radius = OutletRadius;
                 shape.length = 0.08f;
 
                 Gradient fade = new Gradient();
@@ -197,7 +196,7 @@ namespace GuardWave
                 Vector3 start = GetOutletPosition(i);
                 Vector3 direction = OutletDirection;
                 Gizmos.DrawLine(start, start + direction * Reach);
-                Gizmos.DrawWireSphere(start, 0.35f);
+                Gizmos.DrawWireSphere(start, OutletRadius);
             }
         }
     }

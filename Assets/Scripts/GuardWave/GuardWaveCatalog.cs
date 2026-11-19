@@ -10,9 +10,12 @@ namespace GuardWave
         public string id;
         public string name;
         public string category;
+        public string prefabResourceId;
         public bool startOnly;
         public bool spawnOnly;
         public string[] abilities;
+
+        public string PrefabResourceId => string.IsNullOrWhiteSpace(prefabResourceId) ? id : prefabResourceId;
     }
 
     [Serializable]
