@@ -1,14 +1,13 @@
 using System.Collections.Generic;
 
 using UnityEngine;
-using UnityEngine.Rendering;
 
 namespace GuardWave
 {
     /// <summary>
-    /// Single-mesh, render-only green glue bulging across an automatically joined
-    /// Flood contact. Irregular glowing droplets evoke a glue-gun seam, without
-    /// generating physics colliders, materials or renderers for each droplet.
+    /// Single-mesh, render-only glue bulging across an automatically joined
+    /// Flood contact. Irregular droplets use the existing Mud material,
+    /// without generating physics colliders or per-droplet renderers.
     /// </summary>
     [DisallowMultipleComponent]
     public sealed class GuardWaveAutoGlueVisual : MonoBehaviour
@@ -17,47 +16,44 @@ namespace GuardWave
         private const int LATITUDES = 6;
         private const int MATERIAL_COUNT = 2;
 
-        private static Material[] s_materials;
-
         private readonly List<Vector3> _vertices = new List<Vector3>(950);
         private readonly List<int>[] _triangles =
             { new List<int>(2400), new List<int>(900) };
 
         private GuardWaveMudPatch _patch;
         private GuardWavePiece _bondedPiece;
-        private Transform _glow;
         private Mesh _mesh;
-        private float _bornAt;
 
         /// <summary>
-        /// Replaces the old mud oval with a cluster of luminous, rounded blobs.
+        /// Replaces the old mud oval with a cluster of irregular rounded blobs.
         /// All geometry is local to the contact and follows the support body.
         /// </summary>
         public void Initialize(GuardWaveMudPatch patch, GuardWavePiece bondedPiece)
         {
             _patch = patch;
             _bondedPiece = bondedPiece;
-            _bornAt = Time.time;
 
             foreach (MeshRenderer oldRenderer in GetComponentsInChildren<MeshRenderer>())
                 oldRenderer.enabled = false;
 
-            GameObject visual = new GameObject("Green Glue Bulge (Visual Only)");
-            _glow = visual.transform;
-            _glow.SetParent(transform, false);
+            GameObject visual = new GameObject("Mud Glue Bulge (Visual Only)");
+            visual.transform.SetParent(transform, false);
             MeshFilter filter = visual.AddComponent<MeshFilter>();
             MeshRenderer renderer = visual.AddComponent<MeshRenderer>();
             _mesh = BuildMesh();
             filter.sharedMesh = _mesh;
-            renderer.sharedMaterials = GetMaterials();
+            // Both faceted submeshes use the existing Mud.mat. Keep the
+            // gel geometry, not the previous green emissive material.
+            Material mud = Resources.Load<Material>("Materials/Mud");
+            renderer.sharedMaterials = new[] { mud, mud };
             renderer.shadowCastingMode = ShadowCastingMode.Off;
             renderer.receiveShadows = false;
             renderer.lightProbeUsage = LightProbeUsage.Off;
         }
 
         /// <summary>
-        /// A slight pulse keeps the gel alive. When the FixedJoint breaks, hide
-        /// its cosmetic patch; Undo will reactivate it with the restored joint.
+        /// Hide the static glue visual when its joint breaks; Undo restores
+        /// the bond and reactivates the patch without any scale animation.
         /// </summary>
         private void Update()
         {
@@ -65,13 +61,7 @@ namespace GuardWave
                 !_patch.HasBond(_bondedPiece))
             {
                 gameObject.SetActive(false);
-                return;
             }
-            if (_glow == null) return;
-            float age = Time.time - _bornAt;
-            float grow = Mathf.Clamp01(age * 7f);
-            float pulse = 1f + 0.035f * Mathf.Sin(age * 4.5f);
-            _glow.localScale = Vector3.one * (grow * pulse);
         }
 
         /// <summary>Destroy the generated mesh when this contact is discarded permanently.</summary>
@@ -80,7 +70,7 @@ namespace GuardWave
             if (_mesh != null) Destroy(_mesh);
         }
 
-        /// <summary>Build one combined low-poly gel mesh with a pale glowing center.</summary>
+        /// <summary>Build one combined low-poly gel mesh with irregular rounded lobes.</summary>
         private Mesh BuildMesh()
         {
             // The thick core bridges up to the 0.35m side gap and visibly
@@ -169,58 +159,5 @@ namespace GuardWave
             _triangles[material].Add(index + 2);
         }
 
-        /// <summary>Share two translucent emissive materials across all automatic glue spots.</summary>
-        private static Material[] GetMaterials()
-        {
-            if (s_materials != null && s_materials[0] != null)
-                return s_materials;
-            Shader shader = Shader.Find("Universal Render Pipeline/Lit");
-            if (shader == null) shader = Shader.Find("Standard");
-            if (shader == null) shader = Shader.Find("Sprites/Default");
-
-            Color[] colors =
-            {
-                new Color(.04f, .83f, .45f, .88f),
-                new Color(.38f, 1f, .69f, .80f)
-            };
-            s_materials = new Material[MATERIAL_COUNT];
-            for (int i = 0; i < MATERIAL_COUNT; i++)
-            {
-                Material material = new Material(shader)
-                {
-                    name = i == 0 ? "Flood Glue / Emerald Gel" : "Flood Glue / Mint Glow",
-                    hideFlags = HideFlags.DontSave
-                };
-                if (material.HasProperty("_BaseColor"))
-                    material.SetColor("_BaseColor", colors[i]);
-                if (material.HasProperty("_Color"))
-                    material.SetColor("_Color", colors[i]);
-                if (material.HasProperty("_Smoothness"))
-                    material.SetFloat("_Smoothness", .72f);
-                if (material.HasProperty("_Surface"))
-                    material.SetFloat("_Surface", 1f);
-                if (material.HasProperty("_Mode"))
-                    material.SetFloat("_Mode", 3f);
-                if (material.HasProperty("_SrcBlend"))
-                    material.SetFloat("_SrcBlend", (float)BlendMode.SrcAlpha);
-                if (material.HasProperty("_DstBlend"))
-                    material.SetFloat("_DstBlend", (float)BlendMode.OneMinusSrcAlpha);
-                if (material.HasProperty("_ZWrite"))
-                    material.SetFloat("_ZWrite", 0f);
-                if (material.HasProperty("_EmissionColor"))
-                {
-                    material.SetColor("_EmissionColor",
-                        i == 0 ? new Color(.02f, .75f, .25f) :
-                            new Color(.27f, 1.5f, .58f));
-                    material.EnableKeyword("_EMISSION");
-                }
-                material.SetOverrideTag("RenderType", "Transparent");
-                material.EnableKeyword("_SURFACE_TYPE_TRANSPARENT");
-                material.EnableKeyword("_ALPHABLEND_ON");
-                material.renderQueue = (int)RenderQueue.Transparent;
-                s_materials[i] = material;
-            }
-            return s_materials;
-        }
     }
 }
