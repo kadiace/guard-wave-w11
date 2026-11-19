@@ -78,7 +78,9 @@ namespace GuardWave
         internal static void RecordCpuLogImpulses(GuardWavePiece piece,
             Vector3 lift, Vector3 damping, Vector3 flow)
         {
-            if (_active == null || piece == null || piece.MaterialId != "log") return;
+            if (_active == null || _active._game == null ||
+                !_active._game.IsFloodStage || !_active.reportAllFloodLogLoads ||
+                piece == null || piece.MaterialId != "log") return;
             LogLoadWindow window = _active.GetLogLoadWindow(piece.Body);
             float dt = Mathf.Max(Time.fixedDeltaTime, 0.0001f);
             window.CpuLiftImpulse += lift;
@@ -93,7 +95,9 @@ namespace GuardWave
         internal static void RecordGpuLogImpulses(GuardWavePiece piece,
             Vector3 linear, Vector3 angular)
         {
-            if (_active == null || piece == null || piece.MaterialId != "log") return;
+            if (_active == null || _active._game == null ||
+                !_active._game.IsFloodStage || !_active.reportAllFloodLogLoads ||
+                piece == null || piece.MaterialId != "log") return;
             LogLoadWindow window = _active.GetLogLoadWindow(piece.Body);
             float dt = Mathf.Max(Time.fixedDeltaTime, 0.0001f);
             window.GpuLinearImpulse += linear;
@@ -177,7 +181,8 @@ namespace GuardWave
                 Vector2 relativeFlow = flow -
                     new Vector2(body.linearVelocity.x, body.linearVelocity.z);
                 Debug.Log(
-                    $"[Flood LogLoad] t={Time.fixedTime:F2}s id={body.GetInstanceID()} " +
+                    $"[Flood LogLoad] t={Time.fixedTime:F2}s phase={_game.FloodCrestPhase} " +
+                    $"id={body.GetInstanceID()} " +
                     $"name=\"{piece.name}\" pos={position.ToString("F2")} " +
                     $"rotation={body.rotation.eulerAngles.ToString("F1")} " +
                     $"axisRight={body.rotation * Vector3.right} " +
