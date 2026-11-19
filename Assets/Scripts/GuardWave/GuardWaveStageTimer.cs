@@ -26,7 +26,7 @@ namespace GuardWave
         // comes from the material catalog, not hard-coded scene UI text.
         public string targetMaterialId;
         public GuardWavePaletteEntry[] palette;
-        public string TargetName { get; private set; }
+        public string TargetName { get; internal set; }
 
         /// <summary>자재의 배치 제한을 조회하고 항목이 없으면 무제한을 반환한다.</summary>
         public int GetPlacementLimit(string materialId)
