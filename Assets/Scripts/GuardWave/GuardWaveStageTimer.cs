@@ -131,6 +131,8 @@ namespace GuardWave
         private static readonly Color TenSecondHighlightColor = new Color(1f, 0.65f, 0.1f, 1f);
 
         private GuardWaveGame _game;
+        private IStageHudContext _context;
+        private bool _wasContextPreparing;
         private FogSceneController _fogMode;
         private Text _disasterName;
         private Text _countdown;
@@ -168,9 +170,31 @@ namespace GuardWave
             _initialized = true;
         }
 
+        /// <summary>씬이 직접 준비시간을 관리하는 스테이지에서도 동일한 카운트다운 UI를 사용한다.</summary>
+        public void Initialize(IStageHudContext context)
+        {
+            _context = context;
+            _disasterName = transform.Find("DisasterName").GetComponent<Text>();
+            _countdown = transform.Find("Countdown").GetComponent<Text>();
+            _countdown.gameObject.SetActive(true);
+            _countdown.verticalOverflow = VerticalWrapMode.Overflow;
+            _defaultFontSize = _countdown.fontSize;
+            _defaultCountdownScale = _countdown.rectTransform.localScale;
+            _preparationDisasterName = context.StageInfo.disasterName + "가 오기까지";
+            _preparationClock = new StagePreparationClock(context.StageInfo);
+            ResetCountdown();
+            _wasContextPreparing = context.IsPreparing;
+            _initialized = true;
+        }
+
         private void Update()
         {
             if (!_initialized) return;
+            if (_context != null)
+            {
+                RefreshContextCountdown();
+                return;
+            }
 
             bool awaitingFailure = _game.AwaitingFailure;
             bool finished = _game.IsFinished;
@@ -222,6 +246,36 @@ namespace GuardWave
             // A rules modal can keep Ready unavailable; trigger once it closes.
             if (_preparationClock.Expired && CanReady) Ready();
             AnimateCountdown();
+        }
+
+        /// <summary>Avalanche owns its fixed-step clock; this component only reflects it in the shared HUD.</summary>
+        private void RefreshContextCountdown()
+        {
+            bool preparing = _context.IsPreparing;
+            if (preparing && !_wasContextPreparing)
+                ResetCountdown();
+
+            if (preparing)
+            {
+                _remainingSeconds = _context.PreparationSecondsRemaining;
+                _disasterName.text = _preparationDisasterName;
+                RefreshCountdown();
+            }
+            else
+            {
+                if (_wasContextPreparing)
+                {
+                    _remainingSeconds = 0f;
+                    RefreshCountdown();
+                    if (_pulseKind != PulseKind.Impact)
+                        StartPulse(PulseKind.Impact);
+                }
+                _disasterName.text = _context.DisasterLabel;
+            }
+            _wasContextPreparing = preparing;
+
+            if (Time.timeScale > 0f && !_context.Failed && !_context.Finished)
+                AnimateCountdown();
         }
 
         private bool CanReady => _fogMode == null ? _game.CanReady : _fogMode.CanReady;

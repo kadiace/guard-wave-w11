@@ -3,8 +3,8 @@
     {
       "sceneName": "Flood",
       "disasterName": "홍수",
-      "limitPreparationTime": false,
-      "countdownSeconds": 120,
+      "limitPreparationTime": true,
+      "countdownSeconds": 60,
       "palette": [
         {
           "materialId": "mud",
@@ -23,8 +23,8 @@
     {
       "sceneName": "Fog",
       "disasterName": "독안개",
-      "limitPreparationTime": false,
-      "countdownSeconds": 40,
+      "limitPreparationTime": true,
+      "countdownSeconds": 30,
       "palette": [
         {
           "materialId": "building",
@@ -39,8 +39,8 @@
     {
       "sceneName": "Avalanche",
       "disasterName": "눈사태",
-      "limitPreparationTime": false,
-      "countdownSeconds": 120,
+      "limitPreparationTime": true,
+      "countdownSeconds": 60,
       "palette": [
         {
           "materialId": "panel",
@@ -62,8 +62,8 @@
     {
       "sceneName": "Lava",
       "disasterName": "용암",
-      "limitPreparationTime": false,
-      "countdownSeconds": 120,
+      "limitPreparationTime": true,
+      "countdownSeconds": 30,
       "palette": [
         {
           "materialId": "wood_house",

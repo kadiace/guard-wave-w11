@@ -26,6 +26,8 @@ namespace Avalanche
         public GuardWaveMaterial[] Offers => _offers;
         public int SelectedIndex => (int)_stage.Construction.Tool;
         public bool CanEdit => _stage.CanEdit;
+        public bool IsPreparing => _stage.Phase == AvalanchePhase.Preparing;
+        public float PreparationSecondsRemaining => _stage.PreparationLeft;
         public bool CanReady => _stage.CanEdit && _stage.HasProtectedCitizens;
         public bool Failed => _stage.Phase == AvalanchePhase.Failed || _stage.Phase == AvalanchePhase.TechnicalError;
         public bool Finished => _stage.Phase == AvalanchePhase.Cleared;
