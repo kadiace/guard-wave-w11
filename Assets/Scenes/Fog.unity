@@ -704,7 +704,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 0
+  m_IsActive: 1
 --- !u!114 &1820762890
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -981,8 +981,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 8d2531db8c2530488f2535018e25336e, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  dropHeight: 7
-  dropClickCooldown: 0.1
   ambientFlowPreview: 0
   floodFillDuration: 1.2
   floodTravelDuration: 2.25

@@ -401,8 +401,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 8d2531db8c2530488f2535018e25336e, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  dropHeight: 7
-  dropClickCooldown: 0.1
   _sceneFluidSettings: {fileID: 11400000, guid: ae35f4872b73481b9db0307208ac8659, type: 2}
   ambientFlowPreview: 1
   floodFillDuration: 1.2
@@ -467,7 +465,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 0
+  m_IsActive: 1
 --- !u!4 &3100000002
 Transform:
   m_ObjectHideFlags: 0

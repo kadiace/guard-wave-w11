@@ -82,8 +82,6 @@ namespace GuardWave
 
             // Only Ready and Rules remain interactive; remove all candidate cards.
             transform.Find("CandidateSelectionRow/CandidateRow").gameObject.SetActive(false);
-            Transform dropGuide = transform.Find("Drop Prediction Dashed Line");
-            if (dropGuide != null) dropGuide.gameObject.SetActive(false);
 
             transform.Find("ActiveEffectsPanel").gameObject.SetActive(false);
             Button rulesButton = transform.Find("CandidateSelectionRow/CandidateActions/RulesButton").GetComponent<Button>();
