@@ -2,7 +2,7 @@ using UnityEngine;
 
 namespace GuardWave
 {
-    /// <summary>Selectable Rigidbody that supports outline highlighting, removal and scene rollback.</summary>
+    /// <summary>Scene-authored Rigidbody with outline highlighting, boundary destruction and rollback.</summary>
     [RequireComponent(typeof(Rigidbody))]
     public sealed class GuardWavePiece : MonoBehaviour
     {
@@ -75,13 +75,11 @@ namespace GuardWave
         private void OnCollisionEnter(Collision collision)
         {
             RecordGroundContact(collision);
-            _game?.ReportMudContact(this, collision);
         }
 
         private void OnCollisionStay(Collision collision)
         {
             RecordGroundContact(collision);
-            _game?.ReportMudContact(this, collision);
         }
 
         private void RecordGroundContact(Collision collision)
@@ -99,9 +97,6 @@ namespace GuardWave
         private void OnDisable() => _lastGroundContactTime = float.NegativeInfinity;
 
         /// <summary>Invoked on a completed right-click; dragging continues to pan the camera.</summary>
-        public void RemoveByRightClick()
-        {
-            _game?.RemovePieceByRightClick(this);
-        }
+
     }
 }

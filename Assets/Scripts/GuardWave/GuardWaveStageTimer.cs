@@ -5,23 +5,12 @@ using UnityEngine.UI;
 namespace GuardWave
 {
     [Serializable]
-    public sealed class GuardWavePaletteEntry
-    {
-        public string materialId;
-        // -1 is unlimited. Zero or greater is the maximum number of active
-        // player-placed objects of this material.
-        public int placementLimit;
-        public bool target;
-    }
-
-    [Serializable]
     public sealed class GuardWaveStageInfo
     {
         public string sceneName;
         public string disasterName;
         public bool limitPreparationTime;
         public int countdownSeconds;
-        public GuardWavePaletteEntry[] palette;
     }
 
     [Serializable]
@@ -29,38 +18,18 @@ namespace GuardWave
     {
         public GuardWaveStageInfo[] stages;
 
-        /// <summary>Both the stage timer and the palette use this single stage definition.</summary>
+        /// <summary>Stage timer settings loaded from the scene configuration.</summary>
         public static GuardWaveStageInfo LoadForScene(string sceneName)
         {
             TextAsset asset = Resources.Load<TextAsset>("Datas/StageInfo");
             if (asset == null)
                 throw new InvalidOperationException("Missing Resources/Datas/StageInfo.json");
-
             GuardWaveStageInfoFile file = JsonUtility.FromJson<GuardWaveStageInfoFile>(asset.text);
             GuardWaveStageInfo stage = file?.stages == null ? null
                 : Array.Find(file.stages, entry => entry != null && entry.sceneName == sceneName);
             if (stage == null || string.IsNullOrWhiteSpace(stage.disasterName) ||
-                stage.countdownSeconds <= 0 || stage.palette == null ||
-                stage.palette.Length == 0 || stage.palette.Length > 5)
+                stage.countdownSeconds <= 0)
                 throw new InvalidOperationException("Invalid stage settings: " + sceneName);
-
-            for (int i = 0; i < stage.palette.Length; i++)
-            {
-                GuardWavePaletteEntry entry = stage.palette[i];
-                if (entry == null || string.IsNullOrWhiteSpace(entry.materialId) ||
-                    entry.placementLimit < -1 ||
-                    (entry.target && (entry.placementLimit <= 0 ||
-                        i != stage.palette.Length - 1)) ||
-                    (entry.materialId == "default_flag" && (!entry.target ||
-                        entry.placementLimit != 1)))
-                    throw new InvalidOperationException(
-                        "Invalid palette item in StageInfo.json: " + sceneName);
-                for (int j = 0; j < i; j++)
-                    if (stage.palette[j].materialId == entry.materialId)
-                        throw new InvalidOperationException(
-                            "Duplicate palette item in StageInfo.json: " + entry.materialId);
-            }
-
             return stage;
         }
     }

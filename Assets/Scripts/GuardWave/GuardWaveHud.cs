@@ -11,14 +11,6 @@ namespace GuardWave
     /// <summary>원본 2D GuardWave UI 프리팹을 3D 물리 게임의 상태와 연결한다.</summary>
     public sealed class GuardWaveHud : MonoBehaviour
     {
-        private readonly Button[] _cards = new Button[5];
-        private readonly Text[] _names = new Text[5];
-        private readonly Text[] _remainingLabels = new Text[5];
-        private readonly Image[] _silhouettes = new Image[5];
-        private readonly Image[] _backgrounds = new Image[5];
-        private readonly string[] _shownIds = new string[5];
-        private readonly Dictionary<string, Sprite> _generatedIcons = new Dictionary<string, Sprite>();
-
         private GuardWaveGame _game;
         private FogSceneController _fogMode;
         private GuardWaveStageTimer _stageTimer;
@@ -40,19 +32,8 @@ namespace GuardWave
         private Button _readyButton;
         private Text _readyLabel;
         private GuardWavePiece _hoveredPiece;
-        private int _hoveredCard = -1;
         private const float TooltipMargin = 14f;
         private const float TooltipGap = 16f;
-
-        [Header("Candidate panel slide")]
-        [SerializeField, Min(0.05f)] private float candidateSlideDuration = 0.36f;
-        [SerializeField]
-        private AnimationCurve candidateSlideCurve =
-            AnimationCurve.EaseInOut(0f, 0f, 1f, 1f);
-        private RectTransform _candidatePanel;
-        private Vector2 _candidatePanelShown;
-        private float _candidateSlide;
-        private GuardWaveDropGuideGraphic _dropGuide;
 
         /// <summary>게임 인스턴스 및 원본 HUD 프리팹의 버튼과 상태 텍스트를 연결한다.</summary>
         public void Initialize(GuardWaveGame game)
@@ -99,33 +80,10 @@ namespace GuardWave
             _tooltipText.resizeTextMinSize = 12;
             _tooltipText.resizeTextMaxSize = 19;
 
-            _candidatePanel = transform.Find("CandidateSelectionRow").GetComponent<RectTransform>();
-            if (_game.StageInfo.palette.Length > 4)
-                _candidatePanel.sizeDelta += new Vector2(180f, 0f);
-            _candidatePanelShown = _candidatePanel.anchoredPosition;
-
-            _dropGuide = transform.Find("Drop Prediction Dashed Line")
-                .GetComponent<GuardWaveDropGuideGraphic>();
-            _dropGuide.gameObject.SetActive(false);
-
-            Transform candidates = transform.Find("CandidateSelectionRow/CandidateRow");
-            for (int i = 0; i < _cards.Length; i++)
-            {
-                int index = i;
-                Transform candidate = i < candidates.childCount ? candidates.GetChild(i)
-                    : Instantiate(candidates.GetChild(0), candidates);
-                if (i >= 4) candidate.name = "Candidate Target";
-                _cards[i] = candidate.GetComponent<Button>();
-                _names[i] = candidate.Find("MaterialName").GetComponent<Text>();
-                _remainingLabels[i] = CreateRemainingLabel(candidate, _names[i].font);
-                _silhouettes[i] = candidate.Find("Silhouette").GetComponent<Image>();
-                _backgrounds[i] = candidate.GetComponent<Image>();
-                _cards[i].onClick.AddListener(() => _game.SelectOffer(index));
-                GuardWaveCandidateHover hover = candidate.GetComponent<GuardWaveCandidateHover>();
-                if (hover == null)
-                    hover = candidate.gameObject.AddComponent<GuardWaveCandidateHover>();
-                hover.Initialize(this, index);
-            }
+            // Only Ready and Rules remain interactive; remove all candidate cards.
+            transform.Find("CandidateSelectionRow/CandidateRow").gameObject.SetActive(false);
+            Transform dropGuide = transform.Find("Drop Prediction Dashed Line");
+            if (dropGuide != null) dropGuide.gameObject.SetActive(false);
 
             transform.Find("ActiveEffectsPanel").gameObject.SetActive(false);
             Button rulesButton = transform.Find("CandidateSelectionRow/CandidateActions/RulesButton").GetComponent<Button>();
@@ -146,95 +104,37 @@ namespace GuardWave
             _completePopup.SetActive(false);
             _rulesPopup.SetActive(false);
             _tooltip.SetActive(false);
-            _rulesBody.text = $@"진흙을 선택하면 실제 접촉 지점 또는 XZ 방향 표면 간격 0.35m 이내에 노란 반투명 가이드가 표시됩니다.
-노란 가이드를 클릭하면 타원형 진흙 한 덩어리로 두 물체가 고정 연결됩니다. 드래그로 칠하지 않습니다.
-A-B, A-C처럼 한 물체에 여러 물체를 각각 연결하거나 냇가 바닥에 붙일 수 있습니다.
-진흙과 통나무는 각각 30개로, 초기 배치된 13개를 제외하고 17개씩 남습니다.
-통나무는 {_game.GetPlacementLimit("log")}개, 조약돌은 {_game.GetPlacementLimit("forest_pebble")}개까지 배치할 수 있으며, 남은 개수는 팔레트에 표시됩니다.
-팔레트에서 재료를 선택해 마우스를 누른 채 드래그하면 겹치지 않는 지점마다 연속 배치됩니다.
-선택한 재료는 우클릭으로 해제하기 전까지 계속 사용할 수 있습니다.
-하단의 준비완료를 누르면 홍수가 밀려옵니다.
-깃발은 팔레트 마지막의 금색 목표물입니다. 깃발을 직접 배치해야 준비 완료할 수 있습니다.
-깃발을 지키세요! 절벽 뒤로 밀리거나 물에 충분히 잠긴 상태가 5초 지속되면 방어에 실패합니다.
-실패 팝업에서 확인을 누르면 마지막으로 저장된 배치 상태로 돌아갑니다. 배치한 적이 없다면 씬이 재시작됩니다.
-
-우클릭 드래그: 카메라 이동
-스크롤: 확대
-우클릭 중 스크롤: 카메라 회전
-Q/E: 기물 회전 / 우클릭 또는 Esc: 선택 취소
-Ctrl+Z: 최근 기물 배치, 깃발 배치, 진흙 접촉 연결 또는 수동 제거 되돌리기
-
-홍수에 밀려 절벽 뒤로 넘어간 기물은 파괴됩니다.
-";
+            _rulesBody.text =
+                "씬의 기물과 목표 깃발은 시작부터 배치되어 있습니다.\n"
+                + "준비 완료를 누르면 재해가 시작됩니다. 깃발을 지켜내세요.\n"
+                + "실패 팝업의 확인을 누르면 사전 배치 상태로 복원합니다.\n\n"
+                + "우클릭 드래그: 카메라 이동 / 스크롤: 확대\n"
+                + "우클릭 중 스크롤: 카메라 회전 / R: 재시작";
             if (_game.IsLavaStage)
-                _rulesBody.text = "목표 깃발을 직접 배치해야 준비 완료할 수 있습니다.\n"
-                    + "나무집 10개, 돌집 10개, 나무 판자 30개를 사용할 수 있습니다.\n"
-                    + "사전 배치된 집도 재고에 포함됩니다. 우클릭으로 회수하면 수량이 반환됩니다.\n"
-                    + "준비 완료를 누르면 용암이 -Z 방향으로 60초 동안 흐릅니다.\n"
-                    + "용암 입자가 가까워지거나 표면이 용암으로 뒤덮이면 불이 붙고 3초 뒤 파괴됩니다. 깃발이 살아남으면 성공합니다.";
+                _rulesBody.text += "\n용암에 닿은 기물은 불타다가 파괴됩니다.";
             if (_fogMode != null)
-                _rulesBody.text = $"깃발을 직접 배치해야 준비 완료할 수 있습니다.\n건물을 최대 {_game.GetPlacementLimit("building")}개 배치할 수 있으며, 남은 개수는 팔레트에 표시됩니다.\n"
-                    + "마우스를 누른 채 드래그하면 건물이 겹치지 않는 지점마다 연속 배치됩니다.\n"
-                    + "기물을 배치한 후 준비 완료를 누르면 안개가 상류에서 몰려옵니다.\n"
-                    + "안개는 건물과 기물을 돌아 -Z 방향으로 흐르며 옆으로 확산됩니다.\n"
-                    + "깃발 주변 독안개 밀도 0.01 이상에서 노출이 시작되며, 시작 후에는 0.001 이상이면 유지됩니다.\n"
-                    + "노출이 5초 연속되면 방어에 실패하며, 0.001 미만이면 게이지가 초기화됩니다.\n"
-                    + "안개 시뮬레이션은 기본 30초, 밀도 0.001 이상 감지 시 현재 시뮬레이션 시간 +5초로 연장됩니다.\n"
-                    + "30초 이후 깃발 밀도가 0.0001 미만이면 조기 종료하고, 60초에는 반드시 종료됩니다.\n"
-                    + "30~60초에는 독안개 밀도가 서서히 0으로 감소합니다.\n"
-                    + "시뮬레이션 시간 0~30초는 1배속, 30~60초는 2배속입니다.\n"
-                    + "실패 팝업에서는 상단 타이머만 멈추고 안개 시뮬레이션은 계속됩니다.\n"
-                    + "안개가 지나간 뒤 깃발이 살아 있다면 스테이지를 클리어합니다.\n\n"
-                    + "우클릭 드래그: 카메라 이동 / 스크롤: 확대 / Q/E: 기물 회전";
+                _rulesBody.text += "\n독안개에 5초 이상 노출되면 방어에 실패합니다.";
+
             Refresh();
         }
 
         private void Update()
         {
             if (_game == null) return;
-            AnimateCandidatePanel();
             Refresh();
         }
 
         /// <summary>후보가 닫혀 있거나 파도 진행 중에는 선택 패널을 아래로 숨긴다.</summary>
-        private void AnimateCandidatePanel()
-        {
-            if (_candidatePanel == null) return;
-            float target = _game.IsPaletteHidden ? 1f : 0f;
-            _candidateSlide = Mathf.MoveTowards(_candidateSlide, target,
-                Time.unscaledDeltaTime / Mathf.Max(0.05f, candidateSlideDuration));
-            float eased = candidateSlideCurve == null
-                ? Mathf.SmoothStep(0f, 1f, _candidateSlide)
-                : candidateSlideCurve.Evaluate(_candidateSlide);
-            float hideDistance = _candidatePanel.rect.height + _candidatePanelShown.y + 32f;
-            _candidatePanel.anchoredPosition = _candidatePanelShown
-                + Vector2.down * hideDistance * eased;
-        }
+
 
         /// <summary>실제 낙하 시작점과 현재 미리보기의 화면 좌표를 실시간 점선으로 연결한다.</summary>
-        public void ShowDropGuide(Vector2 launchScreen, Vector2 landingScreen)
-        {
-            if (_dropGuide == null) return;
-            if (!_dropGuide.gameObject.activeSelf) _dropGuide.gameObject.SetActive(true);
-            _dropGuide.SetScreenEndpoints(launchScreen, landingScreen);
-        }
 
-        public void HideDropGuide()
-        {
-            if (_dropGuide != null && _dropGuide.gameObject.activeSelf)
-                _dropGuide.gameObject.SetActive(false);
-        }
+
+
 
         private void OnDestroy()
         {
             if (_rulesPopup != null && _rulesPopup.activeSelf) Time.timeScale = 1f;
-            foreach (Sprite sprite in _generatedIcons.Values)
-            {
-                if (sprite == null) continue;
-                Texture2D texture = sprite.texture;
-                Destroy(sprite);
-                if (texture != null) Destroy(texture);
-            }
         }
 
         /// <summary>프리팹의 하위 경로에서 UGUI 텍스트 참조를 찾아 반환한다.</summary>
@@ -244,38 +144,7 @@ Ctrl+Z: 최근 기물 배치, 깃발 배치, 진흙 접촉 연결 또는 수동 
         /// An overlay on the palette card shows remaining/total while leaving
         /// the existing vertical layout, silhouette and tooltip intact.
         /// </summary>
-        private static Text CreateRemainingLabel(Transform candidate, Font font)
-        {
-            GameObject counter = new GameObject("RemainingCount",
-                typeof(RectTransform), typeof(CanvasRenderer),
-                typeof(Text), typeof(LayoutElement), typeof(Outline));
-            counter.transform.SetParent(candidate, false);
-            LayoutElement element = counter.GetComponent<LayoutElement>();
-            element.ignoreLayout = true;
-            RectTransform rect = counter.GetComponent<RectTransform>();
-            rect.anchorMin = new Vector2(1f, 0f);
-            rect.anchorMax = new Vector2(1f, 0f);
-            rect.pivot = new Vector2(1f, 0f);
-            rect.anchoredPosition = new Vector2(-8f, 6f);
-            rect.sizeDelta = new Vector2(86f, 24f);
 
-            Text text = counter.GetComponent<Text>();
-            text.font = font;
-            text.fontSize = 17;
-            text.fontStyle = FontStyle.Bold;
-            text.alignment = TextAnchor.MiddleRight;
-            text.color = Color.white;
-            text.raycastTarget = false;
-            text.horizontalOverflow = HorizontalWrapMode.Overflow;
-            text.verticalOverflow = VerticalWrapMode.Overflow;
-
-            Outline outline = counter.GetComponent<Outline>();
-            outline.effectColor = new Color(0f, 0f, 0f, 0.85f);
-            outline.effectDistance = new Vector2(1f, -1f);
-            counter.transform.SetAsLastSibling();
-            counter.SetActive(false);
-            return text;
-        }
 
         /// <summary>상단 스테이지 정보, 하단 카드, 버튼, 팝업을 현재 게임 상태로 갱신한다.</summary>
         /// <summary>ESC 메뉴가 가이드를 먼저 닫도록 현재 표시 상태를 공개한다.</summary>
@@ -283,108 +152,36 @@ Ctrl+Z: 최근 기물 배치, 깃발 배치, 진흙 접촉 연결 또는 수동 
 
         private void Refresh()
         {
-            // Match the visible countdown to early fog completion before
-            // activating the success popup in this same HUD refresh.
             if (_fogMode != null && _game.IsFinished)
                 _stageTimer.CompleteFogCountdown();
             RefreshFogExposure();
-            if (_game.IsPaletteHidden && _hoveredCard >= 0)
-            {
-                _hoveredCard = -1;
-                _tooltip.SetActive(false);
-            }
             bool canReady = _fogMode == null ? _game.CanReady : _fogMode.CanReady;
             _readyButton.interactable = canReady;
             bool incoming = _fogMode == null ? _game.WaveHasStarted : _fogMode.IsComing;
-            string readyText = !canReady && incoming ? "오는 중..."
-                : !_game.AllTargetsPlaced ? "목표물 배치 필요" : "준비 완료";
-            if (_readyLabel.text != readyText)
-                _readyLabel.text = readyText;
+            string readyText = !canReady && incoming ? "오는 중..." : "준비 완료";
+            if (_readyLabel.text != readyText) _readyLabel.text = readyText;
             _detail.text = (_fogMode == null ? _game.StatusMessage : _fogMode.StatusMessage) ?? "";
             if (_hoveredPiece != null && !_game.IsPlacedPiece(_hoveredPiece))
             {
                 _hoveredPiece = null;
-                if (_hoveredCard < 0) _tooltip.SetActive(false);
+                _tooltip.SetActive(false);
             }
-            if (_hoveredPiece != null && _hoveredCard < 0 && _tooltip.activeSelf)
+            if (_hoveredPiece != null && _tooltip.activeSelf)
             {
                 string description = PieceDescription(_hoveredPiece);
                 if (_tooltipText.text != description)
                 {
                     Mouse mouse = Mouse.current;
-                    ShowDescription(description, mouse == null ? Vector2.zero : mouse.position.ReadValue());
+                    ShowDescription(description,
+                        mouse == null ? Vector2.zero : mouse.position.ReadValue());
                 }
             }
-
-            for (int i = 0; i < _cards.Length; i++)
-            {
-                GuardWaveMaterial info = _game.CurrentOffers[i];
-                if (info == null)
-                {
-                    // The HUD is shared with Fog, where the fourth offer is absent.
-                    if (_cards[i].gameObject.activeSelf)
-                        _cards[i].gameObject.SetActive(false);
-                    _shownIds[i] = null;
-                    _names[i].text = "";
-                    _remainingLabels[i].gameObject.SetActive(false);
-                    _silhouettes[i].sprite = null;
-                    _silhouettes[i].color = Color.clear;
-                    _cards[i].interactable = false;
-                    _backgrounds[i].color = new Color(0.12f, 0.17f, 0.21f, 1f);
-                    continue;
-                }
-                if (!_cards[i].gameObject.activeSelf)
-                    _cards[i].gameObject.SetActive(true);
-                if (_shownIds[i] != info.id)
-                {
-                    _shownIds[i] = info.id;
-                    _names[i].text = info.name;
-                    _names[i].color = _game.IsTargetMaterial(info.id)
-                        ? new Color(1f, 0.88f, 0.58f, 1f) : Color.white;
-                    _silhouettes[i].sprite = Icon(info);
-                    _silhouettes[i].color = Color.white;
-                    _silhouettes[i].preserveAspect = true;
-                }
-                int limit = _game.GetPlacementLimit(info.id);
-                int remaining = limit < 0 ? -1 : _game.GetRemainingPlacements(info.id);
-                Text counter = _remainingLabels[i];
-                if (limit >= 0)
-                {
-                    if (!counter.gameObject.activeSelf) counter.gameObject.SetActive(true);
-                    string quantity = remaining + "/" + limit;
-                    if (counter.text != quantity) counter.text = quantity;
-                    counter.color = _game.IsTargetMaterial(info.id)
-                        ? new Color(1f, 0.86f, 0.5f, 1f)
-                        : remaining == 0
-                            ? new Color(1f, 0.48f, 0.43f, 1f) : Color.white;
-                }
-                else if (counter.gameObject.activeSelf)
-                    counter.gameObject.SetActive(false);
-
-                bool exhausted = limit >= 0 && remaining == 0;
-                _cards[i].interactable = _game.CanSelect && !exhausted;
-                bool target = _game.IsTargetMaterial(info.id);
-                _backgrounds[i].color = target
-                    ? exhausted
-                        ? new Color(0.34f, 0.25f, 0.12f, 1f)
-                        : _game.SelectedOffer == i
-                            ? new Color(0.85f, 0.55f, 0.18f, 1f)
-                            : new Color(0.54f, 0.35f, 0.14f, 1f)
-                    : exhausted
-                        ? new Color(0.17f, 0.2f, 0.23f, 1f)
-                        : _game.SelectedOffer == i
-                            ? new Color(0.29f, 0.46f, 0.57f, 1f)
-                            : new Color(0.2f, 0.3f, 0.37f, 1f);
-            }
-
             if (!_game.CanShowItemInfo)
             {
                 _hoveredPiece = null;
-                _hoveredCard = -1;
                 _tooltip.SetActive(false);
             }
             _stagePopup.SetActive(_game.AwaitingFailure && !_game.IsFinished);
-            // Fog remains active behind victory UI; only Forest pauses physics.
             if (_game.IsFinished && !_completePopup.activeSelf && _fogMode == null)
                 Time.timeScale = 0f;
             _completePopup.SetActive(_game.IsFinished);
@@ -445,72 +242,16 @@ Ctrl+Z: 최근 기물 배치, 깃발 배치, 진흙 접촉 연결 또는 수동 
         }
 
         /// <summary>원본의 후보 이미지 영역에 표시할 저해상도 픽셀 실루엣을 생성한다.</summary>
-        private Sprite Icon(GuardWaveMaterial info)
-        {
-            if (_generatedIcons.TryGetValue(info.id, out Sprite sprite)) return sprite;
-            const int size = 32;
-            Texture2D texture = new Texture2D(size, size, TextureFormat.RGBA32, false);
-            texture.filterMode = FilterMode.Point;
-            texture.wrapMode = TextureWrapMode.Clamp;
-            Material material = Resources.Load<Material>("Materials/" + info.id + "_Base");
-            Color color = info.id == "mud" ? new Color(0.42f, 0.28f, 0.16f, 1f)
-                : info.id == "default_flag" ? new Color(0.99f, 0.76f, 0.29f, 1f)
-                : material == null ? Color.gray : material.color;
-            Color shadow = new Color(color.r * 0.53f, color.g * 0.53f, color.b * 0.53f, 1f);
-            int shape = Shape(info.id, info.category);
-            for (int y = 0; y < size; y++)
-            {
-                for (int x = 0; x < size; x++)
-                {
-                    float u = (x - 15.5f) / 14f;
-                    float v = (y - 15.5f) / 14f;
-                    bool filled = shape == 9
-                        ? ((Mathf.Abs(u + 0.48f) < 0.12f && v > -0.85f && v < 0.85f) ||
-                           (u > -0.4f && u < 0.72f && v > 0.08f && v < 0.7f))
-                        : shape == 8
-                        ? ((u > -0.48f && u < 0.55f && v > 0.12f && v < 0.53f) ||
-                           (u > -0.88f && u <= -0.48f && v > 0.19f && v < 0.46f) ||
-                           (u > 0.02f && u < 0.27f && v > -0.78f && v <= 0.12f))
-                        : shape == 7
-                        ? u * u + v * v < 0.74f + 0.08f * Mathf.Sin(u * 12f) * Mathf.Cos(v * 9f)
-                        : shape == 0 ? Mathf.Abs(u) < 0.28f && Mathf.Abs(v) < 0.85f
-                        : shape == 1 ? Mathf.Abs(u) < 0.8f && Mathf.Abs(v) < 0.36f
-                        : shape == 2 ? (u * u + v * v < 0.78f && u * u + v * v > 0.22f)
-                        : shape == 3 ? (u * u + v * v < 0.72f && v > 0.08f) || (Mathf.Abs(u) < 0.14f && v < 0.35f && v > -0.9f)
-                        : shape == 4 ? Mathf.Abs(u) < 0.68f && Mathf.Abs(v) < 0.72f
-                        : shape == 5 ? Mathf.Abs(u) + Mathf.Abs(v) < 1.15f
-                        : Mathf.Abs(u) < 0.66f && v < 0.6f && v > -0.78f;
-                    Color pixel = filled ? (x < 15 || y < 15 ? shadow : color) : Color.clear;
-                    texture.SetPixel(x, y, pixel);
-                }
-            }
-            texture.Apply(false);
-            sprite = Sprite.Create(texture, new Rect(0, 0, size, size), new Vector2(0.5f, 0.5f), size);
-            _generatedIcons.Add(info.id, sprite);
-            return sprite;
-        }
+
 
         /// <summary>재료 ID와 종류에 따라 카드의 간략한 픽셀 실루엣 유형을 결정한다.</summary>
-        private static int Shape(string id, string category)
-        {
-            if (id == "mud") return 7;
-            if (id == "default_flag") return 9;
-            if (id == "tire" || id == "life_ring") return 2;
-            if (id == "sunflower" || id == "living_tree" || id == "growing_vine") return 3;
-            if (id == "branch" || id == "leafy_branch" || id == "vine") return 0;
-            if (id == "shoe" || id == "log" || id == "umbrella") return 1;
-            if (id == "pebble" || id == "forest_pebble" ||
-                id == "large_stone" || id == "fossil") return 5;
-            if (category == "폐기물") return 6;
-            return 4;
-        }
+
 
         /// <summary>원본 규칙 팝업을 표시한다.</summary>
         private void ShowRules()
         {
             if (_rulesPopup.activeSelf || _game.GetComponent<ForestSceneContext>().PauseMenu.IsOpen) return;
             _hoveredPiece = null;
-            _hoveredCard = -1;
             _tooltip.SetActive(false);
             _game.SetRulesOpen(true);
             _rulesPopup.SetActive(true);
@@ -523,72 +264,41 @@ Ctrl+Z: 최근 기물 배치, 깃발 배치, 진흙 접촉 연결 또는 수동 
             if (!_rulesPopup.activeSelf) return;
             _rulesPopup.SetActive(false);
             _hoveredPiece = null;
-            _hoveredCard = -1;
             _tooltip.SetActive(false);
             _game.SetRulesOpen(_fogMode != null && _fogMode.IsComing);
             Time.timeScale = 1f;
         }
 
         /// <summary>원본의 후보 자재 설명 형식을 사용해 커서 옆 툴팁을 표시한다.</summary>
-        public void ShowTooltip(int index, Vector2 screen)
-        {
-            if (!_game.CanShowItemInfo) return;
-            GuardWaveMaterial material = _game.CurrentOffers[index];
-            if (material == null) return;
-            string description = CandidateDescription(material);
-            if (description == null) return;
-            _hoveredCard = index;
-            _hoveredPiece = null;
-            ShowDescription(description, screen);
-        }
+
 
         /// <summary>기물에 물리 레이캐스트가 적중하면 접촉 정보를 표시한다.</summary>
         public void SetHoveredPiece(GuardWavePiece piece, Vector2 screen)
         {
             string description = piece != null && _game.IsPlacedPiece(piece)
                 ? PieceDescription(piece) : null;
-            if (!_game.CanShowItemInfo || description == null)
-                piece = null;
-
+            if (!_game.CanShowItemInfo || description == null) piece = null;
             if (piece != _hoveredPiece)
             {
                 _hoveredPiece = piece;
-                if (_hoveredCard < 0)
-                {
-                    if (piece == null) _tooltip.SetActive(false);
-                    else ShowDescription(description, screen);
-                }
+                if (piece == null) _tooltip.SetActive(false);
+                else ShowDescription(description, screen);
             }
-            if (piece != null && _hoveredCard < 0)
+            if (piece != null)
             {
-                // The UI card exit can hide the shared tooltip after this piece is selected.
                 if (!_tooltip.activeSelf) ShowDescription(description, screen);
                 else MoveTooltip(screen);
             }
         }
 
         /// <summary>Shared candidate/piece text for the Forest palette and its objective.</summary>
-        private string CandidateDescription(GuardWaveMaterial material)
-        {
-            if (material == null) return null;
-            switch (material.id)
-            {
-                case "mud":
-                case "log":
-                case "forest_pebble":
-                case "default_flag":
-                case "building":
-                    return BuildCandidateDetails(material);
-                default:
-                    return AbilityTooltip(material.id);
-            }
-        }
+
 
         private string PieceDescription(GuardWavePiece piece)
         {
             if (piece == null) return null;
             GuardWaveMaterial material = _game.GetPieceMaterial(piece);
-            return material != null ? CandidateDescription(material) : AbilityTooltip(piece.MaterialId);
+            return material != null ? BuildCandidateDetails(material) : AbilityTooltip(piece.MaterialId);
         }
 
         /// <summary>접착제와 성장 기물에만 표시할 짧은 툴팁 문구를 반환한다.</summary>
@@ -670,11 +380,7 @@ Ctrl+Z: 최근 기물 배치, 깃발 배치, 진흙 접촉 연결 또는 수동 
         }
 
         /// <summary>후보에서 포인터가 벗어나면 툴팁 소유권을 해제한다.</summary>
-        public void HideTooltip()
-        {
-            _hoveredCard = -1;
-            _tooltip.SetActive(false);
-        }
+
     }
 
 }

@@ -138,7 +138,7 @@ namespace GuardWave
         private IEnumerator FogPass()
         {
             _running = true;
-            _game.SetRulesOpen(true); // Existing placement UI and input become read-only.
+            _game.SetRulesOpen(true); // Disable game interaction during the fog simulation.
             _flagProbes = _game.DefenseFlag != null
                 ? _game.DefenseFlag.GetComponent<FogFlagDensityProbes>() : null;
             _exposureSeconds = 0f;
@@ -162,7 +162,7 @@ namespace GuardWave
                 _game.SetRulesOpen(false);
                 yield break;
             }
-            _status = "도시 도로로 밀려오는 안개에 배치한 건물의 실외기 바람이 맞서고 있습니다.";
+            _status = "도시 도로로 밀려오는 안개에 사전 배치된 건물의 실외기 바람이 맞서고 있습니다.";
             float ground = -2.25f;
             GameObject bed = GameObject.Find("Fog Asphalt Ground");
             if (bed != null)
