@@ -2012,7 +2012,7 @@ namespace GuardWave
             for (int i = -6; i <= 6; i++)
             {
                 float x = i * 0.3f;
-                Vector3 worldPosition = new Vector3(x, -5.8f, 6f - Mathf.Abs(x));
+                Vector3 worldPosition = new Vector3(x, -4f, 6f - Mathf.Abs(x));
                 GuardWavePiece piece = Spawn(log, worldPosition);
                 piece.name = "Log (" + (i + 7) + ")";
                 piece.transform.SetParent(_runtimeInitialWall.transform, true);
