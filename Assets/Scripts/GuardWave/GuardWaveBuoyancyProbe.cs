@@ -128,7 +128,7 @@ namespace GuardWave
                 if (entry.Key == null || entry.Value.Joints == null) continue;
                 foreach (Joint joint in entry.Value.Joints)
                 {
-                    if (joint == null || !joint.enabled) continue;
+                    if (joint == null || !joint.gameObject.activeInHierarchy) continue;
                     entry.Value.PeakJointForce = Mathf.Max(
                         entry.Value.PeakJointForce, joint.currentForce.magnitude);
                     entry.Value.PeakJointTorque = Mathf.Max(
@@ -154,7 +154,7 @@ namespace GuardWave
                 float jointForceNow = 0f, jointTorqueNow = 0f;
                 foreach (Joint joint in joints)
                 {
-                    if (joint == null || !joint.enabled) continue;
+                    if (joint == null || !joint.gameObject.activeInHierarchy) continue;
                     jointCount++;
                     jointForceNow = Mathf.Max(jointForceNow,
                         joint.currentForce.magnitude);
