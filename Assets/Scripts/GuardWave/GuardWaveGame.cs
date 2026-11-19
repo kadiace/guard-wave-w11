@@ -55,6 +55,16 @@ namespace GuardWave
         [Tooltip("Maximum -Z speed contributed by the drift; faster waves keep their existing speed.")]
         [SerializeField, Min(0f)] private float floodDownstreamMaxSpeed = 1.2f;
 
+        [Header("Flood pressure on obstacles")]
+        [Tooltip("Flood-only horizontal pressure response on rigidbodies. Zero disables the extra force.")]
+        [SerializeField, Range(0f, 1f)] private float floodPressureResponse = 0.15f;
+        [Tooltip("Maximum pressure per wet grid cell before applying the obstacle impulse.")]
+        [SerializeField, Min(0f)] private float floodPressureCellClamp = 500f;
+        [Tooltip("Maximum pressure force per Rigidbody, in newtons.")]
+        [SerializeField, Min(0f)] private float floodPressureMaxForce = 350f;
+        [Tooltip("Maximum pressure torque per Rigidbody, in newton-metres.")]
+        [SerializeField, Min(0f)] private float floodPressureMaxTorque = 300f;
+
         [Header("Flood stage transition")]
         [SerializeField, Min(0.1f)] private float floodFillDuration = 1.2f;
         [SerializeField, Min(0.1f)] private float floodTravelDuration = 2.25f;
@@ -2077,7 +2087,11 @@ namespace GuardWave
                     _lowerCreekBounds.max.y, _fluidSettings.AmbientWaterDepth,
                     floodTravelDuration, _pieces, _flagBody, _fluidSettings, ambientFlow: true,
                     downstreamDriftAcceleration: _isFloodStage ? floodDownstreamAcceleration : 0f,
-                    downstreamDriftMaxSpeed: _isFloodStage ? floodDownstreamMaxSpeed : 0f);
+                    downstreamDriftMaxSpeed: _isFloodStage ? floodDownstreamMaxSpeed : 0f,
+                    floodPressureResponse: _isFloodStage ? floodPressureResponse : 0f,
+                    floodPressureCellClamp: floodPressureCellClamp,
+                    floodPressureMaxForce: floodPressureMaxForce,
+                    floodPressureMaxTorque: floodPressureMaxTorque);
                 if (_isLavaStage) _lavaAtmosphere?.BindFluid(_fluid);
                 // The authored surface is still visible in the editor; disable
                 // its renderer only in Play Mode to expose the real FLIP water.

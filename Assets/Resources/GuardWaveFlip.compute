@@ -69,6 +69,9 @@ float _DownstreamDriftMaxSpeed;
 float _FlipFraction;
 float _ParticleMass;
 float _HydroDensity;
+float _FloodPressureResponse; // Flood-only horizontal obstacle pressure
+float _FloodPressureCellClamp;
+int _FloodPressureBodyOffset; // extra int4 lanes past the legacy body samples
 float _FlowForceMultiplier;
 float _PressureClamp;
 float _PressureThreshold;
@@ -213,7 +216,12 @@ void ClearGrid(uint id : SV_DispatchThreadID)
         _PressureDst[id] = 0;
     }
     if (id < _BodyCount * 2 && _ClearBodyImpulses != 0)
+    {
         _BodyImpulses[id] = int4(0,0,0,0);
+        // Reuse the existing buffer and eight-UAV ClearGrid kernel.
+        if (_FloodPressureResponse > 0.0)
+            _BodyImpulses[_FloodPressureBodyOffset + id] = int4(0,0,0,0);
+    }
     if (id < 3)
         _CrestMetrics[id] = 0u;
     // Keep pending refill debt and its global sequence across physics ticks.
@@ -1168,22 +1176,37 @@ void PressureToBodies(uint id : SV_DispatchThreadID)
         FluidCollider body = _Colliders[i];
         int bi = (int)body.centerBody.w;
         if (bi < 0 || bi >= (int)_BodyCount) continue;
-        // Relative-density game pieces, including heavy stones, already get
-        // volumetric buoyancy and flow forces. Per-cell pressure impulses
-        // are unbounded at the riverbed and can launch a 2.6-density stone.
-        // Preserve this impact path for non-piece bodies such as the flag.
-        if (body.fluidProperties.x > 0.0) continue;
+        // Flood pieces use separate force/torque lanes; their legacy lanes
+        // encode buoyancy and sampled flow, not conventional impulses.
+        bool relativeDensityPiece = body.fluidProperties.x > 0.0;
+        if (relativeDensityPiece && _FloodPressureResponse <= 0.0) continue;
         float3 dr = pos - body.centerBody.xyz;
         float radius = body.velocity.w + _CellSize;
         if (dot(dr, dr) > radius * radius) continue;
         float distance = SignedDistance(body, pos);
         if (distance < 0 || distance > _CellSize) continue;
         float3 normal = ColliderNormal(body, pos);
-        // Reaction of the pressure gradient on the solid surface.
-        float3 impulse = -normal * pressure * _HydroDensity * _Dt *
-            _CellSize * _CellSize;
-        float3 torque = cross(pos - body.bodyCenter.xyz, impulse);
+        float3 impulse;
         uint index = (uint)bi * 2;
+        if (relativeDensityPiece)
+        {
+            // Vertical hydrostatic lift remains handled by buoyancy.
+            // Horizontal pressure pushes a jammed obstacle, and its lever
+            // arm generates the torque required to roll or unseat logs.
+            float3 horizontalNormal = float3(normal.x, 0.0, normal.z);
+            if (dot(horizontalNormal, horizontalNormal) < 0.04) continue;
+            float boundedPressure = min(pressure, _FloodPressureCellClamp);
+            impulse = -horizontalNormal * boundedPressure * _HydroDensity *
+                _FloodPressureResponse * _Dt * _CellSize * _CellSize;
+            index += (uint)_FloodPressureBodyOffset;
+        }
+        else
+        {
+            // Preserve non-piece bodies' original pressure path.
+            impulse = -normal * pressure * _HydroDensity * _Dt *
+                _CellSize * _CellSize;
+        }
+        float3 torque = cross(pos - body.bodyCenter.xyz, impulse);
         InterlockedAdd(_BodyImpulses[index].x, (int)round(impulse.x * SCALE));
         InterlockedAdd(_BodyImpulses[index].y, (int)round(impulse.y * SCALE));
         InterlockedAdd(_BodyImpulses[index].z, (int)round(impulse.z * SCALE));

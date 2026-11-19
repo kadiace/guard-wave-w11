@@ -32,6 +32,9 @@ namespace GuardWave
             public Vector3 CpuDampingImpulse;
             public Vector3 GpuLinearImpulse;
             public Vector3 GpuAngularImpulse;
+            public Vector3 PressureLinearImpulse;
+            public float PeakPressureForce;
+            public float PeakPressureTorque;
             public float PeakGpuLinearForce;
             public float PeakGpuTorque;
             public float PeakJointForce;
@@ -44,6 +47,8 @@ namespace GuardWave
                 StartTime = startTime;
                 CpuFlowImpulse = CpuLiftImpulse = CpuDampingImpulse = Vector3.zero;
                 GpuLinearImpulse = GpuAngularImpulse = Vector3.zero;
+                PressureLinearImpulse = Vector3.zero;
+                PeakPressureForce = PeakPressureTorque = 0f;
                 CpuFlowImpulseAbs = PeakCpuFlowForce = 0f;
                 PeakGpuLinearForce = PeakGpuTorque = 0f;
                 PeakJointForce = PeakJointTorque = 0f;
@@ -107,6 +112,21 @@ namespace GuardWave
             window.PeakGpuTorque = Mathf.Max(window.PeakGpuTorque,
                 angular.magnitude / dt);
             window.GpuSamples++;
+        }
+
+        internal static void RecordGpuLogPressureImpulses(GuardWavePiece piece,
+            Vector3 linear, Vector3 angular)
+        {
+            if (_active == null || _active._game == null ||
+                !_active._game.IsFloodStage || !_active.reportAllFloodLogLoads ||
+                piece == null || piece.MaterialId != "log") return;
+            LogLoadWindow window = _active.GetLogLoadWindow(piece.Body);
+            float dt = Mathf.Max(Time.fixedDeltaTime, 0.0001f);
+            window.PressureLinearImpulse += linear;
+            window.PeakPressureForce = Mathf.Max(window.PeakPressureForce,
+                linear.magnitude / dt);
+            window.PeakPressureTorque = Mathf.Max(window.PeakPressureTorque,
+                angular.magnitude / dt);
         }
 
         private LogLoadWindow GetLogLoadWindow(Rigidbody body)
@@ -195,6 +215,9 @@ namespace GuardWave
                     $"gpuLinearAbsMean={gpuLinearAverage:F2}N " +
                     $"gpuLinearPeak={window.PeakGpuLinearForce:F2}N " +
                     $"gpuTorquePeak={window.PeakGpuTorque:F2}Nm " +
+                    $"pressureMean={window.PressureLinearImpulse.magnitude / duration:F2}N " +
+                    $"pressurePeak={window.PeakPressureForce:F2}N " +
+                    $"pressureTorquePeak={window.PeakPressureTorque:F2}Nm " +
                     $"jointCount={jointCount} jointPeakForce={window.PeakJointForce:F2}N " +
                     $"jointPeakTorque={window.PeakJointTorque:F2}Nm " +
                     $"cpuSamples={window.CpuSamples} gpuSamples={window.GpuSamples} " +
