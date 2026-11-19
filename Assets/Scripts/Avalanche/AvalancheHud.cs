@@ -70,7 +70,6 @@ namespace Avalanche
                 button.onClick.AddListener(() => FocusCitizen(row));
                 _citizenLabels.Add(label);
             }
-            _view.OpenSceneRules();
         }
 
         /// <summary>Creates a readable text label in the shared canvas font and coordinate system.</summary>

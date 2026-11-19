@@ -138,15 +138,23 @@ namespace Avalanche
             _viewCamera.GetComponent<StageCameraController>().InitializeOverview(Hud.BlocksPointer, true);
             _pauseMenu = Instantiate(Resources.Load<StagePauseMenu>("Prefabs/UIs/StagePauseMenu"), transform);
             _pauseMenu.Initialize(() => Phase != AvalanchePhase.Introduction && !IsFinished(),
-                SetPaused, () => Retry(true), ConsumeEscape);
+                SetPaused, ConsumeEscape);
             CreateForecast(_firstSource, "First snow release");
             CreateForecast(_secondSource, "Second snow release");
             CreateAudio();
+            BeginPreparation();
         }
 
         private void Update()
         {
-            if (Keyboard.current == null || !Keyboard.current.enterKey.wasPressedThisFrame) return;
+            Keyboard keyboard = Keyboard.current;
+            if (keyboard == null || _pauseMenu.IsOpen) return;
+            if (keyboard.rKey.wasPressedThisFrame)
+            {
+                Managers.Scene.ReloadCurrentScene();
+                return;
+            }
+            if (!keyboard.enterKey.wasPressedThisFrame) return;
             if (Phase == AvalanchePhase.Introduction) BeginPreparation();
             else if (CanEdit) Ready();
         }

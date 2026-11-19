@@ -37,24 +37,12 @@ public sealed class StagePauseMenu : MonoBehaviour
         _hud = hud;
     }
 
-    /// <summary>스테이지의 일시정지 조건, 상태 변경과 빈 배치 재시작을 연결한다.</summary>
-    public void Initialize(Func<bool> canOpen, Action<bool> onPauseChanged, Action restart, Func<bool> consumeEscape = null)
+    /// <summary>스테이지의 일시정지 조건, 상태 변경과 Escape 처리를 연결한다.</summary>
+    public void Initialize(Func<bool> canOpen, Action<bool> onPauseChanged, Func<bool> consumeEscape = null)
     {
         _canOpen = canOpen;
         _onPauseChanged = onPauseChanged;
         _consumeEscape = consumeEscape;
-        Button restartButton = Instantiate(_returnButton, _returnButton.transform.parent);
-        restartButton.name = "RestartButton";
-        restartButton.onClick.RemoveAllListeners();
-        restartButton.onClick.AddListener(() => { Resume(); restart(); });
-        restartButton.GetComponentInChildren<Text>().text = "빈 배치로 새로 시작";
-        RectTransform resumeRect = (RectTransform)_resumeButton.transform;
-        RectTransform restartRect = (RectTransform)restartButton.transform;
-        RectTransform returnRect = (RectTransform)_returnButton.transform;
-        resumeRect.anchoredPosition = new Vector2(0f, -39f);
-        restartRect.anchoredPosition = new Vector2(0f, -99f);
-        returnRect.anchoredPosition = new Vector2(0f, -159f);
-        resumeRect.sizeDelta = restartRect.sizeDelta = returnRect.sizeDelta = new Vector2(438f, 52f);
     }
 
     private void Update()
