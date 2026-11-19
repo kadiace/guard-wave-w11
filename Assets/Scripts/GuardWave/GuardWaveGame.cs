@@ -31,6 +31,9 @@ namespace GuardWave
         private const float CAMERA_MAX_TARGET_Z = 15f;
         private const float BOUNDARY_DESTRUCTION_DELAY = 1f;
         private const int MAX_DRAG_PLACEMENTS_PER_FRAME = 12;
+        private const float FLOOD_AUTO_GLUE_SECONDS = 2.2f;
+        private const int MAX_FLOOD_AUTO_GLUE_JOINTS = 5;
+        private const float FLOOD_AUTO_GLUE_CONTACT_METERS = 0.20f;
 
         [Header("3D drop")]
         [SerializeField, Min(2f)] private float dropHeight = 7f;
@@ -564,6 +567,160 @@ namespace GuardWave
             WaveSnapshot snapshot = SaveEditState(false);
             StartCoroutine(ResolvePlacementStroke(snapshot, placed, _placementStrokeEpoch));
             _status = placed.Count + "개 배치 완료. 같은 기물을 계속 배치할 수 있습니다.";
+        }
+
+        /// <summary>
+        /// Searches the underside and XZ sides of a newly placed Flood log during
+        /// its initial settlement. Every distinct support gets at most one joint;
+        /// the physics solver and rollback remain owned by GuardWaveMudPatch.
+        /// </summary>
+        private IEnumerator AutoBondNewFloodLog(GuardWavePiece piece, int epoch)
+        {
+            float elapsed = 0f;
+            int attachedCount = 0;
+            Collider[] ownColliders = piece.GetComponentsInChildren<Collider>();
+            // Initial collision callbacks can arrive one physics step after Spawn.
+            while (elapsed < FLOOD_AUTO_GLUE_SECONDS &&
+                attachedCount < MAX_FLOOD_AUTO_GLUE_JOINTS)
+            {
+                yield return new WaitForFixedUpdate();
+                if (epoch != _placementStrokeEpoch || piece == null ||
+                    !IsPlacedPiece(piece) || _awaitingStage || _finished ||
+                    _stageTransitioning || _waveHasStarted)
+                    yield break;
+                elapsed += Time.fixedDeltaTime;
+
+                foreach (Collider own in ownColliders)
+                {
+                    if (own == null || !own.enabled || own.isTrigger) continue;
+                    Bounds bounds = own.bounds;
+                    int count = Physics.OverlapBoxNonAlloc(bounds.center,
+                        bounds.extents + new Vector3(
+                            MUD_XZ_PROXIMITY_METERS, FLOOD_AUTO_GLUE_CONTACT_METERS,
+                            MUD_XZ_PROXIMITY_METERS),
+                        _mudNearbyColliders, Quaternion.identity,
+                        Physics.DefaultRaycastLayers, QueryTriggerInteraction.Ignore);
+
+                    // Prioritize the bottom contact: a placed log should anchor
+                    // to the creek or an underlying log before side bonds form.
+                    for (int i = 0; i < count; i++)
+                    {
+                        Collider support = _mudNearbyColliders[i];
+                        if (!CanAutoGlueFloodLogTo(piece, own, support) ||
+                            !TryGetAutoGlueUnderside(own, support, out Vector3 point))
+                            continue;
+                        if (CreateFloodAutoGlue(piece, support, point, Vector3.up))
+                            attachedCount++;
+                        if (attachedCount >= MAX_FLOOD_AUTO_GLUE_JOINTS)
+                            yield break;
+                    }
+
+                    // Use the actual existing mud guide's world-space
+                    // ClosestPoint XZ rule (0.35m horizontally, 0.16m in Y).
+                    for (int i = 0; i < count; i++)
+                    {
+                        Collider support = _mudNearbyColliders[i];
+                        if (support == _creekBedCollider ||
+                            !CanAutoGlueFloodLogTo(piece, own, support) ||
+                            !TryGetMudXZProximity(own, support,
+                                out Vector3 point, out Vector3 normal))
+                            continue;
+                        if (CreateFloodAutoGlue(piece, support, point, normal))
+                            attachedCount++;
+                        if (attachedCount >= MAX_FLOOD_AUTO_GLUE_JOINTS)
+                            yield break;
+                    }
+                }
+            }
+        }
+
+        /// <summary>
+        /// Checks whether an overlapping collider is the creek or an already
+        /// placed physics piece, never an unrelated background or the log itself.
+        /// </summary>
+        private bool CanAutoGlueFloodLogTo(GuardWavePiece piece,
+            Collider own, Collider support)
+        {
+            if (support == null || support == own || !support.enabled ||
+                support.isTrigger || !support.gameObject.activeInHierarchy ||
+                support.attachedRigidbody == piece.Body)
+                return false;
+            if (support == _creekBedCollider)
+                return !HasMudBondBetween(piece.Body, null);
+            GuardWavePiece other = support.GetComponentInParent<GuardWavePiece>();
+            return other != null && other != piece && IsPlacedPiece(other) &&
+                !HasMudBondBetween(piece.Body, other.Body);
+        }
+
+        /// <summary>
+        /// Requires actual near-contact between the lower face of a new log and
+        /// a support's upper face; vertical gaps are never given XZ grace distance.
+        /// </summary>
+        private static bool TryGetAutoGlueUnderside(Collider own, Collider support,
+            out Vector3 point)
+        {
+            point = default;
+            Bounds a = own.bounds;
+            Bounds b = support.bounds;
+            if (b.max.y < a.min.y - FLOOD_AUTO_GLUE_CONTACT_METERS ||
+                b.max.y > a.min.y + FLOOD_AUTO_GLUE_CONTACT_METERS ||
+                b.max.x < a.min.x || b.min.x > a.max.x ||
+                b.max.z < a.min.z || b.min.z > a.max.z)
+                return false;
+
+            // Collider closest-points (not just AABB overlap) rule out a
+            // nearby rotated cylinder with no real surface under the log.
+            Vector3 probe = new Vector3(
+                Mathf.Clamp(b.center.x, a.min.x, a.max.x),
+                a.min.y,
+                Mathf.Clamp(b.center.z, a.min.z, a.max.z));
+            Vector3 onSupport = support.ClosestPoint(probe);
+            Vector3 onLog = own.ClosestPoint(onSupport);
+            Vector2 horizontal = new Vector2(onSupport.x - onLog.x,
+                onSupport.z - onLog.z);
+            if (horizontal.sqrMagnitude >
+                    FLOOD_AUTO_GLUE_CONTACT_METERS * FLOOD_AUTO_GLUE_CONTACT_METERS ||
+                Mathf.Abs(onSupport.y - onLog.y) > FLOOD_AUTO_GLUE_CONTACT_METERS ||
+                onLog.y > a.min.y + FLOOD_AUTO_GLUE_CONTACT_METERS)
+                return false;
+
+            point = (onSupport + onLog) * 0.5f;
+            return true;
+        }
+
+        /// <summary>
+        /// Creates an automatic bond with the same configurable FixedJoint
+        /// settings as mud, plus a render-only glowing glue-gun connector.
+        /// The patch participates in Undo, breakage and removal snapshots.
+        /// </summary>
+        private bool CreateFloodAutoGlue(GuardWavePiece piece,
+            Collider support, Vector3 point, Vector3 normal)
+        {
+            Rigidbody connected = support.attachedRigidbody;
+            if (HasMudBondBetween(piece.Body, connected)) return false;
+            GameObject prefab = Resources.Load<GameObject>("Prefabs/Objects/mud");
+            if (prefab == null)
+            {
+                Debug.LogError("Missing Prefabs/Objects/mud for automatic Flood glue.");
+                return false;
+            }
+            GameObject glue = Instantiate(prefab);
+            glue.transform.SetPositionAndRotation(point,
+                Quaternion.FromToRotation(Vector3.up, normal));
+            glue.transform.SetParent(support.transform, true);
+            glue.name = "Flood Auto Glue";
+            GuardWaveMudPatch patch = glue.AddComponent<GuardWaveMudPatch>();
+            patch.Initialize(this, support, connected);
+            if (!patch.ConnectContact(piece, point, normal))
+            {
+                Destroy(glue);
+                return false;
+            }
+            GuardWaveAutoGlueVisual visual =
+                glue.AddComponent<GuardWaveAutoGlueVisual>();
+            visual.Initialize(patch, piece);
+            _mudPatches.Add(patch);
+            return true;
         }
 
         /// <summary>Esc 또는 우클릭으로 현재 기물 선택을 해제한다.</summary>
@@ -1701,7 +1858,7 @@ namespace GuardWave
                 ? "건물을 배치하면 +Z 방향 실외기 바람으로 안개를 밀어냅니다. 준비 완료를 누르세요."
                 : _isLavaStage
                     ? "용암에 닿은 기물은 불타다가 파괴됩니다. 깃발을 지키세요."
-                    : "진흙을 선택하고 두 물체의 노란 접촉 가이드를 클릭해 연결하세요. 우클릭: 선택 해제";
+                    : "통나무를 배치하면 바닥과 가까운 옆면에 자동으로 접착됩니다. 비버 집을 홍수로부터 지키세요. 우클릭: 선택 해제";
             // Initial state enables Ctrl+Z to undo the very first placement.
             SaveEditState(false);
         }
@@ -1864,6 +2021,10 @@ namespace GuardWave
             _pieces.Add(piece);
             _runtimePieces.Add(piece);
             _pieceSet.Add(piece);
+            // Flood logs bond during their initial placement only, using the same
+            // existing mud joint bookkeeping and the exact side-gap test.
+            if (_isFloodStage && material.id == "log")
+                StartCoroutine(AutoBondNewFloodLog(piece, _placementStrokeEpoch));
             // Newly placed bodies must join the live ambient FLIP solver:
             // this registers their Rigidbody and non-trigger colliders so
             // log (0.6) and Forest pebble (2.6) receive density-based forces.
