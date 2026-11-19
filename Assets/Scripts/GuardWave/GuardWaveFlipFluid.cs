@@ -1471,6 +1471,8 @@ namespace GuardWave
                 body.AddForce(flowImpulse, ForceMode.Impulse);
                 GuardWaveStickForceProbe.RecordCpuImpulses(body, buoyancyImpulse,
                     verticalDampingImpulse, flowImpulse);
+                GuardWaveBuoyancyProbe.RecordCpuLogImpulses(piece, buoyancyImpulse,
+                    verticalDampingImpulse, flowImpulse);
                 if (_initialLogJoints[i] != null)
                     _initialLogJoints[i].ObserveFluidImpulse(flowImpulse);
             }
@@ -1540,6 +1542,8 @@ namespace GuardWave
                     _initialLogJoints[i].ObserveFluidImpulse(appliedImpulse);
                 GuardWaveStickForceProbe.RecordImpulse(body, appliedImpulse,
                     appliedAngularImpulse, frame.SourceStep, frame.SourceTime);
+                GuardWaveBuoyancyProbe.RecordGpuLogImpulses(piece, appliedImpulse,
+                    appliedAngularImpulse);
             }
         }
 
