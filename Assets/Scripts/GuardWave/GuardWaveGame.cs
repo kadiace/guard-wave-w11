@@ -154,7 +154,7 @@ namespace GuardWave
         private readonly List<FixedJointState> _initialSceneJointStates = new List<FixedJointState>();
         private readonly List<SceneParentActiveState> _initialSceneParentStates =
             new List<SceneParentActiveState>();
-        private readonly GuardWaveMaterial[] _offers = new GuardWaveMaterial[5];
+        private readonly GuardWaveMaterial[] _offers = new GuardWaveMaterial[4];
         private ForestSceneContext _sceneContext;
         private GuardWaveCatalog _catalog;
         private GuardWaveStageInfo _stageInfo;
@@ -179,7 +179,6 @@ namespace GuardWave
         private Rigidbody _flagBody;
         private BoxCollider _flagCollider;
         private RigidbodyState _initialFlagState;
-        private bool _flagPlaced;
         private Coroutine _stageFloodRoutine;
         private WaveSnapshot _waveSnapshot;
         private Camera _camera;
@@ -459,11 +458,6 @@ namespace GuardWave
                 _status = material.name + " 배치 수량을 모두 사용했습니다.";
                 return;
             }
-            if (material.id == "default_flag" && IsTargetMaterial(material.id))
-            {
-                PlaceDefenseFlag(placement);
-                return;
-            }
             GameObject prefab = Resources.Load<GameObject>("Prefabs/Objects/" + material.id);
             if (prefab == null) return;
 
@@ -486,43 +480,6 @@ namespace GuardWave
                 EndPlacementStroke();
                 _status = material.name + " 배치 수량을 모두 사용했습니다.";
             }
-        }
-
-        /// <summary>Move the scene flag: keep existing Rigidbody, meshes and FogFlagDensityProbes.</summary>
-        private void PlaceDefenseFlag(Vector3 placement)
-        {
-            Quaternion rotation = Quaternion.Euler(0f, _objectYaw, 0f);
-            _dropPreview.Show(_offers[_selected], placement, rotation,
-                _placementBounds.max.y + dropHeight, true, _placementBounds.max.y, _defenseFlag);
-            if (!_dropPreview.IsVisible)
-            {
-                _status = "깃발을 배치할 표면을 찾을 수 없습니다.";
-                return;
-            }
-            Vector3 position = _dropPreview.LandingPosition;
-            _dropMouseReleased = false;
-            _lastDropTime = Time.unscaledTime;
-            HideDropPreview();
-            _defenseFlag.SetActive(true);
-            _flagBody.isKinematic = true;
-            _flagBody.useGravity = false;
-            _flagBody.transform.SetPositionAndRotation(position, rotation);
-            _flagBody.position = position;
-            _flagBody.rotation = rotation;
-            Physics.SyncTransforms();
-            _flagBody.isKinematic = false;
-            _flagBody.useGravity = true;
-            _flagBody.linearVelocity = Vector3.zero;
-            _flagBody.angularVelocity = Vector3.zero;
-            _flagBody.WakeUp();
-            _flagPlaced = true;
-            _playerPlacementCount++;
-            WaveSnapshot placedFlagState = SaveEditState(false);
-            GuardWavePiece flagPiece = _defenseFlag.GetComponent<GuardWavePiece>();
-            if (flagPiece != null)
-                StartCoroutine(ResolvePlacementStroke(placedFlagState,
-                    new List<GuardWavePiece> { flagPiece }, _placementStrokeEpoch));
-            _status = "깃발을 배치했습니다. 모든 목표물이 배치되면 준비 완료할 수 있습니다.";
         }
 
         private void DrainPlacementStroke()
@@ -1235,8 +1192,7 @@ namespace GuardWave
             _dropPreview.Show(_offers[_selected], placement,
                 Quaternion.Euler(0f, _objectYaw, 0f),
                 _placementBounds.max.y + dropHeight, canPlace,
-                _placementBounds.max.y, _offers[_selected].id == "default_flag"
-                    ? _defenseFlag : null);
+                _placementBounds.max.y);
 
             _hud.HideDropGuide();
         }
@@ -1447,10 +1403,10 @@ namespace GuardWave
         public bool IsPaletteHidden => false;
         public bool CanReady => (!ambientFlowPreview ||
             (_fluid != null && _fluid.IsShaderPrewarmed)) &&
-            _placementStroke == null && AllTargetsPlaced &&
+            _placementStroke == null &&
             !_stageTransitioning && !_resolving && !_awaitingStage
-            && !_finished && !_rulesOpen && _flagPlaced &&
-            _defenseFlag != null && _defenseFlag.activeInHierarchy;
+            && !_finished && !_rulesOpen && _defenseFlag != null
+            && _defenseFlag.activeInHierarchy;
         public bool IsLavaStage => _isLavaStage;
         public bool IsFloodDrowning => _isFloodStage &&
             (_flagFloodImmersed ||
@@ -1481,27 +1437,6 @@ namespace GuardWave
         public int PieceCount => _pieces.Count;
         public GuardWaveStageInfo StageInfo => _stageInfo;
 
-        /// <summary>True for mandatory palette entries defined by the stage JSON.</summary>
-        public bool IsTargetMaterial(string materialId)
-        {
-            if (_stageInfo?.palette == null) return false;
-            foreach (GuardWavePaletteEntry entry in _stageInfo.palette)
-                if (entry.target && entry.materialId == materialId) return true;
-            return false;
-        }
-
-        public bool AllTargetsPlaced
-        {
-            get
-            {
-                if (_stageInfo?.palette == null) return false;
-                foreach (GuardWavePaletteEntry entry in _stageInfo.palette)
-                    if (entry.target && GetRemainingPlacements(entry.materialId) > 0)
-                        return false;
-                return true;
-            }
-        }
-
         /// <summary>Each stage controls its own palette quotas through StageInfo.json.</summary>
         public int GetPlacementLimit(string materialId)
         {
@@ -1520,9 +1455,6 @@ namespace GuardWave
         {
             int limit = GetPlacementLimit(materialId);
             if (limit < 0) return int.MaxValue;
-            // The authored flag is activated instead of spawning a duplicate.
-            if (materialId == "default_flag")
-                return Mathf.Max(0, limit - (_flagPlaced ? 1 : 0));
             if (materialId == "mud")
             {
                 int usedMud = 0;
@@ -1943,8 +1875,6 @@ namespace GuardWave
             _initialFlagState.RestorePose(_flagBody);
             Physics.SyncTransforms();
             _initialFlagState.RestoreMotion(_flagBody);
-            _flagPlaced = false;
-            _defenseFlag.SetActive(false);
         }
 
         /// <summary>Resources/Prefabs에서 3D 기물을 지정한 위치에 생성하고 물리 시스템에 등록한다.</summary>
@@ -2044,16 +1974,7 @@ namespace GuardWave
             if (_stageTransitioning || _resolving || _awaitingStage || _finished ||
                 _rulesOpen || _selected >= 0 || piece == null ||
                 piece.MaterialId == "foundation") return;
-            if (piece.gameObject == _defenseFlag)
-            {
-                if (!_flagPlaced || !IsTargetMaterial("default_flag")) return;
-                SetOutlineTargets(null);
-                _flagPlaced = false;
-                _defenseFlag.SetActive(false);
-                SaveEditState(false);
-                _status = "깃발을 회수했습니다. 다시 배치해야 준비 완료할 수 있습니다.";
-                return;
-            }
+            if (piece.gameObject == _defenseFlag) return;
             // Manual removal is an edit too, so Ctrl+Z restores the removed piece.
             if (RemovePiece(piece, GuardWaveChangeKind.Removed) > 0)
                 SaveEditState(false);
@@ -2556,7 +2477,6 @@ namespace GuardWave
             WaveSnapshot snapshot = new WaveSnapshot
             {
                 Flag = new RigidbodyState(_flagBody),
-                FlagPlaced = _flagPlaced,
                 SelectedOffer = _selected,
                 ObjectYaw = _objectYaw,
                 CameraTarget = _cameraTarget,
@@ -2702,8 +2622,6 @@ namespace GuardWave
             foreach (PieceState state in snapshot.Pieces)
                 if (state.Piece != null) state.Body.RestoreMotion(state.Piece.Body);
             snapshot.Flag.RestoreMotion(_flagBody);
-            _flagPlaced = snapshot.FlagPlaced;
-            _defenseFlag.SetActive(_flagPlaced);
             foreach (SceneBodyState state in snapshot.SceneBodies)
                 if (state.Body != null) state.State.RestoreMotion(state.Body);
             // Broken/moved joints are not restored by Rigidbody poses alone.
@@ -2789,7 +2707,6 @@ namespace GuardWave
             public readonly List<SceneParentActiveState> SceneParents = new List<SceneParentActiveState>();
             public readonly HashSet<GuardWavePiece> SelectableScenePieces = new HashSet<GuardWavePiece>();
             public RigidbodyState Flag;
-            public bool FlagPlaced;
             public int SelectedOffer;
             public float ObjectYaw;
             public Vector3 CameraTarget;
