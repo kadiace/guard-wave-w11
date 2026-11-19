@@ -188,9 +188,9 @@ void ApplyFogForces(uint3 id : SV_DispatchThreadID) {
     float concentration=saturate(density*3.0+temperature*1.2+Emission(p));
     v+=_Dt*_TurbulenceStrength*swirl*(0.22+0.78*concentration);
     v+=_Dt*Expansion(p);
-    // AC jets operate continuously, including during the first gas inlet frame.
-    // Wide, tapered acceleration keeps the displaced fog visibly coherent at
-    // 0.75m voxel resolution instead of kicking isolated grid cells.
+    // Fan jets operate continuously, including during the first gas inlet frame.
+    // Tapered acceleration spreads force across nearby voxels at the gas grid's
+    // 0.75m resolution instead of kicking isolated cells.
     [loop] for (int i=0; i<_WindVentCount; ++i) {
         WindVent fan = _WindVents[i];
         float3 axis = normalize(fan.directionAcceleration.xyz);

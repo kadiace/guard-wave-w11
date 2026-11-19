@@ -13,9 +13,11 @@ namespace GuardWave
     {
         GuardWaveStageInfo StageInfo { get; }
         GuardWaveMaterial[] Offers { get; }
+        int CurrentRoundIndex { get; }
         int SelectedIndex { get; }
         bool CanEdit { get; }
         bool IsPreparing { get; }
+        string PreparationCountdownLabel { get; }
         float PreparationSecondsRemaining { get; }
         bool DisasterStarted { get; }
         string DisasterCountdownLabel { get; }
@@ -199,9 +201,12 @@ Ctrl+Z: 준비 단계의 최근 배치 되돌리기
                     + "준비 완료를 누르면 용암이 -Z 방향으로 60초 동안 흐릅니다.\n"
                     + $"용암 입자가 가까워지거나 표면이 용암으로 뒤덮이면 불이 붙고 3초 뒤 파괴됩니다. {_game.TargetName}이 살아남으면 성공합니다.";
             if (_fogMode != null)
-                _rulesBody.text = $"{_game.TargetName}은 씬에 미리 배치되어 있습니다.\n건물을 최대 {_game.GetPlacementLimit("building")}개 배치할 수 있으며, 남은 개수는 팔레트에 표시됩니다.\n"
-                    + "마우스를 누른 채 드래그하면 건물이 겹치지 않는 지점마다 연속 배치됩니다.\n"
-                    + "기물을 배치한 후 준비 완료를 누르면 안개가 상류에서 몰려옵니다.\n"
+                _rulesBody.text = $"{_game.TargetName}은 씬에 미리 배치되어 있습니다.\n선풍기를 최대 {_game.GetPlacementLimit("building")}개 배치할 수 있으며, 남은 개수는 팔레트에 표시됩니다.\n"
+                    + "마우스를 누른 채 드래그하면 선풍기가 겹치지 않는 지점마다 연속 배치됩니다.\n"
+                    + $"독안개는 총 {_game.RoundCount}회 진행되며, 각 회차 전에 배치 제한시간이 적용됩니다.\n"
+                    + "준비 완료를 누르면 제한시간이 끝나기 전에도 현재 회차를 시작합니다.\n"
+                    + $"회차 사이에 배치를 보강할 수 있으며, 모든 회차에서 {_game.TargetName}을 지켜야 합니다.\n"
+                    + "제한시간이 끝나면 안개가 상류에서 몰려옵니다.\n"
                     + "안개는 건물과 기물을 돌아 -Z 방향으로 흐르며 옆으로 확산됩니다.\n"
                     + $"{_game.TargetName} 주변 독안개 밀도 0.01 이상에서 노출이 시작되며, 시작 후에는 0.001 이상이면 유지됩니다.\n"
                     + "노출이 5초 연속되면 방어에 실패하며, 0.001 미만이면 게이지가 초기화됩니다.\n"

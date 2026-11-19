@@ -24,20 +24,27 @@ namespace Avalanche
         };
         public GuardWaveStageInfo StageInfo => _stage.StageInfo;
         public GuardWaveMaterial[] Offers => _offers;
+        public int CurrentRoundIndex => _stage.CurrentRoundIndex;
         public int SelectedIndex => (int)_stage.Construction.Tool;
         public bool CanEdit => _stage.CanEdit;
         public bool IsPreparing => _stage.Phase == AvalanchePhase.Introduction ||
             _stage.Phase == AvalanchePhase.Preparing;
+        public string PreparationCountdownLabel => _stage.RoundCount > 1
+            ? $"{_stage.CurrentRoundIndex + 1}차 {_stage.StageInfo.disasterName}가 오기까지"
+            : $"{_stage.StageInfo.disasterName}가 오기까지";
         public float PreparationSecondsRemaining => _stage.PreparationLeft;
         public bool DisasterStarted => _stage.Phase == AvalanchePhase.Sliding ||
             _stage.Phase == AvalanchePhase.Assessing ||
             _stage.Phase == AvalanchePhase.Cleared ||
             _stage.Phase == AvalanchePhase.Failed ||
             _stage.Phase == AvalanchePhase.TechnicalError;
+        private string RoundLabelPrefix => _stage.RoundCount > 1
+            ? $"{_stage.CurrentRoundIndex + 1}차 " : "";
         public string DisasterCountdownLabel => _stage.SettlementGraceActive
-            ? "안정 확인까지"
+            ? RoundLabelPrefix + "안정 확인까지"
             : _stage.Phase == AvalanchePhase.Warning
-                ? "눈사태 시작까지" : "눈사태가 지나가기까지";
+                ? RoundLabelPrefix + "눈사태 시작까지"
+                : RoundLabelPrefix + "눈사태가 지나가기까지";
         public float DisasterCountdownSecondsRemaining => _stage.SettlementGraceActive
             ? _stage.SettlementGraceLeft
             : _stage.Phase == AvalanchePhase.Warning

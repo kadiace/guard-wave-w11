@@ -16,6 +16,13 @@ namespace GuardWave
     }
 
     [Serializable]
+    public sealed class GuardWaveStageRound
+    {
+        public bool limitPreparationTime;
+        public int countdownSeconds;
+    }
+
+    [Serializable]
     public sealed class GuardWaveStageInfo
     {
         public string sceneName;
@@ -25,6 +32,7 @@ namespace GuardWave
         // The protected objective is not a palette entry. Its displayed name
         // comes from the material catalog, not hard-coded scene UI text.
         public string targetMaterialId;
+        public GuardWaveStageRound[] rounds;
         public GuardWavePaletteEntry[] palette;
         public string TargetName { get; internal set; }
 
@@ -38,6 +46,19 @@ namespace GuardWave
         /// <summary>Generic success text shared by the normal game stages.</summary>
         public string SuccessMessage => "재해가 지나갔습니다.\n" +
             TargetName + "을 지켜냈습니다!";
+
+        public int RoundCount => rounds != null && rounds.Length > 0 ? rounds.Length : 1;
+
+        /// <summary>Returns configured round settings or the legacy single-round settings.</summary>
+        public GuardWaveStageRound GetRound(int index)
+        {
+            if (rounds != null && rounds.Length > 0) return rounds[index];
+            return new GuardWaveStageRound
+            {
+                limitPreparationTime = limitPreparationTime,
+                countdownSeconds = countdownSeconds
+            };
+        }
 
         /// <summary>자재의 배치 제한을 조회하고 항목이 없으면 무제한을 반환한다.</summary>
         public int GetPlacementLimit(string materialId)
@@ -67,20 +88,31 @@ namespace GuardWave
     /// <summary>스테이지별 설정에 따라 준비시간을 초기화하고 경과시킨다.</summary>
     public sealed class StagePreparationClock
     {
-        private readonly float _duration;
-        public bool Enabled { get; }
+        private float _duration;
+        public bool Enabled { get; private set; }
         public float Remaining { get; private set; }
         public bool Expired => Enabled && Remaining <= 0f;
 
         /// <summary>공통 설정에서 제한 여부와 준비 시간을 읽는다.</summary>
-        public StagePreparationClock(GuardWaveStageInfo stage)
+        public StagePreparationClock(GuardWaveStageRound round)
         {
-            Enabled = stage.limitPreparationTime;
-            _duration = stage.countdownSeconds;
-            Reset();
+            Reset(round);
+        }
+
+        /// <summary>Initializes the legacy single-round preparation clock from stage-level settings.</summary>
+        public StagePreparationClock(GuardWaveStageInfo stage) : this(stage.GetRound(0))
+        {
         }
 
         /// <summary>준비 시간을 설정된 값으로 되돌린다.</summary>
+        public void Reset(GuardWaveStageRound round)
+        {
+            Enabled = round.limitPreparationTime;
+            _duration = round.countdownSeconds;
+            Remaining = _duration;
+        }
+
+        /// <summary>Restarts the current preparation duration.</summary>
         public void Reset() => Remaining = _duration;
 
         /// <summary>제한이 활성화된 경우 경과 시간만큼 남은 시간을 줄인다.</summary>
@@ -105,9 +137,11 @@ namespace GuardWave
             GuardWaveStageInfoFile file = JsonUtility.FromJson<GuardWaveStageInfoFile>(asset.text);
             GuardWaveStageInfo stage = file?.stages == null ? null
                 : Array.Find(file.stages, entry => entry != null && entry.sceneName == sceneName);
+            bool hasRounds = stage?.rounds != null && stage.rounds.Length > 0;
             if (stage == null || string.IsNullOrWhiteSpace(stage.disasterName) ||
-                stage.countdownSeconds <= 0 || stage.palette == null ||
-                stage.palette.Length == 0 || stage.palette.Length > 4)
+                (!hasRounds && stage.countdownSeconds <= 0) || stage.palette == null ||
+                stage.palette.Length == 0 || stage.palette.Length > 4 ||
+                (stage.rounds != null && stage.rounds.Length > 16))
                 throw new InvalidOperationException("Invalid stage settings: " + sceneName);
 
             if (string.IsNullOrWhiteSpace(stage.targetMaterialId))
@@ -118,6 +152,14 @@ namespace GuardWave
                 throw new InvalidOperationException(
                     "Unknown targetMaterialId in StageInfo.json: " + stage.targetMaterialId);
             stage.TargetName = targetMaterial.name;
+            if (hasRounds)
+            {
+                foreach (GuardWaveStageRound round in stage.rounds)
+                    if (round == null || round.countdownSeconds < 0 ||
+                        (round.limitPreparationTime && round.countdownSeconds <= 0))
+                        throw new InvalidOperationException(
+                            "Invalid round settings in StageInfo.json: " + sceneName);
+            }
 
             for (int i = 0; i < stage.palette.Length; i++)
             {
@@ -189,9 +231,9 @@ namespace GuardWave
             _countdown.verticalOverflow = VerticalWrapMode.Overflow;
             _defaultFontSize = _countdown.fontSize;
             _defaultCountdownScale = _countdown.rectTransform.localScale;
-            _preparationDisasterName = stage.disasterName + "가 오기까지";
+            _preparationDisasterName = GetPreparationDisasterName();
             _disasterName.text = _preparationDisasterName;
-            _preparationClock = new StagePreparationClock(stage);
+            _preparationClock = new StagePreparationClock(stage.GetRound(0));
             ResetCountdown();
             _initialized = true;
         }
@@ -206,8 +248,9 @@ namespace GuardWave
             _countdown.verticalOverflow = VerticalWrapMode.Overflow;
             _defaultFontSize = _countdown.fontSize;
             _defaultCountdownScale = _countdown.rectTransform.localScale;
-            _preparationDisasterName = context.StageInfo.disasterName + "가 오기까지";
-            _preparationClock = new StagePreparationClock(context.StageInfo);
+            _preparationDisasterName = context.PreparationCountdownLabel;
+            _preparationClock = new StagePreparationClock(
+                context.StageInfo.GetRound(context.CurrentRoundIndex));
             ResetCountdown();
             _wasContextPreparing = context.IsPreparing;
             _initialized = true;
@@ -259,6 +302,12 @@ namespace GuardWave
                     AnimateCountdown();
                     return;
                 }
+
+                if (CanReady)
+                {
+                    ResetCountdown();
+                    return;
+                }
                 if (_game.IsLavaStage)
                 {
                     _remainingSeconds = _game.LavaFlowSecondsRemaining;
@@ -266,16 +315,15 @@ namespace GuardWave
                     AnimateCountdown();
                     return;
                 }
-                if (CanReady) ResetCountdown();
                 else
                 {
-                    // This uses the fog solver's simulation clock, so the
-                    // countdown advances twice as fast after simulation t=30.
-                    // AwaitingFailure is handled above: the HUD freezes even
-                    // while FogSceneController continues simulating.
+                    // Match the dynamic fog deadline and convert its simulation
+                    // time to gameplay seconds, including the later 2x playback.
+                    // AwaitingFailure is handled above while FogSceneController
+                    // continues simulating behind the popup.
                     if (_fogMode != null && _fogMode.IsComing)
                     {
-                        _remainingSeconds = _fogMode.RemainingSimulationSeconds;
+                        _remainingSeconds = _fogMode.RemainingScheduledWavePlaybackSeconds;
                         RefreshCountdown();
                     }
                     AnimateCountdown();
@@ -305,9 +353,12 @@ namespace GuardWave
 
             if (preparing)
             {
-                _remainingSeconds = _context.PreparationSecondsRemaining;
-                _disasterName.text = _preparationDisasterName;
-                RefreshCountdown();
+                _disasterName.text = _context.PreparationCountdownLabel;
+                if (_preparationClock.Enabled)
+                {
+                    _remainingSeconds = _context.PreparationSecondsRemaining;
+                    RefreshCountdown();
+                }
             }
             else
             {
@@ -330,10 +381,23 @@ namespace GuardWave
 
         private bool CanReady => _fogMode == null ? _game.CanReady : _fogMode.CanReady;
 
+        /// <summary>Builds the preparation label with the current round number when the stage repeats.</summary>
+        private string GetPreparationDisasterName()
+        {
+            if (_context != null) return _context.PreparationCountdownLabel;
+
+            GuardWaveStageInfo stage = _game.StageInfo;
+            return stage.RoundCount > 1
+                ? $"{stage.disasterName} {_game.CurrentRoundIndex + 1}차가 오기까지"
+                : stage.disasterName + "가 오기까지";
+        }
+
         /// <summary>준비 완료 버튼과 자연 만료에서 동일한 파도/독안개 시작 경로를 호출한다.</summary>
         public void Ready()
         {
-            if (!_initialized || _disasterStarted || !CanReady) return;
+            if (!_initialized || !CanReady) return;
+            if (_disasterStarted) ResetCountdown();
+            if (_disasterStarted) return;
             if (_fogMode == null)
             {
                 if (_game.IsFloodStage)
@@ -365,6 +429,9 @@ namespace GuardWave
                     _disasterName.text = _game.StageInfo.disasterName + " 진행 중";
                     _countdown.gameObject.SetActive(false);
                 }
+                if (_game.StageInfo.RoundCount > 1)
+                    _disasterName.text = $"{_game.StageInfo.disasterName} " +
+                        $"{_game.CurrentRoundIndex + 1}차 진행 중";
             }
             else
             {
@@ -374,17 +441,17 @@ namespace GuardWave
                 if (_pulseKind != PulseKind.Impact)
                     StartPulse(PulseKind.Impact);
                 _disasterStarted = true;
-                _disasterName.text = "독안개 사라지기까지";
-                _remainingSeconds = _fogMode.MaximumSimulationDurationSeconds;
-                RefreshCountdown();
+                _disasterName.text = _game.StageInfo.RoundCount > 1
+                    ? $"{_game.StageInfo.disasterName} {_game.CurrentRoundIndex + 1}차 진행 중"
+                    : "독안개 사라지기까지";
                 _fogMode.Ready();
+                _remainingSeconds = _fogMode.RemainingScheduledWavePlaybackSeconds;
+                RefreshCountdown();
             }
         }
 
         /// <summary>
-        /// Fog has a 60-second maximum, not a guaranteed 60-second run.
-        /// If the density clears early, show 00:00 before the victory popup,
-        /// never a misleading countdown such as 00:12.
+        /// Shows zero before the victory popup when the fog deadline or early-clear condition ends a wave.
         /// </summary>
         public void CompleteFogCountdown()
         {
@@ -402,11 +469,18 @@ namespace GuardWave
         /// <summary>재해 종료, 실패 복원 또는 게임 재시작 시 해당 스테이지의 준비 시간을 재설정한다.</summary>
         private void ResetCountdown()
         {
-            _preparationClock.Reset();
-            _remainingSeconds = _preparationClock.Remaining;
+            GuardWaveStageRound round = _context != null
+                ? _context.StageInfo.GetRound(_context.CurrentRoundIndex)
+                : _game.StageInfo.GetRound(_game.CurrentRoundIndex);
+            _preparationClock.Reset(round);
+            _remainingSeconds = _context != null
+                ? _context.PreparationSecondsRemaining : _preparationClock.Remaining;
             _countdown.gameObject.SetActive(true);
             if (_disasterName != null)
+            {
+                _preparationDisasterName = GetPreparationDisasterName();
                 _disasterName.text = _preparationDisasterName;
+            }
             _displayedHundredths = -1;
             _disasterStarted = false;
             _shownFloodCrestPhase = 0;
@@ -414,7 +488,11 @@ namespace GuardWave
             _pulseElapsed = 0f;
             if (!_preparationClock.Enabled)
             {
-                _disasterName.text = "준비 중";
+                _disasterName.text = _context != null
+                    ? _context.PreparationCountdownLabel
+                    : _game.StageInfo.RoundCount > 1
+                        ? $"{_game.StageInfo.disasterName} {_game.CurrentRoundIndex + 1}차 준비 중"
+                        : "준비 중";
                 _countdown.text = "배치를 마치면\n준비 완료를 누르세요";
                 _countdown.fontSize = 22;
                 _countdown.rectTransform.localScale = _defaultCountdownScale;
