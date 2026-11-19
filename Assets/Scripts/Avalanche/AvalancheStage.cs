@@ -274,10 +274,24 @@ namespace Avalanche
             Phase = phase;
             ResultMessage = message;
             if (_logAttemptSummary)
+            {
                 Debug.Log($"[Avalanche] {phase} t={Elapsed:F2}s injected={_snow.InjectedVolume:F3}m3 outflow={_snow.OutflowVolume:F3}m3 active={_snow.ActiveVolume:F3}m3 deposited={_snow.DepositedVolume:F3}m3 error={_snow.VolumeError:F6}m3 pieces={Construction.Pieces.Count} bonds={Construction.BondCount}", this);
+                if (phase == AvalanchePhase.Failed || phase == AvalanchePhase.TechnicalError) LogTerminalDiagnostics();
+            }
             if (phase == AvalanchePhase.Cleared) StageClearSession.MarkCleared(Scene.Avalanche);
             Time.timeScale = 0f;
             _avalancheAudio.Stop();
+        }
+
+        /// <summary>Logs the last success-gate state and each citizen's risk counters for terminal diagnosis.</summary>
+        private void LogTerminalDiagnostics()
+        {
+            bool allSafe = true;
+            foreach (AvalancheCitizen citizen in Citizens) allSafe &= citizen.IsSafe;
+            float activeLimit = (_firstVolume + _secondVolume) * _activeVolumeFraction;
+            Debug.Log($"[Avalanche] CompletionGate elapsed={Elapsed:F2}s secondReleased={_secondReleased} active={_snow.ActiveVolume:F3}/{activeLimit:F3}m3 allSafe={allSafe} stable={_stableClock:F2}/{_safeObservationSeconds:F2}s sampleClock={_sampleClock:F2}s", this);
+            foreach (AvalancheCitizen citizen in Citizens)
+                Debug.Log($"[Avalanche] Citizen {citizen.CitizenId} state={citizen.State} safe={citizen.IsSafe} danger={citizen.InDanger} exposure={citizen.Exposure:F1}% depth={citizen.Depth:F3}m maxDepth={citizen.MaxDepth:F3}m speed={citizen.Speed:F2}m/s impact={citizen.ImpactSeconds:F2}s burial={citizen.BurialSeconds:F2}s", citizen);
         }
 
         /// <summary>Restores the pre-disaster checkpoint or empties the stage and resets all snow and risk histories.</summary>
