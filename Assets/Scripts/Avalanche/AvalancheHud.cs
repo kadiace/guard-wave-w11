@@ -22,6 +22,18 @@ namespace Avalanche
         /// <summary>Matches visible HUD panels so clicks cannot place materials through menus.</summary>
 
 
+        /// <summary>Prevents camera gestures from interacting through visible HUD panels.</summary>
+        public bool BlocksPointer(Vector2 screen)
+        {
+            if (_stage == null) return true;
+            if (_stage.Phase == AvalanchePhase.Introduction ||
+                _stage.IsFinished() || _stage.Paused) return true;
+            float x = screen.x * 1600f / Screen.width;
+            float y = (Screen.height - screen.y) * 900f / Screen.height;
+            return y < 104f || y > 752f ||
+                (x < 294f && y < 665f) || (x > 1306f && y < 452f);
+        }
+
         /// <summary>Initializes GUI styles once with the project's Korean font.</summary>
         private void EnsureStyles()
         {
