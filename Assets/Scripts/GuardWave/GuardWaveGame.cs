@@ -323,7 +323,7 @@ namespace GuardWave
             {
                 DestroyDefenseFlag();
                 if (_awaitingStage)
-                    _status = "깃발이 5초간 물에 잠겨 익사했습니다. 확인을 누르면 배치를 복원합니다.";
+                    _status = "비버 둥지가 5초간 침수되어 무너졌습니다. 확인을 누르면 배치를 복원합니다.";
             }
         }
 
@@ -2414,11 +2414,15 @@ namespace GuardWave
             _resolving = false;
             _awaitingStage = true;
             _finished = false;
-            _status = _isLavaStage
-                ? "깃발이 용암에 닿아 파괴되었습니다. 확인을 누르면 씬이 재시작됩니다."
-                : _waveSnapshot == null
-                    ? "깃발이 파괴되었습니다. 확인을 누르면 씬을 다시 시작합니다."
-                    : "깃발이 파괴되었습니다. 확인을 누르면 마지막 배치 상태로 돌아갑니다.";
+            _status = _isFloodStage
+                ? (_waveSnapshot == null
+                    ? "비버 둥지가 파괴되었습니다. 확인을 누르면 씬을 다시 시작합니다."
+                    : "비버 둥지가 파괴되었습니다. 확인을 누르면 마지막 배치 상태로 돌아갑니다.")
+                : _isLavaStage
+                    ? "깃발이 용암에 닿아 파괴되었습니다. 확인을 누르면 씬이 재시작됩니다."
+                    : _waveSnapshot == null
+                        ? "깃발이 파괴되었습니다. 확인을 누르면 씬을 다시 시작합니다."
+                        : "깃발이 파괴되었습니다. 확인을 누르면 마지막 배치 상태로 돌아갑니다.";
             if (_isLavaStage)
             {
                 _defenseFlag.SetActive(false);

@@ -7,16 +7,8 @@
       "countdownSeconds": 120,
       "palette": [
         {
-          "materialId": "mud",
-          "placementLimit": 30
-        },
-        {
           "materialId": "log",
           "placementLimit": 30
-        },
-        {
-          "materialId": "forest_pebble",
-          "placementLimit": 5
         }
       ]
     },
