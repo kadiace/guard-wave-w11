@@ -4,6 +4,91 @@ using UnityEngine;
 
 namespace GuardWave
 {
+    /// <summary>스테이지별 스냅샷을 저장하고 마지막 편집을 되돌리는 이력을 관리한다.</summary>
+    internal sealed class StageEditHistory<T>
+    {
+        private readonly List<T> _states = new List<T>();
+        public int Count => _states.Count;
+        public T this[int index] { get => _states[index]; set => _states[index] = value; }
+
+        /// <summary>이력에 스냅샷을 추가한다.</summary>
+        public void Add(T state) => _states.Add(state);
+
+        /// <summary>모든 이력을 비운다.</summary>
+        public void Clear() => _states.Clear();
+
+        /// <summary>스냅샷의 위치를 반환한다.</summary>
+        public int IndexOf(T state) => _states.IndexOf(state);
+
+        /// <summary>지정한 범위의 이력을 제거한다.</summary>
+        public void RemoveRange(int index, int count) => _states.RemoveRange(index, count);
+
+        /// <summary>현재 상태 저장 방식에 맞춰 되돌릴 스냅샷을 반환하고 이력을 갱신한다.</summary>
+        public bool TryUndo(bool includesCurrentState, out T state)
+        {
+            state = default;
+            if (_states.Count <= (includesCurrentState ? 1 : 0)) return false;
+            if (includesCurrentState) _states.RemoveAt(_states.Count - 1);
+            state = _states[_states.Count - 1];
+            if (!includesCurrentState) _states.RemoveAt(_states.Count - 1);
+            return true;
+        }
+    }
+
+    /// <summary>배치 오브젝트를 지정한 자세로 생성하고 물리 위치를 동기화한다.</summary>
+    internal static class StagePlacement
+    {
+        /// <summary>배치 미리보기를 지정한 위치와 회전에 표시한다.</summary>
+        public static void ShowPreview(GameObject preview, Vector3 position, Quaternion rotation)
+        {
+            preview.transform.SetPositionAndRotation(position, rotation);
+            if (!preview.activeSelf) preview.SetActive(true);
+        }
+
+        /// <summary>배치 미리보기를 숨긴다.</summary>
+        public static void HidePreview(GameObject preview)
+        {
+            if (preview != null && preview.activeSelf) preview.SetActive(false);
+        }
+
+        /// <summary>프리팹을 미리보기 위치와 회전으로 생성한다.</summary>
+        public static GameObject CreatePrefab(GameObject prefab, Vector3 position, Quaternion rotation)
+        {
+            return UnityEngine.Object.Instantiate(prefab, position, rotation);
+        }
+
+        /// <summary>기본 큐브를 부모 아래의 지정한 위치와 회전으로 생성한다.</summary>
+        public static GameObject CreateCube(Transform parent, Vector3 position, Quaternion rotation)
+        {
+            GameObject instance = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            instance.transform.SetParent(parent, false);
+            instance.transform.SetPositionAndRotation(position, rotation);
+            return instance;
+        }
+
+        /// <summary>생성된 오브젝트의 위치와 콜라이더를 다음 배치 판정에 반영한다.</summary>
+        public static void SyncPhysics() => Physics.SyncTransforms();
+    }
+
+    /// <summary>스테이지 접합의 공통 FixedJoint 설정을 생성한다.</summary>
+    internal static class StageJoint
+    {
+        /// <summary>로컬 연결점, 파손 한계와 충돌 설정을 적용한 조인트를 반환한다.</summary>
+        public static FixedJoint Create(GameObject owner, Rigidbody connectedBody, Vector3 anchor,
+            Vector3 connectedAnchor, float breakForce, float breakTorque, bool enableCollision)
+        {
+            FixedJoint joint = owner.AddComponent<FixedJoint>();
+            joint.autoConfigureConnectedAnchor = false;
+            joint.connectedBody = connectedBody;
+            joint.anchor = anchor;
+            joint.connectedAnchor = connectedAnchor;
+            joint.breakForce = breakForce;
+            joint.breakTorque = breakTorque;
+            joint.enableCollision = enableCollision;
+            return joint;
+        }
+    }
+
     /// <summary>
     /// Records the projected footprints of pieces placed in one left-button stroke.
     /// Computes the first clear point along a mouse segment using swept 2D SAT,

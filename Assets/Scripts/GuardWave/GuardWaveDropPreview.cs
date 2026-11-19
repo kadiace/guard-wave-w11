@@ -42,18 +42,17 @@ namespace GuardWave
                 QueryTriggerInteraction.Ignore);
             // 표면을 찾지 못하면 기준 평면 위에 표시한다.
             float surfaceY = hasHit ? hit.point.y : fallbackSurfaceY;
-            _instance.transform.SetPositionAndRotation(
+            StagePlacement.ShowPreview(_instance,
                 new Vector3(placement.x,
                     surfaceY - _colliderBottomY + VisualOffset,
                     placement.z),
                 rotation);
-            if (!_instance.activeSelf) _instance.SetActive(true);
         }
 
         /// <summary>커서가 화면이나 허용된 입력 영역을 벗어났을 때 미리보기를 숨긴다.</summary>
         public void Hide()
         {
-            if (_instance != null && _instance.activeSelf) _instance.SetActive(false);
+            StagePlacement.HidePreview(_instance);
         }
 
         /// <summary>이전 프리팹과 생성한 투명 머티리얼을 해제한다.</summary>

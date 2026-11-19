@@ -38,21 +38,24 @@
     },
     {
       "sceneName": "Avalanche",
-      "disasterName": "홍수",
+      "disasterName": "눈사태",
       "limitPreparationTime": false,
       "countdownSeconds": 120,
       "palette": [
         {
           "materialId": "panel",
-          "placementLimit": 24
+          "placementLimit": 12,
+          "target": false
         },
         {
           "materialId": "sandbag",
-          "placementLimit": 18
+          "placementLimit": 10,
+          "target": false
         },
         {
           "materialId": "adhesive",
-          "placementLimit": 30
+          "placementLimit": 18,
+          "target": false
         }
       ]
     },

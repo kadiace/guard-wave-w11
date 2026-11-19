@@ -29,7 +29,6 @@ namespace GuardWave
         private const float CAMERA_DRAG_THRESHOLD_PIXELS = 6f;
         private const float CAMERA_MIN_TARGET_Z = -15f;
         private const float CAMERA_MAX_TARGET_Z = 15f;
-        private const float WINDOWS_SCROLL_UNITS_PER_TICK = 120f;
         private const float BOUNDARY_DESTRUCTION_DELAY = 1f;
         private const int MAX_DRAG_PLACEMENTS_PER_FRAME = 12;
 
@@ -59,7 +58,7 @@ namespace GuardWave
             new Queue<GuardWavePiece>();
         private readonly HashSet<GuardWavePiece> _queuedOutflowRemovals =
             new HashSet<GuardWavePiece>();
-        private readonly List<WaveSnapshot> _editHistory = new List<WaveSnapshot>();
+        private readonly StageEditHistory<WaveSnapshot> _editHistory = new StageEditHistory<WaveSnapshot>();
         private int _playerPlacementCount;
         private readonly List<GuardWaveMudPatch> _mudPatches = new List<GuardWaveMudPatch>();
         // Reverse index includes both a piece's own painted surface and bonds to it.
@@ -182,6 +181,7 @@ namespace GuardWave
         private Coroutine _stageFloodRoutine;
         private WaveSnapshot _waveSnapshot;
         private Camera _camera;
+        private StageCameraController _cameraController;
         private GuardWavePiece _outlinedPiece;
         private Vector3 _cameraTarget;
         private int _selected = -1;
@@ -538,7 +538,7 @@ namespace GuardWave
                 _placementBounds.max.y + dropHeight, true, _placementBounds.max.y);
             if (!_dropPreview.IsVisible) return false;
             GuardWavePiece piece = Spawn(material, _dropPreview.LandingPosition);
-            Physics.SyncTransforms();
+            StagePlacement.SyncPhysics();
             _placementStrokePieces.Add(piece);
             _placementStroke.Record(xz, _objectYaw);
             _status = material.name + " 연속 배치 중. 마우스를 놓으면 배치가 완료됩니다.";
@@ -607,27 +607,6 @@ namespace GuardWave
         {
             return position.z < 15f && _placementBounds.Contains(
                 new Vector3(position.x, _placementBounds.center.y, position.z));
-        }
-
-        /// <summary>
-        /// Pick the first real collider along the camera's mouse ray, rather
-        /// than projecting onto an XZ plane or raycasting down in -Y. A log
-        /// in front of the riverbed must receive the paint, not the riverbed.
-        /// Painted patches are triggers and are ignored by the raycast.
-        /// </summary>
-        private bool TryGetMudSurface(Vector2 screen, out RaycastHit surface)
-        {
-            surface = default;
-            if (_camera == null ||
-                screen.x < 0f || screen.y < 0f ||
-                screen.x >= Screen.width || screen.y >= Screen.height ||
-                (EventSystem.current != null &&
-                 EventSystem.current.IsPointerOverGameObject()))
-                return false;
-
-            Ray ray = _camera.ScreenPointToRay(screen);
-            return TryRaycastIgnoringBackgroundTowers(ray, out surface) &&
-                   CanPlaceAt(surface.point);
         }
 
         /// <summary>
@@ -1169,7 +1148,6 @@ namespace GuardWave
             if (mouse != null && _selected >= 0 && _offers[_selected]?.id == "mud")
             {
                 _dropPreview.Hide();
-                _hud.HideDropGuide();
                 if (!mouse.rightButton.isPressed)
                     UpdateMudContactPreview(mouse.position.ReadValue());
                 else
@@ -1194,14 +1172,12 @@ namespace GuardWave
                 _placementBounds.max.y + dropHeight, canPlace,
                 _placementBounds.max.y);
 
-            _hud.HideDropGuide();
         }
 
-        /// <summary>배치 중단·UI 가림·라운드 종료 시 고스트와 화면 점선을 함께 숨긴다.</summary>
+        /// <summary>배치 중단·UI 가림·라운드 종료 시 고스트와 접촉 안내를 숨긴다.</summary>
         private void HideDropPreview()
         {
             _dropPreview?.Hide();
-            _hud?.HideDropGuide();
             HideMudContactGuides();
         }
 
@@ -1355,6 +1331,8 @@ namespace GuardWave
         {
             _camera = Camera.main;
             if (_camera == null) throw new InvalidOperationException("Game scene needs a Main Camera.");
+            _cameraController = _camera.gameObject.AddComponent<StageCameraController>();
+            _cameraController.InitializeManual();
             _cameraTarget = Vector3.zero;
             _defenseFlag = _sceneContext.DefenseFlag;
             if (_defenseFlag == null)
@@ -1437,14 +1415,23 @@ namespace GuardWave
         public int PieceCount => _pieces.Count;
         public GuardWaveStageInfo StageInfo => _stageInfo;
 
+        /// <summary>True for mandatory palette entries defined by the stage JSON.</summary>
+        public bool IsTargetMaterial(string materialId)
+        {
+            return _stageInfo?.palette != null && _stageInfo.IsTargetMaterial(materialId);
+        }
+
+        public bool AllTargetsPlaced
+        {
+            get
+            {
+                return _stageInfo?.palette != null && _stageInfo.AreTargetsPlaced(GetRemainingPlacements);
+            }
+        }
         /// <summary>Each stage controls its own palette quotas through StageInfo.json.</summary>
         public int GetPlacementLimit(string materialId)
         {
-            if (_stageInfo?.palette == null) return -1;
-            foreach (GuardWavePaletteEntry entry in _stageInfo.palette)
-                if (entry.materialId == materialId)
-                    return entry.placementLimit;
-            return -1;
+            return _stageInfo.GetPlacementLimit(materialId);
         }
 
         /// <summary>
@@ -1569,10 +1556,7 @@ namespace GuardWave
 
                 if (_rightGestureMoved && delta.sqrMagnitude > 0f)
                 {
-                    float unit = 2f * _camera.orthographicSize / Mathf.Max(Screen.height, 1);
-                    Vector3 right = Vector3.ProjectOnPlane(_camera.transform.right, Vector3.up).normalized;
-                    Vector3 up = Vector3.ProjectOnPlane(_camera.transform.up, Vector3.up).normalized;
-                    float movementZ = unit * (right.z * delta.x + up.z * delta.y);
+                    float movementZ = _cameraController.GetDragAlongZ(delta);
                     _cameraTarget.z = Mathf.Clamp(_cameraTarget.z - movementZ,
                         CAMERA_MIN_TARGET_Z, CAMERA_MAX_TARGET_Z);
                 }
@@ -1584,13 +1568,11 @@ namespace GuardWave
                 if (gestureInProgress)
                 {
                     if (!pointerOverUi)
-                        _camera.transform.Rotate(Vector3.up,
-                            NormalizeScrollSteps(scroll) * CameraYawPerScrollStep, Space.World);
+                        _cameraController.RotateByScroll(scroll, CameraYawPerScrollStep);
                 }
                 else if (!rightButton.isPressed && !rightButton.wasReleasedThisFrame && !pointerOverUi)
                 {
-                    _camera.orthographicSize = Mathf.Clamp(_camera.orthographicSize *
-                        Mathf.Exp(-scroll * 0.03f), 6f,
+                    _cameraController.ZoomByScroll(scroll, 0.03f, 6f,
                         GetComponent<FogSceneController>() != null ? 32f : 12.5f);
                 }
             }
@@ -1614,25 +1596,10 @@ namespace GuardWave
             UpdateCameraPosition();
         }
 
-        /// <summary>
-        /// Input System의 휠 델타를 입력 설정과 실행 플랫폼에 맞춰 휠 칸 수로 환산한다.
-        /// 정규화된 설정은 그대로 사용하고 Windows의 플랫폼 고유 값은 120으로 나눈다.
-        /// </summary>
-        private static float NormalizeScrollSteps(float scroll)
-        {
-            if (InputSystem.settings.scrollDeltaBehavior ==
-                InputSettings.ScrollDeltaBehavior.KeepPlatformSpecificInputRange &&
-                (Application.platform == RuntimePlatform.WindowsEditor ||
-                 Application.platform == RuntimePlatform.WindowsPlayer))
-                return scroll / WINDOWS_SCROLL_UNITS_PER_TICK;
-
-            return scroll;
-        }
-
         /// <summary>현재 회전 방향과 주시 위치를 사용해 카메라 위치를 갱신한다.</summary>
         private void UpdateCameraPosition()
         {
-            _camera.transform.position = _cameraTarget - _camera.transform.forward * _sceneContext.CameraDistance;
+            _cameraController.PositionAtFocus(_cameraTarget, _sceneContext.CameraDistance);
         }
 
         /// <summary>모든 배치와 소모품 상태를 초기화하고 기본 발판을 배치한다.</summary>
@@ -1882,7 +1849,7 @@ namespace GuardWave
         {
             GameObject prefab = Resources.Load<GameObject>("Prefabs/Objects/" + material.id);
             if (prefab == null) throw new InvalidOperationException("Missing 3D prefab: " + material.id);
-            GameObject instance = Instantiate(prefab, position, Quaternion.Euler(0f, _objectYaw, 0f));
+            GameObject instance = StagePlacement.CreatePrefab(prefab, position, Quaternion.Euler(0f, _objectYaw, 0f));
             instance.name = material.name;
             // Imported OBJ Mesh local IDs may be remapped by Unity 6. Ensure
             // a Forest pebble is not an invisible Rigidbody with a null Mesh.
@@ -2681,14 +2648,13 @@ namespace GuardWave
             EndPlacementStroke();
             // Ending a brush gesture commits it first, so Ctrl+Z removes that stroke.
             EndMudPainting();
-            if (_editHistory.Count <= 1) return;
-            _editHistory.RemoveAt(_editHistory.Count - 1);
+            if (!_editHistory.TryUndo(true, out WaveSnapshot previousState)) return;
             _placementStrokeEpoch++;
             _pendingDrops = 0;
             // A fresh upstream inflow is part of an initial-impact retry:
             // no old GPU particles may immediately hit the restored 80 N joint.
             DisposeFluid();
-            RestoreEditState(_editHistory[_editHistory.Count - 1]);
+            RestoreEditState(previousState);
             if (ambientFlowPreview) BeginAmbientCreekFlow();
             _status = "이전 배치 상태로 되돌렸습니다.";
         }

@@ -9,8 +9,10 @@ public class AudioClipCatalog : ScriptableObject
     [Serializable]
     private struct Entry
     {
+#pragma warning disable CS0649 // Unity가 AudioClipCatalog 에셋에서 직렬화된 값을 채운다.
         public AudioClipId Id;
         public AudioClip Clip;
+#pragma warning restore CS0649
     }
 
     [SerializeField] private List<Entry> _clips = new();

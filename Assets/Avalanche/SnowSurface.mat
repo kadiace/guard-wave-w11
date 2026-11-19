@@ -7,7 +7,7 @@ Material:
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_Name: Water
+  m_Name: SnowSurface
   m_Shader: {fileID: 4800000, guid: 0a6bc28c5dcb37c4a897f47a3faaabe6, type: 3}
   m_Parent: {fileID: 0}
   m_ModifiedSerializedProperties: 0

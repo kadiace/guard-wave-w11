@@ -743,18 +743,21 @@ namespace GuardWave
             // Keep callbacks harmless for old authored trigger components.
         }
 
+        /// <summary>Creates and registers one configured mud bond while preventing duplicate body pairs.</summary>
         private void CreateBond(GuardWavePiece piece, Vector3 anchor,
             Vector3 connectedAnchor, Rigidbody connectedBody)
         {
             if (piece == null || HasBond(piece) ||
                 (_game != null && _game.HasMudBondBetween(piece.Body, connectedBody)))
                 return;
-            FixedJoint joint = piece.gameObject.AddComponent<FixedJoint>();
-            joint.autoConfigureConnectedAnchor = false;
-            joint.connectedBody = connectedBody;
-            joint.anchor = anchor;
-            joint.connectedAnchor = connectedAnchor;
+            FixedJoint joint = StageJoint.Create(piece.gameObject, connectedBody, anchor,
+                connectedAnchor, _jointSettings.BreakForce, _jointSettings.BreakTorque, false);
             _jointSettings.ApplyTo(joint);
+            if (_isDry)
+            {
+                joint.breakForce *= 2f;
+                joint.breakTorque *= 2f;
+            }
             _bonds[piece] = joint;
             _game?.TrackMudPatch(piece, this);
             _game?.RegisterMudBond(piece, joint,

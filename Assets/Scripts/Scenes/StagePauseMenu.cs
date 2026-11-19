@@ -1,7 +1,10 @@
-using GuardWave;
+using System;
+
 using UnityEngine;
 using UnityEngine.InputSystem;
 using UnityEngine.UI;
+
+using GuardWave;
 
 /// <summary>
 /// A shared in-game Escape menu for Forest, Fog, and future scene contexts.
@@ -15,6 +18,9 @@ public sealed class StagePauseMenu : MonoBehaviour
     [SerializeField] private Button _resumeButton;
     [SerializeField] private Button _returnButton;
     private GuardWaveHud _hud;
+    private Func<bool> _canOpen;
+    private Action<bool> _onPauseChanged;
+    private Func<bool> _consumeEscape;
 
     public bool IsOpen { get; private set; }
 
@@ -31,6 +37,26 @@ public sealed class StagePauseMenu : MonoBehaviour
         _hud = hud;
     }
 
+    /// <summary>스테이지의 일시정지 조건, 상태 변경과 빈 배치 재시작을 연결한다.</summary>
+    public void Initialize(Func<bool> canOpen, Action<bool> onPauseChanged, Action restart, Func<bool> consumeEscape = null)
+    {
+        _canOpen = canOpen;
+        _onPauseChanged = onPauseChanged;
+        _consumeEscape = consumeEscape;
+        Button restartButton = Instantiate(_returnButton, _returnButton.transform.parent);
+        restartButton.name = "RestartButton";
+        restartButton.onClick.RemoveAllListeners();
+        restartButton.onClick.AddListener(() => { Resume(); restart(); });
+        restartButton.GetComponentInChildren<Text>().text = "빈 배치로 새로 시작";
+        RectTransform resumeRect = (RectTransform)_resumeButton.transform;
+        RectTransform restartRect = (RectTransform)restartButton.transform;
+        RectTransform returnRect = (RectTransform)_returnButton.transform;
+        resumeRect.anchoredPosition = new Vector2(0f, -39f);
+        restartRect.anchoredPosition = new Vector2(0f, -99f);
+        returnRect.anchoredPosition = new Vector2(0f, -159f);
+        resumeRect.sizeDelta = restartRect.sizeDelta = returnRect.sizeDelta = new Vector2(438f, 52f);
+    }
+
     private void Update()
     {
         Keyboard keyboard = Keyboard.current;
@@ -38,21 +64,25 @@ public sealed class StagePauseMenu : MonoBehaviour
             return;
 
         if (IsOpen) Resume();
+        else if (_consumeEscape != null && _consumeEscape()) return;
         else if (_hud != null && _hud.IsRulesOpen) _hud.HideRules();
         else Open();
     }
 
-    private void Open()
+    /// <summary>스테이지가 허용하면 공통 일시정지 화면을 연다.</summary>
+    public void Open()
     {
-        if (IsOpen) return;
+        if (IsOpen || (_canOpen != null && !_canOpen())) return;
 
         IsOpen = true;
         _modalRoot.SetActive(true);
         Time.timeScale = 0f;
+        _onPauseChanged?.Invoke(true);
         Cursor.lockState = CursorLockMode.None;
         Cursor.visible = true;
     }
 
+    /// <summary>일시정지를 해제하고 스테이지의 입력과 시간 진행을 재개한다.</summary>
     public void Resume()
     {
         if (!IsOpen) return;
@@ -60,16 +90,19 @@ public sealed class StagePauseMenu : MonoBehaviour
         IsOpen = false;
         _modalRoot.SetActive(false);
         Time.timeScale = 1f;
+        _onPauseChanged?.Invoke(false);
         Cursor.lockState = CursorLockMode.None;
         Cursor.visible = true;
     }
 
+    /// <summary>일시정지를 해제하고 스테이지 선택 화면으로 돌아간다.</summary>
     public void ReturnToStages()
     {
         if (!IsOpen) return;
 
         IsOpen = false;
         Time.timeScale = 1f;
+        _onPauseChanged?.Invoke(false);
         Managers.Clear();
         Managers.Scene.Load(Scene.Game);
     }

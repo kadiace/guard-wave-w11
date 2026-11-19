@@ -36,13 +36,14 @@ public sealed class OutGameStageSelect : MonoBehaviour, IBeginDragHandler, IDrag
     [SerializeField, Min(0.1f)] private float _transitionSpeed = 10f;
     [SerializeField, Min(20f)] private float _swipeThreshold = 65f;
 
-    private static readonly Scene[] Destinations = { Scene.Flood, Scene.Fog, Scene.Lava };
-    private static readonly string[] Names = { "THE LAST DAM", "GREEN SILENCE", "OVERFLOW" };
+    private static readonly Scene[] Destinations = { Scene.Flood, Scene.Fog, Scene.Lava, Scene.Avalanche };
+    private static readonly string[] Names = { "THE LAST DAM", "GREEN SILENCE", "OVERFLOW", "WHITE DESCENT" };
     private static readonly string[] Descriptions =
     {
         "FOREST  /  BUILD A DAM. HOLD THE FLOOD.",
         "FOG  /  SURVIVE THE ROLLING TOXIC CLOUD.",
-        "LAVA  /  WITHSTAND THE VOLCANIC FLOW."
+        "LAVA  /  WITHSTAND THE VOLCANIC FLOW.",
+        "AVALANCHE  /  SHELTER THE VILLAGE. DEFLECT THE SNOW."
     };
 
     private readonly Color _activeFrame = new Color(0.95f, 0.78f, 0.50f, 1f);
@@ -63,6 +64,7 @@ public sealed class OutGameStageSelect : MonoBehaviour, IBeginDragHandler, IDrag
 
     private void Awake()
     {
+        AddAvalanchePoster();
         if (_posters == null || _posters.Length != Destinations.Length ||
             _posterButtons == null || _posterButtons.Length != Destinations.Length ||
             _posterOpacity == null || _posterOpacity.Length != Destinations.Length ||
@@ -93,6 +95,35 @@ public sealed class OutGameStageSelect : MonoBehaviour, IBeginDragHandler, IDrag
         _playButton.onClick.AddListener(LaunchSelectedStage);
         ShowSelectedStage();
         ApplyPosterPoses();
+    }
+
+    /// <summary>Adds the fourth stage using the same authored card and navigation layout as existing posters.</summary>
+    private void AddAvalanchePoster()
+    {
+        if (_posters == null || _posters.Length != 3) return;
+        RectTransform poster = Instantiate(_posters[2], _posters[2].parent);
+        poster.name = "AvalanchePoster";
+        Image artwork = poster.Find("LavaArtwork")?.GetComponent<Image>();
+        if (artwork != null)
+        {
+            artwork.name = "AvalancheArtwork";
+            Texture2D texture = new Texture2D(128, 192, TextureFormat.RGBA32, false) { filterMode = FilterMode.Bilinear };
+            for (int y = 0; y < 192; y++)
+            for (int x = 0; x < 128; x++)
+            {
+                float ridge = 145f - Mathf.Abs(x - 64f) * 1.5f;
+                Color color = y < ridge ? Color.Lerp(new Color(0.31f, 0.43f, 0.56f), new Color(0.92f, 0.96f, 1f), y / 145f)
+                    : new Color(0.13f, 0.23f, 0.36f);
+                texture.SetPixel(x, y, color);
+            }
+            texture.Apply();
+            artwork.sprite = Sprite.Create(texture, new Rect(0f, 0f, 128f, 192f), Vector2.one * 0.5f);
+            artwork.color = Color.white;
+        }
+        System.Array.Resize(ref _posters, 4); _posters[3] = poster;
+        System.Array.Resize(ref _posterOpacity, 4); _posterOpacity[3] = poster.GetComponent<CanvasGroup>();
+        System.Array.Resize(ref _posterFrames, 4); _posterFrames[3] = poster.GetComponent<Image>();
+        System.Array.Resize(ref _posterButtons, 4); _posterButtons[3] = poster.GetComponent<Button>();
     }
 
     private void Start()

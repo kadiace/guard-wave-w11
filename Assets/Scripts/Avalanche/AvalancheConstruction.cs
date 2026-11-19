@@ -8,7 +8,7 @@ using GuardWave;
 
 namespace Avalanche
 {
-    public enum AvalancheTool { Panel, Sandbag, Adhesive, Remove }
+    public enum AvalancheTool { None = -1, Panel, Sandbag, Adhesive }
 
     /// <summary>Manages placement, contact adhesion and editable-layout snapshots.</summary>
     public sealed class AvalancheConstruction : MonoBehaviour
@@ -21,6 +21,10 @@ namespace Avalanche
         [SerializeField] private Vector3 _sandbagSize = new Vector3(1.4f, 0.55f, 1.1f);
         [SerializeField, Min(0.01f)] private float _placementGrid = 0.3f;
         [SerializeField, Range(1f, 180f)] private float _rotationStep = 15f;
+        [SerializeField, Min(0.01f)] private float _continuousPlacementSeconds = 0.1f;
+
+        [Header("Citizen protection")]
+        [SerializeField, Min(0f)] private float _citizenClearance = 0.6f;
 
         [Header("Adhesive blocks")]
         [SerializeField, Min(0.01f)] private float _adhesiveRadius = 0.48f;
@@ -32,7 +36,7 @@ namespace Avalanche
         private MaterialPropertyBlock _adhesiveTint;
         private readonly List<AvalanchePiece> _pieces = new List<AvalanchePiece>();
         private readonly List<AdhesiveBlock> _adhesives = new List<AdhesiveBlock>();
-        private readonly Stack<Snapshot> _undo = new Stack<Snapshot>();
+        private readonly StageEditHistory<Snapshot> _undo = new StageEditHistory<Snapshot>();
         private readonly Collider[] _overlaps = new Collider[64];
         private Collider[] _contacts = new Collider[64];
         private AvalancheStage _stage;
@@ -49,8 +53,12 @@ namespace Avalanche
         private float _contactClock;
         private Vector3 _candidate;
         private bool _candidateValid;
+        private bool _rightGesture;
+        private bool _rightMoved;
+        private Vector2 _rightOrigin;
+        private float _lastPlaced;
         public IReadOnlyList<AvalanchePiece> Pieces => _pieces;
-        public AvalancheTool Tool { get; private set; }
+        public AvalancheTool Tool { get; private set; } = AvalancheTool.None;
         public int Panels { get; private set; }
         public int Sandbags { get; private set; }
         public int Adhesive { get; private set; }
@@ -58,7 +66,7 @@ namespace Avalanche
         public int StartingSandbags => _startingSandbags;
         public int StartingAdhesive => _startingAdhesive;
         public int BondCount { get { int n = 0; foreach (var p in _pieces) if (p.IsBonded) n++; return n; } }
-        public string Hint { get; private set; } = "물막이판으로 흐름을 돌리고 모래주머니로 낮은 틈을 보강하세요.";
+        public string Hint { get; private set; } = "유도 방벽으로 눈사태를 돌리고 하중 받침으로 방어선을 보강하세요.";
         public bool HasCheckpoint => _checkpoint != null;
 
         private sealed class AdhesiveBlock
@@ -132,10 +140,27 @@ namespace Avalanche
         /// <summary>Returns the configured finite inventory for an Avalanche material.</summary>
         private static int GetStartingInventory(GuardWaveStageInfo stage, string materialId)
         {
-            foreach (GuardWavePaletteEntry entry in stage.palette)
-                if (entry.materialId == materialId && entry.placementLimit >= 0)
-                    return entry.placementLimit;
+            int limit = stage.GetPlacementLimit(materialId);
+            if (limit >= 0) return limit;
             throw new System.InvalidOperationException("Missing finite Avalanche inventory: " + materialId);
+        }
+
+        /// <summary>Returns the remaining stock for a shared construction card.</summary>
+        public int GetRemainingPlacements(string materialId)
+        {
+            if (materialId == "panel") return Panels;
+            if (materialId == "sandbag") return Sandbags;
+            if (materialId == "adhesive") return Adhesive;
+            throw new System.InvalidOperationException("Unsupported Avalanche material: " + materialId);
+        }
+
+        /// <summary>Clears the active palette selection and hides the placement projection.</summary>
+        public bool CancelSelection()
+        {
+            if (Tool == AvalancheTool.None) return false;
+            Tool = AvalancheTool.None;
+            _preview.SetActive(false);
+            return true;
         }
 
         /// <summary>Returns the world dimensions of a catalog item.</summary>
@@ -147,7 +172,6 @@ namespace Avalanche
         {
             Tool = tool;
             Hint = tool == AvalancheTool.Adhesive ? "지면이나 자재를 클릭해 접합 블록을 설치하세요. 닿는 자재를 바로 고정합니다."
-                : tool == AvalancheTool.Remove ? "자재나 접합 블록을 클릭하여 회수합니다."
                 : "클릭: 설치  /  Q·E: 회전  /  Shift: 정밀 배치";
         }
 
@@ -166,20 +190,30 @@ namespace Avalanche
                 if (keyboard.digit1Key.wasPressedThisFrame) SelectTool(AvalancheTool.Panel);
                 if (keyboard.digit2Key.wasPressedThisFrame) SelectTool(AvalancheTool.Sandbag);
                 if (keyboard.digit3Key.wasPressedThisFrame) SelectTool(AvalancheTool.Adhesive);
-                if (keyboard.digit4Key.wasPressedThisFrame || keyboard.digit5Key.wasPressedThisFrame) SelectTool(AvalancheTool.Remove);
                 if (keyboard.qKey.wasPressedThisFrame) _yaw -= _rotationStep;
                 if (keyboard.eKey.wasPressedThisFrame) _yaw += _rotationStep;
                 if (keyboard.zKey.wasPressedThisFrame && keyboard.ctrlKey.isPressed) Undo();
             }
-            if (_stage.Hud.BlocksPointer(mouse.position.ReadValue())) { _preview.SetActive(false); return; }
+            if (mouse.rightButton.wasPressedThisFrame)
+            {
+                _rightGesture = !_stage.Hud.BlocksPointer(mouse.position.ReadValue());
+                _rightMoved = false;
+                _rightOrigin = mouse.position.ReadValue();
+            }
+            if (_rightGesture && ((mouse.position.ReadValue() - _rightOrigin).sqrMagnitude > 36f || Mathf.Abs(mouse.scroll.ReadValue().y) > 0.01f)) _rightMoved = true;
+            if (_stage.Hud.BlocksPointer(mouse.position.ReadValue())) { _preview.SetActive(false); if (mouse.rightButton.wasReleasedThisFrame) _rightGesture = false; return; }
             Ray ray = _stage.ViewCamera.ScreenPointToRay(mouse.position.ReadValue());
             bool hasHit = Physics.Raycast(ray, out RaycastHit hit, 300f, ~4, QueryTriggerInteraction.Ignore);
-            if (Tool == AvalancheTool.Remove)
+            if (mouse.rightButton.wasReleasedThisFrame)
             {
-                _preview.SetActive(false);
-                if (mouse.leftButton.wasPressedThisFrame) RemoveAt(ray, hasHit, hit);
+                if (_rightGesture && !_rightMoved)
+                {
+                    if (!CancelSelection()) RemoveAt(ray, hasHit, hit);
+                }
+                _rightGesture = false;
                 return;
             }
+            if (mouse.rightButton.isPressed || Tool == AvalancheTool.None) { _preview.SetActive(false); return; }
             if (!hasHit) { _preview.SetActive(false); return; }
             if (Tool == AvalancheTool.Panel || Tool == AvalancheTool.Sandbag)
             {
@@ -202,12 +236,11 @@ namespace Avalanche
                 _candidate.y = support + size.y * 0.5f + 0.035f;
                 _candidateValid = CanPlace(kind, _candidate, rotation, out string reason);
                 Hint = _candidateValid ? $"클릭: 설치  /  Q·E: {_rotationStep:0.#}° 회전  /  Shift: 정밀 배치" : reason;
-                _preview.SetActive(true);
-                _preview.transform.SetPositionAndRotation(_candidate, rotation);
+                StagePlacement.ShowPreview(_preview, _candidate, rotation);
                 _preview.transform.localScale = size;
                 _previewTint.SetColor("_BaseColor", _candidateValid ? new Color(0.2f, 0.95f, 0.7f, 0.45f) : new Color(1f, 0.25f, 0.2f, 0.45f));
                 _previewRenderer.SetPropertyBlock(_previewTint);
-                if (mouse.leftButton.wasPressedThisFrame) TryPlace(kind, _candidate, _yaw);
+                if (mouse.leftButton.isPressed && Time.unscaledTime - _lastPlaced >= _continuousPlacementSeconds && TryPlace(kind, _candidate, _yaw)) _lastPlaced = Time.unscaledTime;
             }
             else
             {
@@ -224,12 +257,12 @@ namespace Avalanche
             Vector3 size = Size(kind);
             Vector3 extents = new Vector3(Mathf.Abs((rotation * Vector3.right).x) * size.x + Mathf.Abs((rotation * Vector3.forward).x) * size.z, 0f,
                 Mathf.Abs((rotation * Vector3.right).z) * size.x + Mathf.Abs((rotation * Vector3.forward).z) * size.z) * 0.5f;
-            if (Mathf.Abs(center.x) + extents.x > 17.8f || center.z - extents.z < 1f || center.z + extents.z > 53f || center.y > 5f)
-            { reason = "표시된 마을 안에 설치하세요. 상류 유입부와 배수구는 비워 둡니다."; return false; }
+            if (Mathf.Abs(center.x) + extents.x > 17.4f || center.z - extents.z < 1f || center.z + extents.z >= 48f)
+            { reason = "표시된 마을 안에 설치하세요. 상류 유입부는 비워 둡니다."; return false; }
             foreach (var citizen in _stage.Citizens)
             {
                 Vector3 local = Quaternion.Inverse(rotation) * (citizen.transform.position - center);
-                if (Mathf.Abs(local.x) < size.x * 0.5f + 0.6f && Mathf.Abs(local.z) < size.z * 0.5f + 0.6f && center.y - size.y / 2f < citizen.transform.position.y + 1.8f)
+                if (Mathf.Abs(local.x) < size.x * 0.5f + _citizenClearance && Mathf.Abs(local.z) < size.z * 0.5f + _citizenClearance && center.y - size.y / 2f < citizen.transform.position.y + 1.8f)
                 { reason = "시민의 대기 공간을 비워 주세요."; return false; }
             }
             int count = Physics.OverlapBoxNonAlloc(center, size * 0.5f - Vector3.one * 0.025f, _overlaps, rotation, ~4, QueryTriggerInteraction.Ignore);
@@ -241,20 +274,18 @@ namespace Avalanche
         public bool TryPlace(AvalancheMaterial kind, Vector3 center, float yaw)
         {
             if (!_stage.CanEdit || !CanPlace(kind, center, Quaternion.Euler(0f, yaw, 0f), out string reason)) return false;
-            _undo.Push(Capture());
+            _undo.Add(Capture());
             Spawn(_nextId++, kind, center, Quaternion.Euler(0f, yaw, 0f));
             if (kind == AvalancheMaterial.Panel) Panels--; else Sandbags--;
-            Physics.SyncTransforms();
+            StagePlacement.SyncPhysics();
             return true;
         }
 
         /// <summary>Instantiates a catalog body; callers handle validation and stock.</summary>
         private AvalanchePiece Spawn(int id, AvalancheMaterial kind, Vector3 position, Quaternion rotation)
         {
-            GameObject go = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            GameObject go = StagePlacement.CreateCube(transform, position, rotation);
             go.name = $"{kind} {id:00}";
-            go.transform.SetParent(transform, false);
-            go.transform.SetPositionAndRotation(position, rotation);
             go.transform.localScale = Size(kind);
             Renderer solid = go.GetComponent<Renderer>();
             if (kind == AvalancheMaterial.Panel) solid.sharedMaterial = _stage.PanelMaterial;
@@ -302,6 +333,12 @@ namespace Avalanche
                 return false;
             }
 
+            if (Mathf.Abs(point.x) > 17.4f || point.z < 1f || point.z >= 48f)
+            {
+                Hint = "접합 블록은 배치 허용 구역에만 설치할 수 있습니다.";
+                return false;
+            }
+
             AvalanchePiece owner = surface.GetComponent<AvalanchePiece>();
             if (owner == null && surface != _stage.Ground)
             {
@@ -309,7 +346,7 @@ namespace Avalanche
                 return false;
             }
 
-            _undo.Push(Capture());
+            _undo.Add(Capture());
             Vector3 local = owner != null ? owner.transform.InverseTransformPoint(point) : point;
             AdhesiveBlock block = SpawnAdhesive(_nextAdhesiveId++, owner, local);
             Adhesive--;
@@ -410,7 +447,7 @@ namespace Avalanche
 
             if (nearest != null)
             {
-                _undo.Push(Capture());
+                _undo.Add(Capture());
                 RemoveAdhesive(nearest);
                 Hint = "접합 블록과 해당 연결을 회수했습니다.";
             }
@@ -431,7 +468,7 @@ namespace Avalanche
         public void Remove(AvalanchePiece piece)
         {
             if (!_stage.CanEdit || piece == null) return;
-            _undo.Push(Capture());
+            _undo.Add(Capture());
             if (piece.Kind == AvalancheMaterial.Panel) Panels++; else Sandbags++;
             for (int i = _adhesives.Count - 1; i >= 0; i--)
                 if (_adhesives[i].Owner == piece) RemoveAdhesive(_adhesives[i]);
@@ -487,15 +524,15 @@ namespace Avalanche
         /// <summary>Undoes one complete edit, including its inventory and joint changes.</summary>
         public void Undo()
         {
-            if (!_stage.CanEdit || _undo.Count == 0) return;
-            Restore(_undo.Pop());
+            if (!_stage.CanEdit || !_undo.TryUndo(false, out Snapshot snapshot)) return;
+            Restore(snapshot);
             Hint = "직전 편집과 재고를 복원했습니다.";
         }
 
         /// <summary>Saves the finalized pre-warning construction checkpoint.</summary>
         public void SaveCheckpoint() => _checkpoint = Capture();
 
-        /// <summary>Restores the last flood layout, or an empty new layout when requested.</summary>
+        /// <summary>Restores construction or empties player-built objects, leaving scene-authored citizens intact.</summary>
         public void ResetLayout(bool empty)
         {
             if (empty || _checkpoint == null)
