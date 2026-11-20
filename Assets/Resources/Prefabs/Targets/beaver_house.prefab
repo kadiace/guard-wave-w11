@@ -95,6 +95,7 @@ MonoBehaviour:
   includeNearbyFloatingPieces: 1
   nearbyRadius: 25
   maxNearbyPieces: 8
+  reportAllFloodLogLoads: 1
 --- !u!33 &9104036738758681725
 MeshFilter:
   m_ObjectHideFlags: 0
@@ -102,7 +103,7 @@ MeshFilter:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 3330053058189274709}
-  m_Mesh: {fileID: 4300000, guid: 4bf2dfbcdf82409d81e1d0302fc21000, type: 3}
+  m_Mesh: {fileID: -2432090755550338912, guid: 4bf2dfbcdf82409d81e1d0302fc21000, type: 3}
 --- !u!23 &1323671180736351658
 MeshRenderer:
   m_ObjectHideFlags: 0
