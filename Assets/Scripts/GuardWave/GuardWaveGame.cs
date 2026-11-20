@@ -510,9 +510,8 @@ namespace GuardWave
             if (material == null) return;
             if (GetRemainingPlacements(material.id) <= 0)
             {
-                _status = _isFloodStage
-                    ? "통나무를 모두 사용했습니다. 기존 통나무를 제거하면 다시 설치할 수 있습니다."
-                    : material.name + " 배치 수량을 모두 사용했습니다.";
+                if (!_isFloodStage)
+                    _status = material.name + " 배치 수량을 모두 사용했습니다.";
                 return;
             }
             GameObject prefab = Resources.Load<GameObject>("Prefabs/Objects/" + material.id);
@@ -535,9 +534,8 @@ namespace GuardWave
             if (GetRemainingPlacements(material.id) == 0)
             {
                 EndPlacementStroke();
-                _status = _isFloodStage
-                    ? "통나무를 모두 사용했습니다. 기존 통나무를 제거하면 다시 설치할 수 있습니다."
-                    : material.name + " 배치 수량을 모두 사용했습니다.";
+                if (!_isFloodStage)
+                    _status = material.name + " 배치 수량을 모두 사용했습니다.";
             }
         }
 
@@ -578,9 +576,8 @@ namespace GuardWave
                 if (GetRemainingPlacements(material.id) == 0)
                 {
                     EndPlacementStroke();
-                    _status = _isFloodStage
-                    ? "통나무를 모두 사용했습니다. 기존 통나무를 제거하면 다시 설치할 수 있습니다."
-                    : material.name + " 배치 수량을 모두 사용했습니다.";
+                    if (!_isFloodStage)
+                    _status = material.name + " 배치 수량을 모두 사용했습니다.";
                     return;
                 }
 
@@ -602,9 +599,8 @@ namespace GuardWave
             StagePlacement.SyncPhysics();
             _placementStrokePieces.Add(piece);
             _placementStroke.Record(xz, _objectYaw);
-            _status = _isFloodStage
-                ? "마우스를 드래그해 통나무를 이어 설치하세요. 놓으면 설치가 완료됩니다."
-                : material.name + " 연속 배치 중. 마우스를 놓으면 배치가 완료됩니다.";
+            if (!_isFloodStage)
+                _status = material.name + " 연속 배치 중. 마우스를 놓으면 배치가 완료됩니다.";
             return true;
         }
 
@@ -626,11 +622,8 @@ namespace GuardWave
             _playerPlacementCount += placed.Count;
             WaveSnapshot snapshot = SaveEditState(false);
             StartCoroutine(ResolvePlacementStroke(snapshot, placed, _placementStrokeEpoch));
-            _status = _isFloodStage
-                ? _waveHasStarted
-                    ? $"통나무 {placed.Count}개 설치 완료. 파도에 대비해 더 보강하세요."
-                    : $"통나무 {placed.Count}개 설치 완료. 더 설치하거나 준비 완료를 누르세요."
-                : placed.Count + "개 배치 완료. 같은 기물을 계속 배치할 수 있습니다.";
+            if (!_isFloodStage)
+                _status = placed.Count + "개 배치 완료. 같은 기물을 계속 배치할 수 있습니다.";
         }
 
         /// <summary>
@@ -796,9 +789,8 @@ namespace GuardWave
             EndMudPainting();
             _selected = -1;
             HideDropPreview();
-            _status = _isFloodStage
-                ? "통나무를 더 설치하려면 팔레트에서 선택하세요."
-                : "후보를 다시 선택하세요.";
+            if (!_isFloodStage)
+                _status = "후보를 다시 선택하세요.";
         }
 
         /// <summary>화면 커서가 배치 가능한 월드 XZ에 있으면 그 위치를 반환한다.</summary>
@@ -1718,9 +1710,8 @@ namespace GuardWave
             EndMudPainting();
             SetOutlineTargets(null);
             _selected = index;
-            _status = _isFloodStage
-                ? "통나무 선택 완료. 드래그해서 이어 설치하세요."
-                : _offers[index].name + " 선택";
+            if (!_isFloodStage)
+                _status = _offers[index].name + " 선택";
         }
 
         /// <summary>규칙 창이 열려 있는 동안 게임의 배치 입력을 잠근다.</summary>
@@ -2125,9 +2116,10 @@ namespace GuardWave
             {
                 Debug.LogError("Unable to initialize ambient creek flow: " + error);
                 DisposeFluid();
-                _status = _isFloodStage
-                    ? "강물을 준비하지 못했습니다. R키로 스테이지를 다시 시작하세요."
-                    : "기본 강물 시뮬레이션 시작 실패";
+                if (_isFloodStage)
+                    _status = string.Empty;
+                else
+                    _status = "기본 강물 시뮬레이션 시작 실패";
             }
         }
 
@@ -2218,23 +2210,12 @@ namespace GuardWave
 
             _pendingDrops--;
             RefreshLatestEditState(placementState);
-            if (_pendingDrops == 0 && !_awaitingStage)
-            {
-                if (CanEditDuringFlood)
-                    _status = _floodCrestPhase == 1
-                        ? "통나무 설치 완료. 1차 파도가 오기 전에 더 보강하세요."
-                        : _floodCrestPhase == 2 && _floodWaitingForSecondWave
-                            ? "통나무 설치 완료. 더 강한 2차 파도가 곧 몰려옵니다! 통나무를 보강하세요."
-                            : _floodCrestPhase == 2 || _floodCrestPhase == 3
-                                ? "통나무 설치 완료. 파도가 몰려옵니다!"
-                                : $"통나무 설치 완료. 마지막까지 {TargetName}을 지키세요.";
-                else if (!_stageTransitioning)
-                    _status = _isLavaStage
-                        ? "배치 완료. 준비 완료를 누르면 용암이 흐릅니다."
-                        : _isFloodStage
-                            ? "통나무 설치 완료. 준비 완료를 눌러 물살을 시작하세요."
-                            : "배치 완료. 준비완료를 누르면 파도가 시작됩니다.";
-            }
+            // Settling a placed log should not overwrite the Flood wave-phase HUD.
+            if (_pendingDrops == 0 && !_awaitingStage &&
+                !_isFloodStage && !_stageTransitioning)
+                _status = _isLavaStage
+                    ? "배치 완료. 준비 완료를 누르면 용암이 흐릅니다."
+                    : "배치 완료. 준비완료를 누르면 파도가 시작됩니다.";
         }
 
         /// <summary>
@@ -2507,9 +2488,10 @@ namespace GuardWave
                 _resolving = false;
                 CommitWaveSnapshot();
                 _stageFloodRoutine = null;
-                _status = _isFloodStage
-                    ? "1차 파도를 시작하지 못했습니다. R키로 다시 시작하세요."
-                    : "파봉 생성 실패: 입자 예산과 설정을 확인하세요.";
+                if (_isFloodStage)
+                    _status = string.Empty;
+                else
+                    _status = "파봉 생성 실패: 입자 예산과 설정을 확인하세요.";
                 yield break;
             }
 
@@ -2572,9 +2554,10 @@ namespace GuardWave
                 _resolving = false;
                 CommitWaveSnapshot();
                 _stageFloodRoutine = null;
-                _status = _isFloodStage
-                    ? "2차 파도를 시작하지 못했습니다. R키로 다시 시작하세요."
-                    : "2차 파봉 생성 실패: GPU 입자 예산과 설정을 확인하세요.";
+                if (_isFloodStage)
+                    _status = string.Empty;
+                else
+                    _status = "2차 파봉 생성 실패: GPU 입자 예산과 설정을 확인하세요";
                 yield break;
             }
 
@@ -2661,9 +2644,10 @@ namespace GuardWave
                 _resolving = false;
                 CommitWaveSnapshot();
                 _stageFloodRoutine = null;
-                _status = _isFloodStage
-                    ? "파도를 시작하지 못했습니다. R키로 다시 시작하세요."
-                    : "GPU 파도 시작 실패: Compute Shader와 그래픽 API를 확인하세요.";
+                if (_isFloodStage)
+                    _status = string.Empty;
+                else
+                    _status = "GPU 파도 시작 실패: Compute Shader와 그래픽 API를 확인하세요.";
                 yield break;
             }
 
