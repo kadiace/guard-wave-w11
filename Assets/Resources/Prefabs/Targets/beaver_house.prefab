@@ -15,7 +15,6 @@ GameObject:
   - component: {fileID: 9104036738758681725}
   - component: {fileID: 1323671180736351658}
   - component: {fileID: 4726846669232608386}
-  - component: {fileID: 1557758363134591230}
   m_Layer: 0
   m_Name: beaver_house
   m_TagString: Untagged
@@ -103,7 +102,7 @@ MeshFilter:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 3330053058189274709}
-  m_Mesh: {fileID: 0}
+  m_Mesh: {fileID: 4300000, guid: 4bf2dfbcdf82409d81e1d0302fc21000, type: 3}
 --- !u!23 &1323671180736351658
 MeshRenderer:
   m_ObjectHideFlags: 0
@@ -129,13 +128,13 @@ MeshRenderer:
   m_RenderingLayerMask: 1
   m_RendererPriority: 0
   m_Materials:
-  - {fileID: 0}
-  - {fileID: 0}
-  - {fileID: 0}
-  - {fileID: 0}
-  - {fileID: 0}
-  - {fileID: 0}
-  - {fileID: 0}
+  - {fileID: 2100000, guid: 4bf2dfbcdf82409d81e1d0302fc22000, type: 2}
+  - {fileID: 2100000, guid: 4bf2dfbcdf82409d81e1d0302fc22001, type: 2}
+  - {fileID: 2100000, guid: 4bf2dfbcdf82409d81e1d0302fc22002, type: 2}
+  - {fileID: 2100000, guid: 4bf2dfbcdf82409d81e1d0302fc22003, type: 2}
+  - {fileID: 2100000, guid: 4bf2dfbcdf82409d81e1d0302fc22004, type: 2}
+  - {fileID: 2100000, guid: 4bf2dfbcdf82409d81e1d0302fc22005, type: 2}
+  - {fileID: 2100000, guid: 4bf2dfbcdf82409d81e1d0302fc22006, type: 2}
   m_StaticBatchInfo:
     firstSubMesh: 0
     subMeshCount: 0
@@ -179,16 +178,4 @@ BoxCollider:
   m_Enabled: 1
   serializedVersion: 3
   m_Size: {x: 3, y: 3, z: 3}
-  m_Center: {x: 0, y: -0.58, z: 0}
---- !u!114 &1557758363134591230
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 3330053058189274709}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: a7bf51a45b4b4f9c82f01cd0399d6e19, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWaveBeaverLodgeMesh
+  m_Center: {x: 0, y: 0, z: 0}
