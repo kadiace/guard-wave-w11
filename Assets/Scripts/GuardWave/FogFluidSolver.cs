@@ -14,7 +14,8 @@ namespace GuardWave
     /// </summary>
     internal sealed class FogFluidSolver : IDisposable
     {
-        internal const int MAX_PROBE_COUNT = 48;
+        internal const int MAX_FAN_EXPOSURE_PROBES = 10;
+        internal const int MAX_PROBE_COUNT = FogFlagDensityProbes.MaxSamples + MAX_FAN_EXPOSURE_PROBES;
         private const int MaxObstacles = 256;
         private const int MaxWindVents = 32;
 

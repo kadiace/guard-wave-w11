@@ -723,6 +723,9 @@ Ctrl+Z: 준비 단계의 최근 배치 되돌리기
         private string PieceDescription(GuardWavePiece piece)
         {
             if (piece == null) return null;
+            if (_fogMode != null && piece.gameObject == _game.DefenseFlag)
+                return "시민 가족\n\n독안개로부터 보호해야 하는 시민 가족입니다. 모든 독안개 웨이브가 끝날 때까지 지켜주세요.\n\n[목표]";
+
             GuardWaveMaterial material = _game.GetPieceMaterial(piece);
             return material != null ? CandidateDescription(material) : AbilityTooltip(piece.MaterialId);
         }

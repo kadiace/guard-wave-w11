@@ -29,11 +29,11 @@
       "palette": [
         {
           "materialId": "building",
-          "placementLimit": 1
+          "placementLimit": 10
         },
         {
           "materialId": "fog_barrier",
-          "placementLimit": 2
+          "placementLimit": 10
         }
       ],
       "targetMaterialId": "default_flag"

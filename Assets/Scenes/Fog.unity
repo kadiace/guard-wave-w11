@@ -639,7 +639,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   _fogVolumeRenderer: {fileID: 4700000004}
-  _barrierRootScale: {x: 1, y: 1, z: 1}
+  _barrierRootScale: {x: 0.3, y: 4, z: 0.7}
   _cellSize: 0.75
   _pressureIterations: 24
   _windSpeed: 5.5
@@ -13128,104 +13128,6 @@ PrefabInstance:
     m_AddedGameObjects: []
     m_AddedComponents: []
   m_SourcePrefab: {fileID: 100100000, guid: 16cfb8273f944aefb59581c51ddc248c, type: 3}
---- !u!1001 &8100000201
-PrefabInstance:
-  m_ObjectHideFlags: 0
-  serializedVersion: 2
-  m_Modification:
-    serializedVersion: 3
-    m_TransformParent: {fileID: 0}
-    m_Modifications:
-    - target: {fileID: 100000, guid: b6b7d49e03b94c0dbdf4d66338a8e9f2, type: 3}
-      propertyPath: m_Name
-      value: Fallen Fog Barrier Left
-      objectReference: {fileID: 0}
-    - target: {fileID: 100001, guid: b6b7d49e03b94c0dbdf4d66338a8e9f2, type: 3}
-      propertyPath: m_LocalPosition.x
-      value: -5.5
-      objectReference: {fileID: 0}
-    - target: {fileID: 100001, guid: b6b7d49e03b94c0dbdf4d66338a8e9f2, type: 3}
-      propertyPath: m_LocalPosition.y
-      value: -0.7
-      objectReference: {fileID: 0}
-    - target: {fileID: 100001, guid: b6b7d49e03b94c0dbdf4d66338a8e9f2, type: 3}
-      propertyPath: m_LocalPosition.z
-      value: -7.5
-      objectReference: {fileID: 0}
-    - target: {fileID: 100001, guid: b6b7d49e03b94c0dbdf4d66338a8e9f2, type: 3}
-      propertyPath: m_LocalRotation.w
-      value: 0.7071068
-      objectReference: {fileID: 0}
-    - target: {fileID: 100001, guid: b6b7d49e03b94c0dbdf4d66338a8e9f2, type: 3}
-      propertyPath: m_LocalRotation.x
-      value: 0.7071068
-      objectReference: {fileID: 0}
-    - target: {fileID: 100001, guid: b6b7d49e03b94c0dbdf4d66338a8e9f2, type: 3}
-      propertyPath: m_LocalRotation.y
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 100001, guid: b6b7d49e03b94c0dbdf4d66338a8e9f2, type: 3}
-      propertyPath: m_LocalRotation.z
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 100001, guid: b6b7d49e03b94c0dbdf4d66338a8e9f2, type: 3}
-      propertyPath: m_LocalEulerAnglesHint.x
-      value: 90
-      objectReference: {fileID: 0}
-    m_RemovedComponents: []
-    m_RemovedGameObjects: []
-    m_AddedGameObjects: []
-    m_AddedComponents: []
-  m_SourcePrefab: {fileID: 100100000, guid: b6b7d49e03b94c0dbdf4d66338a8e9f2, type: 3}
---- !u!1001 &8100000202
-PrefabInstance:
-  m_ObjectHideFlags: 0
-  serializedVersion: 2
-  m_Modification:
-    serializedVersion: 3
-    m_TransformParent: {fileID: 0}
-    m_Modifications:
-    - target: {fileID: 100000, guid: b6b7d49e03b94c0dbdf4d66338a8e9f2, type: 3}
-      propertyPath: m_Name
-      value: Fallen Fog Barrier Right
-      objectReference: {fileID: 0}
-    - target: {fileID: 100001, guid: b6b7d49e03b94c0dbdf4d66338a8e9f2, type: 3}
-      propertyPath: m_LocalPosition.x
-      value: 5.5
-      objectReference: {fileID: 0}
-    - target: {fileID: 100001, guid: b6b7d49e03b94c0dbdf4d66338a8e9f2, type: 3}
-      propertyPath: m_LocalPosition.y
-      value: -0.7
-      objectReference: {fileID: 0}
-    - target: {fileID: 100001, guid: b6b7d49e03b94c0dbdf4d66338a8e9f2, type: 3}
-      propertyPath: m_LocalPosition.z
-      value: 2.5
-      objectReference: {fileID: 0}
-    - target: {fileID: 100001, guid: b6b7d49e03b94c0dbdf4d66338a8e9f2, type: 3}
-      propertyPath: m_LocalRotation.w
-      value: 0.7071068
-      objectReference: {fileID: 0}
-    - target: {fileID: 100001, guid: b6b7d49e03b94c0dbdf4d66338a8e9f2, type: 3}
-      propertyPath: m_LocalRotation.x
-      value: 0.7071068
-      objectReference: {fileID: 0}
-    - target: {fileID: 100001, guid: b6b7d49e03b94c0dbdf4d66338a8e9f2, type: 3}
-      propertyPath: m_LocalRotation.y
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 100001, guid: b6b7d49e03b94c0dbdf4d66338a8e9f2, type: 3}
-      propertyPath: m_LocalRotation.z
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 100001, guid: b6b7d49e03b94c0dbdf4d66338a8e9f2, type: 3}
-      propertyPath: m_LocalEulerAnglesHint.x
-      value: 90
-      objectReference: {fileID: 0}
-    m_RemovedComponents: []
-    m_RemovedGameObjects: []
-    m_AddedGameObjects: []
-    m_AddedComponents: []
-  m_SourcePrefab: {fileID: 100100000, guid: b6b7d49e03b94c0dbdf4d66338a8e9f2, type: 3}
 --- !u!1001 &8200000001
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -13292,6 +13194,4 @@ SceneRoots:
   - {fileID: 463183981}
   - {fileID: 655165482}
   - {fileID: 8200000001}
-  - {fileID: 8100000201}
-  - {fileID: 8100000202}
   - {fileID: 815620740}

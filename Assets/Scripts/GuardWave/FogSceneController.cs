@@ -15,8 +15,7 @@ namespace GuardWave
     public sealed class FogSceneController : MonoBehaviour
     {
         private const int AcceleratedSimulationSpeed = 2;
-        private const int MAX_FAN_EXPOSURE_PROBES =
-            FogFluidSolver.MAX_PROBE_COUNT - FogFlagDensityProbes.MaxSamples;
+        private const int MAX_FAN_EXPOSURE_PROBES = FogFluidSolver.MAX_FAN_EXPOSURE_PROBES;
 
         [Header("Scene-authored volume mesh (no runtime creation)")]
         [SerializeField] private MeshRenderer _fogVolumeRenderer;
