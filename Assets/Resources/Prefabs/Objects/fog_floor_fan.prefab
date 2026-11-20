@@ -210,13 +210,13 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 7e209f5fe66f4f789aa13320f1fd07d2, type: 3}
-  m_Name:
+  m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::GuardWave.FogBuildingWind
   materialId: building
   outletLocalPosition: {x: 0, y: 2.05, z: -0.7}
   outletLocalDirection: {x: 0, y: 0, z: 1}
   additionalOutletHeights: []
-  windAcceleration: 14
+  windAcceleration: 25
   reach: 4
   outletRadius: 0.72
   _gasExposureLocalPosition: {x: 0.18, y: 0.9, z: -0.035}
@@ -238,7 +238,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: f986abfff886aa6cfb86af25fa86ad92, type: 3}
-  m_Name:
+  m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::GuardWave.GuardWavePiece
   materialId: building
   removeOutsideBoundary: 1
@@ -253,7 +253,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: d940fc416f784f7cb241d8b0e158fa92, type: 3}
-  m_Name:
+  m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::GuardWave.FogFanBladeRotation
   _blades:
   - {fileID: 200131}

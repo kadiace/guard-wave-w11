@@ -1,5 +1,6 @@
 using System;
 using System.Collections;
+using System.Collections.Generic;
 using System.Text;
 using UnityEngine;
 using UnityEngine.Rendering.Universal;
@@ -54,6 +55,8 @@ namespace GuardWave
             new FogBuildingWind[MAX_FAN_EXPOSURE_PROBES];
         private readonly FogBuildingWind[] _sampledFanProbes =
             new FogBuildingWind[MAX_FAN_EXPOSURE_PROBES];
+        private readonly Dictionary<FogBuildingWind, float> _fanDurabilityCheckpoint =
+            new Dictionary<FogBuildingWind, float>();
         private int _fanExposureTargetCount;
         private int _sampledFanProbeCount;
         private int _sampledProbeCount;
@@ -183,7 +186,35 @@ namespace GuardWave
         public void Ready()
         {
             if (!CanReady || _fogVolumeRenderer == null) return;
+            CaptureFanDurabilityCheckpoint();
             StartCoroutine(FogPass());
+        }
+
+        /// <summary>Saves active Fog wind sources before the next wave begins.</summary>
+        private void CaptureFanDurabilityCheckpoint()
+        {
+            _fanDurabilityCheckpoint.Clear();
+            foreach (FogBuildingWind fan in UnityEngine.Object.FindObjectsByType<FogBuildingWind>(
+                FindObjectsInactive.Include, FindObjectsSortMode.None))
+            {
+                if (fan == null || !fan.isActiveAndEnabled ||
+                    fan.gameObject.scene.handle != gameObject.scene.handle)
+                    continue;
+                _fanDurabilityCheckpoint[fan] = fan.GasDurabilityRemaining;
+            }
+        }
+
+        /// <summary>Restores the saved fan durability after placement recovery.</summary>
+        public void RestoreFanDurabilityCheckpoint()
+        {
+            foreach (KeyValuePair<FogBuildingWind, float> state in _fanDurabilityCheckpoint)
+            {
+                FogBuildingWind fan = state.Key;
+                if (fan == null || fan.gameObject.scene.handle != gameObject.scene.handle)
+                    continue;
+                fan.RestoreGasDurability(state.Value);
+            }
+            _fanDurabilityCheckpoint.Clear();
         }
 
         private IEnumerator FogPass()

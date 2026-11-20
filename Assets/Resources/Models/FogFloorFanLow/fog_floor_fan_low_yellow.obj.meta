@@ -1,0 +1,20 @@
+fileFormatVersion: 2
+guid: 16a11cb961c944bb9c4a1f8357db6922
+ModelImporter:
+  internalIDToNameTable: []
+  externalObjects: {}
+  materials:
+    materialImportMode: 2
+  meshes:
+    globalScale: 1
+    useFileScale: 1
+    meshCompression: 0
+    isReadable: 1
+    optimizeMeshPolygons: 1
+    optimizeMeshVertices: 1
+    weldVertices: 0
+    addCollider: 0
+  animationType: 0
+  userData:
+  assetBundleName:
+  assetBundleVariant:

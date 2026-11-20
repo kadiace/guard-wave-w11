@@ -2942,7 +2942,7 @@ namespace GuardWave
             UpdateCameraPosition();
         }
 
-        /// <summary>파도 스냅샷은 배치 이력과 공유되므로 파도 종료 시 참조만 해제한다.</summary>
+        /// <summary>Clears the retained wave snapshot after completion or failure recovery.</summary>
         private void CommitWaveSnapshot()
         {
             _waveSnapshot = null;
@@ -3202,6 +3202,7 @@ namespace GuardWave
                 _editHistory.RemoveRange(checkpointIndex + 1,
                     _editHistory.Count - checkpointIndex - 1);
             RestoreEditState(_waveSnapshot);
+            if (fogMode != null) fogMode.RestoreFanDurabilityCheckpoint();
             CommitWaveSnapshot();
             _currentRoundIndex = 0;
             _awaitingStage = false;

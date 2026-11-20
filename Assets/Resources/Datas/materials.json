@@ -33,7 +33,7 @@
     },
     {
       "id": "building",
-      "prefabResourceId": "fog_floor_fan",
+      "prefabResourceId": "fog_floor_fan_low_visual",
       "name": "선풍기",
       "category": "환경",
       "startOnly": false,

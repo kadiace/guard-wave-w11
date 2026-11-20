@@ -19,11 +19,11 @@
       "rounds": [
         {
           "limitPreparationTime": true,
-          "countdownSeconds": 30
+          "countdownSeconds": 50
         },
         {
           "limitPreparationTime": true,
-          "countdownSeconds": 30
+          "countdownSeconds": 50
         }
       ],
       "palette": [

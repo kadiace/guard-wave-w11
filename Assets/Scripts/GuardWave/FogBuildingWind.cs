@@ -96,8 +96,7 @@ namespace GuardWave
             if (_particleRoot == null)
                 CreateWindParticles();
             else if (IsOperational)
-                foreach (ParticleSystem system in _particleRoot.GetComponentsInChildren<ParticleSystem>(true))
-                    system.Play(true);
+                StartWindParticles();
         }
 
         private void LateUpdate()
@@ -199,6 +198,25 @@ namespace GuardWave
             _remainingGasDurability = Mathf.Max(0f, _remainingGasDurability - elapsedSeconds);
             if (_remainingGasDurability <= 0f)
                 StopWindParticles();
+        }
+
+        /// <summary>Restores the remaining durability saved before a Fog wave.</summary>
+        public void RestoreGasDurability(float remainingSeconds)
+        {
+            _remainingGasDurability = Mathf.Clamp(
+                remainingSeconds, 0f, Mathf.Max(0f, _gasDurabilitySeconds));
+            if (!IsOperational)
+                StopWindParticles();
+            else if (isActiveAndEnabled)
+                StartWindParticles();
+        }
+
+        /// <summary>Resumes airflow particles while the fan has remaining durability.</summary>
+        private void StartWindParticles()
+        {
+            if (_particleRoot == null) return;
+            foreach (ParticleSystem system in _particleRoot.GetComponentsInChildren<ParticleSystem>(true))
+                system.Play(true);
         }
 
         /// <summary>Stops emitted airflow particles after gas exposure exhausts the fan's durability.</summary>
