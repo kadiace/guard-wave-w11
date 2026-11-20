@@ -1939,7 +1939,7 @@ namespace GuardWave
                 ? "건물을 배치하면 +Z 방향 실외기 바람으로 안개를 밀어냅니다. 준비 완료를 누르세요."
                 : _isLavaStage
                     ? $"용암에 닿은 기물은 불타다가 파괴됩니다. {TargetName}을 지키세요."
-                    : $"통나무를 설치해 {TargetName}을 지키세요. 바닥이나 주변 물체에 가까워지면 자동으로 접착됩니다.";
+                    : $"통나무를 설치해 {TargetName}을 지키세요.";
             // Initial state enables Ctrl+Z to undo the very first placement.
             SaveEditState(false);
         }
@@ -2336,7 +2336,7 @@ namespace GuardWave
             {
                 _ambientFlowRunning = true;
                 _status = _isFloodStage
-                    ? $"물살이 시작됐습니다. {FLOOD_FIRST_CREST_DELAY_SECONDS:0}초 뒤 1차 파도가 옵니다. 통나무를 보강하세요."
+                    ? $"물살이 시작됐습니다. {FLOOD_FIRST_CREST_DELAY_SECONDS:0}초 뒤 1차 파도가 옵니다."
                     : "물살이 시작되었습니다. 5초 뒤 파도가 옵니다.";
                 _stageFloodRoutine = StartCoroutine(ResolveAmbientWave());
                 return;
@@ -2587,7 +2587,7 @@ namespace GuardWave
 
             // Preserve the creek's FLIP steps and Rigidbody forces throughout
             // this five-second survival window; movement never resets the clock.
-            _status = $"파도가 지나갔습니다. {TargetName}을 {FLAG_SURVIVAL_CHECK_SECONDS:0}초만 더 지키세요.";
+            _status = $"파도가 지나갔습니다. {FLAG_SURVIVAL_CHECK_SECONDS:0}초 뒤에 최종 정산합니다.";
             float checkElapsed = 0f;
             while (checkElapsed < FLAG_SURVIVAL_CHECK_SECONDS)
             {
@@ -3022,9 +3022,7 @@ namespace GuardWave
             DisposeFluid();
             RestoreEditState(previousState);
             if (ambientFlowPreview) BeginAmbientCreekFlow();
-            _status = _isFloodStage
-                ? "배치를 되돌렸습니다. 원하는 위치에 통나무를 다시 설치하세요."
-                : "이전 배치 상태로 되돌렸습니다.";
+            _status = "이전 배치 상태로 되돌렸습니다.";
         }
 
         private sealed class WaveSnapshot
@@ -3255,7 +3253,7 @@ namespace GuardWave
             if (ambientFlowPreview)
                 BeginAmbientCreekFlow();
             _status = _isFloodStage
-                ? "배치를 복원했습니다. 통나무를 보강한 뒤 준비 완료를 누르세요."
+                ? "배치를 복원했습니다. 준비를 마치면 준비 완료를 누르세요."
                 : "마지막 배치 상태로 복원했습니다. 배치를 바꾸고 다시 시도하세요.";
         }
 
