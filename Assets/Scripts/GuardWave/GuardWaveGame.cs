@@ -244,6 +244,9 @@ namespace GuardWave
         // 0: inactive, 1: first incoming, 2: first active / second incoming,
         // 3: second active. Updated on fixed physics ticks with the GPU crests.
         private int _floodCrestPhase;
+        // True after the first crest has had time to pass the playable channel.
+        // Separates its arrival notice from the second-wave repair window.
+        private bool _floodWaitingForSecondWave;
         private float _floodCrestSecondsRemaining;
         private float _floodSupplySecondsSinceReady;
         private bool _ambientFlowRunning;
@@ -1861,6 +1864,7 @@ namespace GuardWave
             _stageTransitioning = false;
             _waveHasStarted = false;
             _floodCrestPhase = 0;
+            _floodWaitingForSecondWave = false;
             _floodCrestSecondsRemaining = 0f;
             _floodSupplySecondsSinceReady = 0f;
             _ambientFlowRunning = false;
@@ -2219,9 +2223,11 @@ namespace GuardWave
                 if (CanEditDuringFlood)
                     _status = _floodCrestPhase == 1
                         ? "통나무 설치 완료. 1차 파도가 오기 전에 더 보강하세요."
-                        : _floodCrestPhase == 2
-                            ? "통나무 설치 완료. 더 강한 2차 파도가 몰려옵니다. 계속 보강하세요."
-                            : $"통나무 설치 완료. 마지막까지 {TargetName}을 지키세요.";
+                        : _floodCrestPhase == 2 && _floodWaitingForSecondWave
+                            ? "통나무 설치 완료. 더 강한 2차 파도가 곧 몰려옵니다! 통나무를 보강하세요."
+                            : _floodCrestPhase == 2 || _floodCrestPhase == 3
+                                ? "통나무 설치 완료. 파도가 몰려옵니다!"
+                                : $"통나무 설치 완료. 마지막까지 {TargetName}을 지키세요.";
                 else if (!_stageTransitioning)
                     _status = _isLavaStage
                         ? "배치 완료. 준비 완료를 누르면 용암이 흐릅니다."
@@ -2335,6 +2341,7 @@ namespace GuardWave
             if (_isFloodStage && ambientFlowPreview)
             {
                 _floodCrestPhase = 1;
+                _floodWaitingForSecondWave = false;
                 _floodCrestSecondsRemaining = FLOOD_FIRST_CREST_DELAY_SECONDS;
             }
             if (_isLavaStage)
@@ -2511,11 +2518,22 @@ namespace GuardWave
             if (_isFloodStage)
             {
                 _floodCrestPhase = 2;
+                _floodWaitingForSecondWave = false;
                 _floodCrestSecondsRemaining = secondDelay;
             }
             _status = _isFloodStage
-                ? $"1차 파도가 시작됐습니다. 더 강한 2차 파도가 몰려옵니다! {FLOOD_SECOND_CREST_DELAY_SECONDS:0}초 동안 통나무를 보강하세요."
+                ? "파도가 몰려옵니다!"
                 : "1차 파도가 이동 중입니다. 3초 후 2차 파도가 발생합니다.";
+
+            // Keep the first crest's arrival message visible until it has
+            // approximately traversed the channel. Preserve a separate repair
+            // window before the fixed second-crest launch at secondDelay.
+            float firstCrestTransitSeconds = _isFloodStage
+                ? Mathf.Clamp(
+                    (_placementBounds.size.z + _fluidSettings.WaveCrestLength) /
+                    Mathf.Max(0.1f, _fluidSettings.WaveCrestSpeed),
+                    1f, secondDelay * 0.5f)
+                : 0f;
             float secondCrestElapsed = 0f;
             while (secondCrestElapsed < secondDelay)
             {
@@ -2528,8 +2546,16 @@ namespace GuardWave
                 secondCrestElapsed = Mathf.Min(secondDelay,
                     secondCrestElapsed + Time.fixedDeltaTime);
                 if (_isFloodStage)
+                {
                     _floodCrestSecondsRemaining = Mathf.Max(0f,
                         secondDelay - secondCrestElapsed);
+                    if (!_floodWaitingForSecondWave &&
+                        secondCrestElapsed >= firstCrestTransitSeconds)
+                    {
+                        _floodWaitingForSecondWave = true;
+                        _status = "더 강한 2차 파도가 곧 몰려옵니다! 통나무를 보강하세요.";
+                    }
+                }
             }
 
             try
@@ -2555,10 +2581,11 @@ namespace GuardWave
             if (_isFloodStage)
             {
                 _floodCrestPhase = 3;
+                _floodWaitingForSecondWave = false;
                 _floodCrestSecondsRemaining = 0f;
             }
             _status = _isFloodStage
-                ? $"더 강한 2차 파도가 몰려옵니다! 통나무를 보강해 {TargetName}을 지키세요."
+                ? "파도가 몰려옵니다!"
                 : $"2차 파도가 이동 중입니다. {TargetName}을 지키세요.";
             // Wait for the SECOND crest's transit before the final survival check.
             float travel = (_placementBounds.size.z + _fluidSettings.WaveCrestLength) /
@@ -3237,6 +3264,7 @@ namespace GuardWave
             _stageTransitioning = false;
             _waveHasStarted = false;
             _floodCrestPhase = 0;
+            _floodWaitingForSecondWave = false;
             _floodCrestSecondsRemaining = 0f;
             _floodSupplySecondsSinceReady = 0f;
             _resolving = false;
