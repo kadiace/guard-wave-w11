@@ -1747,8 +1747,8 @@ namespace GuardWave
                 // this at mouse-down so it cannot also remove on mouse-up.
                 _rightGestureStartedWithOffer = _rightGestureActive && _selected >= 0;
                 _rightPressedPiece = _rightGestureActive && !_rightGestureStartedWithOffer &&
-                    !_stageTransitioning && !_resolving && !_awaitingStage &&
-                    !_finished && !_rulesOpen
+                    ((!_stageTransitioning && !_resolving) || CanEditDuringFlood) &&
+                    !_awaitingStage && !_finished && !_rulesOpen
                     ? FindPointedPiece(mouse.position.ReadValue()) : null;
                 _rightGestureMoved = false;
                 _rightDragDisplacement = Vector2.zero;
@@ -2224,8 +2224,9 @@ namespace GuardWave
         /// <summary>A completed right-click removes the selected object only, never its neighbors.</summary>
         internal void RemovePieceByRightClick(GuardWavePiece piece)
         {
-            if (_stageTransitioning || _resolving || _awaitingStage || _finished ||
-                _rulesOpen || _selected >= 0 || piece == null ||
+            if (((_stageTransitioning || _resolving) && !CanEditDuringFlood) ||
+                _awaitingStage || _finished || _rulesOpen || _selected >= 0 ||
+                piece == null ||
                 piece.MaterialId == "foundation") return;
             if (piece.gameObject == _defenseFlag) return;
             // Manual removal is an edit too, so Ctrl+Z restores the removed piece.
