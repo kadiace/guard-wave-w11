@@ -14,6 +14,7 @@ namespace GuardWave
     /// </summary>
     internal sealed class FogFluidSolver : IDisposable
     {
+        internal const int MAX_PROBE_COUNT = 48;
         private const int MaxObstacles = 256;
         private const int MaxWindVents = 32;
 
@@ -103,8 +104,8 @@ namespace GuardWave
             _obstacleSdf = MakeTexture("Fog Obstacle SDF");
             _obstacles = new ComputeBuffer(MaxObstacles, Marshal.SizeOf<Obstacle>());
             _windVents = new ComputeBuffer(MaxWindVents, Marshal.SizeOf<WindVent>());
-            _probePositions = new ComputeBuffer(FogFlagDensityProbes.MaxSamples, sizeof(float) * 3);
-            _probeDensities = new ComputeBuffer(FogFlagDensityProbes.MaxSamples, sizeof(float));
+            _probePositions = new ComputeBuffer(MAX_PROBE_COUNT, sizeof(float) * 3);
+            _probeDensities = new ComputeBuffer(MAX_PROBE_COUNT, sizeof(float));
             _sampleDensityKernel = _compute.FindKernel("SampleFogDensity");
             _clear = _compute.FindKernel("ClearFog");
             _clearAuxiliary = _compute.FindKernel("ClearFogAuxiliary");
@@ -407,7 +408,7 @@ namespace GuardWave
 
         /// <summary>
         /// GPU-only sparse density lookup. The 3D density texture is never copied
-        /// to CPU; only up to 40 scalar probe values are read back asynchronously.
+        /// to CPU; only up to MAX_PROBE_COUNT scalar values are read back asynchronously.
         /// A pending request is skipped rather than blocking the simulation.
         /// </summary>
         /// <returns>True only when a new GPU readback was scheduled.</returns>
@@ -416,7 +417,7 @@ namespace GuardWave
         {
             if (_disposed || _probeReadbackPending || count <= 0 || completed == null)
                 return false;
-            if (points == null || count > FogFlagDensityProbes.MaxSamples || count > points.Length)
+            if (points == null || count > MAX_PROBE_COUNT || count > points.Length)
                 throw new ArgumentOutOfRangeException(nameof(count));
 
             _probePositions.SetData(points, 0, 0, count);

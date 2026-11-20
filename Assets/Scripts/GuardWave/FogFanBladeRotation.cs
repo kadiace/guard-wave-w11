@@ -6,6 +6,7 @@ namespace GuardWave
     /// Rotates the authored fan blades around their local hub while preserving
     /// their prefab positions and orientations as the starting pose.
     /// </summary>
+    [RequireComponent(typeof(FogBuildingWind))]
     public sealed class FogFanBladeRotation : MonoBehaviour
     {
         [Header("Blade rotation")]
@@ -14,12 +15,14 @@ namespace GuardWave
         [SerializeField] private Vector3 _localRotationAxis = Vector3.forward;
         [SerializeField] private float _rotationSpeedDegreesPerSecond = 900f;
 
+        private FogBuildingWind _wind;
         private Vector3[] _initialLocalPositions;
         private Quaternion[] _initialLocalRotations;
         private float _rotationAngle;
 
         private void Awake()
         {
+            _wind = GetComponent<FogBuildingWind>();
             _initialLocalPositions = new Vector3[_blades.Length];
             _initialLocalRotations = new Quaternion[_blades.Length];
             for (int i = 0; i < _blades.Length; i++)
@@ -31,6 +34,8 @@ namespace GuardWave
 
         private void Update()
         {
+            if (!_wind.IsOperational) return;
+
             _rotationAngle = Mathf.Repeat(
                 _rotationAngle + _rotationSpeedDegreesPerSecond * Time.deltaTime, 360f);
             Quaternion rotation = Quaternion.AngleAxis(_rotationAngle, _localRotationAxis.normalized);

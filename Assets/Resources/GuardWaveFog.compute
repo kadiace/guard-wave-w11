@@ -341,8 +341,8 @@ void AdvectFogDensity(uint3 id : SV_DispatchThreadID) {
 
 
 // Samples exactly the same scalar gas density that drives volumetric shading.
-// The collider interior is solid (density=0), so positions are placed outside
-// the Defense Flag's child collider surfaces by FogFlagDensityProbes.
+// The collider interior is solid (density=0), so target and fan probes are
+// placed outside their collider surfaces.
 [numthreads(32,1,1)]
 void SampleFogDensity(uint3 id : SV_DispatchThreadID)
 {

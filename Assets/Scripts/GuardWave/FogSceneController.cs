@@ -15,6 +15,8 @@ namespace GuardWave
     public sealed class FogSceneController : MonoBehaviour
     {
         private const int AcceleratedSimulationSpeed = 2;
+        private const int MAX_FAN_EXPOSURE_PROBES =
+            FogFluidSolver.MAX_PROBE_COUNT - FogFlagDensityProbes.MaxSamples;
 
         [Header("Scene-authored volume mesh (no runtime creation)")]
         [SerializeField] private MeshRenderer _fogVolumeRenderer;
@@ -44,11 +46,20 @@ namespace GuardWave
         private GuardWaveGame _game;
         private FogFluidSolver _fluid;
         private FogFlagDensityProbes _flagProbes;
-        private readonly Vector3[] _probePositions = new Vector3[FogFlagDensityProbes.MaxSamples];
-        private readonly Vector3[] _sampledProbePositions = new Vector3[FogFlagDensityProbes.MaxSamples];
+        private readonly Vector3[] _probePositions = new Vector3[FogFluidSolver.MAX_PROBE_COUNT];
+        private readonly Vector3[] _sampledProbePositions = new Vector3[FogFluidSolver.MAX_PROBE_COUNT];
         private readonly string[] _sampledProbeSources = new string[FogFlagDensityProbes.MaxSamples];
+        private readonly FogBuildingWind[] _fanExposureTargets =
+            new FogBuildingWind[MAX_FAN_EXPOSURE_PROBES];
+        private readonly FogBuildingWind[] _fanRequestCandidates =
+            new FogBuildingWind[MAX_FAN_EXPOSURE_PROBES];
+        private readonly FogBuildingWind[] _sampledFanProbes =
+            new FogBuildingWind[MAX_FAN_EXPOSURE_PROBES];
+        private int _fanExposureTargetCount;
+        private int _sampledFanProbeCount;
         private int _sampledProbeCount;
         private int _sampledOutOfBoundsCount;
+        private float _lastFanExposureSampleTime;
         private float _nextProbeLogTime;
         private MaterialPropertyBlock _block;
 
@@ -126,6 +137,23 @@ namespace GuardWave
             return normalSpeedRemaining + acceleratedSpeedRemaining;
         }
 
+        /// <summary>Caches active fan targets in this scene for GPU density sampling during the wave.</summary>
+        private int CacheFanExposureTargets()
+        {
+            Array.Clear(_fanExposureTargets, 0, _fanExposureTargets.Length);
+            int count = 0;
+            foreach (FogBuildingWind fan in UnityEngine.Object.FindObjectsByType<FogBuildingWind>(
+                FindObjectsSortMode.None))
+            {
+                if (fan == null || !fan.isActiveAndEnabled || !fan.IsOperational ||
+                    fan.gameObject.scene.handle != gameObject.scene.handle)
+                    continue;
+                if (count >= _fanExposureTargets.Length) break;
+                _fanExposureTargets[count++] = fan;
+            }
+            return count;
+        }
+
         private void Awake()
         {
             _game = GetComponent<GuardWaveGame>();
@@ -165,12 +193,15 @@ namespace GuardWave
             _game.SetRulesOpen(true); // Existing placement UI and input become read-only.
             _flagProbes = _game.DefenseFlag != null
                 ? _game.DefenseFlag.GetComponent<FogFlagDensityProbes>() : null;
+            _fanExposureTargetCount = CacheFanExposureTargets();
             _exposureSeconds = 0f;
             _lastDensityAt = float.NegativeInfinity;
             _maxFlagDensity = 0f;
             _flagTouching = false;
             _sampledProbeCount = 0;
+            _sampledFanProbeCount = 0;
             _sampledOutOfBoundsCount = 0;
+            _lastFanExposureSampleTime = Time.time;
             _nextProbeLogTime = float.NegativeInfinity;
             _simulationSpeed = 1;
             _simulationElapsedSeconds = 0f;
@@ -186,7 +217,7 @@ namespace GuardWave
                 _game.SetRulesOpen(false);
                 yield break;
             }
-            _status = "도시 도로로 밀려오는 안개에 배치한 건물의 실외기 바람이 맞서고 있습니다.";
+            _status = "도시 도로로 밀려오는 안개에 배치한 선풍기의 바람이 맞서고 있습니다.";
             float ground = -2.25f;
             GameObject bed = GameObject.Find("Fog Asphalt Ground");
             if (bed != null)
@@ -282,28 +313,24 @@ namespace GuardWave
                 // physics frame; more solver steps do not change exposure time.
                 if (stepped && !_game.AwaitingFailure)
                 {
-                    int probeCount = _flagProbes.Collect(_probePositions, _fluid.WorldBounds);
-                    if (probeCount > 0)
+                    int flagProbeCount = _flagProbes.Collect(_probePositions, _fluid.WorldBounds);
+                    int totalProbeCount = flagProbeCount;
+                    int fanProbeCount = 0;
+                    for (int i = 0; i < _fanExposureTargetCount &&
+                        totalProbeCount < _probePositions.Length; i++)
                     {
-                        // Only snapshot metadata when the solver actually accepts
-                        // a new request. While an async readback is pending,
-                        // Collect may update the mutable world-space point array.
-                        if (_fluid.RequestDensitySamples(_probePositions, probeCount, ReceiveFlagDensity))
-                        {
-                            _requestedProbeSimulationElapsed = elapsed;
-                            _sampledProbeCount = probeCount;
-                            _sampledOutOfBoundsCount = _flagProbes.LastOutOfBoundsCount;
-                            for (int i = 0; i < probeCount; i++)
-                            {
-                                _sampledProbePositions[i] = _probePositions[i];
-                                _sampledProbeSources[i] = _flagProbes.GetSampleSource(i);
-                            }
-                        }
+                        FogBuildingWind fan = _fanExposureTargets[i];
+                        if (fan == null || !fan.isActiveAndEnabled || !fan.IsOperational)
+                            continue;
+                        Vector3 position = fan.GasExposurePosition;
+                        if (!_fluid.WorldBounds.Contains(position)) continue;
+                        _probePositions[totalProbeCount++] = position;
+                        _fanRequestCandidates[fanProbeCount++] = fan;
                     }
-                    else
+
+                    if (flagProbeCount == 0)
                     {
-                        // No dots are in the volume. This is equivalent to a
-                        // current clear density sample for the end-time check.
+                        // No target samples are in the volume, so treat the goal as clear.
                         _flagTouching = false;
                         _residualFogAtFlag = false;
                         _maxFlagDensity = 0f;
@@ -315,6 +342,23 @@ namespace GuardWave
                                 $"{_flagProbes.LastOutOfBoundsCount}, bounds={_fluid.WorldBounds})");
                             _nextProbeLogTime = Time.unscaledTime + _probeLogIntervalSeconds;
                         }
+                    }
+
+                    // Share the asynchronous GPU readback between the objective and its fans.
+                    if (totalProbeCount > 0 && _fluid.RequestDensitySamples(
+                        _probePositions, totalProbeCount, ReceiveDensitySamples))
+                    {
+                        _requestedProbeSimulationElapsed = elapsed;
+                        _sampledProbeCount = flagProbeCount;
+                        _sampledFanProbeCount = fanProbeCount;
+                        _sampledOutOfBoundsCount = _flagProbes.LastOutOfBoundsCount;
+                        for (int i = 0; i < flagProbeCount; i++)
+                        {
+                            _sampledProbePositions[i] = _probePositions[i];
+                            _sampledProbeSources[i] = _flagProbes.GetSampleSource(i);
+                        }
+                        for (int i = 0; i < fanProbeCount; i++)
+                            _sampledFanProbes[i] = _fanRequestCandidates[i];
                     }
                 }
 
@@ -406,6 +450,31 @@ namespace GuardWave
             }
         }
 
+        /// <summary>Splits one GPU density readback between the objective and active fan exposure sensors.</summary>
+        private void ReceiveDensitySamples(float peakDensity, float[] samples)
+        {
+            if (!_running || _game == null || _game.AwaitingFailure) return;
+            if (_sampledProbeCount > 0)
+            {
+                float flagPeakDensity = 0f;
+                for (int i = 0; i < _sampledProbeCount; i++)
+                    flagPeakDensity = Mathf.Max(flagPeakDensity, samples[i]);
+                ReceiveFlagDensity(flagPeakDensity, samples);
+            }
+
+            float now = Time.time;
+            float elapsedSeconds = Mathf.Max(0f, now - _lastFanExposureSampleTime);
+            _lastFanExposureSampleTime = now;
+            int fanSampleOffset = _sampledProbeCount;
+            for (int i = 0; i < _sampledFanProbeCount; i++)
+            {
+                FogBuildingWind fan = _sampledFanProbes[i];
+                if (fan == null || !fan.isActiveAndEnabled) continue;
+                fan.ApplyGasExposure(samples[fanSampleOffset + i], elapsedSeconds);
+            }
+        }
+
+        /// <summary>Updates objective exposure and the fog wave's residual-density deadline.</summary>
         private void ReceiveFlagDensity(float peakDensity, float[] samples)
         {
             if (!_running || _game == null || _game.AwaitingFailure) return;

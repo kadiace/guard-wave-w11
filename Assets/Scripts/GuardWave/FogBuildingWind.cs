@@ -1,5 +1,6 @@
 using UnityEngine;
 using UnityEngine.Rendering;
+using UnityEngine.UI;
 
 namespace GuardWave
 {
@@ -23,6 +24,19 @@ namespace GuardWave
         [SerializeField, Min(0.1f)] private float reach = 4f;
         [SerializeField, Min(0.1f)] private float outletRadius = 0.72f;
 
+        [Header("Toxic gas durability")]
+        [Tooltip("Point sampled for gas exposure, placed just outside the fan pole.")]
+        [SerializeField] private Vector3 _gasExposureLocalPosition = new Vector3(0.18f, 0.9f, -0.035f);
+        [Tooltip("Cumulative gameplay seconds above the density threshold before the fan stops.")]
+        [SerializeField, Min(0.1f)] private float _gasDurabilitySeconds = 20f;
+        [Tooltip("Gas density at which the fan starts consuming durability.")]
+        [SerializeField, Range(0f, 1f)] private float _gasDamageDensityThreshold = 0.01f;
+
+        [Header("Durability billboard")]
+        [SerializeField] private bool _showDurabilityBillboard;
+        [SerializeField] private Vector3 _durabilityBillboardLocalOffset = new Vector3(0f, 2.85f, 0f);
+        [SerializeField, Min(0.001f)] private float _durabilityBillboardScale = 0.01f;
+
         [Header("Visible airflow (cosmetic only)")]
         [Tooltip("Seconds each particle lives. Particle speed is computed as GPU wind reach / lifetime.")]
         [SerializeField, Min(0.05f)] private float particleLifetime = 1.15f;
@@ -32,14 +46,31 @@ namespace GuardWave
         private GameObject _particleRoot;
         private Material _particleMaterial;
         private Texture2D _particleTexture;
+        private float _remainingGasDurability;
+        private Canvas _durabilityCanvas;
+        private Image _durabilityFill;
+        private Texture2D _durabilityBarTexture;
+        private Sprite _durabilityBarSprite;
+        private Camera _billboardCamera;
+        private float _lastDisplayedDurability = -1f;
+        private Color _lastDurabilityColor;
 
         public string MaterialId => materialId;
         public int OutletCount => 1 + (additionalOutletHeights != null ? additionalOutletHeights.Length : 0);
         public Vector3 OutletPosition => GetOutletPosition(0);
         public Vector3 OutletDirection => transform.TransformDirection(outletLocalDirection).normalized;
-        public float WindAcceleration => Mathf.Max(0f, windAcceleration);
+        public Vector3 GasExposurePosition => transform.TransformPoint(_gasExposureLocalPosition);
+        public float GasDurabilityRemaining => Mathf.Max(0f, _remainingGasDurability);
+        public bool IsOperational => _remainingGasDurability > 0f;
+        public float WindAcceleration => IsOperational ? Mathf.Max(0f, windAcceleration) : 0f;
         public float Reach => Mathf.Max(0.1f, reach);
         public float OutletRadius => Mathf.Max(0.1f, outletRadius);
+
+        private void Awake()
+        {
+            _remainingGasDurability = Mathf.Max(0f, _gasDurabilitySeconds);
+            _billboardCamera = Camera.main;
+        }
 
         public Vector3 GetOutletPosition(int index)
         {
@@ -59,8 +90,123 @@ namespace GuardWave
 
         private void OnEnable()
         {
-            if (Application.isPlaying && _particleRoot == null)
+            if (!Application.isPlaying) return;
+            if (_showDurabilityBillboard && _durabilityCanvas == null)
+                CreateDurabilityBillboard();
+            if (_particleRoot == null)
                 CreateWindParticles();
+            else if (IsOperational)
+                foreach (ParticleSystem system in _particleRoot.GetComponentsInChildren<ParticleSystem>(true))
+                    system.Play(true);
+        }
+
+        private void LateUpdate()
+        {
+            if (_durabilityCanvas == null) return;
+            float normalizedDurability = _gasDurabilitySeconds > 0f
+                ? Mathf.Clamp01(GasDurabilityRemaining / _gasDurabilitySeconds)
+                : 0f;
+            Color durabilityColor = normalizedDurability > 0.5f
+                ? new Color(0.20f, 0.88f, 0.40f, 1f)
+                : normalizedDurability > 0.25f
+                    ? new Color(1f, 0.68f, 0.16f, 1f)
+                    : new Color(0.95f, 0.22f, 0.18f, 1f);
+            if (!Mathf.Approximately(normalizedDurability, _lastDisplayedDurability))
+            {
+                _durabilityFill.fillAmount = normalizedDurability;
+                _lastDisplayedDurability = normalizedDurability;
+            }
+            if (durabilityColor != _lastDurabilityColor)
+            {
+                _durabilityFill.color = durabilityColor;
+                _lastDurabilityColor = durabilityColor;
+            }
+
+            if (_billboardCamera == null) _billboardCamera = Camera.main;
+            if (_billboardCamera == null) return;
+            if (_durabilityCanvas.worldCamera != _billboardCamera)
+                _durabilityCanvas.worldCamera = _billboardCamera;
+
+            Vector3 toCamera = _billboardCamera.transform.position - _durabilityCanvas.transform.position;
+            if (toCamera.sqrMagnitude > 0.0001f)
+                _durabilityCanvas.transform.rotation = Quaternion.LookRotation(toCamera, Vector3.up);
+        }
+
+        /// <summary>Creates a camera-facing world-space health bar above this fan.</summary>
+        private void CreateDurabilityBillboard()
+        {
+            _durabilityBarTexture = new Texture2D(1, 1, TextureFormat.RGBA32, false)
+            {
+                name = "Fan Durability Bar Texture"
+            };
+            _durabilityBarTexture.SetPixel(0, 0, Color.white);
+            _durabilityBarTexture.Apply(false, true);
+            _durabilityBarSprite = Sprite.Create(
+                _durabilityBarTexture, new Rect(0f, 0f, 1f, 1f), new Vector2(0.5f, 0.5f));
+            _durabilityBarSprite.name = "Fan Durability Bar Sprite";
+
+            GameObject root = new GameObject("Fan Durability Billboard", typeof(RectTransform), typeof(Canvas));
+            root.transform.SetParent(transform, false);
+            root.transform.localPosition = _durabilityBillboardLocalOffset;
+            root.transform.localScale = Vector3.one * _durabilityBillboardScale;
+
+            RectTransform rootRect = root.GetComponent<RectTransform>();
+            rootRect.sizeDelta = new Vector2(120f, 16f);
+
+            _durabilityCanvas = root.GetComponent<Canvas>();
+            _durabilityCanvas.renderMode = RenderMode.WorldSpace;
+            _durabilityCanvas.overrideSorting = true;
+            _durabilityCanvas.sortingOrder = 20;
+            _durabilityCanvas.worldCamera = _billboardCamera;
+
+            GameObject backgroundObject = new GameObject(
+                "Background", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
+            backgroundObject.transform.SetParent(root.transform, false);
+            RectTransform backgroundRect = backgroundObject.GetComponent<RectTransform>();
+            backgroundRect.anchorMin = Vector2.zero;
+            backgroundRect.anchorMax = Vector2.one;
+            backgroundRect.offsetMin = Vector2.zero;
+            backgroundRect.offsetMax = Vector2.zero;
+
+            Image background = backgroundObject.GetComponent<Image>();
+            background.sprite = _durabilityBarSprite;
+            background.color = new Color(0.035f, 0.055f, 0.07f, 0.92f);
+            background.raycastTarget = false;
+
+            GameObject fillObject = new GameObject(
+                "Durability", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
+            fillObject.transform.SetParent(backgroundObject.transform, false);
+            RectTransform fillRect = fillObject.GetComponent<RectTransform>();
+            fillRect.anchorMin = Vector2.zero;
+            fillRect.anchorMax = Vector2.one;
+            fillRect.offsetMin = new Vector2(2f, 2f);
+            fillRect.offsetMax = new Vector2(-2f, -2f);
+
+            _durabilityFill = fillObject.GetComponent<Image>();
+            _durabilityFill.sprite = _durabilityBarSprite;
+            _durabilityFill.type = Image.Type.Filled;
+            _durabilityFill.fillMethod = Image.FillMethod.Horizontal;
+            _durabilityFill.fillOrigin = (int)Image.OriginHorizontal.Left;
+            _durabilityFill.raycastTarget = false;
+        }
+
+        /// <summary>Consumes durability while sampled gas density reaches the damage threshold.</summary>
+        public void ApplyGasExposure(float density, float elapsedSeconds)
+        {
+            if (!IsOperational || elapsedSeconds <= 0f || density < _gasDamageDensityThreshold)
+                return;
+
+            _remainingGasDurability = Mathf.Max(0f, _remainingGasDurability - elapsedSeconds);
+            if (_remainingGasDurability <= 0f)
+                StopWindParticles();
+        }
+
+        /// <summary>Stops emitted airflow particles after gas exposure exhausts the fan's durability.</summary>
+        private void StopWindParticles()
+        {
+            if (_particleRoot == null) return;
+            foreach (ParticleSystem system in _particleRoot.GetComponentsInChildren<ParticleSystem>(true))
+                system.Stop(true, ParticleSystemStopBehavior.StopEmittingAndClear);
         }
 
         private void CreateWindParticles()
@@ -186,6 +332,8 @@ namespace GuardWave
         {
             if (_particleMaterial != null) Destroy(_particleMaterial);
             if (_particleTexture != null) Destroy(_particleTexture);
+            if (_durabilityBarSprite != null) Destroy(_durabilityBarSprite);
+            if (_durabilityBarTexture != null) Destroy(_durabilityBarTexture);
         }
 
         private void OnDrawGizmosSelected()

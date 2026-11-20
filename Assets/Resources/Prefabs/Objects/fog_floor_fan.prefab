@@ -219,6 +219,12 @@ MonoBehaviour:
   windAcceleration: 14
   reach: 4
   outletRadius: 0.72
+  _gasExposureLocalPosition: {x: 0.18, y: 0.9, z: -0.035}
+  _gasDurabilitySeconds: 20
+  _gasDamageDensityThreshold: 0.01
+  _showDurabilityBillboard: 1
+  _durabilityBillboardLocalOffset: {x: 0, y: 2.85, z: 0}
+  _durabilityBillboardScale: 0.01
   particleLifetime: 1.15
   particlesPerSecond: 32
   particleTint: {r: 0.77, g: 0.92, b: 1, a: 0.85}
