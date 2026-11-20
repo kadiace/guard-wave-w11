@@ -2336,7 +2336,7 @@ namespace GuardWave
             {
                 _ambientFlowRunning = true;
                 _status = _isFloodStage
-                    ? $"물살이 시작됐습니다. {FLOOD_FIRST_CREST_DELAY_SECONDS:0}초 뒤 1차 파도가 옵니다."
+                    ? $"{_stageInfo.disasterName}가 시작됐습니다. {FLOOD_FIRST_CREST_DELAY_SECONDS:0}초 뒤 1차 파도가 옵니다."
                     : "물살이 시작되었습니다. 5초 뒤 파도가 옵니다.";
                 _stageFloodRoutine = StartCoroutine(ResolveAmbientWave());
                 return;
