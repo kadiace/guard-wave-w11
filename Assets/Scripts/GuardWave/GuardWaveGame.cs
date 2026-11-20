@@ -2557,7 +2557,7 @@ namespace GuardWave
                 if (_isFloodStage)
                     _status = string.Empty;
                 else
-                    _status = "2차 파봉 생성 실패: GPU 입자 예산과 설정을 확인하세요";
+                    _status = "2차 파봉 생성 실패: GPU 입자 예산과 설정을 확인하세요.";
                 yield break;
             }
 
