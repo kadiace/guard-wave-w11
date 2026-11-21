@@ -25,6 +25,9 @@ namespace GuardWave
         private readonly GuardWaveFluidSettings _settings;
         private readonly float _cellSize;
         private readonly Transform _damageFence;
+        private readonly FloodLogWall[] _placedWalls;
+        private readonly uint[] _wallHits;
+        private readonly Dictionary<Rigidbody, int> _wallSlots = new Dictionary<Rigidbody, int>();
         private readonly Rigidbody[] _fenceHitBodies;
 
         [StructLayout(LayoutKind.Sequential)]
@@ -228,11 +231,13 @@ namespace GuardWave
             float bedSlope = 0f, Transform damageFence = null, int fenceDurability = 0,
             float downstreamDriftAcceleration = 0f, float downstreamDriftMaxSpeed = 0f,
             float floodPressureResponse = 0f, float floodPressureCellClamp = 500f,
-            float floodPressureMaxForce = 350f, float floodPressureMaxTorque = 300f)
+            float floodPressureMaxForce = 350f, float floodPressureMaxTorque = 300f, int wallSlots = 0)
         {
             _settings = settings ?? throw new ArgumentNullException(nameof(settings));
             _ambientFlow = ambientFlow;
             _damageFence = damageFence;
+            _placedWalls = new FloodLogWall[wallSlots];
+            _wallHits = new uint[wallSlots];
             _fenceHitBodies = new Rigidbody[fenceDurability];
             _floodPressureEnabled = ambientFlow && !_settings.DestroyOnFluidContact &&
                 floodPressureResponse > 0f;
@@ -313,7 +318,9 @@ namespace GuardWave
             // Unlike raw water columns, this history must survive fixed steps.
             _smoothedWaterSurface.SetData(new int[_grid.x * _grid.z]);
             _waterFlow = new ComputeBuffer(_grid.x * _grid.z, sizeof(int) * 4);
-            _flowCounters = new ComputeBuffer(FLOW_COUNTER_COUNT + fenceDurability, sizeof(uint));
+            _flowCounters = new ComputeBuffer(FLOW_COUNTER_COUNT + fenceDurability + wallSlots +
+                (wallSlots > 0 ? _settings.MaxParticles : 0), sizeof(uint));
+            if (!_settings.DestroyOnFluidContact) _compute.SetInt("_WallSlots", wallSlots);
             _flowCounters.SetData(new uint[_flowCounters.count]);
             if (!_settings.DestroyOnFluidContact) _compute.SetInt("_FenceDurability", fenceDurability);
             _crestMetrics = new ComputeBuffer(3, sizeof(uint));
@@ -679,6 +686,12 @@ namespace GuardWave
             if (body == null || _indices.ContainsKey(body) || _bodies.Count >= _settings.MaxBodies)
                 return;
             _indices.Add(body, _bodies.Count);
+            if (_placedWalls.Length > 0 && body.gameObject.activeInHierarchy &&
+                body.TryGetComponent(out FloodLogWall wall))
+            {
+                _wallSlots.Add(body, wall.Slot);
+                _placedWalls[wall.Slot] = wall;
+            }
             _bodies.Add(body);
             _initialLogJoints.Add(body.GetComponent<GuardWaveInitialLogJoint>());
             _bodyPieces.Add(body.GetComponent<GuardWavePiece>());
@@ -801,7 +814,10 @@ namespace GuardWave
                 Vector3 bodyCenter = body != null ? body.worldCenterOfMass : center;
                 bool countsHit = _damageFence != null && body != null && body.isKinematic &&
                     body.transform.parent == _damageFence;
-                data.BodyCenter = new Vector4(bodyCenter.x, bodyCenter.y, bodyCenter.z, countsHit ? _indices[body] + 1 : 0);
+                int contactId = countsHit ? _indices[body] + 1 : 0;
+                if (_placedWalls.Length > 0 && body != null && _wallSlots.TryGetValue(body, out int slot))
+                    contactId = -(slot + 1);
+                data.BodyCenter = new Vector4(bodyCenter.x, bodyCenter.y, bodyCenter.z, contactId);
                 _colliderData[count++] = data;
             }
             // A compound Rigidbody should receive one mass-equivalent total
@@ -956,12 +972,13 @@ namespace GuardWave
                     AsyncGPUReadback.Request(_crestMetrics, OnCrestMetricsReady);
                 }
                 _flowReadbackClock += dt;
-                float readbackInterval = _damageFence != null ? 0.04f : 1f;
+                float readbackInterval = _damageFence != null || _placedWalls.Length > 0 ? 0.04f : 1f;
                 if (_flowReadbackClock >= readbackInterval && !_flowReadbackPending)
                 {
                     _flowReadbackClock = 0f;
                     _flowReadbackPending = true;
-                    AsyncGPUReadback.Request(_flowCounters, OnFlowCountersReady);
+                    int counterBytes = (FLOW_COUNTER_COUNT + _fenceHitBodies.Length + _placedWalls.Length) * sizeof(uint);
+                    AsyncGPUReadback.Request(_flowCounters, counterBytes, 0, OnFlowCountersReady);
                 }
             }
             if (_lavaContactBuffer != null && _pendingLavaReadbacks < MAX_PENDING_LAVA_READBACKS)
@@ -1107,6 +1124,15 @@ namespace GuardWave
             for (int i = (int)FenceParticleHits; i < (int)recorded; i++)
                 _fenceHitBodies[i] = _bodies[(int)values[FLOW_COUNTER_COUNT + i]];
             FenceParticleHits = recorded;
+            for (int i = 0; i < _placedWalls.Length; i++)
+            {
+                uint hits = values[FLOW_COUNTER_COUNT + i];
+                uint damage = hits - _wallHits[i];
+                _wallHits[i] = hits;
+                FloodLogWall wall = _placedWalls[i];
+                if (damage > 0 && wall != null && wall.isActiveAndEnabled)
+                    wall.TakeDamage((int)Math.Min((uint)wall.Health, damage));
+            }
         }
 
         /// <summary>Returns the log struck by the specified zero-based damage event.</summary>

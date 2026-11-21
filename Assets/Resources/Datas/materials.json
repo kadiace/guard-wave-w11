@@ -2,6 +2,12 @@
   "schemaVersion": 1,
   "materials": [
     {
+      "id": "log_wall",
+      "name": "통나무 벽",
+      "category": "목재",
+      "abilities": ["물 입자 100개를 막으면 무너집니다."]
+    },
+    {
       "id": "wood_house",
       "name": "나무집",
       "category": "목재",

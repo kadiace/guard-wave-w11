@@ -89,6 +89,7 @@ float _MaxFluidVelocity;
 float _FloorY;
 float _BedSlope;
 uint _FenceDurability;
+uint _WallSlots; // Flood2: per-wall totals, followed by one visited-wall mask per particle.
 float _ExitZ;
 float _WaterfallEndY;
 float _HalfWidth;
@@ -143,7 +144,7 @@ float SignedDistance(FluidCollider b, float3 p)
 {
     float4 inv = float4(-b.rotation.xyz, b.rotation.w);
     float3 local = Rotate(inv, p - b.centerBody.xyz);
-    if (b.bodyCenter.w > 0.5)
+    if (abs(b.bodyCenter.w) > 0.5)
     {
         // Upright log prefab mesh is a capped cylinder along local Y.
         float2 d = float2(length(local.xz) - b.extentType.x, abs(local.y) - b.extentType.y);
@@ -352,6 +353,7 @@ void RecycleAmbient(uint id : SV_DispatchThreadID)
                 BedHeight(_InletZ + _CellSize + (z + 0.5) * (_CellSize * 0.85)) + (y + 0.5) * (_AmbientDepth / layers),
                 _InletZ + _CellSize + (z + 0.5) * (_CellSize * 0.85), 1.0);
             p.velocity = float4(0, 0, -_InletVelocity, 0);
+            if (_WallSlots > 0) _FlowCounters[5u + _WallSlots + id] = 0u;
             _Particles[id] = p;
             return;
         }
@@ -628,6 +630,19 @@ void GridToParticle(uint id : SV_DispatchThreadID)
             d < _CrestReleaseDistance)
             p.affineY.w = 1.0; // Collision: stop holding this parcel up.
         if (d >= _CollisionSkin) continue;
+        // One thread owns this parcel. A parcel can damage each purchased wall once.
+        if (b.bodyCenter.w < -0.5)
+        {
+            uint slot = (uint)(-b.bodyCenter.w) - 1u;
+            uint address = 5u + _WallSlots + id;
+            uint bit = 1u << slot;
+            uint visited = _FlowCounters[address];
+            if ((visited & bit) == 0u)
+            {
+                _FlowCounters[address] = visited | bit;
+                InterlockedAdd(_FlowCounters[5u + slot], 1u);
+            }
+        }
         // Ambient parcels use this lane only as a first-hit latch. Refill clears it.
         if (b.bodyCenter.w > 0.5 && p.velocity.w == 0 && p.affineY.w == 0)
         {

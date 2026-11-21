@@ -272,7 +272,8 @@ namespace GuardWave
             _sceneContext = GetComponent<ForestSceneContext>();
             _isLavaStage = gameObject.scene.name == "Lava";
             _isFogStage = GetComponent<FogSceneController>() != null;
-            _isFloodStage = gameObject.scene.name == "Flood";
+            IsFlood2 = gameObject.scene.name == "Flood2";
+            _isFloodStage = IsFlood2 || gameObject.scene.name == "Flood";
             _catalog = new GuardWaveCatalog();
             _stageInfo = GuardWaveStageInfoFile.LoadForScene(gameObject.scene.name);
             _fluidSettings = _sceneFluidSettings != null
@@ -596,7 +597,10 @@ namespace GuardWave
             _dropPreview.Show(material, placement, Quaternion.Euler(0f, _objectYaw, 0f),
                 _placementBounds.max.y + dropHeight, true, _placementBounds.max.y);
             if (!_dropPreview.IsVisible) return false;
-            GuardWavePiece piece = Spawn(material, _dropPreview.LandingPosition);
+            bool buyWall = IsFlood2 && material.id == "log_wall";
+            if (buyWall && Budget < FloodLogWall.PRICE) return false;
+            GuardWavePiece piece = Spawn(material, _dropPreview.LandingPosition, anchored: buyWall);
+            if (buyWall) Budget -= FloodLogWall.PRICE;
             StagePlacement.SyncPhysics();
             _placementStrokePieces.Add(piece);
             _placementStroke.Record(xz, _objectYaw);
@@ -1599,6 +1603,8 @@ namespace GuardWave
         public bool IsPaletteHidden => false;
         private bool CanEditDuringFlood => _isFloodStage && _waveHasStarted &&
             !_awaitingStage && !_finished && !_rulesOpen;
+        public bool IsFlood2 { get; private set; }
+        public int Budget { get; private set; }
         public bool IsFloodStage => _isFloodStage;
         public int FloodCrestPhase => _floodCrestPhase;
         public float FloodCrestSecondsRemaining => _floodCrestSecondsRemaining;
@@ -1671,6 +1677,7 @@ namespace GuardWave
         /// </summary>
         public int GetRemainingPlacements(string materialId)
         {
+            if (IsFlood2 && materialId == "log_wall") return Budget / FloodLogWall.PRICE;
             int limit = GetPlacementLimit(materialId);
             if (limit < 0) return int.MaxValue;
             if (materialId == "mud")
@@ -1840,6 +1847,7 @@ namespace GuardWave
             EndMudPainting();
             _editHistory.Clear();
             _playerPlacementCount = 0;
+            Budget = IsFlood2 ? FloodLogWall.STARTING_BUDGET : 0;
             ResetFloodDrowning();
             _mudContacts.Clear();
             _mudContactPairs.Clear();
@@ -2105,7 +2113,8 @@ namespace GuardWave
                     floodPressureResponse: _isFloodStage ? floodPressureResponse : 0f,
                     floodPressureCellClamp: floodPressureCellClamp,
                     floodPressureMaxForce: floodPressureMaxForce,
-                    floodPressureMaxTorque: floodPressureMaxTorque);
+                    floodPressureMaxTorque: floodPressureMaxTorque,
+                    wallSlots: IsFlood2 ? FloodLogWall.STARTING_BUDGET / FloodLogWall.PRICE : 0);
                 if (_isLavaStage) _lavaAtmosphere?.BindFluid(_fluid);
                 // The authored surface is still visible in the editor; disable
                 // its renderer only in Play Mode to expose the real FLIP water.
@@ -2160,6 +2169,9 @@ namespace GuardWave
             // Newly placed bodies must join the live ambient FLIP solver:
             // this registers their Rigidbody and non-trigger colliders so
             // log (0.6) and Forest pebble (2.6) receive density-based forces.
+            if (IsFlood2 && material.id == "log_wall")
+                instance.GetComponent<FloodLogWall>().Place(this,
+                    (FloodLogWall.STARTING_BUDGET - Budget) / FloodLogWall.PRICE);
             _fluid?.RegisterPiece(piece);
             if (material.id == "vine")
                 PublishChange(new GuardWaveChange(piece, null, GuardWaveChangeKind.Created, 0,
@@ -2231,6 +2243,9 @@ namespace GuardWave
                 !_queuedOutflowRemovals.Add(piece)) return;
             _pendingOutflowRemovals.Enqueue(piece);
         }
+
+        /// <summary>Retires a collapsed wall while retaining its instance for rollback.</summary>
+        internal void RemoveBrokenWall(GuardWavePiece piece) => RemovePiece(piece);
 
         /// <summary>A completed right-click removes the selected object only, never its neighbors.</summary>
         internal void RemovePieceByRightClick(GuardWavePiece piece)
@@ -2845,7 +2860,8 @@ namespace GuardWave
                 CameraTarget = _cameraTarget,
                 CameraRotation = _camera.transform.rotation,
                 CameraZoom = _camera.orthographicSize,
-                PlayerPlacementCount = _playerPlacementCount
+                PlayerPlacementCount = _playerPlacementCount,
+                Budget = Budget
             };
             foreach (GuardWavePiece piece in _pieces)
                 if (piece != null) snapshot.Pieces.Add(new PieceState(piece));
@@ -2964,6 +2980,7 @@ namespace GuardWave
                 if (piece == null) continue;
                 piece.gameObject.SetActive(true);
                 state.Body.RestorePose(piece.Body);
+                if (piece.TryGetComponent(out FloodLogWall wall)) wall.RestoreHealth(state.WallHealth);
                 _pieces.Add(piece);
                 _pieceSet.Add(piece);
             }
@@ -3009,6 +3026,7 @@ namespace GuardWave
             _camera.transform.rotation = snapshot.CameraRotation;
             _camera.orthographicSize = snapshot.CameraZoom;
             _playerPlacementCount = snapshot.PlayerPlacementCount;
+            Budget = snapshot.Budget;
             UpdateCameraPosition();
         }
 
@@ -3076,6 +3094,7 @@ namespace GuardWave
             public Quaternion CameraRotation;
             public float CameraZoom;
             public int PlayerPlacementCount;
+            public int Budget;
         }
 
         /// <summary>Rebuilds preauthored or other non-mud fixed joints after they break.</summary>
@@ -3174,11 +3193,14 @@ namespace GuardWave
             public readonly GuardWavePiece Piece;
             public readonly RigidbodyState Body;
 
+            public readonly int WallHealth;
+
             /// <summary>기물과 해당 시점의 물리 상태를 저장한다.</summary>
             public PieceState(GuardWavePiece piece)
             {
                 Piece = piece;
                 Body = new RigidbodyState(piece.Body);
+                WallHealth = piece.TryGetComponent(out FloodLogWall wall) ? wall.Health : 0;
             }
         }
 

@@ -87,6 +87,8 @@ namespace GuardWave
             AnimationCurve.EaseInOut(0f, 0f, 1f, 1f);
         private RectTransform _candidatePanel;
         private Vector2 _candidatePanelShown;
+        private Text _budgetLabel;
+        private int _shownBudget = -1;
         private float _candidateSlide;
 
         /// <summary>게임 인스턴스 및 원본 HUD 프리팹의 버튼과 상태 텍스트를 연결한다.</summary>
@@ -106,6 +108,18 @@ namespace GuardWave
                 _fogExposurePanel.SetActive(false);
             }
             _detail = FindText("PlacementDetailPanel/DetailText");
+            if (game.IsFlood2)
+            {
+                _budgetLabel = Instantiate(_detail, transform);
+                _budgetLabel.name = "Budget";
+                _budgetLabel.gameObject.SetActive(true);
+                _budgetLabel.alignment = TextAnchor.MiddleLeft;
+                _budgetLabel.raycastTarget = false;
+                RectTransform rect = _budgetLabel.rectTransform;
+                rect.anchorMin = rect.anchorMax = rect.pivot = new Vector2(0f, 1f);
+                rect.sizeDelta = new Vector2(250f, 50f);
+                rect.anchoredPosition = new Vector2(24f, -16f);
+            }
             _stagePopup = transform.Find("StageResultPopup").gameObject;
             _stageTitle = FindText("StageResultPopup/Heading/TitleText");
             _stageBody = FindText("StageResultPopup/Contents/BodyText");
@@ -412,6 +426,11 @@ Ctrl+Z: 준비 단계의 최근 배치 되돌리기
             // activating the success popup in this same HUD refresh.
             if (_fogMode != null && _game.IsFinished)
                 _stageTimer.CompleteFogCountdown();
+            if (_budgetLabel != null && _shownBudget != _game.Budget)
+            {
+                _shownBudget = _game.Budget;
+                _budgetLabel.text = $"예산  ${_shownBudget}";
+            }
             RefreshFogExposure();
             if (_game.IsPaletteHidden && _hoveredCard >= 0)
             {
@@ -475,7 +494,7 @@ Ctrl+Z: 준비 단계의 최근 배치 되돌리기
                 if (limit >= 0)
                 {
                     if (!counter.gameObject.activeSelf) counter.gameObject.SetActive(true);
-                    string quantity = remaining + "/" + limit;
+                    string quantity = info.id == "log_wall" ? $"${FloodLogWall.PRICE}" : remaining + "/" + limit;
                     if (counter.text != quantity) counter.text = quantity;
                     counter.color = remaining == 0
                         ? new Color(1f, 0.48f, 0.43f, 1f) : Color.white;
@@ -567,7 +586,8 @@ Ctrl+Z: 준비 단계의 최근 배치 되돌리기
             texture.filterMode = FilterMode.Point;
             texture.wrapMode = TextureWrapMode.Clamp;
             Material material = Resources.Load<Material>("Materials/" + info.id + "_Base");
-            Color color = info.id == "mud" ? new Color(0.42f, 0.28f, 0.16f, 1f)
+            Color color = info.id == "log_wall" ? new Color(0.62f, 0.39f, 0.22f)
+                : info.id == "mud" ? new Color(0.42f, 0.28f, 0.16f, 1f)
                 : info.id == "citizen" ? new Color(1f, 0.8f, 0.38f)
                 : info.id == "panel" ? new Color(0.8f, 0.57f, 0.29f)
                 : info.id == "sandbag" ? new Color(0.68f, 0.61f, 0.40f)
@@ -709,6 +729,7 @@ Ctrl+Z: 준비 단계의 최근 배치 되돌리기
             {
                 case "mud":
                 case "log":
+                case "log_wall":
                 case "forest_pebble":
                 case "default_flag":
                 case "beaver_house":

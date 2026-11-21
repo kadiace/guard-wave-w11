@@ -14,6 +14,16 @@
       "targetMaterialId": "beaver_house"
     },
     {
+      "sceneName": "Flood2",
+      "disasterName": "홍수",
+      "limitPreparationTime": true,
+      "countdownSeconds": 60,
+      "palette": [
+        { "materialId": "log_wall", "placementLimit": 6 }
+      ],
+      "targetMaterialId": "beaver_house"
+    },
+    {
       "sceneName": "Fog",
       "disasterName": "독안개",
       "rounds": [
