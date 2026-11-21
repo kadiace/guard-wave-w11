@@ -18,10 +18,10 @@ namespace GuardWave
             _budgetLimit = budgetLimit;
         }
 
-        /// <summary>Fills or outlines the star using the budget at clearance.</summary>
+        /// <summary>Fills or outlines the star using the remaining budget at clearance.</summary>
         public void ShowResult(int budget)
         {
-            _earned = _budgetLimit < 0 || budget <= _budgetLimit;
+            _earned = _budgetLimit < 0 || budget >= _budgetLimit;
             color = _earned ? new Color(1f, 0.8f, 0.25f) : new Color(0.76f, 0.79f, 0.83f);
             SetVerticesDirty();
         }
@@ -29,7 +29,7 @@ namespace GuardWave
         /// <summary>Shows this star's condition for both filled and empty stars.</summary>
         public void OnPointerEnter(PointerEventData eventData)
         {
-            _hint.text = _budgetLimit < 0 ? "스테이지 클리어" : $"클리어 시 남은 예산 ${_budgetLimit} 이하";
+            _hint.text = _budgetLimit < 0 ? "스테이지 클리어" : $"클리어 시 남은 예산 ${_budgetLimit} 이상";
         }
 
         /// <summary>Clears the condition when the pointer leaves the star.</summary>
