@@ -41,7 +41,7 @@ struct FluidCollider
     float4 fluidProperties; // density, grounded drag, mass share, sampling shape
 };
 RWStructuredBuffer<FluidParticle> _Particles;
-RWStructuredBuffer<uint> _FlowCounters; // [0] missing base water (initial + losses), [1] total supplied, [2] per-tick claims, [3] cliff exits
+RWStructuredBuffer<uint> _FlowCounters; // [0] missing base water (initial + losses), [1] total supplied, [2] per-tick claims, [3] cliff exits, [4] distinct fence hits
 RWStructuredBuffer<uint> _CrestMetrics; // active wave particles, peak height centimeters, released count
 RWStructuredBuffer<int4> _Accum;
 RWStructuredBuffer<int4> _BodyImpulses; // force impulse in xyz, torque in next xyz
@@ -82,6 +82,7 @@ float _FloatFlowAlignmentStrength;
 float _FloatFlowAlignmentFullSpeed;
 float _MaxFluidVelocity;
 float _FloorY;
+float _BedSlope;
 float _ExitZ;
 float _WaterfallEndY;
 float _HalfWidth;
@@ -111,6 +112,11 @@ uint _SpawnSeed;
 uint _ColliderCount;
 uint _BodyCount;
 
+float BedHeight(float z)
+{
+    return _FloorY + (z - _ExitZ) * _BedSlope;
+}
+
 uint Flatten(int3 c)
 {
     return (uint)((c.z * _GridSize.y + c.y) * _GridSize.x + c.x);
@@ -131,6 +137,12 @@ float SignedDistance(FluidCollider b, float3 p)
 {
     float4 inv = float4(-b.rotation.xyz, b.rotation.w);
     float3 local = Rotate(inv, p - b.centerBody.xyz);
+    if (b.bodyCenter.w > 0.5)
+    {
+        // Upright log prefab mesh is a capped cylinder along local Y.
+        float2 d = float2(length(local.xz) - b.extentType.x, abs(local.y) - b.extentType.y);
+        return min(max(d.x, d.y), 0.0) + length(max(d, 0.0));
+    }
     if (b.extentType.w > 1.5)
     {
         local.y -= clamp(local.y, -b.extentType.y, b.extentType.y);
@@ -240,7 +252,7 @@ void ClassifyGrid(uint id : SV_DispatchThreadID)
     float3 pos = Center(int3(x,y,z));
     // The bed ends at the actual waterfall lip. Do not continue its
     // collision/pressure wall into the downstream outlet buffer.
-    bool solid = (pos.y <= _FloorY && pos.z >= _ExitZ) ||
+    bool solid = (pos.y <= BedHeight(pos.z) && pos.z >= _ExitZ) ||
         abs(pos.x) >= _HalfWidth;
     uint beginCollider = (uint)_ColliderZOffsets[z];
     uint endCollider = (uint)_ColliderZOffsets[z + 1];
@@ -326,7 +338,7 @@ void RecycleAmbient(uint id : SV_DispatchThreadID)
             p = (FluidParticle)0;
             p.position = float4(
                 -_HalfWidth + (x + 0.5) * (2.0 * _HalfWidth / width),
-                _FloorY + (y + 0.5) * (_AmbientDepth / layers),
+                BedHeight(_InletZ + _CellSize + (z + 0.5) * (_CellSize * 0.85)) + (y + 0.5) * (_AmbientDepth / layers),
                 _InletZ + _CellSize + (z + 0.5) * (_CellSize * 0.85), 1.0);
             p.velocity = float4(0, 0, -_InletVelocity, 0);
             _Particles[id] = p;
@@ -576,10 +588,12 @@ void GridToParticle(uint id : SV_DispatchThreadID)
         p.position.x = _HalfWidth - 0.05;
         p.velocity.x = min(p.velocity.x, 0);
     }
-    if (p.position.y < _FloorY + 0.05 && p.position.z >= _ExitZ)
+    float floorContactY = BedHeight(p.position.z) + 0.05;
+    if (p.position.y < floorContactY && p.position.z >= _ExitZ)
     {
-        p.position.y = _FloorY + 0.05;
-        p.velocity.y = max(p.velocity.y, 0);
+        p.position.y = floorContactY;
+        float3 normal = normalize(float3(0, 1, -_BedSlope));
+        p.velocity.xyz -= min(dot(p.velocity.xyz, normal), 0.0) * normal;
     }
     [loop]
     for (uint i=0; i<_ColliderCount; i++)
@@ -592,6 +606,12 @@ void GridToParticle(uint id : SV_DispatchThreadID)
             d < _CrestReleaseDistance)
             p.affineY.w = 1.0; // Collision: stop holding this parcel up.
         if (d >= _CollisionSkin) continue;
+        // Ambient parcels use this lane only as a first-hit latch. Refill clears it.
+        if (b.bodyCenter.w > 0.5 && p.velocity.w == 0 && p.affineY.w == 0)
+        {
+            p.affineY.w = -1;
+            InterlockedAdd(_FlowCounters[4], 1u);
+        }
         // An actual obstacle may stop or reverse flow even at the outlet.
         // -1 means release the cached outflow speed until leaving the band.
         p.affineZ.w = -1.0;

@@ -23,6 +23,7 @@ namespace GuardWave
         private const int RESERVED_CREST_COUNT = 2;
         private readonly GuardWaveFluidSettings _settings;
         private readonly float _cellSize;
+        private readonly Transform _damageFence;
 
         [StructLayout(LayoutKind.Sequential)]
         private struct Particle
@@ -201,6 +202,7 @@ namespace GuardWave
         public float InletSpeed { get; }
         public Bounds RenderBounds { get; }
         // GPU flow measurements; refreshed at most once per second without logs.
+        public uint FenceParticleHits { get; private set; }
         public uint TotalCliffExits { get; private set; }
         public uint TotalAmbientRefills { get; private set; }
         public uint PendingAmbientRefills { get; private set; }
@@ -212,10 +214,12 @@ namespace GuardWave
         /// <summary>Builds a bounded GPU fluid domain centered at x=0 and a 24m wide river.</summary>
         public GuardWaveFlipFluid(float startZ, float endZ, float groundY,
             float waterfallEndY, float waveHeight, float travelDuration, IList<GuardWavePiece> pieces,
-            Rigidbody flagBody, GuardWaveFluidSettings settings, bool ambientFlow = false)
+            Rigidbody flagBody, GuardWaveFluidSettings settings, bool ambientFlow = false,
+            float bedSlope = 0f, Transform damageFence = null)
         {
             _settings = settings ?? throw new ArgumentNullException(nameof(settings));
             _ambientFlow = ambientFlow;
+            _damageFence = damageFence;
             _cellSize = _settings.CellSize;
             _colliderData = new ColliderData[_settings.MaxColliders];
             _bodyColliderCounts = new int[_settings.MaxBodies];
@@ -289,8 +293,8 @@ namespace GuardWave
             // Unlike raw water columns, this history must survive fixed steps.
             _smoothedWaterSurface.SetData(new int[_grid.x * _grid.z]);
             _waterFlow = new ComputeBuffer(_grid.x * _grid.z, sizeof(int) * 4);
-            _flowCounters = new ComputeBuffer(4, sizeof(uint));
-            _flowCounters.SetData(new uint[4]);
+            _flowCounters = new ComputeBuffer(5, sizeof(uint));
+            _flowCounters.SetData(new uint[5]);
             _crestMetrics = new ComputeBuffer(3, sizeof(uint));
             _crestMetrics.SetData(new uint[3]);
 
@@ -335,6 +339,7 @@ namespace GuardWave
             // ambient/wave uses the exact seeded river-lattice volume below.
             _compute.SetFloat("_LiquidParticleVolume", Mathf.Pow(_cellSize * 0.85f, 3f));
             _compute.SetFloat("_FloorY", groundY);
+            if (!_settings.DestroyOnFluidContact) _compute.SetFloat("_BedSlope", bedSlope);
             _compute.SetFloat("_ExitZ", endZ);
             _compute.SetFloat("_WaterfallEndY", waterfallEndY);
             _compute.SetFloat("_HalfWidth", 12f);
@@ -462,7 +467,14 @@ namespace GuardWave
                 Bind(_waterfallKernel, "_LavaContacts", _lavaContactBuffer);
             }
             Bind(_waterfallKernel, "_Particles", _particles);
-            CollectBodies(pieces, flagBody);
+            if (_damageFence != null)
+            {
+                foreach (GuardWavePiece log in pieces) RegisterPiece(log);
+            }
+            else
+            {
+                CollectBodies(pieces, flagBody);
+            }
             UpdateColliders();
             if (_ambientFlow) InitializeAmbientWater();
         }
@@ -752,7 +764,9 @@ namespace GuardWave
                     }
                 }
                 Vector3 bodyCenter = body != null ? body.worldCenterOfMass : center;
-                data.BodyCenter = new Vector4(bodyCenter.x, bodyCenter.y, bodyCenter.z, 0f);
+                bool countsHit = _damageFence != null && body != null && body.isKinematic &&
+                    body.transform.parent == _damageFence;
+                data.BodyCenter = new Vector4(bodyCenter.x, bodyCenter.y, bodyCenter.z, countsHit ? 1f : 0f);
                 _colliderData[count++] = data;
             }
             // A compound Rigidbody should receive one mass-equivalent total
@@ -907,7 +921,8 @@ namespace GuardWave
                     AsyncGPUReadback.Request(_crestMetrics, OnCrestMetricsReady);
                 }
                 _flowReadbackClock += dt;
-                if (_flowReadbackClock >= 1f && !_flowReadbackPending)
+                float readbackInterval = _damageFence != null ? 0.04f : 1f;
+                if (_flowReadbackClock >= readbackInterval && !_flowReadbackPending)
                 {
                     _flowReadbackClock = 0f;
                     _flowReadbackPending = true;
@@ -1053,6 +1068,7 @@ namespace GuardWave
             PendingAmbientRefills = values[0];
             TotalAmbientRefills = values[1];
             TotalCliffExits = values[3];
+            FenceParticleHits = values[4];
         }
 
         /// <summary>Runs the selected compute kernel with 128 threads per workgroup.</summary>
