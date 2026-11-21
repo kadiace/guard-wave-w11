@@ -7,7 +7,7 @@ namespace GuardWave
     {
         public const int STARTING_BUDGET = 120;
         public const int PRICE = 20;
-        private const int MAX_HEALTH = 600;
+        private const int MAX_HEALTH = 300;
         private const float PLACEMENT_GRACE_SECONDS = 0.5f;
 
         [Header("Wall")]
