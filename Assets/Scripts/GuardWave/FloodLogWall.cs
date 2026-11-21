@@ -7,7 +7,8 @@ namespace GuardWave
     {
         public const int STARTING_BUDGET = 120;
         public const int PRICE = 20;
-        private const int MAX_HEALTH = 100;
+        private const int MAX_HEALTH = 300;
+        private const float PLACEMENT_GRACE_SECONDS = 0.5f;
 
         [Header("Wall")]
         [SerializeField] private Rigidbody _logPrefab;
@@ -17,6 +18,9 @@ namespace GuardWave
         private Transform _camera;
         private DefenseLogHitFeedback[] _posts;
         private GameObject _debris;
+        private double _damageStartsAt;
+
+        internal bool IsPlacementProtected => Time.timeAsDouble < _damageStartsAt;
 
         public int Slot { get; private set; }
         public int Health { get; private set; } = MAX_HEALTH;
@@ -26,6 +30,7 @@ namespace GuardWave
         {
             _game = game;
             Slot = slot;
+            _damageStartsAt = Time.timeAsDouble + PLACEMENT_GRACE_SECONDS;
             _camera = Camera.main.transform;
             MeshCollider[] posts = GetComponentsInChildren<MeshCollider>();
             _posts = new DefenseLogHitFeedback[posts.Length];
@@ -55,8 +60,10 @@ namespace GuardWave
                 Transform pose = post.transform;
                 Rigidbody log = Instantiate(_logPrefab, pose.position, pose.rotation, _debris.transform);
                 log.transform.localScale = pose.lossyScale;
-                log.AddForceAtPosition(Vector3.back * 3f, log.worldCenterOfMass + Vector3.up * 0.6f,
-                    ForceMode.VelocityChange);
+                // Keep the mesh collider as a FLIP proxy while excluding all PhysX contacts.
+                log.excludeLayers = ~0;
+                log.gameObject.layer = LayerMask.NameToLayer("Ignore Raycast");
+                _game.RegisterFluidDebris(log.GetComponent<GuardWavePiece>());
                 log.gameObject.AddComponent<DefenseLogHitFeedback>().Play();
             }
             Destroy(_debris, 3f);

@@ -640,7 +640,8 @@ void GridToParticle(uint id : SV_DispatchThreadID)
             if ((visited & bit) == 0u)
             {
                 _FlowCounters[address] = visited | bit;
-                InterlockedAdd(_FlowCounters[5u + slot], 1u);
+                // Expel already overlapping water normally and consume its first contact.
+                if (b.angular.w >= 0.0) InterlockedAdd(_FlowCounters[5u + slot], 1u);
             }
         }
         // Ambient parcels use this lane only as a first-hit latch. Refill clears it.

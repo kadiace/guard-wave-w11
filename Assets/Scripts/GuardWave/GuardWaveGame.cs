@@ -2221,6 +2221,9 @@ namespace GuardWave
             _pendingOutflowRemovals.Enqueue(piece);
         }
 
+        /// <summary>Registers debris with the live water solver outside the player placement inventory.</summary>
+        internal void RegisterFluidDebris(GuardWavePiece debris) => _fluid?.RegisterPiece(debris);
+
         /// <summary>Retires a collapsed wall while retaining its instance for rollback.</summary>
         internal void RemoveBrokenWall(GuardWavePiece piece) => RemovePiece(piece);
 

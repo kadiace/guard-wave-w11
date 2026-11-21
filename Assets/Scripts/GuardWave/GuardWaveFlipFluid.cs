@@ -816,7 +816,12 @@ namespace GuardWave
                     body.transform.parent == _damageFence;
                 int contactId = countsHit ? _indices[body] + 1 : 0;
                 if (_placedWalls.Length > 0 && body != null && _wallSlots.TryGetValue(body, out int slot))
+                {
                     contactId = -(slot + 1);
+                    // Kinematic wall posts have no flow-alignment torque. A negative flag
+                    // exempts contacts in this dispatch from damage, even after readback.
+                    if (_placedWalls[slot].IsPlacementProtected) data.Angular.w = -1f;
+                }
                 data.BodyCenter = new Vector4(bodyCenter.x, bodyCenter.y, bodyCenter.z, contactId);
                 _colliderData[count++] = data;
             }
