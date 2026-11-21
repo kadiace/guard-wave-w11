@@ -604,7 +604,7 @@ Ctrl+Z: 준비 단계의 최근 배치 되돌리기
             _clearStars = new Flood2ClearStar[limits.Length];
             for (int i = 0; i < limits.Length; i++)
             {
-                GameObject icon = new GameObject($"Star {i + 1}", typeof(RectTransform), typeof(Flood2ClearStar));
+                GameObject icon = new GameObject($"Star {i + 1}", typeof(RectTransform), typeof(Image), typeof(Flood2ClearStar));
                 icon.transform.SetParent(popup, false);
                 Flood2ClearStar star = icon.GetComponent<Flood2ClearStar>();
                 SetResultRect(star.rectTransform, new Vector2((i - 1) * 90f, -10f), new Vector2(76f, 76f));
