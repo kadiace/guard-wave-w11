@@ -125,6 +125,12 @@ namespace GuardWave
         private bool _lavaSmokeReadbackPending;
         private float _lavaSmokeReadbackClock;
         private readonly ComputeBuffer _impulses;
+        // Extra body slots preserve the floating-body flow/waterline channels.
+        // Both channels travel in the SAME readback; no extra GPU UAV is needed.
+        private readonly bool _floodPressureEnabled;
+        private readonly int _floodPressureBodyOffset;
+        private readonly float _floodPressureMaxForce;
+        private readonly float _floodPressureMaxTorque;
         private readonly ComputeBuffer _waterSurface;
         private readonly ComputeBuffer _smoothedWaterSurface;
         private readonly ComputeBuffer _waterFlow;
@@ -183,6 +189,8 @@ namespace GuardWave
             public float SourceTime;
             public Vector3[] Linear;
             public Vector3[] Angular;
+            public Vector3[] PressureLinear;
+            public Vector3[] PressureAngular;
             public float[] Waterline;
             public float[] FluidCoverage;
             public Vector2[] FlowXZ;
@@ -217,12 +225,20 @@ namespace GuardWave
         public GuardWaveFlipFluid(float startZ, float endZ, float groundY,
             float waterfallEndY, float waveHeight, float travelDuration, IList<GuardWavePiece> pieces,
             Rigidbody flagBody, GuardWaveFluidSettings settings, bool ambientFlow = false,
-            float bedSlope = 0f, Transform damageFence = null, int fenceDurability = 0)
+            float bedSlope = 0f, Transform damageFence = null, int fenceDurability = 0,
+            float downstreamDriftAcceleration = 0f, float downstreamDriftMaxSpeed = 0f,
+            float floodPressureResponse = 0f, float floodPressureCellClamp = 500f,
+            float floodPressureMaxForce = 350f, float floodPressureMaxTorque = 300f)
         {
             _settings = settings ?? throw new ArgumentNullException(nameof(settings));
             _ambientFlow = ambientFlow;
             _damageFence = damageFence;
             _fenceHitBodies = new Rigidbody[fenceDurability];
+            _floodPressureEnabled = ambientFlow && !_settings.DestroyOnFluidContact &&
+                floodPressureResponse > 0f;
+            _floodPressureBodyOffset = _floodPressureEnabled ? _settings.MaxBodies * 2 : 0;
+            _floodPressureMaxForce = Mathf.Max(0f, floodPressureMaxForce);
+            _floodPressureMaxTorque = Mathf.Max(0f, floodPressureMaxTorque);
             _cellSize = _settings.CellSize;
             _colliderData = new ColliderData[_settings.MaxColliders];
             _bodyColliderCounts = new int[_settings.MaxBodies];
@@ -281,7 +297,8 @@ namespace GuardWave
                 _grid.z * _settings.MaxColliders, sizeof(int));
             _colliderZOffsetsData = new int[_grid.z + 1];
             _colliderZIndicesData = new int[_grid.z * _settings.MaxColliders];
-            _impulses = new ComputeBuffer(_settings.MaxBodies * 2, sizeof(int) * 4);
+            _impulses = new ComputeBuffer(_settings.MaxBodies *
+                (_floodPressureEnabled ? 4 : 2), sizeof(int) * 4);
             if (_settings.DestroyOnFluidContact)
             {
                 _lavaContactBuffer = new ComputeBuffer(_settings.MaxBodies, sizeof(int) * 4);
@@ -351,6 +368,20 @@ namespace GuardWave
             _compute.SetFloat("_WaveHeight", _waveHeight);
             _compute.SetFloat("_InletVelocity", InletSpeed);
             _compute.SetInt("_AmbientEnabled", ambientFlow ? 1 : 0);
+            // Only the water shader declares Flood drift; Lava has its own kernel.
+            // No new particles are created, and all non-Flood callers pass zero.
+            if (shaderName == "GuardWaveFlip")
+            {
+                _compute.SetFloat("_DownstreamDriftAcceleration",
+                    ambientFlow ? Mathf.Max(0f, downstreamDriftAcceleration) : 0f);
+                _compute.SetFloat("_DownstreamDriftMaxSpeed",
+                    ambientFlow ? Mathf.Max(0f, downstreamDriftMaxSpeed) : 0f);
+                _compute.SetFloat("_FloodPressureResponse",
+                    _floodPressureEnabled ? Mathf.Clamp01(floodPressureResponse) : 0f);
+                _compute.SetFloat("_FloodPressureCellClamp",
+                    Mathf.Max(0f, floodPressureCellClamp));
+                _compute.SetInt("_FloodPressureBodyOffset", _floodPressureBodyOffset);
+            }
             _compute.SetFloat("_AmbientDepth", _settings.AmbientWaterDepth);
             _compute.SetFloat("_Gravity", Mathf.Abs(Physics.gravity.y) * _settings.GravityMultiplier);
             _compute.SetFloat("_FlipFraction", _settings.FlipFraction);
@@ -817,7 +848,7 @@ namespace GuardWave
         }
 
         /// <summary>Advances a full Unity physics tick using CFL-limited GPU substeps, with one combined Rigidbody impulse readback.</summary>
-        public void Step(float dt, float inletFraction)
+        public void Step(float dt, float inletFraction, bool allowAmbientRefill = true)
         {
             if (_disposed) return;
             _elapsed += dt;
@@ -891,7 +922,7 @@ namespace GuardWave
                 Dispatch(_smoothWaterColumnsKernel, _grid.x * _grid.z);
                 if (_bodies.Count > 0)
                     Dispatch(_buoyancyBodyKernel, _settings.MaxColliders);
-                if (_ambientFlow)
+                if (_ambientFlow && allowAmbientRefill)
                 {
                     // Fill the initial deficit and replace later losses using one
                     // upstream supply budget. Keep the original steady-state
@@ -1109,6 +1140,8 @@ namespace GuardWave
                 SourceTime = sourceTime,
                 Linear = new Vector3[bodyCount],
                 Angular = new Vector3[bodyCount],
+                PressureLinear = _floodPressureEnabled ? new Vector3[bodyCount] : null,
+                PressureAngular = _floodPressureEnabled ? new Vector3[bodyCount] : null,
                 Waterline = new float[bodyCount],
                 FluidCoverage = new float[bodyCount],
                 FlowXZ = new Vector2[bodyCount]
@@ -1119,6 +1152,17 @@ namespace GuardWave
                 Int4 torque = values[i * 2 + 1];
                 frame.Linear[i] = new Vector3(force.X, force.Y, force.Z) / IMPULSE_SCALE;
                 frame.Angular[i] = new Vector3(torque.X, torque.Y, torque.Z) / IMPULSE_SCALE;
+                if (_floodPressureEnabled)
+                {
+                    // Keep pressure separate from sampled flow and waterline.
+                    int pressureSlot = _floodPressureBodyOffset + i * 2;
+                    Int4 pressureForce = values[pressureSlot];
+                    Int4 pressureTorque = values[pressureSlot + 1];
+                    frame.PressureLinear[i] = new Vector3(
+                        pressureForce.X, pressureForce.Y, pressureForce.Z) / IMPULSE_SCALE;
+                    frame.PressureAngular[i] = new Vector3(
+                        pressureTorque.X, pressureTorque.Y, pressureTorque.Z) / IMPULSE_SCALE;
+                }
                 // Both surface and current are summed with the same
                 // fixed-point wet-coverage weight. Their ratio is already in
                 // world units; do not divide by IMPULSE_SCALE again.
@@ -1497,6 +1541,8 @@ namespace GuardWave
                 body.AddForce(flowImpulse, ForceMode.Impulse);
                 GuardWaveStickForceProbe.RecordCpuImpulses(body, buoyancyImpulse,
                     verticalDampingImpulse, flowImpulse);
+                GuardWaveBuoyancyProbe.RecordCpuLogImpulses(piece, buoyancyImpulse,
+                    verticalDampingImpulse, flowImpulse);
                 if (_initialLogJoints[i] != null)
                     _initialLogJoints[i].ObserveFluidImpulse(flowImpulse);
             }
@@ -1560,12 +1606,29 @@ namespace GuardWave
                 }
                 Vector3 appliedAngularImpulse = Vector3.ClampMagnitude(
                     frame.Angular[i], limit * _settings.AngularImpulseMultiplier);
-                body.AddForce(appliedImpulse, ForceMode.Impulse);
-                body.AddTorque(appliedAngularImpulse, ForceMode.Impulse);
+                // Accumulate all surface-cell loads first, then clamp per
+                // physics tick (not per cell/substep). Opposite faces cancel.
+                Vector3 pressureImpulse = _floodPressureEnabled
+                    ? Vector3.ClampMagnitude(frame.PressureLinear[i],
+                        _floodPressureMaxForce * Time.fixedDeltaTime)
+                    : Vector3.zero;
+                Vector3 pressureAngularImpulse = _floodPressureEnabled
+                    ? Vector3.ClampMagnitude(frame.PressureAngular[i],
+                        _floodPressureMaxTorque * Time.fixedDeltaTime)
+                    : Vector3.zero;
+                Vector3 totalLinearImpulse = appliedImpulse + pressureImpulse;
+                Vector3 totalAngularImpulse = appliedAngularImpulse + pressureAngularImpulse;
+                body.AddForce(totalLinearImpulse, ForceMode.Impulse);
+                body.AddTorque(totalAngularImpulse, ForceMode.Impulse);
                 if (_initialLogJoints[i] != null)
-                    _initialLogJoints[i].ObserveFluidImpulse(appliedImpulse);
-                GuardWaveStickForceProbe.RecordImpulse(body, appliedImpulse,
-                    appliedAngularImpulse, frame.SourceStep, frame.SourceTime);
+                    _initialLogJoints[i].ObserveFluidImpulse(totalLinearImpulse);
+                GuardWaveStickForceProbe.RecordImpulse(body, totalLinearImpulse,
+                    totalAngularImpulse, frame.SourceStep, frame.SourceTime);
+                GuardWaveBuoyancyProbe.RecordGpuLogImpulses(piece, totalLinearImpulse,
+                    totalAngularImpulse);
+                if (_floodPressureEnabled)
+                    GuardWaveBuoyancyProbe.RecordGpuLogPressureImpulses(piece,
+                        pressureImpulse, pressureAngularImpulse);
             }
         }
 

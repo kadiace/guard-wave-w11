@@ -174,25 +174,24 @@ namespace GuardWave
             _completePopup.SetActive(false);
             _rulesPopup.SetActive(false);
             _tooltip.SetActive(false);
-            _rulesBody.text = $@"통나무는 총 {_game.GetPlacementLimit("log")}개입니다. 처음부터 설치된 13개를 제외하고 87개를 추가로 배치할 수 있습니다.
-통나무의 하단 면과 인접한 옆면(XZ 0.35m 이내)은 자동으로 진흙 접착제가 생기고 FixedJoint로 연결됩니다.
-마우스를 누른 채 드래그하면 겹치지 않는 지점마다 연속 배치할 수 있습니다.
-선택은 우클릭 또는 Esc로 해제합니다.
+            _rulesBody.text = $@"목표
 
-준비 완료를 누르면 10초 뒤 1차 파도가 시작됩니다.
-1차 파도가 시작되면 30초 뒤 2차 파도가 시작됩니다.
-파도가 진행되는 동안에도 통나무를 추가 배치할 수 있습니다.
-상단 HUD는 다음 파도가 오기까지의 남은 시간을 표시합니다.
-홍수로부터 {_game.TargetName}을 지키세요! {_game.TargetName}이 절벽 뒤로 밀리거나 물에 충분히 잠긴 상태가 5초 지속되면 실패합니다.
-실패 팝업에서 확인하면 준비 완료 직전의 배치 상태로 돌아갑니다.
+두 번의 파도를 버티고 {_game.TargetName}을 지키세요.
 
+실패 조건
+
+{_game.TargetName}이 절벽 밖으로 떠내려가거나 {_game.FloodDrowningLimitSeconds:0.#}초 연속 침수되면 실패합니다.
+실패 시 확인을 눌러 배치를 복원할 수 있습니다.
+
+조작
+
+좌클릭 드래그: 연속 배치
+Q/E: 배치 방향 회전
+우클릭 또는 Esc: 선택 취소
 우클릭 드래그: 카메라 이동
-스크롤: 확대
-우클릭 중 스크롤: 카메라 회전
-Q/E: 기물 회전 / 우클릭 또는 Esc: 선택 취소
+스크롤: 확대·축소
+우클릭 중 스크롤: 카메라 시점 회전
 Ctrl+Z: 준비 단계의 최근 배치 되돌리기
-
-홍수에 밀려 절벽 뒤로 넘어간 기물은 파괴됩니다.
 ";
             if (_game.IsLavaStage)
                 _rulesBody.text = $"{_game.TargetName}은 씬에 미리 배치되어 있습니다.\n"

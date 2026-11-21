@@ -1,0 +1,49 @@
+# Seven fixed material slots for the low-poly beaver house
+newmtl beaver_house_0
+Ka 0 0 0
+Kd 0.095 0.068 0.047
+Ks 0 0 0
+Ns 0
+illum 1
+
+newmtl beaver_house_1
+Ka 0 0 0
+Kd 0.2 0.115 0.064
+Ks 0 0 0
+Ns 0
+illum 1
+
+newmtl beaver_house_2
+Ka 0 0 0
+Kd 0.31 0.174 0.091
+Ks 0 0 0
+Ns 0
+illum 1
+
+newmtl beaver_house_3
+Ka 0 0 0
+Kd 0.4 0.245 0.135
+Ks 0 0 0
+Ns 0
+illum 1
+
+newmtl beaver_house_4
+Ka 0 0 0
+Kd 0.51 0.345 0.205
+Ks 0 0 0
+Ns 0
+illum 1
+
+newmtl beaver_house_5
+Ka 0 0 0
+Kd 0.65 0.475 0.285
+Ks 0 0 0
+Ns 0
+illum 1
+
+newmtl beaver_house_6
+Ka 0 0 0
+Kd 0.3 0.35 0.155
+Ks 0 0 0
+Ns 0
+illum 1
