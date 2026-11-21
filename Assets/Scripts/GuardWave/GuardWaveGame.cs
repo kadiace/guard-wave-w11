@@ -9,7 +9,7 @@ using UnityEngine.EventSystems;
 
 namespace GuardWave
 {
-    public sealed class GuardWaveGame : MonoBehaviour
+    public class GuardWaveGame : MonoBehaviour
     {
         private const int STAGE_COUNT = 5;
         // Flow begins at Ready; the crest arrives five physics seconds later.
@@ -267,13 +267,12 @@ namespace GuardWave
         internal float DestructionBoundaryZ => _sceneContext.DestructionBoundaryZ;
         internal Collider CreekBedCollider => _creekBedCollider;
 
-        private void Start()
+        protected void Start()
         {
             _sceneContext = GetComponent<ForestSceneContext>();
             _isLavaStage = gameObject.scene.name == "Lava";
             _isFogStage = GetComponent<FogSceneController>() != null;
-            IsFlood2 = gameObject.scene.name == "Flood2";
-            _isFloodStage = IsFlood2 || gameObject.scene.name == "Flood";
+            _isFloodStage = UsesFloodWaves;
             _catalog = new GuardWaveCatalog();
             _stageInfo = GuardWaveStageInfoFile.LoadForScene(gameObject.scene.name);
             _fluidSettings = _sceneFluidSettings != null
@@ -303,13 +302,13 @@ namespace GuardWave
             // ResetGame captured the first history entry before adoption.
             _editHistory.Clear();
             WaveSnapshot initialCheckpoint = SaveEditState(false);
-            if (_isFloodStage)
+            if (_runtimeInitialWall != null)
                 StartCoroutine(RefreshFloodInitialWallCheckpoint(initialCheckpoint,
                     _placementStrokeEpoch));
             _initialized = true;
         }
 
-        private void FixedUpdate()
+        protected void FixedUpdate()
         {
             PruneDeadMudJoints();
             // Drain every queued crossing this physics step, without an object-count cap.
@@ -388,7 +387,7 @@ namespace GuardWave
             _flagFloodImmersed = false;
         }
 
-        private void Update()
+        protected void Update()
         {
             if (!_initialized) return;
             Mouse mouse = Mouse.current;
@@ -597,10 +596,7 @@ namespace GuardWave
             _dropPreview.Show(material, placement, Quaternion.Euler(0f, _objectYaw, 0f),
                 _placementBounds.max.y + dropHeight, true, _placementBounds.max.y);
             if (!_dropPreview.IsVisible) return false;
-            bool buyWall = IsFlood2 && material.id == "log_wall";
-            if (buyWall && Budget < FloodLogWall.PRICE) return false;
-            GuardWavePiece piece = Spawn(material, _dropPreview.LandingPosition, anchored: buyWall);
-            if (buyWall) Budget -= FloodLogWall.PRICE;
+            GuardWavePiece piece = Spawn(material, _dropPreview.LandingPosition);
             StagePlacement.SyncPhysics();
             _placementStrokePieces.Add(piece);
             _placementStroke.Record(xz, _objectYaw);
@@ -1445,7 +1441,7 @@ namespace GuardWave
 #endif
         }
 
-        private void OnDestroy()
+        protected void OnDestroy()
         {
             SetOutlineTargets(null);
             _dropPreview?.Dispose();
@@ -1603,8 +1599,12 @@ namespace GuardWave
         public bool IsPaletteHidden => false;
         private bool CanEditDuringFlood => _isFloodStage && _waveHasStarted &&
             !_awaitingStage && !_finished && !_rulesOpen;
-        public bool IsFlood2 { get; private set; }
-        public int Budget { get; private set; }
+        protected virtual bool UsesFloodWaves => false;
+        protected virtual int StartingBudget => 0;
+        protected virtual int WallSlots => 0;
+        protected GuardWaveCatalog Catalog => _catalog;
+        public virtual bool IsFlood2 => false;
+        public int Budget { get; protected set; }
         public bool IsFloodStage => _isFloodStage;
         public int FloodCrestPhase => _floodCrestPhase;
         public float FloodCrestSecondsRemaining => _floodCrestSecondsRemaining;
@@ -1675,9 +1675,8 @@ namespace GuardWave
         /// Count active runtime pieces and authored inventory objects against the
         /// same quota. Removed scene pieces return a slot; Undo and restart restore it.
         /// </summary>
-        public int GetRemainingPlacements(string materialId)
+        public virtual int GetRemainingPlacements(string materialId)
         {
-            if (IsFlood2 && materialId == "log_wall") return Budget / FloodLogWall.PRICE;
             int limit = GetPlacementLimit(materialId);
             if (limit < 0) return int.MaxValue;
             if (materialId == "mud")
@@ -1847,7 +1846,7 @@ namespace GuardWave
             EndMudPainting();
             _editHistory.Clear();
             _playerPlacementCount = 0;
-            Budget = IsFlood2 ? FloodLogWall.STARTING_BUDGET : 0;
+            Budget = StartingBudget;
             ResetFloodDrowning();
             _mudContacts.Clear();
             _mudContactPairs.Clear();
@@ -1932,7 +1931,7 @@ namespace GuardWave
             _dropMouseReleased = true;
             HideDropPreview();
             _objectYaw = 0f;
-            if (_isFloodStage) CreateRuntimeFloodInitialWall();
+            _runtimeInitialWall = CreateInitialWall();
             _rulesOpen = false;
             _resolving = false;
             _awaitingStage = false;
@@ -2052,31 +2051,11 @@ namespace GuardWave
             }
         }
 
-        /// <summary>
-        /// Recreate the original Flood V wall by normally spawning 13 logs.
-        /// They have the same Rigidbody, buoyancy and auto-glue behavior
-        /// as a log the player places, with no pre-authored FixedJoints.
-        /// World positions match the former Initial Wall hierarchy exactly.
-        /// </summary>
-        private void CreateRuntimeFloodInitialWall()
-        {
-            GuardWaveMaterial log = _catalog.Get("log");
-            if (log == null)
-                throw new InvalidOperationException("Flood Initial Wall requires log material");
+        /// <summary>Creates the scene's starting wall when the stage provides one.</summary>
+        protected virtual GameObject CreateInitialWall() => null;
 
-            _runtimeInitialWall = new GameObject("Initial Wall (Runtime)");
-            // Original parent (0,-5,6), child Y=-0.8, X=-1.8..1.8
-            // in 0.3m steps, local Z=-abs(X), all at zero rotation.
-            for (int i = -6; i <= 6; i++)
-            {
-                float x = i * 0.3f;
-                Vector3 worldPosition = new Vector3(x, -4f, 6f - Mathf.Abs(x));
-                GuardWavePiece piece = Spawn(log, worldPosition);
-                piece.name = "Log (" + (i + 7) + ")";
-                piece.transform.SetParent(_runtimeInitialWall.transform, true);
-            }
-            StagePlacement.SyncPhysics();
-        }
+        /// <summary>Configures a spawned piece before registering its body with the fluid.</summary>
+        protected virtual void ConfigureSpawnedPiece(GuardWavePiece piece) { }
 
         /// <summary>
         /// Like a player's placement, refresh the starting Undo checkpoint after
@@ -2114,7 +2093,7 @@ namespace GuardWave
                     floodPressureCellClamp: floodPressureCellClamp,
                     floodPressureMaxForce: floodPressureMaxForce,
                     floodPressureMaxTorque: floodPressureMaxTorque,
-                    wallSlots: IsFlood2 ? FloodLogWall.STARTING_BUDGET / FloodLogWall.PRICE : 0);
+                    wallSlots: WallSlots);
                 if (_isLavaStage) _lavaAtmosphere?.BindFluid(_fluid);
                 // The authored surface is still visible in the editor; disable
                 // its renderer only in Play Mode to expose the real FLIP water.
@@ -2145,7 +2124,7 @@ namespace GuardWave
         }
 
         /// <summary>Resources/Prefabs에서 3D 기물을 지정한 위치에 생성하고 물리 시스템에 등록한다.</summary>
-        private GuardWavePiece Spawn(GuardWaveMaterial material, Vector3 position, bool anchored = false)
+        protected GuardWavePiece Spawn(GuardWaveMaterial material, Vector3 position)
         {
             GameObject prefab = Resources.Load<GameObject>("Prefabs/Objects/" + material.PrefabResourceId);
             if (prefab == null) throw new InvalidOperationException("Missing 3D prefab: " + material.id);
@@ -2157,8 +2136,9 @@ namespace GuardWave
                 GuardWaveForestPebbleMesh.EnsureMesh(instance);
             GuardWavePiece piece = instance.GetComponent<GuardWavePiece>();
             piece.Initialize(this);
-            piece.Body.isKinematic = anchored;
-            piece.Body.useGravity = !anchored;
+            piece.Body.isKinematic = false;
+            piece.Body.useGravity = true;
+            ConfigureSpawnedPiece(piece);
             _pieces.Add(piece);
             _runtimePieces.Add(piece);
             _pieceSet.Add(piece);
@@ -2169,9 +2149,6 @@ namespace GuardWave
             // Newly placed bodies must join the live ambient FLIP solver:
             // this registers their Rigidbody and non-trigger colliders so
             // log (0.6) and Forest pebble (2.6) receive density-based forces.
-            if (IsFlood2 && material.id == "log_wall")
-                instance.GetComponent<FloodLogWall>().Place(this,
-                    (FloodLogWall.STARTING_BUDGET - Budget) / FloodLogWall.PRICE);
             _fluid?.RegisterPiece(piece);
             if (material.id == "vine")
                 PublishChange(new GuardWaveChange(piece, null, GuardWaveChangeKind.Created, 0,
