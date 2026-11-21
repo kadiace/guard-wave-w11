@@ -7,6 +7,7 @@ namespace GuardWave
     {
         protected override bool UsesFloodWaves => true;
         protected override int StartingBudget => FloodLogWall.STARTING_BUDGET;
+        protected override float FloodSecondCrestDelaySeconds => 15f;
         protected override int WallSlots => StartingBudget / FloodLogWall.PRICE;
         public override bool IsFlood2 => true;
 

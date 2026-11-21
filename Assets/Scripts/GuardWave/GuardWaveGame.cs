@@ -17,7 +17,6 @@ namespace GuardWave
         private const float SECOND_CREST_DELAY_SECONDS = 3f;
         // Flood has its own warning windows; other scenes retain legacy timing.
         private const float FLOOD_FIRST_CREST_DELAY_SECONDS = 10f;
-        private const float FLOOD_SECOND_CREST_DELAY_SECONDS = 30f;
         private const float FLOOD_SUPPLY_WINDOW_SECONDS = 5f;
         private const float FLAG_SURVIVAL_CHECK_SECONDS = 5f;
         private const int MAX_MUD_CONTACTS = 512;
@@ -350,7 +349,7 @@ namespace GuardWave
                     IsWithinFloodSupplyWindow(_floodSupplySecondsSinceReady,
                         FLOOD_FIRST_CREST_DELAY_SECONDS) ||
                     IsWithinFloodSupplyWindow(_floodSupplySecondsSinceReady,
-                        FLOOD_FIRST_CREST_DELAY_SECONDS + FLOOD_SECOND_CREST_DELAY_SECONDS);
+                        FLOOD_FIRST_CREST_DELAY_SECONDS + FloodSecondCrestDelaySeconds);
                 _fluid.Step(Time.fixedDeltaTime, 0f, allowAmbientRefill);
             }
         }
@@ -1601,6 +1600,7 @@ namespace GuardWave
             !_awaitingStage && !_finished && !_rulesOpen;
         protected virtual bool UsesFloodWaves => false;
         protected virtual int StartingBudget => 0;
+        protected virtual float FloodSecondCrestDelaySeconds => 30f;
         protected virtual int WallSlots => 0;
         protected GuardWaveCatalog Catalog => _catalog;
         public virtual bool IsFlood2 => false;
@@ -2494,7 +2494,7 @@ namespace GuardWave
             }
 
             float secondDelay = _isFloodStage
-                ? FLOOD_SECOND_CREST_DELAY_SECONDS : SECOND_CREST_DELAY_SECONDS;
+                ? FloodSecondCrestDelaySeconds : SECOND_CREST_DELAY_SECONDS;
             if (_isFloodStage)
             {
                 _floodCrestPhase = 2;

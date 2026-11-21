@@ -292,7 +292,7 @@ namespace GuardWave
                         if (_shownFloodCrestPhase > 0)
                             StartPulse(PulseKind.Impact);
                         _shownFloodCrestPhase = phase;
-                        // Do not compare a fresh 30s countdown with the old
+                        // Do not compare a fresh second-crest countdown with the old
                         // 00:00 of the preceding crest.
                         _displayedHundredths = -1;
                     }
