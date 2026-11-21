@@ -44,9 +44,8 @@ namespace GuardWave
             _fluid.Step(Time.fixedDeltaTime, 1f);
             int remaining = MAX_DURABILITY - (int)Math.Min((uint)MAX_DURABILITY, _fluid.FenceParticleHits);
             if (remaining == _durability) return;
-            for (int i = MAX_DURABILITY - _durability; i < MAX_DURABILITY - remaining; i++)
+            foreach (Rigidbody log in _logs)
             {
-                Rigidbody log = _fluid.GetFenceHitBody(i);
                 if (!log.TryGetComponent(out DefenseLogHitFeedback feedback))
                     feedback = log.gameObject.AddComponent<DefenseLogHitFeedback>();
                 feedback.Play();
