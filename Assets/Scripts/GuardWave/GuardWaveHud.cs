@@ -65,6 +65,8 @@ namespace GuardWave
         private Text _detail;
         private Text _stageTitle;
         private Text _stageBody;
+        private Flood2ClearStar[] _clearStars;
+        private Text _starHint;
         private Text _completeTitle;
         private Text _completeBody;
         private Text _rulesBody;
@@ -181,6 +183,7 @@ namespace GuardWave
             confirmButton.GetComponentInChildren<Text>().text = "확인";
             _completeTitle.text = _game.StageInfo.SuccessTitle;
             Button returnButton = transform.Find("RunCompletePopup/CloseButton").GetComponent<Button>();
+            if (_game.IsFlood2) ConfigureFlood2Result(returnButton);
             returnButton.onClick.AddListener(ReturnToStageSelection);
             returnButton.GetComponentInChildren<Text>().text = "돌아가기";
 
@@ -520,14 +523,22 @@ Ctrl+Z: 준비 단계의 최근 배치 되돌리기
             _stagePopup.SetActive(_game.AwaitingFailure && !_game.IsFinished);
             // Fog remains active behind victory UI; only Forest pauses physics.
             if (_game.IsFinished && !_completePopup.activeSelf && _fogMode == null)
+            {
                 Time.timeScale = 0f;
+                if (_clearStars != null)
+                {
+                    _starHint.text = "";
+                    foreach (Flood2ClearStar star in _clearStars) star.ShowResult(_game.Budget);
+                    _completeBody.text = _game.StageInfo.SuccessMessage + $"\n남은 예산 ${_game.Budget}";
+                }
+            }
             _completePopup.SetActive(_game.IsFinished);
             if (_game.AwaitingFailure)
             {
                 _stageTitle.text = _game.StageInfo.FailureTitle;
                 _stageBody.text = _game.StatusMessage ?? "";
             }
-            if (_game.IsFinished)
+            if (_game.IsFinished && _clearStars == null)
                 _completeBody.text = _game.StageInfo.SuccessMessage + "\n\n"
                     + "돌아가기를 누르면 스테이지 선택 화면으로 이동합니다.";
         }
@@ -567,6 +578,54 @@ Ctrl+Z: 준비 단계의 최근 배치 되돌리기
                 : $"{_game.TargetName} 침수  {elapsed:0.0} / {duration:0.0}초";
             if (_fogExposureLabel.text != label)
                 _fogExposureLabel.text = label;
+        }
+
+        /// <summary>Adds the Flood2 clear rewards and replay button to the shared result popup.</summary>
+        private void ConfigureFlood2Result(Button returnButton)
+        {
+            Transform popup = _completePopup.transform;
+            Button retry = Instantiate(returnButton, popup);
+            retry.name = "RestartButton";
+            retry.onClick = new Button.ButtonClickedEvent();
+            retry.onClick.AddListener(RestartFlood2);
+            retry.GetComponentInChildren<Text>(true).text = "다시시작";
+            RectTransform back = (RectTransform)returnButton.transform;
+            back.anchoredPosition = new Vector2(82f, back.anchoredPosition.y);
+            ((RectTransform)retry.transform).anchoredPosition = new Vector2(-82f, back.anchoredPosition.y);
+
+            _completeBody.alignment = TextAnchor.MiddleCenter;
+            SetResultRect(_completeBody.rectTransform, new Vector2(0f, 95f), new Vector2(550f, 110f));
+            _starHint = Instantiate(_completeBody, popup);
+            _starHint.name = "StarCondition";
+            _starHint.raycastTarget = false;
+            SetResultRect(_starHint.rectTransform, new Vector2(0f, -82f), new Vector2(550f, 48f));
+
+            int[] limits = { -1, 40, 80 };
+            _clearStars = new Flood2ClearStar[limits.Length];
+            for (int i = 0; i < limits.Length; i++)
+            {
+                GameObject icon = new GameObject($"Star {i + 1}", typeof(RectTransform), typeof(Flood2ClearStar));
+                icon.transform.SetParent(popup, false);
+                Flood2ClearStar star = icon.GetComponent<Flood2ClearStar>();
+                SetResultRect(star.rectTransform, new Vector2((i - 1) * 90f, -10f), new Vector2(76f, 76f));
+                star.Initialize(_starHint, limits[i]);
+                _clearStars[i] = star;
+            }
+        }
+
+        /// <summary>Centers a result element within its parent using popup canvas units.</summary>
+        private static void SetResultRect(RectTransform rect, Vector2 position, Vector2 size)
+        {
+            rect.anchorMin = rect.anchorMax = rect.pivot = new Vector2(0.5f, 0.5f);
+            rect.anchoredPosition = position;
+            rect.sizeDelta = size;
+        }
+
+        /// <summary>Resumes the clock and reloads the active stage with its starting budget.</summary>
+        private void RestartFlood2()
+        {
+            Time.timeScale = 1f;
+            Managers.Scene.ReloadCurrentScene();
         }
 
         /// <summary>승리 팝업에서 세션 클리어 상태를 보존한 채 Game 씬으로 복귀한다.</summary>
