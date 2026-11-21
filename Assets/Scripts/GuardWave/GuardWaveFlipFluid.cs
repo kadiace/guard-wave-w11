@@ -14,6 +14,7 @@ namespace GuardWave
     internal sealed class GuardWaveFlipFluid : IDisposable
     {
         private const int THREADS = 128;
+        private const int FLOW_COUNTER_COUNT = 5;
         private const float IMPULSE_SCALE = 2048f;
         // Leave an actual open-water buffer past the z=-15 lip, rather than
         // placing the pressure grid's solid boundary against the waterfall.
@@ -24,6 +25,7 @@ namespace GuardWave
         private readonly GuardWaveFluidSettings _settings;
         private readonly float _cellSize;
         private readonly Transform _damageFence;
+        private readonly Rigidbody[] _fenceHitBodies;
 
         [StructLayout(LayoutKind.Sequential)]
         private struct Particle
@@ -215,11 +217,12 @@ namespace GuardWave
         public GuardWaveFlipFluid(float startZ, float endZ, float groundY,
             float waterfallEndY, float waveHeight, float travelDuration, IList<GuardWavePiece> pieces,
             Rigidbody flagBody, GuardWaveFluidSettings settings, bool ambientFlow = false,
-            float bedSlope = 0f, Transform damageFence = null)
+            float bedSlope = 0f, Transform damageFence = null, int fenceDurability = 0)
         {
             _settings = settings ?? throw new ArgumentNullException(nameof(settings));
             _ambientFlow = ambientFlow;
             _damageFence = damageFence;
+            _fenceHitBodies = new Rigidbody[fenceDurability];
             _cellSize = _settings.CellSize;
             _colliderData = new ColliderData[_settings.MaxColliders];
             _bodyColliderCounts = new int[_settings.MaxBodies];
@@ -293,8 +296,9 @@ namespace GuardWave
             // Unlike raw water columns, this history must survive fixed steps.
             _smoothedWaterSurface.SetData(new int[_grid.x * _grid.z]);
             _waterFlow = new ComputeBuffer(_grid.x * _grid.z, sizeof(int) * 4);
-            _flowCounters = new ComputeBuffer(5, sizeof(uint));
-            _flowCounters.SetData(new uint[5]);
+            _flowCounters = new ComputeBuffer(FLOW_COUNTER_COUNT + fenceDurability, sizeof(uint));
+            _flowCounters.SetData(new uint[_flowCounters.count]);
+            if (!_settings.DestroyOnFluidContact) _compute.SetInt("_FenceDurability", fenceDurability);
             _crestMetrics = new ComputeBuffer(3, sizeof(uint));
             _crestMetrics.SetData(new uint[3]);
 
@@ -766,7 +770,7 @@ namespace GuardWave
                 Vector3 bodyCenter = body != null ? body.worldCenterOfMass : center;
                 bool countsHit = _damageFence != null && body != null && body.isKinematic &&
                     body.transform.parent == _damageFence;
-                data.BodyCenter = new Vector4(bodyCenter.x, bodyCenter.y, bodyCenter.z, countsHit ? 1f : 0f);
+                data.BodyCenter = new Vector4(bodyCenter.x, bodyCenter.y, bodyCenter.z, countsHit ? _indices[body] + 1 : 0);
                 _colliderData[count++] = data;
             }
             // A compound Rigidbody should receive one mass-equivalent total
@@ -1068,8 +1072,14 @@ namespace GuardWave
             PendingAmbientRefills = values[0];
             TotalAmbientRefills = values[1];
             TotalCliffExits = values[3];
-            FenceParticleHits = values[4];
+            uint recorded = Math.Min(values[4], (uint)_fenceHitBodies.Length);
+            for (int i = (int)FenceParticleHits; i < (int)recorded; i++)
+                _fenceHitBodies[i] = _bodies[(int)values[FLOW_COUNTER_COUNT + i]];
+            FenceParticleHits = recorded;
         }
+
+        /// <summary>Returns the log struck by the specified zero-based damage event.</summary>
+        public Rigidbody GetFenceHitBody(int hitIndex) => _fenceHitBodies[hitIndex];
 
         /// <summary>Runs the selected compute kernel with 128 threads per workgroup.</summary>
         private void Dispatch(int kernel, int count)

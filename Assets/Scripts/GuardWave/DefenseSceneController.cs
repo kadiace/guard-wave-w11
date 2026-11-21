@@ -33,7 +33,7 @@ namespace GuardWave
             _logs = _fence.GetComponentsInChildren<Rigidbody>();
             _fluid = new GuardWaveFlipFluid(inlet.z, outlet.z, outlet.y, outlet.y - 8f,
                 _fluidSettings.AmbientWaterDepth, 0f, _fence.GetComponentsInChildren<GuardWavePiece>(),
-                null, _fluidSettings, true, slope, _fence);
+                null, _fluidSettings, true, slope, _fence, MAX_DURABILITY);
             _renderer = new GuardWaveFlipRenderer(_fluidSettings);
             _renderer.Render(_fluid);
         }
@@ -44,6 +44,13 @@ namespace GuardWave
             _fluid.Step(Time.fixedDeltaTime, 1f);
             int remaining = MAX_DURABILITY - (int)Math.Min((uint)MAX_DURABILITY, _fluid.FenceParticleHits);
             if (remaining == _durability) return;
+            for (int i = MAX_DURABILITY - _durability; i < MAX_DURABILITY - remaining; i++)
+            {
+                Rigidbody log = _fluid.GetFenceHitBody(i);
+                if (!log.TryGetComponent(out DefenseLogHitFeedback feedback))
+                    feedback = log.gameObject.AddComponent<DefenseLogHitFeedback>();
+                feedback.Play();
+            }
             _durability = remaining;
             _fill.anchorMax = new Vector2((float)remaining / MAX_DURABILITY, 1f);
             _label.text = $"{remaining}/{MAX_DURABILITY}";

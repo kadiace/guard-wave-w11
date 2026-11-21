@@ -41,7 +41,7 @@ struct FluidCollider
     float4 fluidProperties; // density, grounded drag, mass share, sampling shape
 };
 RWStructuredBuffer<FluidParticle> _Particles;
-RWStructuredBuffer<uint> _FlowCounters; // [0] missing base water (initial + losses), [1] total supplied, [2] per-tick claims, [3] cliff exits, [4] distinct fence hits
+RWStructuredBuffer<uint> _FlowCounters; // [0] missing base water (initial + losses), [1] total supplied, [2] per-tick claims, [3] cliff exits, [4] distinct fence hits, [5..] struck body IDs in hit order
 RWStructuredBuffer<uint> _CrestMetrics; // active wave particles, peak height centimeters, released count
 RWStructuredBuffer<int4> _Accum;
 RWStructuredBuffer<int4> _BodyImpulses; // force impulse in xyz, torque in next xyz
@@ -83,6 +83,7 @@ float _FloatFlowAlignmentFullSpeed;
 float _MaxFluidVelocity;
 float _FloorY;
 float _BedSlope;
+uint _FenceDurability;
 float _ExitZ;
 float _WaterfallEndY;
 float _HalfWidth;
@@ -610,7 +611,10 @@ void GridToParticle(uint id : SV_DispatchThreadID)
         if (b.bodyCenter.w > 0.5 && p.velocity.w == 0 && p.affineY.w == 0)
         {
             p.affineY.w = -1;
-            InterlockedAdd(_FlowCounters[4], 1u);
+            uint hitIndex;
+            InterlockedAdd(_FlowCounters[4], 1u, hitIndex);
+            if (hitIndex < _FenceDurability)
+                _FlowCounters[5u + hitIndex] = (uint)b.bodyCenter.w - 1u;
         }
         // An actual obstacle may stop or reverse flow even at the outlet.
         // -1 means release the cached outflow speed until leaving the band.
