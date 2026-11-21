@@ -59,8 +59,15 @@ namespace GuardWave
         private static Sprite GetStarSprite(bool filled)
         {
             if (filled)
-                return _filledSprite != null ? _filledSprite : _filledSprite = CreateStarSprite(true);
-            return _outlinedSprite != null ? _outlinedSprite : _outlinedSprite = CreateStarSprite(false);
+            {
+                if (_filledSprite == null)
+                    _filledSprite = CreateStarSprite(true);
+                return _filledSprite;
+            }
+
+            if (_outlinedSprite == null)
+                _outlinedSprite = CreateStarSprite(false);
+            return _outlinedSprite;
         }
 
         /// <summary>Rasterizes a five-point star, using its edge distance for antialiased fill or outline.</summary>
